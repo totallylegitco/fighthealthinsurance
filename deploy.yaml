@@ -1,0 +1,180 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-primary
+  namespace: fight-health-insurance
+  labels:
+    app: web-primary
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web-primary
+  template:
+    metadata:
+      labels:
+        app: web-primary
+    spec:
+      volumes:
+        - name: client-secret
+          secret:
+            secretName: client-secret
+            optional: false
+      containers:
+        - image: holdenk/fight-health-insurance:v0.9.8
+          name: fight-health-insurance
+          volumeMounts:
+            - name: client-secret
+              mountPath: "/opt/app/client_secret/"
+              readOnly: true
+          env:
+          - name: PRIMARY
+            value: "1"
+          envFrom:
+          - secretRef:
+              name: fight-health-insurance-secret
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+              name: web
+          livenessProbe:
+            httpGet:
+              httpHeaders:
+                - name: Host
+                  value: "www.fighthealthinsurance.com"
+              path: /
+              port: 80
+            periodSeconds: 180
+          startupProbe:
+            httpGet:
+              httpHeaders:
+                - name: Host
+                  value: "www.fighthealthinsurance.com"
+              path: /
+              port: 80
+            periodSeconds: 10
+            failureThreshold: 30
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: fight-health-insurance
+  labels:
+    app: fight-health-insurance
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: fight-health-insurance
+  template:
+    metadata:
+      labels:
+        app: fight-health-insurance
+    spec:
+      volumes:
+        - name: client-secret
+          secret:
+            secretName: client-secret
+            optional: false
+      containers:
+        - image: holdenk/fight-health-insurance:v0.9.8
+          name: fight-health-insurance
+          volumeMounts:
+            - name: client-secret
+              mountPath: "/opt/app/client_secret/"
+              readOnly: true
+          env:
+          - name: OAUTHLIB_RELAX_TOKEN_SCOPE
+            value: "1"
+          envFrom:
+          - secretRef:
+              name: fight-health-insurance-secret
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+              name: web
+          livenessProbe:
+            httpGet:
+              httpHeaders:
+                - name: Host
+                  value: "www.fighthealthinsurance.com"
+              path: /
+              port: 80
+            periodSeconds: 180
+          startupProbe:
+            httpGet:
+              httpHeaders:
+                - name: Host
+                  value: "www.fighthealthinsurance.com"
+              path: /
+              port: 80
+            periodSeconds: 10
+            failureThreshold: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: fight-health-insurance
+  name: web-svc
+  namespace: fight-health-insurance
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: web
+  selector:
+    app: fight-health-insurance
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fight-health-insurance-ingress
+  namespace: fight-health-insurance
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+    cert-manager.io/issue-temporary-certificate: "true"
+    acme.cert-manager.io/http01-edit-in-place: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+      - www.fighthealthinsurance.com
+      - www.fuckhealthinsurance.com
+      - www.appealhealthinsurance.com
+    secretName: pcf-tls-secret
+  rules:
+    - host: www.fuckhealthinsurance.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name:  web-svc
+                port:
+                  number: 80
+    - host: www.appealhealthinsurance.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name:  web-svc
+                port:
+                  number: 80
+    - host: www.fighthealthinsurance.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name:  web-svc
+                port:
+                  number: 80

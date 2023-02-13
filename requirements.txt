@@ -1,0 +1,29 @@
+stripe
+urllib3
+requests
+pytz
+django
+django-configurations
+mypy
+gunicorn
+Pillow
+git+https://github.com/jazzband/django-newsletter.git#egg=django-newsletter
+git+https://github.com/jazzband/django-cookie-consent.git#egg=django-cookie-consent
+sorl-thumbnail
+django_compressor
+django_user_agents
+django-extensions
+werkzeug
+django-stubs
+django-filer
+django-cms
+django-celery-beat
+django-treebeard
+celery
+# Wait for a 3.10 compatible version
+# django-categories
+djangocms-attributes-field
+easy_thumbnails
+Pillow
+django-pipeline
+git+https://github.com/holdenk/static-thumbnails.git
