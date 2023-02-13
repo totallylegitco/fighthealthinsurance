@@ -132,3 +132,6 @@ dmypy.json
 db.sqlite3
 cert.pem
 key.pem
+
+# test artifacts
+reports/
