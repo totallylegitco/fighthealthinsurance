@@ -127,3 +127,8 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# local stuff
+db.sqlite3
+cert.pem
+key.pem

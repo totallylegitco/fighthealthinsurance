@@ -15,6 +15,11 @@ from typing import *
 
 from pathlib import Path
 
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'fighthealthinsurance.settings')
+os.environ.setdefault(
+    'DJANGO_CONFIGURATION',
+    os.getenv("ENVIRONMENT", 'Dev'))
+
 from configurations import Configuration
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.

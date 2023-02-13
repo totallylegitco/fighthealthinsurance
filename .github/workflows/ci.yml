@@ -1,0 +1,35 @@
+name: Run CI
+
+on:
+  push:
+    branches:
+      - main
+    pull_request:
+      - '*'
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.9', '3.10']
+        django: ['4.0', '4.1']
+        include:
+          - python: '3.9'
+            django: '4.0'
+     
+    name: Run the test suite (Python ${{ matrix.python }}, Django ${{ matrix.django }})
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install dependencies
+        run: pip install tox tox-gh-actions
+
+      - name: Run tests
+        run: tox
+        env:
+          DJANGO: ${{ matrix.django }}
+          FARTS: "farts"
+          GOOGLE_CLIENT_SECRETS_TEXT: ${{ secrets.GOOGLE_CLIENT_SECRETS_TEXT }}
