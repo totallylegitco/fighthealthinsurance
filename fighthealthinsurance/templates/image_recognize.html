@@ -1,0 +1,26 @@
+{% load compress %}
+{% load static %}
+
+<script src='{% static "js/node_modules/tesseract.js/dist/tesseract.min.js" %}'></script>
+<script type="module">
+  const worker = await Tesseract.createWorker({
+      corePath: '{% static  "js/node_modules/tesseract.js-core/tesseract-core.wasm.js" %}',
+      workerPath: '{% static "js/node_modules/tesseract.js/dist/worker.min.js" %}',
+          logger: function(m){console.log(m);}
+        });
+
+      await worker.loadLanguage('eng');
+      await worker.initialize('eng');
+
+      const recognize = async function(evt){
+        const files = evt.target.files;
+
+        const ret = await worker.recognize(files[0]);
+        console.log(ret.data.text);
+
+      }
+      const elm = document.getElementById('uploader');
+      elm.addEventListener('change', recognize);
+</script>
+
+<input type="file" id="uploader">

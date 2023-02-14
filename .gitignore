@@ -135,3 +135,4 @@ key.pem
 
 # test artifacts
 reports/
+/static/

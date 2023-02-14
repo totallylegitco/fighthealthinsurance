@@ -16,6 +16,9 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
+from fighthealthinsurance import views
+
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path('scan', views.ScanView.as_view(), name="scan"),
 ]

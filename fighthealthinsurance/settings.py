@@ -69,6 +69,7 @@ class Base(Configuration):
         'easy_thumbnails',
         'cookie_consent',
         "compressor",
+        "compressor_toolkit",
         'django_extensions',
         "static_thumbnails",
     ]
@@ -83,10 +84,14 @@ class Base(Configuration):
         "django.contrib.staticfiles.finders.AppDirectoriesFinder",
         "compressor.finders.CompressorFinder",
     )
-    COMPRESS_ENABLED = True
-    COMPRESS_OFFLINE = True
+    COMPRESS_ENABLED = False
+    COMPRESS_OFFLINE = False
     COMPRESS_YUGLIFY_BINARY = "yuglify"
     COMPRESS_YUGLIFY_JS_ARGUMENTS = "--mangle"
+    COMPRESS_PRECOMPILERS = (
+        ('module', 'compressor_toolkit.precompilers.ES6Compiler'),
+        ('css', 'compressor_toolkit.precompilers.SCSSCompiler'),
+    )
 
     MIDDLEWARE = [
         'django.middleware.security.SecurityMiddleware',
