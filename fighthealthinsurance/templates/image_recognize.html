@@ -1,8 +1,56 @@
 {% load compress %}
 {% load static %}
-
 <script src='{% static "js/node_modules/tesseract.js/dist/tesseract.min.js" %}'></script>
 <script type="module">
+  var scrubRegex = [
+      [new RegExp("^\\W*patents?:?\\s+\\w+", "gmi"), "Patient: patient_name"],
+      [new RegExp("^\\W*patients?:?\\s+\\w+", "gmi"), "Patient: patient_name"],
+      [new RegExp("^\\W*member:\\s+\\w+", "gmi"), "Member: member_name"],
+      [new RegExp("^\\W*member:\\s+\\w+\\s+\\w+", "gmi"), "Member: member_name"],
+      [new RegExp("^\\W*dear\\s+\\w+\\s+\\w+\\W?$", "gmi"), "Dear patient_name"],
+      [new RegExp("^\\W*dear\\s+\\w+\\s+\\w+\\s*\.?\\w+\\W?$", "gmi"), "Dear patient_name"],
+      [new RegExp("^\\W*dear\\s+\\w+\\W?$", "gmi"), "Dear patient_name"],
+  ];
+  function scrubText(text) {
+      var reservedTokens = [];
+      for (var i=0; i<nodes.length; i++) {
+	  var node = nodes[i];
+	  if (node.id.startsWith('store_') && node.value != "") {
+	      reservedTokens.push(
+		  [new RegExp(node.value, "gi"),
+		   node.id]);
+	      for (var j=0; j<nodes.length; j++) {
+		  var secondNode = nodes[j];
+		  if (secondNode.value != "") {
+		      reservedTokens.push(
+			  [new RegExp(node.value + secondNode.value, "gi"),
+			   node.id + "_" + secondNode.id]);
+		  }
+	      }
+	  }
+      }
+      console.log("Scrubbing with:")
+      console.log(reservedTokens)
+      console.log(scrubRegex)
+      for (var i=0; i < scrubRegex.length; i++) {
+	  text = text.replace(scrubRegex[i][0], scrubRegex[i][1]);
+      }
+      for (var i=0; i < reservedTokens.length; i++) {
+	  text = text.replace(
+	      reservedTokens[i][0],
+	      " " + reservedTokens[i][1]);
+      }
+      return text;
+  }
+  function addText(text) {
+      text = scrubText(text);      
+      document.getElementById("denial_text").value += text;
+  }
+  const storeLocal = async function(evt) {
+      const name = evt.target.id;
+      const value = evt.target.value;
+      window.localStorage.setItem(name, value);
+  }
   const worker = await Tesseract.createWorker({
       corePath: '{% static  "js/node_modules/tesseract.js-core/tesseract-core.wasm.js" %}',
       workerPath: '{% static "js/node_modules/tesseract.js/dist/worker.min.js" %}',
@@ -11,16 +59,63 @@
 
       await worker.loadLanguage('eng');
       await worker.initialize('eng');
-
+      await worker.setParameters({
+        tessedit_pageseg_mode: Tesseract.PSM.PSM_AUTO_OSD,
+      });
       const recognize = async function(evt){
         const files = evt.target.files;
 
         const ret = await worker.recognize(files[0]);
         console.log(ret.data.text);
-
+        addText(ret.data.text);
       }
       const elm = document.getElementById('uploader');
       elm.addEventListener('change', recognize);
+  // Restore previous local values
+  var inp = document.getElementsByTagName('input');
+  var nodes = document.querySelectorAll("input[type=text]");
+  console.log(nodes)
+  for (var i=0; i<nodes.length; i++) {
+      var node = nodes[i];
+      if (node.id.startsWith('store_')) {
+	  node.addEventListener('change', storeLocal);
+	  if (node.value == "") {
+	      node.value = window.localStorage.getItem(nodes[i].id);
+	  }
+      }
+  }
 </script>
+<button id="clear_local"
+       onclick="window.localStorage.clear()">
+Clear Page Local Storage
+</button>
+<h2>Not transfered to server (uses JS local storage):</h2>
+<label for="fname">First name:</label><br>
+<input type="text" id="store_fname" name="fname"><br>
+<label for="lname">Last name:</label><br>
+<input type="text" id="store_lname" name="lname"><br>
+<label for="street">Your street Address (e.g. 283 24th st)</label><br>
+<input type="text" id="store_street" name="street"><br>
+<label for="street">Your Zip code</label><br>
+<input type="text" id="store_zip" name="zip"><br>
+<h2>Not transfered, we don't store (but your phone may store picture)</h2>
+<input id="uploader" type="file" name="uploader" multiple="true">
 
-<input type="file" id="uploader">
+<!-- Changing Label Text -->
+<label class="custom-file-label" for="uploader">Scan & OCR your health insurance denial (select all pages)</label><br>
+<h2>Transfered to server -- REMOVE PII FIRST! -- we store for ML + may review</h2><br>
+<form>
+  <textarea id="denial_text" cols="50" rows="10"></textarea><br>
+  <h2>Transfered to server -- we store*</h2><br>
+  <input type="email" id="email" name="email"><br>
+  <h2>Policies</h2>
+  <input type="checkbox" id="privacy" name="privacy">
+  <label for="privacy"> I have read and understand the privacy policy</label><br>
+  <input type="checkbox" id="pii" name="pii">
+  <label for="pii">I have removed my PII from the text area above</label><br>
+  <input type="checkbox" id="store-raw-email" name="store-raw-email">
+  <label for="store-raw-email">Store my raw e-mail to follow up with me</label><br>
+  <input type="submit">
+</form>
+
+*We store your raw e-mail to follow up after insurance company timelines may have expired so you can "remind" them. We also store a hashed version of your e-mail linked to your (cleaned) denial so you can request removal from our database (should you wish). If you opt-in, we may follow up by e-mail after reviewing your denial with a better template if our ML model does not find a good model on the first pass through. You may choose to use a different or temporary e-mail service, like <a href="https://proton.me/">proton mail.</a>
