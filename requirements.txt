@@ -27,3 +27,4 @@ easy_thumbnails
 Pillow
 django-pipeline
 git+https://github.com/holdenk/static-thumbnails.git
+easy_thumbnails
