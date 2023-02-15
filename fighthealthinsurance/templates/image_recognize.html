@@ -89,15 +89,13 @@
        onclick="window.localStorage.clear()">
 Clear Page Local Storage
 </button>
-<h2>Not transfered to server (uses JS local storage):</h2>
+<h2>Not transfered to server (uses JS local storage)</h2>
 <label for="fname">First name:</label><br>
 <input type="text" id="store_fname" name="fname"><br>
 <label for="lname">Last name:</label><br>
 <input type="text" id="store_lname" name="lname"><br>
 <label for="street">Your street Address (e.g. 283 24th st)</label><br>
 <input type="text" id="store_street" name="street"><br>
-<label for="street">Your Zip code</label><br>
-<input type="text" id="store_zip" name="zip"><br>
 <h2>Not transfered, we don't store (but your phone may store picture)</h2>
 <input id="uploader" type="file" name="uploader" multiple="true">
 
@@ -106,11 +104,14 @@ Clear Page Local Storage
 <h2>Transfered to server -- REMOVE PII FIRST! -- we store for ML + may review</h2><br>
 <form>
   <textarea id="denial_text" cols="50" rows="10"></textarea><br>
+  <h2>Transfered to server -- we don't store</h2><br>
+  <label for="zip">Your Zip code</label><br>
+  <input type="text" id="store_zip" name="zip"><br>
   <h2>Transfered to server -- we store*</h2><br>
   <input type="email" id="email" name="email"><br>
   <h2>Policies</h2>
   <input type="checkbox" id="privacy" name="privacy">
-  <label for="privacy"> I have read and understand the privacy policy</label><br>
+  <label for="privacy">I have read and understand the <a href="{% url 'privacy_policy' %}">privacy policy</a></label><br>
   <input type="checkbox" id="pii" name="pii">
   <label for="pii">I have removed my PII from the text area above</label><br>
   <input type="checkbox" id="store-raw-email" name="store-raw-email">
@@ -118,4 +119,4 @@ Clear Page Local Storage
   <input type="submit">
 </form>
 
-*We store your raw e-mail to follow up after insurance company timelines may have expired so you can "remind" them. We also store a hashed version of your e-mail linked to your (cleaned) denial so you can request removal from our database (should you wish). If you opt-in, we may follow up by e-mail after reviewing your denial with a better template if our ML model does not find a good model on the first pass through. You may choose to use a different or temporary e-mail service, like <a href="https://proton.me/">proton mail.</a>
+*We store your raw e-mail to follow up after insurance company timelines may have expired so you can "remind" them. We also store a hashed version of your e-mail linked to your (cleaned) denial so you can request removal from our database (should you wish). If you opt-in, we may follow up by e-mail after reviewing your denial with a better template if our ML model does not find a good model on the first pass through. You may choose to use a different or temporary e-mail service, like <a href="https://proton.me/">proton mail.</a> Please review our <a href="{% url 'privacy_policy' %}">privacy policy for more details</a>
