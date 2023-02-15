@@ -29,6 +29,17 @@ class PrivacyPolicyView(View):
             })
 
 
+class TermsOfServiceView(View):
+    def get(self, request):
+        return render(
+            request,
+            'tos.html',
+            context={
+                'title': "Terms of Service",
+            })
+
+
+
 class OptOutView(View):
     def get(self, request):
         return render(

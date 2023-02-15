@@ -24,4 +24,5 @@ urlpatterns = [
     path('privacy_policy', views.PrivacyPolicyView.as_view(), name="privacy_policy"),
     path('opt_out', views.OptOutView.as_view(), name="opt_out"),
     path('remove_data', views.RemoveDataView.as_view(), name="remove_data"),
+    path('tos', views.TermsOfServiceView.as_view(), name="tos"),
 ]
