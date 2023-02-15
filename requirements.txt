@@ -30,3 +30,4 @@ git+https://github.com/holdenk/static-thumbnails.git
 easy_thumbnails
 django-compressor
 django-compressor-toolkit
+geopy
