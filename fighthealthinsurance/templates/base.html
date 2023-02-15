@@ -1,2 +1,30 @@
 {% load compress %}
 {% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    {% block scriptmagic %}
+    {% endblock scriptmagic %}
+        <title>{{ title }}</title>
+  </head>
+  <style>
+    {% block extra_style %}
+    {% endblock extra_style %}
+  </style>
+  <body>
+    <!-- ***** Header Area End ***** -->
+    {% block pre-roll %}
+    {% endblock pre-roll %}
+
+    <!-- Actual content -->
+    {% block content %}
+
+    {% endblock content %}
+    <!-- End of content block. Phew that was short -->
+
+    {% block foot-roll %}
+    {% endblock foot-roll %}
+    <!-- ***** Footer Start ***** -->
+  </body>
+</html>
