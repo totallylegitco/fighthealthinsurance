@@ -50,7 +50,6 @@ class OptOutView(View):
             })
 
 
-
 class RemoveDataView(View):
     def get(self, request):
         return render(
@@ -59,3 +58,8 @@ class RemoveDataView(View):
             context={
                 'title': "Remove My Data",
             })
+
+
+class RecommendAppeal(View):
+    def post(self, request):
+        return render(request, '')
