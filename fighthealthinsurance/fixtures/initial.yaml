@@ -98,5 +98,5 @@
     regex: "(third party liability|3rd party liability|)"
   pk: 11
   fields:
-    name: Provider Bill
+    name: Provider Bill (possible balance billing)
     regex: "mychart|Please use for payment or correspondence|instamed\\.com|past due|Statement Date"
