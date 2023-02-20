@@ -31,3 +31,4 @@ easy_thumbnails
 django-compressor
 django-compressor-toolkit
 geopy
+django-regex-field

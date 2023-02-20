@@ -1,0 +1,69 @@
+- model: fighthealthinsurance.datasource
+  pk: 1
+  fields:
+    name: regex
+  pk: 2
+  fields:
+    name: ML
+  pk: 3
+  fields:
+    name: Human Label
+- model: fighthealthinsurance.plantype
+  pk: 1
+  fields:
+    name: PPO
+    alt_name: Preferred provider organization (has in-network and out of network)
+  pk: 2
+  fields:
+    name: EPO
+    alt_name: Exclusive provider organization (in-network doctors only*)
+  pk: 3
+  fields:
+    name: HMO
+    alt_name: Health maintenance organization
+  pk: 4
+  fields:
+    name: FFS
+    alt_name: Fee For Service no perfered network.
+  pk: 5
+  fields:
+    name: HMO+POS
+    alt_name: Health maintenance organization w/out-of-network.
+- model: fighthealthinsurance.regulator
+  pk: 1
+  fields:
+    name: Federal Department of Labor
+    alt_name: ERISA
+    website: https://www.askebsa.dol.gov/WebIntake/
+  pk: 2
+  fields:
+    name: Centers for Medicare and Medicaid
+    alt_name: CMS
+    website: https://www.cms.gov/
+  pk: 3
+  fields:
+    name: California Department of Managed Care
+    alt_name: CDMC
+    website: https://www.dmhc.ca.gov/
+- model: fighthealthinsurance.denialtypes
+  pk: 1
+  fields:
+    name: Medically Necessary
+    regex: "(not medically necessary)"
+  pk: 2
+  fields:
+    name: Prior Authorization Requred
+    regex: "(prior authorization required|prior auth required)"
+  pk: 3
+  fields:
+    name: Experimental Medical Treatment
+    regex: "(experimental treatment|experimental medical|experimental medication|experimental drugs)"
+    parent: 1
+  pk: 4
+  fields:
+    name: Not Covered
+    regex: "(treatment not covered)"
+  pk: 5
+  fields:
+    name: Underpaid Out of Network
+    regex: "(explanation of benefits)"

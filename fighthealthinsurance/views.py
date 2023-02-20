@@ -63,3 +63,8 @@ class RemoveDataView(View):
 class RecommendAppeal(View):
     def post(self, request):
         return render(request, '')
+
+
+class ProcessView(View):
+    def post(self, request):
+        return render(request, '')
