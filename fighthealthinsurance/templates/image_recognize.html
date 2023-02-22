@@ -3,6 +3,7 @@
 {% load static %}
 {% block scriptmagic %}
 <script src='{% static "js/node_modules/tesseract.js/dist/tesseract.min.js" %}'></script>
+<script src='{% static "js/node_modules/tesseract.js/dist/tesseract.min.js" %}'></script>
 <script type="module">
   var scrubRegex = [
       [new RegExp("^\\W*patents?:?\\s+\\w+", "gmi"), "Patient: patient_name"],
@@ -64,16 +65,66 @@
       await worker.setParameters({
         tessedit_pageseg_mode: Tesseract.PSM.PSM_AUTO_OSD,
       });
-      const recognize = async function(evt){
-        const files = evt.target.files;
 
-        const ret = await worker.recognize(files[0]);
-        console.log(ret.data.text);
-        addText(ret.data.text);
-      }
-      const elm = document.getElementById('uploader');
-      elm.addEventListener('change', recognize);
-  // Restore previous local values
+async function getPDFPageText (pdf, pageNo) {
+    const page = await pdf.getPage(pageNo);
+    const tokenizedText = await page.getTextContent();
+    const items = tokenizedText.items;
+    const strs = items.map(token => token.str);
+    const pageText = strs.join("");
+    return pageText;
+}
+
+async function getPDFText(source) {
+    const pdf = await PDFJS.getDocument(source).promise;
+    const maxPages = pdf.numPages;
+    const pageTextPromises = [];
+    for (let pageNo = 1; pageNo <= maxPages; pageNo += 1) {
+       pageTextPromises.push(getPDFPageText(pdf, pageNo));
+    }
+    const pageTexts = await Promise.all(pageTextPromises);
+    return pageTexts.join(" ");
+};
+
+function convertDataURIToBinary(dataURI){
+    var BASE64_MARKER = ";base64,";
+    var base64Index = 28;
+    var base64 = dataURI.substring(base64Index);
+    var raw = window.atob(base64);
+    var rawLength = raw.length;
+    var array = new Uint8Array(new ArrayBuffer(rawLength));
+    for(var i = 0; i < rawLength; i++){ array[i] = raw.charCodeAt(i); }
+    return array;
+}
+function isPDF(file) {
+    return file.type.match('application/pdf');
+}
+
+const recognize = async function(evt){
+    const files = evt.target.files;
+    const file = files[0];
+
+    if (isPDF(file)) {
+	console.log("PDF!")
+	const reader = new FileReader();
+	reader.readAsDataURL(file);
+	reader.addEventListener("load", () => {
+	    const dataURI = reader.result;
+            const bins = convertDataURIToBinary(dataURI);
+            const doc = PDFJS.getDocument(bins);
+            const ret = getPDFText(doc);
+            addText(ret);
+	}, false);
+    } else {
+	const ret = await worker.recognize(files[0]);
+	console.log(ret.data.text);
+	addText(ret.data.text);
+    }
+}
+
+const elm = document.getElementById('uploader');
+elm.addEventListener('change', recognize);
+// Restore previous local values
   var inp = document.getElementsByTagName('input');
   var nodes = document.querySelectorAll("input[type=text]");
   console.log(nodes)
@@ -89,7 +140,6 @@
 function validateForm(form)
 {
     if(!form.privacy.checked) {
-    {
         document.getElementById('agree_chk_error').style.visibility='visible';
         return false;
     } else if (!form.pii.checked) {
