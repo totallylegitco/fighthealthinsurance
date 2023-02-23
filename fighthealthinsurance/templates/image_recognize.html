@@ -33,6 +33,8 @@
 	      }
 	  }
       }
+      console.log("Preparing to scrub:")
+      console.log(text)
       console.log("Scrubbing with:")
       console.log(reservedTokens)
       console.log(scrubRegex)
@@ -76,15 +78,19 @@ async function getPDFPageText (pdf, pageNo) {
     return pageText;
 }
 
-async function getPDFText(pdf) {
-    const maxPages = pdf.numPages;
-    const pageTextPromises = [];
-    for (let pageNo = 1; pageNo <= maxPages; pageNo += 1) {
-       pageTextPromises.push(getPDFPageText(pdf, pageNo));
-    }
-    const pageTexts = await Promise.all(pageTextPromises);
-    return pageTexts.join(" ");
-};
+  async function getPDFText(pdf) {
+      console.log("Getting text from PDF:")
+      console.log(pdf)
+      const maxPages = pdf.numPages;
+      console.log("Processing PDF pages:")
+      console.log(maxPages)
+      const pageTextPromises = [];
+      for (let pageNo = 1; pageNo <= maxPages; pageNo += 1) {
+	  pageTextPromises.push(getPDFPageText(pdf, pageNo));
+      }
+      const pageTexts = await Promise.all(pageTextPromises);
+      return pageTexts.join(" ");
+  };
 
 function isPDF(file) {
     return file.type.match('application/pdf');
@@ -103,10 +109,12 @@ const recognize = async function(evt){
 	    console.log(typedarray)
             const loadingTask = pdfjsLib.getDocument(typedarray);
 	    loadingTask.promise.then(doc => {
-		const ret = getPDFText({"data": doc});
-		console.log("ret:");
-		console.log(ret);
-		addText(ret);
+		const ret = getPDFText(doc);
+		ret.then((t) => {
+		    console.log("ret:");
+		    console.log(ret);
+		    addText(t);
+		});
 	    })
 	};
 	reader.readAsArrayBuffer(file);
