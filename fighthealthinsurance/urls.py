@@ -21,6 +21,7 @@ from fighthealthinsurance import views
 urlpatterns = [
     path("admin/", admin.site.urls),
     path('scan', views.ScanView.as_view(), name="scan"),
+    path('', views.ScanView.as_view(), name="root"),
     path('process', views.ProcessView.as_view(), name="process"),
     path('privacy_policy', views.PrivacyPolicyView.as_view(), name="privacy_policy"),
     path('opt_out', views.OptOutView.as_view(), name="opt_out"),

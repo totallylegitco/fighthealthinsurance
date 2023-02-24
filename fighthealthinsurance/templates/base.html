@@ -6,7 +6,11 @@
   <head>
     {% block scriptmagic %}
     {% endblock scriptmagic %}
-        <title>{{ title }}</title>
+    <title>
+    {% block title %}
+    {{ title }}
+    {% endblock title %}
+    </title>
   </head>
   <style>
     {% block extra_style %}

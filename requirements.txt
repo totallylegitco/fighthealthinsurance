@@ -32,3 +32,4 @@ django-compressor
 django-compressor-toolkit
 geopy
 django-regex-field
+argon2-cffi

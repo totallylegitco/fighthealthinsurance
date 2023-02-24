@@ -61,17 +61,9 @@ class DenialTypesRelation(models.Model):
     src = models.ForeignKey(DataSource, on_delete=models.SET_NULL, null=True)
 
 
-class DenialRegulatorRelation(models.Model):
-    denial = models.ForeignKey("Denial", on_delete=models.CASCADE)
-    regulator = models.ForeignKey(Regulator, on_delete=models.CASCADE)
-    src = models.ForeignKey(DataSource, on_delete=models.SET_NULL, null=True)
-
-
 class Denial(models.Model):
     denial_id = models.AutoField(primary_key=True)
     hashed_email = models.CharField(max_length=300, primary_key=False)
     denial_text = models.CharField(max_length=30000000, primary_key=False)
-    submissions = models.DateField(null=False, blank=False)
     date = models.DateField(auto_now=False, auto_now_add=True)
     denial_type = models.ManyToManyField(DenialTypes, through=DenialTypesRelation)
-    regulator = models.ManyToManyField(Regulator, through=DenialRegulatorRelation)
