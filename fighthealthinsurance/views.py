@@ -74,7 +74,6 @@ class ProcessView(View):
 
     def post(self, request):
         form = DenialForm(request.POST)
-        print(f"Request {request} POST {request.POST} form {form}")
         if form.is_valid():
             # It's not a password per-se but we want password like hashing.
             # but we don't support changing the values.

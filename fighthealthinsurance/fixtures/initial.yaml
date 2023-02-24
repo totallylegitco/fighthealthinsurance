@@ -2,9 +2,11 @@
   pk: 1
   fields:
     name: regex
+- model: fighthealthinsurance.datasource
   pk: 2
   fields:
     name: ML
+- model: fighthealthinsurance.datasource
   pk: 3
   fields:
     name: Human Label
@@ -13,18 +15,22 @@
   fields:
     name: PPO
     alt_name: Preferred provider organization (has in-network and out of network)
+- model: fighthealthinsurance.plantype
   pk: 2
   fields:
     name: EPO
     alt_name: Exclusive provider organization (in-network doctors only*)
+- model: fighthealthinsurance.plantype
   pk: 3
   fields:
     name: HMO
     alt_name: Health maintenance organization
+- model: fighthealthinsurance.plantype
   pk: 4
   fields:
     name: FFS
     alt_name: Fee For Service no perfered network.
+- model: fighthealthinsurance.plantype
   pk: 5
   fields:
     name: HMO+POS
@@ -36,16 +42,19 @@
     alt_name: ERISA
     website: https://www.askebsa.dol.gov/WebIntake/
     regex: "(You may have the right to file a civil action under ERISA|ERISA)"
+- model: fighthealthinsurance.regulator
   pk: 2
   fields:
     name: Centers for Medicare and Medicaid
     alt_name: CMS
     website: https://www.cms.gov/
+- model: fighthealthinsurance.regulator
   pk: 3
   fields:
     name: California Department of Managed Care
     alt_name: CDMC
     website: https://www.dmhc.ca.gov/
+- model: fighthealthinsurance.regulator
   pk: 4
   fields:
     name: U.S. Dept. of Health and Human Services.
@@ -55,48 +64,58 @@
   fields:
     name: Medically Necessary
     regex: "(not medically necessary)"
+- model: fighthealthinsurance.denialtypes
   pk: 2
   fields:
     name: Prior Authorization Requred
     regex: "(prior authorization required|prior auth required)"
+- model: fighthealthinsurance.denialtypes
   pk: 3
   fields:
     name: Experimental Medical Treatment
     regex: "(experimental treatment|experimental medical|experimental medication|experimental drugs)"
     parent: 1
+- model: fighthealthinsurance.denialtypes
   pk: 4
   fields:
     name: Not Covered By Plan
     regex: "(treatment not covered|not covered by plan)"
+- model: fighthealthinsurance.denialtypes
   pk: 5
   fields:
     name: Underpaid Out of Network
     regex: "(out of network[.\\w\\s+]explanation of benefits)"
-  pk: 5
+- model: fighthealthinsurance.denialtypes
+  pk: 6
   fields:
     name: In-Network Treated as Out of Network
-    parent: 5
-  pk: 6
+- model: fighthealthinsurance.denialtypes
+  pk: 7
   fields:
     name: Denied Out-Of-Network Provider
     regex: "(infer-out|GAP exception|There are providers available in your network that can provide the same care.|because there are network providers in your area that can provide this care.)"
-  pk: 7
+- model: fighthealthinsurance.denialtypes
+  pk: 8
   fields:
     name: Limit for filing expired
     regex: "(limit for filing expired|filed after limit)"
-  pk: 8
+- model: fighthealthinsurance.denialtypes
+  pk: 9
   fields:
     name: Pre-Existing Condition
     regex: "(Pre-Existing Condition)"
-  pk: 9
+- model: fighthealthinsurance.denialtypes
+  pk: 10
   fields:
     name: Co-Ordination of Benefits
     regex: "(co-ordination of benefits)"
-  pk: 10
+- model: fighthealthinsurance.denialtypes
+  pk: 11
   fields:
     name: 3rd party liability
     regex: "(third party liability|3rd party liability|)"
-  pk: 11
+- model: fighthealthinsurance.denialtypes
+  pk: 12
   fields:
     name: Provider Bill (possible balance billing)
     regex: "mychart|Please use for payment or correspondence|instamed\\.com|past due|Statement Date"
