@@ -1,9 +1,10 @@
+import re
+from typing import Optional
+
 from django.db import models
+
 from regex_field.fields import RegexField
 
-
-from typing import Optional
-import re
 
 class FollowUpType(models.Model):
     id = models.AutoField(primary_key=True)

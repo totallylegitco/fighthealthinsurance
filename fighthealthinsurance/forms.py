@@ -1,5 +1,7 @@
 from django import forms
+
 from fighthealthinsurance.models import DenialTypes, PlanType
+
 
 class DenialForm(forms.Form):
     zip = forms.BooleanField(required=False)
@@ -27,4 +29,3 @@ class PostInferedForm(forms.Form):
     plan_type = forms.ModelMultipleChoiceField(queryset=PlanType.objects.all())
     plan_type_text = forms.CharField(required=False)
     denial_date = forms.DateField(required=False)
-    

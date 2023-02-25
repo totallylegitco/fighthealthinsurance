@@ -1,6 +1,8 @@
 import re
 from abc import ABC, abstractmethod
-from fighthealthinsurance.models import PlanType, Regulator, DenialTypes
+
+from fighthealthinsurance.models import DenialTypes, PlanType, Regulator
+
 
 class DenialBase(ABC):
     @abstractmethod

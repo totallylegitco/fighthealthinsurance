@@ -1,8 +1,8 @@
 # type: ignore
+from django.apps import apps
 from django.contrib import admin
 
 from fighthealthinsurance.models import *
-from django.apps import apps
 
 # Auto magic
 models = apps.get_models()

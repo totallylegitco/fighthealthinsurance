@@ -10,17 +10,16 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.0/ref/settings/
 """
 import os
-
+from pathlib import Path
 from typing import *
 
-from pathlib import Path
+from configurations import Configuration
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'fighthealthinsurance.settings')
 os.environ.setdefault(
     'DJANGO_CONFIGURATION',
     os.getenv("ENVIRONMENT", 'Dev'))
 
-from configurations import Configuration
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent

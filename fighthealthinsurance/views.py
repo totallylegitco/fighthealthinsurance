@@ -1,5 +1,5 @@
 from typing import *
-from argon2 import PasswordHasher
+
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
@@ -9,9 +9,12 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.views import View
-from fighthealthinsurance.models import *
+
+from argon2 import PasswordHasher
 from fighthealthinsurance.forms import DenialForm
+from fighthealthinsurance.models import *
 from fighthealthinsurance.process_denial import ProcessDenialRegex
+
 
 class ScanView(View):
     def get(self, request):
@@ -108,4 +111,3 @@ class ProcessView(View):
                 context={
                     'error': form.errors
                 })
-            

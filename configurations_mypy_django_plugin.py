@@ -1,8 +1,8 @@
 # configurations_mypy_django_plugin.py
 import os
+
 from configurations.importer import install
 from mypy.version import __version__
-
 from mypy_django_plugin import main
 
 
