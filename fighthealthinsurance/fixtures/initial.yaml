@@ -62,8 +62,8 @@
 - model: fighthealthinsurance.denialtypes
   pk: 1
   fields:
-    name: Medically Necessary
-    regex: "(not medically necessary)"
+    name: \"Medically Necessary\"
+    regex: "(not medically necessary|You do not meet any of these criteria\.)"
 - model: fighthealthinsurance.denialtypes
   pk: 2
   fields:
@@ -84,7 +84,7 @@
   pk: 5
   fields:
     name: Underpaid Out of Network
-    regex: "(out of network[.\\w\\s+]explanation of benefits)"
+    regex: "(out of network[.\\w\\s+](explanation of benefits|Remittance Advice|this is not a bill))"
 - model: fighthealthinsurance.denialtypes
   pk: 6
   fields:
@@ -119,3 +119,19 @@
   fields:
     name: Provider Bill (possible balance billing)
     regex: "mychart|Please use for payment or correspondence|instamed\\.com|past due|Statement Date|YOUR PAYMENT OPTIONS"
+- model: fighthealthinsurance.denialtypes
+  pk: 13
+  fields:
+    name: Duplicate Claim
+    regex: "Duplicate Claim|claim is a duplicate of"
+- model: fighthealthinsurance.denialtypes
+  pk: 14
+  fields:
+    name: Insufficient Medical Information
+    regex: "Missing Claim Information"
+- model: fighthealthinsurance.denialtypes
+  pk: 15
+  fields:
+    parent: 1
+    name: Prep denial, medically necessary
+    regex: "\(PrEP|high risk homosexual behavior\)"
