@@ -7,7 +7,7 @@ import re
 
 class FollowUpType(models.Model):
     id = models.AutoField(primary_key=True)
-    name = models.CharField(max_length=300, primary_key=False)
+    name = models.CharField(max_length=300, primary_key=False, default="")
     subject = models.CharField(max_length=300, primary_key=False)
     text = models.CharField(max_length=30000, primary_key=False)
     duration = models.DurationField()
@@ -74,12 +74,22 @@ class DenialTypesRelation(models.Model):
     src = models.ForeignKey(DataSource, on_delete=models.SET_NULL, null=True)
 
 
+class PlanTypesRelation(models.Model):
+    denial = models.ForeignKey("Denial", on_delete=models.CASCADE)
+    plan_type = models.ForeignKey(PlanType, on_delete=models.CASCADE)
+    src = models.ForeignKey(DataSource, on_delete=models.SET_NULL, null=True)
+
+
 class Denial(models.Model):
     denial_id = models.AutoField(primary_key=True)
     hashed_email = models.CharField(max_length=300, primary_key=False)
     denial_text = models.CharField(max_length=30000000, primary_key=False)
     date = models.DateField(auto_now=False, auto_now_add=True)
     denial_type = models.ManyToManyField(DenialTypes, through=DenialTypesRelation)
+    plan_type = models.ManyToManyField(PlanType, through=PlanTypesRelation)
+    urgent = models.BooleanField(default=False)
+    pre_service = models.BooleanField(default=False)
+    denial_date = models.DateField(auto_now=False, null=True)
 
     def __str__(self):
         return f"{self.denial_id}: {self.denial_text[0:100]}"

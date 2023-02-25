@@ -92,6 +92,7 @@
 - model: fighthealthinsurance.denialtypes
   pk: 7
   fields:
+    parent: 16
     name: Denied Out-Of-Network Provider
     regex: "(infer-out|GAP exception|There are providers available in your network that can provide the same care.|because there are network providers in your area that can provide this care.)"
 - model: fighthealthinsurance.denialtypes
@@ -135,3 +136,13 @@
     parent: 1
     name: Prep denial, medically necessary
     regex: "\(PrEP|high risk homosexual behavior\)"
+- model: fighthealthinsurance.denialtypes
+  pk: 16
+  fields:
+    name: Pre-Service
+    regex: "\(pre-service\)"
+- model: fighthealthinsurance.denialtypes
+  pk: 16
+  fields:
+    name: Post-Service
+    regex: "\(post-service\)"
