@@ -1,5 +1,5 @@
 from django import template
-from django.shortcuts import reverse
+from django.urls import reverse
 
 register = template.Library()
 

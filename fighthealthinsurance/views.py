@@ -85,12 +85,22 @@ class ProcessView(View):
                 denial_text = denial_text,
                 hashed_email = hashed_email)
             denial.save()
-            for dt in self.regex_denial_processor.get_denialtype(denial_text):
+            denial_types = self.regex_denial_processor.get_denialtype(denial_text)
+            for dt in denial_types:
                 DenialTypesRelation(
                     denial=denial,
                     denial_type=dt,
                     src=self.regex_src).save()
-            return render(request, 'categorize.html')
+            form = PostInferedForm(
+                initial = {
+                    'denial_type': denial_type
+                })
+            return render(
+                request,
+                'categorize.html',
+                context = {
+                    'post_infered_from': form
+                })
         else:
             return render(
                 request,
