@@ -9,7 +9,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.views import View
-from fighthealthinsurance.models import Denial, DataSource
+from fighthealthinsurance.models import *
 from fighthealthinsurance.forms import DenialForm
 from fighthealthinsurance.process_denial import ProcessDenialRegex
 

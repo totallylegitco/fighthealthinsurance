@@ -77,7 +77,7 @@ async function getPDFPageText (pdf, pageNo) {
     const tokenizedText = await page.getTextContent();
     const items = tokenizedText.items;
     const strs = items.map(token => token.str);
-    const pageText = strs.join("");
+    const pageText = strs.join(" ");
     return pageText;
 }
 

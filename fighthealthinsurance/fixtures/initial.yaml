@@ -113,7 +113,7 @@
   pk: 11
   fields:
     name: 3rd party liability
-    regex: "(third party liability|3rd party liability|)"
+    regex: "(third party liability|3rd party liability)"
 - model: fighthealthinsurance.denialtypes
   pk: 12
   fields:
