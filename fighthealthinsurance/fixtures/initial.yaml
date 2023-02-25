@@ -118,4 +118,4 @@
   pk: 12
   fields:
     name: Provider Bill (possible balance billing)
-    regex: "mychart|Please use for payment or correspondence|instamed\\.com|past due|Statement Date"
+    regex: "mychart|Please use for payment or correspondence|instamed\\.com|past due|Statement Date|YOUR PAYMENT OPTIONS"

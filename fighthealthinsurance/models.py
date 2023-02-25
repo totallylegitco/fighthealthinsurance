@@ -82,4 +82,4 @@ class Denial(models.Model):
     denial_type = models.ManyToManyField(DenialTypes, through=DenialTypesRelation)
 
     def __str__(self):
-        return self.denial_id + self.denial_text[0:100]
+        return f"{self.denial_id}: {self.denial_text[0:100]}"

@@ -52,7 +52,7 @@ Upload your Health Insurance Denial
       return text;
   }
   function addText(text) {
-      text = scrubText(text);      
+      text = scrubText(text);
       document.getElementById("denial_text").value += text;
   }
   const storeLocal = async function(evt) {
@@ -63,13 +63,13 @@ Upload your Health Insurance Denial
   const worker = await Tesseract.createWorker({
       corePath: '{% static  "js/node_modules/tesseract.js-core/tesseract-core.wasm.js" %}',
       workerPath: '{% static "js/node_modules/tesseract.js/dist/worker.min.js" %}',
-          logger: function(m){console.log(m);}
-        });
+	  logger: function(m){console.log(m);}
+	});
 
       await worker.loadLanguage('eng');
       await worker.initialize('eng');
       await worker.setParameters({
-        tessedit_pageseg_mode: Tesseract.PSM.PSM_AUTO_OSD,
+	tessedit_pageseg_mode: Tesseract.PSM.PSM_AUTO_OSD,
       });
 
 async function getPDFPageText (pdf, pageNo) {
@@ -110,7 +110,7 @@ const recognize = async function(evt){
 	    const typedarray = new Uint8Array(this.result);
 	    console.log("Data?")
 	    console.log(typedarray)
-            const loadingTask = pdfjsLib.getDocument(typedarray);
+	    const loadingTask = pdfjsLib.getDocument(typedarray);
 	    loadingTask.promise.then(doc => {
 		const ret = getPDFText(doc);
 		ret.then((t) => {
@@ -122,7 +122,9 @@ const recognize = async function(evt){
 	};
 	reader.readAsArrayBuffer(file);
     } else {
+	console.log("Assuming image...")
 	const ret = await worker.recognize(files[0]);
+	console.log("Recognize done!")
 	console.log(ret.data.text);
 	addText(ret.data.text);
     }
@@ -148,7 +150,7 @@ elm.addEventListener('change', recognize);
 function validateForm(form)
 {
     if(!form.privacy.checked) {
-        document.getElementById('agree_chk_error').style.visibility='visible';
+	document.getElementById('agree_chk_error').style.visibility='visible';
     } else {
 	document.getElementById('agree_chk_error').style.visibility='hidden';
     }
@@ -158,9 +160,9 @@ function validateForm(form)
 	document.getElementById('pii_error').style.visibility='hidden';
     }
     if (form.pii.checked && form.privacy.checked) {
-        document.getElementById('agree_chk_error').style.visibility='hidden';
+	document.getElementById('agree_chk_error').style.visibility='hidden';
 	document.getElementById('pii_error').style.visibility='hidden';
-        return true;
+	return true;
     } else {
 	return false;
     }
