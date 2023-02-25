@@ -9,6 +9,8 @@
   "author": "",
   "license": "Apache-2.0",
   "dependencies": {
+    "@tensorflow-models/coco-ssd": "^2.2.2",
+    "@tensorflow/tfjs": "^4.2.0",
     "pdf.js": "^0.1.0",
     "pdfjs-dist": "^3.3.122",
     "tensorflow.js": "^0.0.0",
