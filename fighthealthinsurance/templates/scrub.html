@@ -12,57 +12,6 @@ Upload your Health Insurance Denial
   function addText(text) {
       document.getElementById("denial_text").value += text;
   }
-  var scrubRegex = [
-      [new RegExp("^\\W*patents?:?\\s+\\w+", "gmi"), "Patient: patient_name"],
-      [new RegExp("^\\W*patients?:?\\s+\\w+", "gmi"), "Patient: patient_name"],
-      [new RegExp("^\\W*member:\\s+\\w+", "gmi"), "Member: member_name"],
-      [new RegExp("^\\W*member:\\s+\\w+\\s+\\w+", "gmi"), "Member: member_name"],
-      [new RegExp("^\\W*dear\\s+\\w+\\s+\\w+\\W?$", "gmi"), "Dear patient_name"],
-      [new RegExp("^\\W*dear\\s+\\w+\\s+\\w+\\s*\.?\\w+\\W?$", "gmi"), "Dear patient_name"],
-      [new RegExp("^\\W*dear\\s+\\w+\\W?$", "gmi"), "Dear patient_name"],
-  ];
-  function scrubText(text) {
-      var reservedTokens = [];
-      for (var i=0; i<nodes.length; i++) {
-	  var node = nodes[i];
-	  if (node.id.startsWith('store_') && node.value != "") {
-	      reservedTokens.push(
-		  [new RegExp(node.value, "gi"),
-		   node.id]);
-	      for (var j=0; j<nodes.length; j++) {
-		  var secondNode = nodes[j];
-		  if (secondNode.value != "") {
-		      reservedTokens.push(
-			  [new RegExp(node.value + secondNode.value, "gi"),
-			   node.id + "_" + secondNode.id]);
-		  }
-	      }
-	  }
-      }
-      console.log("Preparing to scrub:")
-      console.log(text)
-      console.log("Scrubbing with:")
-      console.log(reservedTokens)
-      console.log(scrubRegex)
-      for (var i=0; i < scrubRegex.length; i++) {
-	  text = text.replace(scrubRegex[i][0], scrubRegex[i][1]);
-      }
-      for (var i=0; i < reservedTokens.length; i++) {
-	  text = text.replace(
-	      reservedTokens[i][0],
-	      " " + reservedTokens[i][1]);
-      }
-      return text;
-  }
-  function clean() {
-      document.getElementById("denial_text").value = scrubText(
-	  document.getElementById("denial_text").value);
-  }
-  const storeLocal = async function(evt) {
-      const name = evt.target.id;
-      const value = evt.target.value;
-      window.localStorage.setItem(name, value);
-  }
   const worker = await Tesseract.createWorker({
       corePath: '{% static  "js/node_modules/tesseract.js-core/tesseract-core.wasm.js" %}',
       workerPath: '{% static "js/node_modules/tesseract.js/dist/worker.min.js" %}',
@@ -133,20 +82,62 @@ const recognize = async function(evt){
     }
 }
 
-const elm = document.getElementById('uploader');
-elm.addEventListener('change', recognize);
-// Restore previous local values
-  var inp = document.getElementsByTagName('input');
-  var nodes = document.querySelectorAll("input[type=text]");
-  console.log(nodes)
-  for (var i=0; i<nodes.length; i++) {
-      var node = nodes[i];
-      if (node.id.startsWith('store_')) {
-	  node.addEventListener('change', storeLocal);
-	  if (node.value == "") {
-	      node.value = window.localStorage.getItem(nodes[i].id);
+  const elm = document.getElementById('uploader');
+  if (elm != null) {
+      elm.addEventListener('change', recognize);
+  }
+</script>
+<script>
+  var scrubRegex = [
+      [new RegExp("^\\W*patents?:?\\s+\\w+", "gmi"), "Patient: patient_name"],
+      [new RegExp("^\\W*patients?:?\\s+\\w+", "gmi"), "Patient: patient_name"],
+      [new RegExp("^\\W*member:\\s+\\w+", "gmi"), "Member: member_name"],
+      [new RegExp("^\\W*member:\\s+\\w+\\s+\\w+", "gmi"), "Member: member_name"],
+      [new RegExp("^\\W*dear\\s+\\w+\\s+\\w+\\W?$", "gmi"), "Dear patient_name"],
+      [new RegExp("^\\W*dear\\s+\\w+\\s+\\w+\\s*\.?\\w+\\W?$", "gmi"), "Dear patient_name"],
+      [new RegExp("^\\W*dear\\s+\\w+\\W?$", "gmi"), "Dear patient_name"],
+  ];
+  function scrubText(text) {
+      var reservedTokens = [];
+      for (var i=0; i<nodes.length; i++) {
+	  var node = nodes[i];
+	  if (node.id.startsWith('store_') && node.value != "") {
+	      reservedTokens.push(
+		  [new RegExp(node.value, "gi"),
+		   node.id]);
+	      for (var j=0; j<nodes.length; j++) {
+		  var secondNode = nodes[j];
+		  if (secondNode.value != "") {
+		      reservedTokens.push(
+			  [new RegExp(node.value + secondNode.value, "gi"),
+			   node.id + "_" + secondNode.id]);
+		  }
+	      }
 	  }
       }
+      console.log("Preparing to scrub:")
+      console.log(text)
+      console.log("Scrubbing with:")
+      console.log(reservedTokens)
+      console.log(scrubRegex)
+      for (var i=0; i < scrubRegex.length; i++) {
+	  text = text.replace(scrubRegex[i][0], scrubRegex[i][1]);
+      }
+      for (var i=0; i < reservedTokens.length; i++) {
+	  text = text.replace(
+	      reservedTokens[i][0],
+	      " " + reservedTokens[i][1]);
+      }
+      return text;
+  }
+  function clean() {
+      document.getElementById("denial_text").value = scrubText(
+	  document.getElementById("denial_text").value);
+  }
+  const storeLocal = async function(evt) {
+      const name = evt.target.id;
+      const value = evt.target.value;
+      window.localStorage.setItem(name, value);
   }
 </script>
 <script>
@@ -188,7 +179,7 @@ Clear Page Local Storage
 <label for="street">Your street Address (e.g. 283 24th st)</label><br>
 <input type="text" id="store_street" name="street"><br>
 <button id="scrub"
-       onclick="window.localStorage.clean()">
+       onclick="clean();">
 Scrub Scanned Text
 </button>
 {% if upload_more %}
@@ -230,5 +221,21 @@ Scrub Scanned Text
 
 
 *We store your raw e-mail to follow up after insurance company timelines may have expired so you can "remind" them. We also store a hashed version of your e-mail linked to your (cleaned) denial so you can request removal from our database (should you wish). If you opt-in, we may follow up by e-mail after reviewing your denial with a better template if our ML model does not find a good model on the first pass through. You may choose to use a different or temporary e-mail service, like <a href="https://proton.me/">proton mail.</a> Please review our <a href="{% url 'privacy_policy' %}">privacy policy for more details</a>
-
+<script>
+  // Restore previous local values
+  var input = document.getElementsByTagName('input');
+  console.log(input);
+  var nodes = document.querySelectorAll('input');
+  console.log("Nodes:")
+  console.log(nodes)
+  function handleStorage(node) {
+      if (node.id.startsWith('store_')) {
+	  node.addEventListener('change', storeLocal);
+	  if (node.value == "") {
+	      node.value = window.localStorage.getItem(node.id);
+	  }
+      }
+  }
+  nodes.forEach(handleStorage)
+</script>
 {% endblock content %}
