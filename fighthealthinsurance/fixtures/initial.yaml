@@ -135,14 +135,20 @@
   fields:
     parent: 1
     name: Prep denial, medically necessary
-    regex: "\(PrEP|high risk homosexual behavior\)"
+    regex: "(PrEP|high risk homosexual behavior)"
 - model: fighthealthinsurance.denialtypes
   pk: 16
   fields:
     name: Pre-Service
-    regex: "\(pre-service\)"
+    regex: "(pre-service)"
 - model: fighthealthinsurance.denialtypes
-  pk: 16
+  pk: 17
   fields:
     name: Post-Service
-    regex: "\(post-service\)"
+    regex: "(post-service)"
+- model: fighthealthinsurance.denialtypes
+  pk: 18
+  fields:
+    name: STEP Therapy -- have to try cheaper options first
+    regex: "(STEP therapy|step 2 drug|step2 drug)"
+    
