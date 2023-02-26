@@ -34,4 +34,4 @@ django-regex-field
 argon2-cffi
 python-doctr
 pytesseract
-python-doctr[torch]
+python-doctr[tf]

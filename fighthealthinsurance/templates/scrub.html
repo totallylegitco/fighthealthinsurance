@@ -9,6 +9,9 @@ Upload your Health Insurance Denial
 <script src='{% static "js/node_modules/pdfjs-dist/build/pdf.min.js" %}'></script>
 <script type="module">
   var pdfjsLib = window['pdfjs-dist/build/pdf'];
+  function addText(text) {
+      document.getElementById("denial_text").value += text;
+  }
   var scrubRegex = [
       [new RegExp("^\\W*patents?:?\\s+\\w+", "gmi"), "Patient: patient_name"],
       [new RegExp("^\\W*patients?:?\\s+\\w+", "gmi"), "Patient: patient_name"],
@@ -51,9 +54,9 @@ Upload your Health Insurance Denial
       }
       return text;
   }
-  function addText(text) {
-      text = scrubText(text);
-      document.getElementById("denial_text").value += text;
+  function clean() {
+      document.getElementById("denial_text").value = scrubText(
+	  document.getElementById("denial_text").value);
   }
   const storeLocal = async function(evt) {
       const name = evt.target.id;
@@ -184,6 +187,10 @@ Clear Page Local Storage
 <input type="text" id="store_lname" name="lname"><br>
 <label for="street">Your street Address (e.g. 283 24th st)</label><br>
 <input type="text" id="store_street" name="street"><br>
+<button id="scrub"
+       onclick="window.localStorage.clean()">
+Scrub Scanned Text
+</button>
 {% if upload_more %}
 <div id="image_select_magic" style="visibility:visible">
 <h2>Not transfered, we do not store (but your phone/computer may store picture)</h2>
