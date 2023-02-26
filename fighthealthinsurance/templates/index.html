@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block title %}
+Fight Your Health Insurnace Denial
+{% endblock title %}
+{% load compress %}
+{% load static %}
+{% block content %}
+Hi Friends!<br>
+The first step to scan your denial, and you can either do the optical character recognition (making in understandable to machines) on <a href='{% url "scan" %}'>your device/phone</a> or <a href='{% url "server_side_ocr" %}'>on our server</a>.
+{% endblock content %}

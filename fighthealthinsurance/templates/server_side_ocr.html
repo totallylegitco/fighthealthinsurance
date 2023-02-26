@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}
+Upload your Health Insurance Denial - Server Side Processing
+{% endblock title %}
+{% load compress %}
+{% load static %}
+{% block content %}
+<div style="color:red">
+  {{ error }}
+</div>
+<form onsubmit="return validateForm(this);" method="post" action="{% url 'server_side_ocr' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    <h2>Transfered to our server for Optical Character Recognition (OCR) (may be temporarily stored)</h2>
+    <label class="custom-file-label" for="uploader">Scan & OCR your health insurance denial (select all pages)</label><br>
+    <input id="uploader" type="file" name="uploader" multiple>
+    <input type="submit">
+</form>
+{% endblock content %}
