@@ -15,8 +15,8 @@ import numpy as np
 from argon2 import PasswordHasher
 from fighthealthinsurance.forms import DenialForm
 from fighthealthinsurance.models import *
-from fighthealthinsurance.utils import *
 from fighthealthinsurance.process_denial import ProcessDenialRegex
+from fighthealthinsurance.utils import *
 
 
 class IndexView(View):
