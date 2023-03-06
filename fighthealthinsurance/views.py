@@ -13,9 +13,9 @@ from django.views import View
 import cv2
 import numpy as np
 from argon2 import PasswordHasher
-from fighthealthinsurance.forms import DenialForm
+from fighthealthinsurance.forms import *
 from fighthealthinsurance.models import *
-from fighthealthinsurance.process_denial import ProcessDenialRegex
+from fighthealthinsurance.process_denial import *
 from fighthealthinsurance.utils import *
 
 
@@ -130,7 +130,9 @@ class OCRView(View):
 class ProcessView(View):
     def __init__(self):
         self.regex_denial_processor = ProcessDenialRegex()
+        self.codes_denial_processor = ProcessDenialCodes()
         self.regex_src = DataSource.objects.get(name="regex")
+        self.codes_src = DataSource.objects.get(name="codes")
 
 
     def post(self, request):
@@ -142,16 +144,29 @@ class ProcessView(View):
             email = form.cleaned_data['email']
             hashed_email = ph.hash(email)
             denial_text = form.cleaned_data['denial_text']
+            print(denial_text)
             denial = Denial(
                 denial_text = denial_text,
                 hashed_email = hashed_email)
             denial.save()
             denial_types = self.regex_denial_processor.get_denialtype(denial_text)
+            print(f"mmmk {denial_types}")
+            denial_type = []
             for dt in denial_types:
                 DenialTypesRelation(
                     denial=denial,
                     denial_type=dt,
                     src=self.regex_src).save()
+                denial_type.append(dt)
+            denial_types = self.codes_denial_processor.get_denialtype(denial_text)
+            print(f"mmmk {denial_types}")
+            for dt in denial_types:
+                DenialTypesRelation(
+                    denial=denial,
+                    denial_type=dt,
+                    src=self.codes_src).save()
+                denial_type.append(dt)
+            print(f"denial_type {denial_type}")
             form = PostInferedForm(
                 initial = {
                     'denial_type': denial_type
@@ -160,13 +175,14 @@ class ProcessView(View):
                 request,
                 'categorize.html',
                 context = {
-                    'post_infered_from': form,
+                    'post_infered_form': form,
                     'upload_more': True,
                 })
         else:
             return render(
                 request,
-                'image_recognize.html',
+                'scrub.html',
                 context={
-                    'error': form.errors
+                    'error': form.errors,
+                    '': request.POST.get('denial_text', ''),
                 })

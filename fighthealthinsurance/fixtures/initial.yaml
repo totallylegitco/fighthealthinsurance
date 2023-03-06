@@ -10,6 +10,10 @@
   pk: 3
   fields:
     name: Human Label
+- model: fighthealthinsurance.datasource
+  pk: 4
+  fields:
+    name: codes
 - model: fighthealthinsurance.plantype
   pk: 1
   fields:
@@ -63,7 +67,7 @@
   pk: 1
   fields:
     name: \"Medically Necessary\"
-    regex: "(not medically necessary|You do not meet any of these criteria\.)"
+    regex: "(not medically necessary|You do not meet any of these criteria\\.|not medically nocessary)"
 - model: fighthealthinsurance.denialtypes
   pk: 2
   fields:
@@ -151,4 +155,8 @@
   fields:
     name: STEP Therapy -- have to try cheaper options first
     regex: "(STEP therapy|step 2 drug|step2 drug)"
+- model: fighthealthinsurance.denialtypes
+  pk: 19
+  fields:
+    name: Preventive Care
     
