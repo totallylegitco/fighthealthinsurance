@@ -94,19 +94,3 @@ class Denial(models.Model):
 
     def __str__(self):
         return f"{self.denial_id}: {self.denial_text[0:100]}"
-
-
-class DestinationType(models.Model):
-    name = models.CharField(primary_key=True)
-
-
-class DenialTypesRelation(models.Model):
-    denial_type = models.ForeignKey("Denial", on_delete=models.CASCADE)
-    appeal_template = models.ForeignKey("AppealTemplate", on_delete=models.CASCADE)
-
-
-class AppealTemplate(models.Model):
-    template_id = models.AutoField(primary_key=True)
-    template_name = models.CharField(max_length=300, primary_key=False)
-    destination = models.ForeignKey(DestinationType, on_delete=models.SET_NULL, null=True)
-    denial_type = models.ManyToManyField(DenialTypes, through=DenialTypesRelation)
