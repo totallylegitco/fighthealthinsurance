@@ -59,6 +59,7 @@ class DenialTypes(models.Model):
     name = models.CharField(max_length=300, primary_key=False)
     regex = RegexField(max_length=400, re_flags=re.IGNORECASE | re.UNICODE | re.M)
     negative_regex = RegexField(max_length=400, re_flags=re.IGNORECASE | re.UNICODE | re.M)
+    appeal_text = models.CharField(max_length=300, primary_key=False, blank=True)
 
     def __str__(self):
         return self.name
@@ -88,6 +89,7 @@ class Denial(models.Model):
     date = models.DateField(auto_now=False, auto_now_add=True)
     denial_type = models.ManyToManyField(DenialTypes, through=DenialTypesRelation)
     plan_type = models.ManyToManyField(PlanType, through=PlanTypesRelation)
+    regulator = models.ForeignKey(Regulator, null=True, on_delete=models.SET_NULL)
     urgent = models.BooleanField(default=False)
     pre_service = models.BooleanField(default=False)
     denial_date = models.DateField(auto_now=False, null=True)

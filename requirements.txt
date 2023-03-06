@@ -35,3 +35,4 @@ argon2-cffi
 python-doctr
 pytesseract
 python-doctr[tf]
+uszipcode

@@ -66,8 +66,8 @@
 - model: fighthealthinsurance.denialtypes
   pk: 1
   fields:
-    name: \"Medically Necessary\"
-    regex: "(not medically necessary|You do not meet any of these criteria\\.|not medically nocessary)"
+    name: Medically Necessary
+    regex: "(not medically necessary|You do not meet any of these criteria\\.|not medically nocessary|nationally recognized clinical guidelines and resources)"
 - model: fighthealthinsurance.denialtypes
   pk: 2
   fields:
@@ -123,7 +123,7 @@
   pk: 12
   fields:
     name: Provider Bill (possible balance billing)
-    regex: "mychart|Please use for payment or correspondence|instamed\\.com|past due|Statement Date|YOUR PAYMENT OPTIONS"
+    regex: "mychart|Please use for payment or correspondence|instamed\\.com|past due|Statement Date|YOUR PAYMENT OPTIONS|deserve to be paid"
 - model: fighthealthinsurance.denialtypes
   pk: 13
   fields:
@@ -140,6 +140,7 @@
     parent: 1
     name: Prep denial, medically necessary
     regex: "(PrEP|high risk homosexual behavior)"
+    appeal_text: "The ACA requires that PrEP be covered -- https://www.cdc.gov/hiv/basics/prep/paying-for-prep/index.html"
 - model: fighthealthinsurance.denialtypes
   pk: 16
   fields:
@@ -159,4 +160,3 @@
   pk: 19
   fields:
     name: Preventive Care
-    

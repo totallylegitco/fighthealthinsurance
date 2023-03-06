@@ -1,5 +1,6 @@
 from typing import *
 
+import uszipcode
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
@@ -83,6 +84,77 @@ class RecommendAppeal(View):
         return render(request, '')
 
 
+states_with_caps = {
+    "AR", "CA", "CT", "DE", "DC", "GA",
+    "IL", "IA", "KS", "KY", "ME", "MD",
+    "MA", "MI", "MS", "MO", "MT", "NV",
+    "NH", "NJ", "NM", "NY", "NC", "MP",
+    "OK", "OR", "PA", "RI", "TN", "TX",
+    "VT", "VI", "WV"}
+
+class FindNextSteps(View):
+    def post(self, request):
+        form = DenialForm(request.POST)
+        if form.is_valid():
+            ph = PasswordHasher()
+            email = form.cleaned_data['email']
+            hashed_email = ph.hash(email)
+            denial = Denials.objects.filter(
+                denial_id=form.cleaned_data["denial_id"],
+                hashed_email=hashed_email).get()
+
+            outside_help_details = ""
+            state = form.cleaned_data["your_state"]
+            if state in sates_with_caps:
+                outside_help_details += (
+                    "<a href='https://www.cms.gov/CCIIO/Resources/Consumer-Assistance-Grants/" +
+                    state +
+                    "'>" +
+                    f"Your state {state} participates in a" +
+                    f"Consumer Assistance Program(CAP), and you may be able to get help " +
+                    f"through them.</a>")
+            if denial.regulator == Regulators.objects.filter(alt_name=="ERISA").get():
+                outside_help_details = (
+                    "Your plan looks to be an ERISA plan which means your employer <i>may</i>" +
+                    " have more input into plan decisions. If your are on good terms with HR " +
+                    " it could be worth it to ask them for advice.")
+            denial.insurance_company = form.cleaned_data["insurance_company"]
+            denial.plan_id = form.cleaned_data["plan_id"]
+            denial.claim_id = form.cleaned_data["claim_id"]
+            denial.pre_service = form.cleaned_data["pre_service"]
+            denial.plan_type = form.cleaned_data["plan_type"]
+            denial.plan_type_text = form.cleaned_data["plan_type_text"]
+            denial.denial_type_text = form.cleaned_data["denail_type_text"]
+            denial.denial_type = form.cleaned_data["denail_type"]
+            denial.state = form.cleaned_data["your_state"]
+            denial.save()
+            advice = []
+            question_forms = {}
+            for dt in denial.denial_type:
+                if dt == medically_necessary:
+                    question_forms += MedicalNeccessaryQuestions
+                if dt.parent == medically_necessary:
+                    question_forms += MedicalNeccessaryQuestions
+                if dt == step_therapy:
+                    question_forms += StepTherapyQuestions
+                if dt == provider_bill:
+                    question_forms += BalanceBillQuestions
+            return render(
+                request,
+                'outside_help.html',
+                context={
+                    "forms": forms
+                })
+        else:
+            # If not valid take the user back.
+            return render(
+                request,
+                'categorize.html',
+                context = {
+                    'post_infered_form': form,
+                    'upload_more': True,
+                })
+    
 class OCRView(View):
     def __init__(self):
         from doctr.models import ocr_predictor
@@ -169,7 +241,9 @@ class ProcessView(View):
             print(f"denial_type {denial_type}")
             form = PostInferedForm(
                 initial = {
-                    'denial_type': denial_type
+                    'denial_type': denial_type,
+                    'denial_id': denial.denial_id,
+                    'email': email,
                 })
             return render(
                 request,

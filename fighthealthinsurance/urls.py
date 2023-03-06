@@ -28,5 +28,5 @@ urlpatterns = [
     path('opt_out', views.OptOutView.as_view(), name="opt_out"),
     path('remove_data', views.RemoveDataView.as_view(), name="remove_data"),
     path('tos', views.TermsOfServiceView.as_view(), name="tos"),
-    path('find_template', views.TermsOfServiceView.as_view(), name="find_template"),
+    path('find_next_steps', views.FindNextSteps.as_view(), name="find_next_steps"),
 ]

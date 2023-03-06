@@ -5,10 +5,10 @@
 Thank you for your submission!<br>
 We've tried our best to extract a bunch of information from what you uploaded, (but we could totally have got this wrong)<br>
 We've got a few questions for you to try and figure out what to do:<br>
-<form action="{% url 'find_template' %}" method="post">
-  {% for field in post_infered_form %}
-  <div id="{{field.id}}">{{field.label}}: {{field}}</div><br>
-  {% endfor %}
+<form action="{% url 'find_next_steps' %}" method="post">
+  <table>
+    {{ post_infered_form.as_table }}
+  </table>
   <input type="submit">
 </form>
 
