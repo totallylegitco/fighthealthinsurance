@@ -93,6 +93,8 @@ class Denial(models.Model):
     urgent = models.BooleanField(default=False)
     pre_service = models.BooleanField(default=False)
     denial_date = models.DateField(auto_now=False, null=True)
+    insurance_company = models.CharField(max_length=300, primary_key=False, null=True)
+    claim_id =  models.CharField(max_length=300, primary_key=False, null=True)
 
     def __str__(self):
         return f"{self.denial_id}: {self.denial_text[0:100]}"

@@ -1,4 +1,8 @@
-FROM python:3.9-buster
+FROM l4t-pytorch:r35.2.1-pth2.0-py3 as base-arm74
+
+FROM python:3.9-buster as base-amd64
+
+FROM base-${TARGETARCH}
 
 # install nginx
 RUN apt-get update && apt-get install nginx vim emacs libmariadbclient-dev default-libmysqlclient-dev libssl-dev -y

@@ -104,7 +104,10 @@ class ProcessDenialRegex(DenialBase):
     def get_plan_type(self, text):
         plans = []
         for p in self.planTypes:
-            if (p.regex.search(text) is not None and
-                p.negative_regex.search(text) is None):
-                plans.push(p)
+            if (p.regex.pattern != '' and p.regex.search(text) is not None):
+                print(f"positive regex match for plan {p}")
+                if (p.negative_regex != '' or p.negative_regex.search(text) is None):
+                    plans.push(p)
+            else:
+                print(f"no match {p}")
         return plans

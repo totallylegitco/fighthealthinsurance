@@ -4,7 +4,7 @@ from fighthealthinsurance.models import DenialTypes, PlanType
 
 
 class DenialForm(forms.Form):
-    zip = forms.BooleanField(required=False)
+    zip = forms.CharField(required=False)
     pii = forms.BooleanField(required=True)
     privacy = forms.BooleanField(required=True)
     store_raw_email = forms.BooleanField(required=False)
@@ -12,21 +12,27 @@ class DenialForm(forms.Form):
     email = forms.EmailField(required=True)
 
 
+class DenialRefForm(forms.Form):
+    denial_id = forms.IntegerField(required=True, widget=forms.HiddenInput())
+    email = forms.CharField(required=True, widget=forms.HiddenInput())
+
 class PostInferedForm(forms.Form):
     # Send denial id and e-mail back that way people can't just change the ID
     # and get someone elses denial.
     denial_id = forms.IntegerField(required=True, widget=forms.HiddenInput())
-    email = forms.IntegerField(required=True, widget=forms.HiddenInput())
+    email = forms.CharField(required=True, widget=forms.HiddenInput())
     denial_type = forms.ModelMultipleChoiceField(queryset=DenialTypes.objects.all())
     denial_type_text = forms.CharField(
         required=False,
         label="Denial Type (text, you can type if the categories don't match the denial type)")
-    pre_service =  forms.BooleanField(required=False)
+    pre_service =  forms.BooleanField(
+        required=False,
+        label="Pre-service (claim before doctors visit/service)")
     plan_id = forms.CharField(required=False)
     claim_id = forms.CharField(required=False)
     insurance_company = forms.CharField(required=False)
-    plan_type = forms.ModelMultipleChoiceField(queryset=PlanType.objects.all())
-    plan_type_text = forms.CharField(required=False)
+#    plan_type = forms.ModelMultipleChoiceField(queryset=PlanType.objects.all())
+#    plan_type_text = forms.CharField(required=False)
     denial_date = forms.DateField(required=False)
     your_state = forms.CharField(max_length="2", required=False)
 

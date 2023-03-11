@@ -29,4 +29,5 @@ urlpatterns = [
     path('remove_data', views.RemoveDataView.as_view(), name="remove_data"),
     path('tos', views.TermsOfServiceView.as_view(), name="tos"),
     path('find_next_steps', views.FindNextSteps.as_view(), name="find_next_steps"),
+    path('generate_appeal', views.GenerateAppeal.as_view(), name="generate_appeal"),
 ]

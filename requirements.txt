@@ -36,3 +36,9 @@ python-doctr
 pytesseract
 python-doctr[tf]
 uszipcode
+python-Levenshtein
+uhashring
+kraken[pdf]
+pyarrow
+torchvision
+torch

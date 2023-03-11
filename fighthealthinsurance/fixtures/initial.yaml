@@ -52,6 +52,7 @@
     name: Centers for Medicare and Medicaid
     alt_name: CMS
     website: https://www.cms.gov/
+    regex: "Centers for Medicare and Medicaid"
 - model: fighthealthinsurance.regulator
   pk: 3
   fields:
@@ -160,3 +161,4 @@
   pk: 19
   fields:
     name: Preventive Care
+    appeal_text: "The ACA (and equivalent regulations for many non-ACA plans) requires that many types of preventive care be covered, in many cases without any out of pocket expense. See https://www.healthcare.gov/coverage/preventive-care-benefits/ https://www.kff.org/womens-health-policy/fact-sheet/preventive-services-covered-by-private-health-plans/ ."
