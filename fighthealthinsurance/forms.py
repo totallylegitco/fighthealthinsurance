@@ -34,7 +34,7 @@ class PostInferedForm(forms.Form):
 #    plan_type = forms.ModelMultipleChoiceField(queryset=PlanType.objects.all())
 #    plan_type_text = forms.CharField(required=False)
     denial_date = forms.DateField(required=False)
-    your_state = forms.CharField(max_length="2", required=False)
+    your_state = forms.CharField(max_length=2, required=False)
 
 
 
