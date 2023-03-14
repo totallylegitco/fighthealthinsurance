@@ -1,4 +1,5 @@
 import re
+import sys
 from typing import Optional
 
 from django.db import models
@@ -60,6 +61,16 @@ class DenialTypes(models.Model):
     regex = RegexField(max_length=400, re_flags=re.IGNORECASE | re.UNICODE | re.M)
     negative_regex = RegexField(max_length=400, re_flags=re.IGNORECASE | re.UNICODE | re.M)
     appeal_text = models.CharField(max_length=300, primary_key=False, blank=True)
+    form = models.CharField(max_length=300, null=True)
+
+    def get_form(self):
+        if self.form is None:
+            if self.parent is not None:
+                return self.parent.get_froms()
+            else:
+                return None
+        else:
+            return getattr(sys.modules["fighthealthinsurance.forms"], self.form)
 
     def __str__(self):
         return self.name

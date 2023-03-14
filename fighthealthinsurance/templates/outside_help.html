@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}
+Updating denial with your feedback & checking for resources
+{% endblock title %}
+{% load compress %}
+{% load static %}
+{% block content %}
+
+{% autoescape off %}
+{{outside_help_details}}
+{% endautoescape %}
+
+{% if combined %}
+We have a few more questions for you to help us generate the appeal.
+{% else %}
+Press the button bellow to see what we can come up with for an appeal:
+{% endif %}
+<form action="{% url 'generate_appeal' %}" method="post">
+  {% csrf_token %}
+  {{ denial_form }}
+  <table>
+    {{ combined.as_table }}
+  </table>
+  <input type="submit" text="Generate the appeal">
+</form>
+
+{% endblock content %}

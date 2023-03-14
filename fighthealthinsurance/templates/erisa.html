@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block title %}
+ERISA Health Plan -- HR _might_ help.
+{% endblock title %}
+{% load compress %}
+{% load static %}
+{% block content %}
+Based on our inference (and your answers to questions), it seems like you have an {{plan_type}} health plan!
+{% endblock content %}

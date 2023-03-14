@@ -67,98 +67,110 @@
 - model: fighthealthinsurance.denialtypes
   pk: 1
   fields:
-    name: Medically Necessary
-    regex: "(not medically necessary|You do not meet any of these criteria\\.|not medically nocessary|nationally recognized clinical guidelines and resources)"
+    name: Insurance Company
 - model: fighthealthinsurance.denialtypes
   pk: 2
   fields:
-    name: Prior Authorization Requred
-    regex: "(prior authorization required|prior auth required)"
+    name: Medically Necessary
+    regex: "(not medically necessary|You do not meet any of these criteria\\.|not medically nocessary|nationally recognized clinical guidelines and resources)"
+    form: MedicalNeccessaryQuestions
+    parent: 1
 - model: fighthealthinsurance.denialtypes
   pk: 3
   fields:
-    name: Experimental Medical Treatment
-    regex: "(experimental treatment|experimental medical|experimental medication|experimental drugs)"
-    parent: 1
+    name: Prior Authorization Requred
+    regex: "(prior authorization required|prior auth required)"
+    form: PriorAuthQuestions
 - model: fighthealthinsurance.denialtypes
   pk: 4
   fields:
-    name: Not Covered By Plan
-    regex: "(treatment not covered|not covered by plan)"
+    name: Experimental Medical Treatment
+    regex: "(experimental treatment|experimental medical|experimental medication|experimental drugs)"
+    parent: 2
+    form: ExperimentalQuestions
 - model: fighthealthinsurance.denialtypes
   pk: 5
   fields:
-    name: Underpaid Out of Network
-    regex: "(out of network[.\\w\\s+](explanation of benefits|Remittance Advice|this is not a bill))"
+    name: Not Covered By Plan
+    regex: "(treatment not covered|not covered by plan)"
+    form: NotCoveredByQuestions
 - model: fighthealthinsurance.denialtypes
   pk: 6
   fields:
-    name: In-Network Treated as Out of Network
+    name: Underpaid Out of Network
+    regex: "(out of network[.\\w\\s+](explanation of benefits|Remittance Advice|this is not a bill))"
+    form: UnderpaidOutOfNetworkQuestions
 - model: fighthealthinsurance.denialtypes
   pk: 7
   fields:
-    parent: 16
+    name: In-Network Treated as Out of Network
+- model: fighthealthinsurance.denialtypes
+  pk: 8
+  fields:
+    parent: 17
     name: Denied Out-Of-Network Provider
     regex: "(infer-out|GAP exception|There are providers available in your network that can provide the same care.|because there are network providers in your area that can provide this care.)"
 - model: fighthealthinsurance.denialtypes
-  pk: 8
+  pk: 9
   fields:
     name: Limit for filing expired
     regex: "(limit for filing expired|filed after limit)"
 - model: fighthealthinsurance.denialtypes
-  pk: 9
+  pk: 10
   fields:
     name: Pre-Existing Condition
     regex: "(Pre-Existing Condition)"
 - model: fighthealthinsurance.denialtypes
-  pk: 10
+  pk: 11
   fields:
     name: Co-Ordination of Benefits
     regex: "(co-ordination of benefits)"
 - model: fighthealthinsurance.denialtypes
-  pk: 11
+  pk: 12
   fields:
     name: 3rd party liability
     regex: "(third party liability|3rd party liability)"
-- model: fighthealthinsurance.denialtypes
-  pk: 12
-  fields:
-    name: Provider Bill (possible balance billing)
-    regex: "mychart|Please use for payment or correspondence|instamed\\.com|past due|Statement Date|YOUR PAYMENT OPTIONS|deserve to be paid"
+    form: ThirdPartyQuestions
 - model: fighthealthinsurance.denialtypes
   pk: 13
+  fields:
+    name: Provider Bill (possible balance billing)
+    regex: "mychart|Please use for payment or correspondence|instamed\\.com|past due|YOUR PAYMENT OPTIONS|deserve to be paid"
+- model: fighthealthinsurance.denialtypes
+  pk: 14
   fields:
     name: Duplicate Claim
     regex: "Duplicate Claim|claim is a duplicate of"
 - model: fighthealthinsurance.denialtypes
-  pk: 14
+  pk: 15
   fields:
     name: Insufficient Medical Information
     regex: "Missing Claim Information"
 - model: fighthealthinsurance.denialtypes
-  pk: 15
+  pk: 16
   fields:
-    parent: 1
+    parent: 20
     name: Prep denial, medically necessary
     regex: "(PrEP|high risk homosexual behavior)"
     appeal_text: "The ACA requires that PrEP be covered -- https://www.cdc.gov/hiv/basics/prep/paying-for-prep/index.html"
 - model: fighthealthinsurance.denialtypes
-  pk: 16
+  pk: 17
   fields:
     name: Pre-Service
     regex: "(pre-service)"
 - model: fighthealthinsurance.denialtypes
-  pk: 17
+  pk: 18
   fields:
     name: Post-Service
     regex: "(post-service)"
 - model: fighthealthinsurance.denialtypes
-  pk: 18
+  pk: 19
   fields:
     name: STEP Therapy -- have to try cheaper options first
     regex: "(STEP therapy|step 2 drug|step2 drug)"
 - model: fighthealthinsurance.denialtypes
-  pk: 19
+  pk: 20
   fields:
     name: Preventive Care
     appeal_text: "The ACA (and equivalent regulations for many non-ACA plans) requires that many types of preventive care be covered, in many cases without any out of pocket expense. See https://www.healthcare.gov/coverage/preventive-care-benefits/ https://www.kff.org/womens-health-policy/fact-sheet/preventive-services-covered-by-private-health-plans/ ."
+    form: PreventiveCareQuestions

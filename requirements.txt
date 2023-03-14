@@ -42,3 +42,5 @@ kraken[pdf]
 pyarrow
 torchvision
 torch
+transformers[torch]
+packaging>=20.0

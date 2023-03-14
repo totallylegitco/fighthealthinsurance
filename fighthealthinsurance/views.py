@@ -124,26 +124,20 @@ class FindNextSteps(View):
             denial.insurance_company = form.cleaned_data["insurance_company"]
             denial.plan_id = form.cleaned_data["plan_id"]
             denial.claim_id = form.cleaned_data["claim_id"]
-            denial.pre_service = form.cleaned_data["pre_service"]
             if "denial_type_text" in form.cleaned_data:
                 denial.denial_type_text = form.cleaned_data["denial_type_text"]
             denial.denial_type.set(form.cleaned_data["denial_type"])
             denial.state = form.cleaned_data["your_state"]
             denial.save()
             advice = []
-            question_forms = {}
-            medically_necessary = DenialTypes.objects.get(name="Medically Necessary")
-            step_therapy = DenialTypes.objects.get(name="STEP Therapy -- have to try cheaper options first")
-            
+            question_forms = []
             for dt in denial.denial_type.all():
-                if dt.pk == medically_necessary:
-                    question_forms += MedicalNeccessaryQuestions
-                if dt.parent == medically_necessary:
-                    question_forms += MedicalNeccessaryQuestions
-                if dt == step_therapy:
-                    question_forms += StepTherapyQuestions
-#                if dt == provider_bill:
-#                    question_forms += BalanceBillQuestions
+                new_form = dt.get_form()
+                if new_form is not None:
+                    new_form = new_form(
+                        initial = {
+                            'medical_reason': dt.appeal_text})
+                    question_forms.append(new_form)
             print(f"Questions {question_forms}")
             denial_ref_form = DenialRefForm(
                 initial = {
@@ -151,12 +145,13 @@ class FindNextSteps(View):
                     "email": form.cleaned_data['email']
                 }
             )
+            combined = magic_combined_form(question_forms)
             return render(
                 request,
                 'outside_help.html',
                 context={
                     "outside_help_details": outside_help_details,
-                    "forms": question_forms,
+                    "combined": combined,
                     "denial_form": denial_ref_form,
                 })
         else:
@@ -189,27 +184,37 @@ class GenerateAppeal(View):
             if denial.denial_date is not None:
                 denial_date_info = "on or about {denial.denial_date}"
 
-            initial_appeal_text = f"""
-Dear {insurance_company};
-
-My name is $your_name_here and I am writing you regarding claim {claim_id}{denial_date_info}. I believe this claim has been incorrectly processed. I would am requestting an internal appeal."""
-
+            prefaces = []
+            main = []
+            footer = []
             for dt in denial.denial_type.all():
-                if dt.appeal_text is not None:
-                    initial_appeal_text += "\n" + dt.appeal_text
+                form = dt.get_form()
+                if form is not None:
+                    parsed = form(request.POST)
+                    if parsed.is_valid():
+                        print(parsed)
+                        new_prefaces = parsed.preface()
+                        for p in new_prefaces:
+                            if p not in prefaces:
+                                prefaces.append(p)
+                        new_main = parsed.main()
+                        for m in new_main:
+                            if m not in main:
+                                main.append(m)
+                        new_footer = parsed.footer()
+                        for f in new_footer:
+                            if f not in footer:
+                                footer.append(f)
+                else:
+                    if dt.appeal_text is not None:
+                        main += [dt.appeal_text]
+            appeal_text = "\n".join(prefaces + main + footer)
 
-            footer = "Additionally, I request all documents involved in this claim, including but not limited to plan documents, qualifications of individuals involved (both in the decision and in creation of policies), any policies policies, procedures, and any related communications. If you are not the plan administrator, forward this request to the plan administrator (and tell me who is the plan administrator so I may follow up with them)."
-            if not denial.pre_service:
-                footer += "As a post-service claim I believe you have ~60 days to respond."
-            elif not denial.urgent:
-                footer += "As non-urgent pre-service claim I believe you ~30 days to respond."
-            else:
-                footer += "As an urgent pre-service claim you must respond within the timeline required for my medical situation (up to a maximum of four days). This also serves as notice of concurrent request of external review."
             return render(
                 request,
                 'appeal.html',
                 context={
-                    "appeal": initial_appeal_text + footer 
+                    "appeal": appeal_text
                 })
 
 
