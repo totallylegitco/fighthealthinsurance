@@ -24,8 +24,15 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
 
+      - name: Setup node
+        uses: actions/setup-node@v3
+
       - name: Install dependencies
         run: pip install tox tox-gh-actions
+
+      - name: Check npm build
+        run:
+          cd fighthealthinsurance/static/js; npm run build
 
       - name: Run tests
         run: tox

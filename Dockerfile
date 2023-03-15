@@ -5,7 +5,7 @@ FROM python:3.9-buster as base-amd64
 FROM base-${TARGETARCH}
 
 # install nginx
-RUN apt-get update && apt-get install nginx vim emacs libmariadbclient-dev default-libmysqlclient-dev libssl-dev -y
+RUN apt-get update && apt-get install nginx vim emacs libmariadbclient-dev default-libmysqlclient-dev libssl-dev nodejs -y
 COPY /conf/nginx.default /etc/nginx/sites-available/default
 RUN ln -sf /dev/stdout /var/log/nginx/access.log \
     && ln -sf /dev/stderr /var/log/nginx/error.log
@@ -21,6 +21,7 @@ RUN mkdir -p /opt/app/pip_cache
 COPY main /opt/app/main
 COPY static /opt/app/static
 COPY fight-health-insurance /opt/app/fight-health-insurnace
+RUN cd /opt/app/fight-health-insurnace/fighthealthinsurance/static/js; npm run build
 COPY templates /opt/app/templates
 COPY scripts/start-server.sh /opt/app/
 COPY *.py /opt/app/
