@@ -6,4 +6,8 @@ if [ ! -f "cert.pem" ]; then
   fi
   mkcert -cert-file cert.pem -key-file key.pem localhost 127.0.0.1
 fi
+pushd fighthealthinsurance/static/js/
+npm i
+npm run build
+popd
 OAUTHLIB_RELAX_TOKEN_SCOPE=1 python manage.py runserver_plus --cert-file cert.pem --key-file key.pem

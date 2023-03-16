@@ -134,3 +134,6 @@ key.pem
 # test artifacts
 reports/
 /static/
+
+fighthealthinsurance/static/js/node_modules
+fighthealthinsurance/static/js/dist

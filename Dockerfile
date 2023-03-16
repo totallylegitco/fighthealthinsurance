@@ -21,7 +21,7 @@ RUN mkdir -p /opt/app/pip_cache
 COPY main /opt/app/main
 COPY static /opt/app/static
 COPY fight-health-insurance /opt/app/fight-health-insurnace
-RUN cd /opt/app/fight-health-insurnace/fighthealthinsurance/static/js; npm run build
+RUN cd /opt/app/fight-health-insurnace/fighthealthinsurance/static/js; npm i; npm run build
 COPY templates /opt/app/templates
 COPY scripts/start-server.sh /opt/app/
 COPY *.py /opt/app/

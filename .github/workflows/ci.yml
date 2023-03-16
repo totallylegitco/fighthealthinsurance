@@ -32,7 +32,7 @@ jobs:
 
       - name: Check npm build
         run:
-          cd fighthealthinsurance/static/js; npm run build
+          cd fighthealthinsurance/static/js; npm i; npm run build
 
       - name: Run tests
         run: tox
