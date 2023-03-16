@@ -31,16 +31,10 @@ django-compressor
 django-compressor-toolkit
 geopy
 django-regex-field
-argon2-cffi
 python-doctr
 pytesseract
 python-doctr[tf]
 uszipcode
-python-Levenshtein
-uhashring
-kraken[pdf]
 pyarrow
-torchvision
-torch
 transformers[torch]
 packaging>=20.0

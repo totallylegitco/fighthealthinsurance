@@ -15,7 +15,6 @@ from io import BytesIO
 import cv2
 import numpy as np
 import hashlib
-from argon2 import PasswordHasher
 from fighthealthinsurance.forms import *
 from fighthealthinsurance.models import *
 from fighthealthinsurance.process_denial import *
