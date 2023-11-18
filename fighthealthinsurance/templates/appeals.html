@@ -12,6 +12,7 @@ $(document).ready(function() {
     var outputContainer = $('#output-container');
     var resp_buffer = '';
     var appeal_id = 0;
+    var appeals_so_far = [];
 
     let process_chunk = function(chunk) {
  	resp_buffer += chunk;
@@ -29,6 +30,12 @@ $(document).ready(function() {
 		}
 		appeal_id = appeal_id + 1
 		let j = JSON.parse(line);
+		if (appeals_so_far.includes(j)) {
+		    console.log("Already have this one.");
+		    return;
+		} else {
+		    appeals_so_far.push(j);
+		}
 		// Clone the base form template
 		var $clonedForm = $('#base-form').clone().prop(
 		    "id", "magic" + appeal_id);
@@ -43,9 +50,8 @@ $(document).ready(function() {
 		clonedForm.removeAttr('style');  // Remove the "display: none" style
 		// $('#form-container' + appeal_id).html(clonedForm);
 		// Fill in the textarea value from the response
-		// appealTextElem = $("#" + "magic" + appeal_id + " appeal_text");
+		appealTextElem = clonedForm.find("textarea");
 		// WTF javascript why don't you work?
-		appealTextElem = clonedForm.find("appeal_text");
 		form = clonedForm.find("form");
 		form.prop("id", "form_" + appeal_id);
 		console.log("Looking for our friend:");
@@ -57,6 +63,8 @@ $(document).ready(function() {
 		appealTextElem.prop("textContent", j);
 		console.log("Value should now be:");
 		console.log(j);
+		console.log("We have:");
+		console.log(appealTextElem);
 	    })
 	} else {
 	    console.log("Waiting for a full line")
