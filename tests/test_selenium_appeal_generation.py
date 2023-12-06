@@ -51,7 +51,7 @@ class SeleniumTestAppealGeneration(BaseCase, StaticLiveServerTestCase):
         self.open(f"{self.live_server_url}/server_side_ocr")
         self.assert_title("Upload your Health Insurance Denial - Server Side Processing")
         file_input = self.find_element("input#uploader")
-        file_input.send_keys(os.path.join(os.path.dirname(__file__), "sample_ocr_image.png"))
+        file_input.send_keys("/mnt/data/sample_ocr_image.png")
         self.click("button#submit")
         time.sleep(5)  # wait for OCR process to complete
         self.assert_text("known text from the sample image", "div#ocr_result")
