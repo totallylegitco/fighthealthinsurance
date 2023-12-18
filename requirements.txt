@@ -41,5 +41,6 @@ RapidFuzz==2.15.1
 pyOpenSSL
 python-Levenshtein
 django-recaptcha==4.0.0
-easyocr
-opencv-python
+# We either need easyocr + opencv-python OR pytesseract + tesseract
+# easyocr
+# opencv-python
