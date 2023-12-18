@@ -44,3 +44,4 @@ django-recaptcha==4.0.0
 # We either need easyocr + opencv-python OR pytesseract + tesseract
 # easyocr
 # opencv-python
+yaml
