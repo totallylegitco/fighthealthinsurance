@@ -27,6 +27,9 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v3
 
+      - name: Install tesseract ocr
+        run: apt-get install -y tesseract-ocr
+
       - name: Install dependencies
         run: pip install tox tox-gh-actions
 
