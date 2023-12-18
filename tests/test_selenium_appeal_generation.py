@@ -66,11 +66,7 @@ class SeleniumTestAppealGeneration(BaseCase, StaticLiveServerTestCase):
         self.click("button#submit")
         time.sleep(5)  # wait for OCR process to complete
         self.assert_text(
-            """		UnidentifiedImageError
-
-PIL.UnidentifiedImageError: cannot identify image file <_io.BytesIO object at @x7f9129752a70>
-
-	    """,
+            """UnidentifiedImageError""",
             "textarea#denial_text",
         )
 
