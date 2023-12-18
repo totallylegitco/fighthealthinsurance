@@ -24,7 +24,6 @@ from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.views import View
 
-import cv2
 import numpy as np
 import uszipcode
 from fighthealthinsurance.forms import *
