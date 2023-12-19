@@ -328,6 +328,16 @@ class RemoteHealthInsurance(RemoteFullOpenLike):
         super().__init__(self.url, token="", model=self.model)
 
 
+class RemoteTogetherAI(RemoteFullOpenLike):
+    """Use RemotePerplexity for denial magic calls a service"""
+
+    def __init__(self):
+        api_base = "https://api.together.xyz"
+        token = os.getenv("TOGHER_KEY")
+        model = "mistralai/Mixtral-8x7B-Instruct-v0.1"
+        super().__init__(api_base, token, model)
+
+
 class RemotePerplexityInstruct(RemoteFullOpenLike):
     """Use RemotePerplexity for denial magic calls a service"""
 
@@ -473,11 +483,13 @@ class AppealGenerator(object):
         self.biogpt = RemoteBioGPT()
         self.runpod = RemoteRunPod()
         self.health = RemoteHealthInsurance()
+        self.together = RemoteTogetherAI()
 
     def get_procedure_and_diagnosis(self, denial_text=None):
         prompt = self.make_open_procedure_prompt(denial_text)
         models_to_try = [
             self.regex_denial_processor,
+            self.together,
             self.perplexity,
             self.anyscale,
             self.health,
@@ -572,9 +584,10 @@ class AppealGenerator(object):
         calls = [
             [self.remotehealth, open_prompt],
             [self.perplexity, open_prompt],
-            [self.anyscale, open_prompt],
-            [self.anyscale2, open_prompt],
-            [self.runpod, open_prompt],
+            [self.together, open_prompt],
+#            [self.anyscale, open_prompt],
+#            [self.anyscale2, open_prompt],
+#            [self.runpod, open_prompt],
         ]
         # If we need to know the medical reason ask our friendly LLMs
         static_appeal = t.generate_static()
