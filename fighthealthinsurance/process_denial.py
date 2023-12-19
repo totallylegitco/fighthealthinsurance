@@ -581,7 +581,6 @@ class AppealGenerator(object):
             print(f"Infered {infered} for {model} using {prompt}")
             return (t, infered)
 
-
         calls = [
             [self.remotehealth, open_prompt],
             [self.perplexity, open_prompt],
@@ -611,8 +610,8 @@ class AppealGenerator(object):
         def make_calls_async(calls):
             print(f"Calling models: {calls}")
             generated_futures = map(
-                lambda x: executor.submit(get_model_result, *x),
-                calls)
+                lambda x: executor.submit(get_model_result, *x), calls
+            )
 
             def generated_to_appeals_text(k_text):
                 k, text = k_text.result()
