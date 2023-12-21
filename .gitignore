@@ -127,6 +127,7 @@ dmypy.json
 .pyre/
 
 # local stuff
+latest_logs/*
 db.sqlite3
 cert.pem
 key.pem
