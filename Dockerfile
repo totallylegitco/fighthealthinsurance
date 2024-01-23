@@ -16,9 +16,9 @@ RUN pip install mysqlclient
 
 # copy source and install dependencies
 RUN mkdir -p /opt/app
-COPY requirements.txt /opt/app/
+COPY --chown=www-data:www-data requirements.txt /opt/app/
 RUN pip install --upgrade pip && pip install -r /opt/app/requirements.txt
-ADD fighthealthinsurance /opt/app/fighthealthinsurance
+COPY --chown=www-data:www-data fighthealthinsurance /opt/app/fighthealthinsurance
 RUN ln -s /opt/app/fighthealthinsurance/static /opt/app/static
 COPY scripts/start-server.sh /opt/app/
 COPY *.py /opt/app/
