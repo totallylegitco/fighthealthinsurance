@@ -1,6 +1,21 @@
 #!/bin/bash
+
+python -c 'import configurations' 2>&1>/dev/null
+python_dep_check=$?
+
+npm ls 2>&1>/dev/null
+npm_dep_check=$?
+
+if [ ${python_dep_check} != 0 ]; then
+  set +x
+  printf 'Python dependencies may be missing. Please install dependencies via:\n' >/dev/stderr
+  printf 'pip install -r requirements.txt\n' >/dev/stderr
+  exit 1
+fi
+
 set -ex
-package_command=none
+
+package_command=''
 
 if command -v apt-get; then
   package_command="apt-get install -y"
@@ -10,8 +25,7 @@ fi
 
 install_package() {
   package_name=$1
-  echo "${package_name}"
-  if [ ${package_command} == "none" ]; then
+  if [ -z ${package_command} ]; then
     printf 'Can not install %s. Please install it manually.\n' ${package_name} >/dev/stderr
     exit 1
   fi
@@ -26,10 +40,12 @@ if [ ! -f "cert.pem" ]; then
   mkcert -cert-file cert.pem -key-file key.pem localhost 127.0.0.1
 fi
 
-pushd fighthealthinsurance/static/js/
-npm i || echo "Can't install?"
-npm run build
-popd
+if [ ${npm_dep_check} != 0 ]; then
+  pushd fighthealthinsurance/static/js/
+  npm i || echo "Can't install?" >/dev/stderr
+  npm run build
+  popd
+fi
 
 RECAPTCHA_TESTING=true OAUTHLIB_RELAX_TOKEN_SCOPE=1 \
   python manage.py runserver_plus --cert-file cert.pem --key-file key.pem
