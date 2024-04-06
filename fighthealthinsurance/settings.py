@@ -15,9 +15,10 @@ from typing import *
 
 from configurations import Configuration
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "fighthealthinsurance.settings")
+os.environ.setdefault(
+    "DJANGO_SETTINGS_MODULE", "fighthealthinsurance.settings"
+)
 os.environ.setdefault("DJANGO_CONFIGURATION", os.getenv("ENVIRONMENT", "Dev"))
-
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -37,7 +38,7 @@ class Base(Configuration):
     SECRET_KEY = "django-insecure-4b6t3cnic_(g*0cexqe8w)=1&vyb#(erhad#7@y4sv)jzb2kaf"
 
     # SECURITY WARNING: don't run with debug turned on in production!
-    DEBUG = True
+    DEBUG = False
 
     MEDIA_ROOT = "media"
     MEDIA_URL = "/media/"
@@ -50,7 +51,9 @@ class Base(Configuration):
 
     SITE_ID = 1
 
-    TEMPLATE_CONTEXT_PROCESSORS = ["django.template.context_processors.request"]
+    TEMPLATE_CONTEXT_PROCESSORS = [
+        "django.template.context_processors.request"
+    ]
 
     INSTALLED_APPS = [
         "django.contrib.admin",
@@ -114,14 +117,16 @@ class Base(Configuration):
             "BACKEND": "django.template.backends.django.DjangoTemplates",
             "DIRS": [BASE_DIR / "templates"],
             "APP_DIRS": True,
-            "OPTIONS": {
-                "context_processors": [
-                    "django.template.context_processors.debug",
-                    "django.template.context_processors.request",
-                    "django.contrib.auth.context_processors.auth",
-                    "django.contrib.messages.context_processors.messages",
-                ],
-            },
+            "OPTIONS":
+                {
+                    "context_processors":
+                        [
+                            "django.template.context_processors.debug",
+                            "django.template.context_processors.request",
+                            "django.contrib.auth.context_processors.auth",
+                            "django.contrib.messages.context_processors.messages",
+                        ],
+                },
         },
     ]
 
@@ -131,10 +136,11 @@ class Base(Configuration):
     # https://docs.djangoproject.com/en/4.0/ref/settings/#databases
 
     DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
+        "default":
+            {
+                "ENGINE": "django.db.backends.sqlite3",
+                "NAME": BASE_DIR / "db.sqlite3",
+            }
     }
 
     # Password validation
@@ -142,16 +148,20 @@ class Base(Configuration):
 
     AUTH_PASSWORD_VALIDATORS = [
         {
-            "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+            "NAME":
+                "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
         },
         {
-            "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+            "NAME":
+                "django.contrib.auth.password_validation.MinimumLengthValidator",
         },
         {
-            "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
+            "NAME":
+                "django.contrib.auth.password_validation.CommonPasswordValidator",
         },
         {
-            "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+            "NAME":
+                "django.contrib.auth.password_validation.NumericPasswordValidator",
         },
     ]
 
@@ -204,14 +214,17 @@ class Dev(Base):
     EMAIL_FILE_PATH = os.path.join(BASE_DIR, "sent_emails")
 
     DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
+        "default":
+            {
+                "ENGINE": "django.db.backends.sqlite3",
+                "NAME": BASE_DIR / "db.sqlite3",
+            }
     }
 
 
 class Prod(Base):
+    DEBUG = False
+
     @property
     def SECRET_KEY(self):
         return os.getenv("SECRET_KEY")
@@ -224,14 +237,15 @@ class Prod(Base):
     def DATABASES(self):
         engine = "django.db.backends.mysql"
         return {
-            "default": {
-                "ENGINE": engine,
-                "NAME": os.getenv("DBNAME"),
-                "USER": os.getenv("DBUSER"),
-                "PASSWORD": os.getenv("DBPASSWORD"),
-                "HOST": os.getenv("DBHOST"),
-                "ATOMIC_REQUESTS": True,
-            }
+            "default":
+                {
+                    "ENGINE": engine,
+                    "NAME": os.getenv("DBNAME"),
+                    "USER": os.getenv("DBUSER"),
+                    "PASSWORD": os.getenv("DBPASSWORD"),
+                    "HOST": os.getenv("DBHOST"),
+                    "ATOMIC_REQUESTS": True,
+                }
         }
 
     EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
