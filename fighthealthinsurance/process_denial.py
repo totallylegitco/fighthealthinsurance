@@ -597,6 +597,7 @@ class AppealGenerator(object):
             # Otherwise just put in as is.
             initial_appeals.append(static_appeal)
         for reason in medical_reasons:
+            print(f"Using reason {reason}")
             appeal = template_generator.generate(reason)
             initial_appeals.append(appeal)
 
