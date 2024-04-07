@@ -79,8 +79,6 @@ class ProcessDenialCodes(DenialBase):
             diag = i.group(1)
             tag = icd10.find(diag)
             if tag is not None:
-                print(tag)
-                print(tag.block_description)
                 if re.search("preventive", tag.block_description, re.IGNORECASE):
                     return [self.preventive_denial]
                 if diag in self.preventive_diagnosis:
@@ -88,7 +86,6 @@ class ProcessDenialCodes(DenialBase):
         cpt_codes = self.cpt_code_re.finditer(text)
         for i in cpt_codes:
             code = i.group(1)
-            print(code)
             if code in self.preventive_codes:
                 return [self.preventive_denial]
         return []
@@ -133,7 +130,6 @@ class PalmAPI(RemoteModel):
         if API_KEY is None:
             return None
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={API_KEY}"
-        print(f"Looking up model {self} w/prompt {prompt}")
         try:
             import requests
 
@@ -143,7 +139,6 @@ class PalmAPI(RemoteModel):
             candidates = json_result["candidates"]
             return candidates[0]["content"]["parts"][0]["text"]
         except Exception as e:
-            print(f"Error exception: {e} from {self} w/PaLM")
             return None
 
 
@@ -456,7 +451,6 @@ class AppealTemplateGenerator(object):
         if "{medical_reason}" not in self.combined and self.combined != "":
             return self.combined
         else:
-            print("Nope :(")
             return None
 
     def generate(self, medical_reason):
@@ -465,7 +459,6 @@ class AppealTemplateGenerator(object):
         if result != "":
             return result
         else:
-            print(f"Nope :(")
             return None
 
 
