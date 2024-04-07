@@ -288,6 +288,9 @@ class ChooseAppeal(View):
                     "denial_id": denial_id,
                 },
             )
+        else:
+            print(form)
+            return None
 
 
 class GenerateAppeal(View):
