@@ -370,9 +370,13 @@ class AppealsBackend(View):
                     if parsed.is_valid():
                         print(parsed.cleaned_data)
                         print(request.POST)
-                        if ("medical_reason" in parsed.cleaned_data and
-                            parsed.cleaned_data["medical_reason"] != ""):
-                            medical_reasons.append(parsed.cleaned_data["medical_reason"])
+                        if (
+                            "medical_reason" in parsed.cleaned_data
+                            and parsed.cleaned_data["medical_reason"] != ""
+                        ):
+                            medical_reasons.append(
+                                parsed.cleaned_data["medical_reason"]
+                            )
                             print(f"Med reason {medical_reasons}")
 
                         new_prefaces = parsed.preface()
@@ -396,7 +400,7 @@ class AppealsBackend(View):
                 appealGenerator.make_appeals(
                     denial,
                     AppealTemplateGenerator(prefaces, main, footer),
-                    medical_reasons = medical_reasons
+                    medical_reasons=medical_reasons,
                 ),
             )
 
