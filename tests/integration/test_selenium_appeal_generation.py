@@ -56,11 +56,13 @@ class SeleniumTestAppealGeneration(BaseCase, StaticLiveServerTestCase):
         path_to_image = None
         try:
             pathname = os.path.dirname(os.path.realpath(__file__))
-            path_to_image = os.path.join(pathname, "sample_ocr_image.png")
+            path_to_image = os.path.join(
+                pathname, "../assets/sample_ocr_image.png"
+            )
         except:
             pathname = os.path.dirname(sys.argv[0])
             path_to_image = os.path.join(
-                pathname, "../../../tests/sample_ocr_image.png"
+                pathname, "../../../../tests/assets/sample_ocr_image.png"
             )
         file_input.send_keys(path_to_image)
         self.click("button#submit")
@@ -94,7 +96,9 @@ Cheap-O-Insurance-Corp""",
             "Categorize your denial (so we can generate the right kind of appeal)"
         )
         self.click("input#submit_cat")
-        self.assert_title("Updating denial with your feedback & checking for resources")
+        self.assert_title(
+            "Updating denial with your feedback & checking for resources"
+        )
 
     def test_submit_an_appeal_with_enough_then_delete(self):
         email = "farts@farts.com"
@@ -121,7 +125,9 @@ Cheap-O-Insurance-Corp""",
             "Categorize your denial (so we can generate the right kind of appeal)"
         )
         self.click("input#submit_cat")
-        self.assert_title("Updating denial with your feedback & checking for resources")
+        self.assert_title(
+            "Updating denial with your feedback & checking for resources"
+        )
         # Assert we have some data
         hashed_email = hashlib.sha512(email.encode("utf-8")).hexdigest()
         denials_for_user_count = Denial.objects.filter(
