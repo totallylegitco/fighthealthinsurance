@@ -148,7 +148,7 @@ class Denial(models.Model):
     @staticmethod
     def get_hashed_email(email):
         encoded_email = email.encode("utf-8")
-        return hashlib.sha512(encoded_email)
+        return hashlib.sha512(encoded_email).hexdigest()
 
 
 class ProposedAppeal(models.Model):

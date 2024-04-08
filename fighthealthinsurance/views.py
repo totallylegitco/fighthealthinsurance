@@ -480,6 +480,7 @@ class ProcessView(generic.FormView):
             denial_text=denial_text,
             hashed_email=hashed_email,
         )
+        denial.save()
 
         denial_types = self.regex_denial_processor.get_denialtype(denial_text)
         denial_type = []
@@ -493,7 +494,8 @@ class ProcessView(generic.FormView):
         state = None
         zip_code = form.cleaned_data["zip"]
         if zip_code is not None and zip_code != "":
-            state = self.zip_engine.by_zip_code(form.cleaned_data["zip"]).state
+            print(f"Zip '{zip_code}'")
+            state = self.zip_engine.by_zipcode(form.cleaned_data["zip"]).state
         (procedure, diagnosis) = appealGenerator.get_procedure_and_diagnosis(
             denial_text
         )
