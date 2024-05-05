@@ -308,7 +308,7 @@ class GenerateAppeal(View):
                 context={
                     "form_context": json.dumps(elems),
                     "user_email": form.cleaned_data["email"],
-                    "denial_id": form.cleaned_data["denial_id"]
+                    "denial_id": form.cleaned_data["denial_id"],
                 },
             )
         else:
