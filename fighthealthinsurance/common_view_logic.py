@@ -6,12 +6,13 @@ from fighthealthinsurance.generate_appeal import *
 from dataclasses import dataclass
 
 
-class RemoveDataHelper():
+class RemoveDataHelper:
     @classmethod
     def remove_data_for_email(cls, email: str):
         hashed_email = Denial.get_hashed_email(email)
         denials = Denial.objects.filter(hashed_email=hashed_email).delete()
         FollowUpSched.objects.filter(email=email).delete()
+
 
 states_with_caps = {
     "AR",
@@ -55,9 +56,25 @@ class NextStepInfo:
     outside_help_details: list[str]
     combined_form: Form
 
-class FindNextStepsHelper():
+
+class FindNextStepsHelper:
     @classmethod
-    def find_next_steps(cls, denial_id: str, email: str, procedure: str, diagnosis: str, insurance_company, plan_id, claim_id, denial_type, your_state, denial_date, captcha=None, denial_type_text=None, plan_source=None) -> (list[str], Form):
+    def find_next_steps(
+        cls,
+        denial_id: str,
+        email: str,
+        procedure: str,
+        diagnosis: str,
+        insurance_company,
+        plan_id,
+        claim_id,
+        denial_type,
+        your_state,
+        denial_date,
+        captcha=None,
+        denial_type_text=None,
+        plan_source=None,
+    ) -> (list[str], Form):
         hashed_email = Denial.get_hashed_email(email)
         # Update the denial
         denial = Denial.objects.filter(
@@ -75,7 +92,7 @@ class FindNextStepsHelper():
 
         outside_help_details = []
         state = your_state
-        
+
         if state in states_with_caps:
             outside_help_details.append(
                 (
@@ -118,4 +135,3 @@ class FindNextStepsHelper():
                 question_forms.append(new_form)
         combined_form = magic_combined_form(question_forms)
         return NextStepInfo(outside_help_details, combined_form)
-    

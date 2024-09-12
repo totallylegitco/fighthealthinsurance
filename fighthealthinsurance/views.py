@@ -159,6 +159,7 @@ class RecommendAppeal(View):
     def post(self, request):
         return render(request, "")
 
+
 class FindNextSteps(View):
     def post(self, request):
         form = PostInferedForm(request.POST)
@@ -166,8 +167,7 @@ class FindNextSteps(View):
             denial_id = form.cleaned_data["denial_id"]
             email = form.cleaned_data["email"]
 
-            next_step_info = FindNextStepsHelper.find_next_steps(
-                **form.cleaned_data)
+            next_step_info = FindNextStepsHelper.find_next_steps(**form.cleaned_data)
             denial_ref_form = DenialRefForm(
                 initial={
                     "denial_id": denial_id,
