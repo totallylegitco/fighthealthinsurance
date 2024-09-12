@@ -1,9 +1,14 @@
 from django.forms import Form
+from django.core.validators import validate_email
 
 from fighthealthinsurance.forms import *
 from fighthealthinsurance.models import *
 from fighthealthinsurance.generate_appeal import *
 from dataclasses import dataclass
+
+import uszipcode
+
+appealGenerator = AppealGenerator()
 
 
 class RemoveDataHelper:
@@ -55,6 +60,7 @@ states_with_caps = {
 class NextStepInfo:
     outside_help_details: list[str]
     combined_form: Form
+    semi_sekret: str
 
 
 class FindNextStepsHelper:
@@ -71,6 +77,7 @@ class FindNextStepsHelper:
         denial_type,
         your_state,
         denial_date,
+        semi_sekret,
         captcha=None,
         denial_type_text=None,
         plan_source=None,
@@ -81,6 +88,7 @@ class FindNextStepsHelper:
             denial_id=denial_id,
             # Include the hashed e-mail so folks can't brute force denial_id
             hashed_email=hashed_email,
+            semi_sekret=semi_sekret,
         ).get()
         denial.denial_date = denial_date
 
@@ -134,4 +142,77 @@ class FindNextStepsHelper:
                 new_form = new_form(initial={"medical_reason": dt.appeal_text})
                 question_forms.append(new_form)
         combined_form = magic_combined_form(question_forms)
-        return NextStepInfo(outside_help_details, combined_form)
+        return NextStepInfo(outside_help_details, combined_form, semi_sekret)
+
+
+@dataclass
+class DenialResponseInfo:
+    denial_type: list[any]
+    denial_id: str
+    your_state: str
+    procedure: str
+    diagnosis: str
+    semi_sekret: str
+
+
+class DenialCreatorHelper:
+    regex_denial_processor = ProcessDenialRegex()
+    codes_denial_processor = ProcessDenialCodes()
+    regex_src = DataSource.objects.get(name="regex")
+    codes_src = DataSource.objects.get(name="codes")
+    zip_engine = uszipcode.search.SearchEngine()
+
+    @classmethod
+    def create_denial(
+        cls,
+        email,
+        denial_text,
+        zip,
+        pii=False,
+        tos=False,
+        privacy=False,
+        use_external_models=False,
+        store_raw_email=False,
+    ):
+        hashed_email = Denial.get_hashed_email(email)
+        # If they ask us to store their raw e-mail we do
+        possible_email = None
+        validate_email(email)
+        if store_raw_email:
+            possible_email = email
+
+        denial = Denial.objects.create(
+            denial_text=denial_text,
+            hashed_email=hashed_email,
+            use_external=use_external_models,
+            raw_email=possible_email,
+        )
+
+        # Try and guess at the denial types
+        denial_types = cls.regex_denial_processor.get_denialtype(denial_text)
+        denial_type = []
+        for dt in denial_types:
+            DenialTypesRelation(denial=denial, denial_type=dt, src=cls.regex_src).save()
+            denial_type.append(dt)
+
+        # Guess at the plan type
+        plan_type = cls.codes_denial_processor.get_plan_type(denial_text)
+        # Infer the state
+        your_state = None
+        if zip is not None and zip != "":
+            try:
+                your_state = cls.zip_engine.by_zipcode(zip).state
+            except:
+                # Default to no state
+                your_state = None
+        (procedure, diagnosis) = appealGenerator.get_procedure_and_diagnosis(
+            denial_text
+        )
+        return DenialResponseInfo(
+            denial_type,
+            denial.denial_id,
+            your_state,
+            procedure,
+            diagnosis,
+            denial.semi_sekret,
+        )

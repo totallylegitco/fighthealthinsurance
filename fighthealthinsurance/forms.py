@@ -36,9 +36,10 @@ class DenialForm(forms.Form):
 class DenialRefForm(forms.Form):
     denial_id = forms.IntegerField(required=True, widget=forms.HiddenInput())
     email = forms.CharField(required=True, widget=forms.HiddenInput())
+    semi_sekret = forms.CharField(required=True, widget=forms.HiddenInput())
 
 
-class PostInferedForm(forms.Form):
+class PostInferedForm(DenialRefForm):
     # Send denial id and e-mail back that way people can't just change the ID
     # and get someone elses denial.
     denial_id = forms.IntegerField(required=True, widget=forms.HiddenInput())

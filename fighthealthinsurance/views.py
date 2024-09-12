@@ -12,8 +12,6 @@ import itertools
 
 from asgiref.sync import async_to_sync
 import json
-
-from django.core.validators import validate_email
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
@@ -172,6 +170,7 @@ class FindNextSteps(View):
                 initial={
                     "denial_id": denial_id,
                     "email": email,
+                    "semi_sekret": next_step_info.semi_sekret,
                 }
             )
             return render(
@@ -243,6 +242,7 @@ class GenerateAppeal(View):
                     "form_context": json.dumps(elems),
                     "user_email": form.cleaned_data["email"],
                     "denial_id": form.cleaned_data["denial_id"],
+                    "semi_sekret": form.cleaned_data["semi_sekret"],
                 },
             )
         else:
@@ -459,61 +459,21 @@ class ProcessView(generic.FormView):
         }
         return context
 
-    def __init__(self, *args, **kwargs):
-        self.regex_denial_processor = ProcessDenialRegex()
-        self.codes_denial_processor = ProcessDenialCodes()
-        self.regex_src = DataSource.objects.get(name="regex")
-        self.codes_src = DataSource.objects.get(name="codes")
-        self.zip_engine = uszipcode.search.SearchEngine()
-
     def form_valid(self, form):
         # It's not a password per-se but we want password like hashing.
         # but we don't support changing the values.
-        email = form.cleaned_data["email"]
-        validate_email(email)
-        hashed_email = Denial.get_hashed_email(email)
-        denial_text = form.cleaned_data["denial_text"]
-        # If they ask us to store their raw e-mail we do
-        possible_email = None
-        if form.cleaned_data["store_raw_email"]:
-            possible_email = email
 
-        denial = Denial.objects.create(
-            denial_text=denial_text,
-            hashed_email=hashed_email,
-            use_external=form.cleaned_data["use_external_models"],
-            raw_email=possible_email,
-        )
-
-        denial_types = self.regex_denial_processor.get_denialtype(denial_text)
-        denial_type = []
-        for dt in denial_types:
-            DenialTypesRelation(
-                denial=denial, denial_type=dt, src=self.regex_src
-            ).save()
-            denial_type.append(dt)
-
-        plan_type = self.codes_denial_processor.get_plan_type(denial_text)
-        state = None
-        zip_code = form.cleaned_data["zip"]
-        if zip_code is not None and zip_code != "":
-            try:
-                state = self.zip_engine.by_zipcode(form.cleaned_data["zip"]).state
-            except:
-                # Default to no state
-                state = None
-        (procedure, diagnosis) = appealGenerator.get_procedure_and_diagnosis(
-            denial_text
-        )
+        denial_response = DenialCreatorHelper.create_denial(**form.cleaned_data)
 
         form = PostInferedForm(
             initial={
-                "denial_type": denial_type,
-                "denial_id": denial.denial_id,
-                "email": email,
-                "your_state": state,
-                "procedure": procedure,
-                "diagnosis": diagnosis,
+                "denial_type": denial_response.denial_type,
+                "denial_id": denial_response.denial_id,
+                "email": form.cleaned_data["email"],
+                "your_state": denial_response.your_state,
+                "procedure": denial_response.procedure,
+                "diagnosis": denial_response.diagnosis,
+                "semi_sekret": denial_response.semi_sekret,
             }
         )
 
