@@ -62,6 +62,37 @@ class NextStepInfo:
     combined_form: Form
     semi_sekret: str
 
+    def convert_to_serializable(self):
+        return NextStepInfoSerializable(
+            outside_help_details,
+            map(self._field_to_dict, self.combined_form.items()),
+            semi_sekret,
+        )
+
+    def _field_to_dict(self, field_name, field):
+        label = field.label
+        visible = not field.hidden_widget
+        required = field.required
+        help_text = field.help_text
+        initial = field.initial
+        field_type = field.__class__.__name__
+        return {
+            "field_name": field_type,
+            "label": label,
+            "visible": visble,
+            "required": required,
+            "help_text": help_text,
+            "initial": initial,
+            "type": field_type,
+        }
+
+
+@dataclass
+class NextStepInfoSerializable:
+    outside_help_details: list[str]
+    combined_form: list[any]
+    semi_sekret: str
+
 
 class FindNextStepsHelper:
     @classmethod
@@ -147,7 +178,8 @@ class FindNextStepsHelper:
 
 @dataclass
 class DenialResponseInfo:
-    denial_type: list[any]
+    selected_denial_type: list[DenialTypes]
+    all_denial_types: list[DenialTypes]
     denial_id: str
     your_state: str
     procedure: str
@@ -161,6 +193,7 @@ class DenialCreatorHelper:
     regex_src = DataSource.objects.get(name="regex")
     codes_src = DataSource.objects.get(name="codes")
     zip_engine = uszipcode.search.SearchEngine()
+    all_denial_types = DenialTypes.objects.all()
 
     @classmethod
     def create_denial(
@@ -210,6 +243,7 @@ class DenialCreatorHelper:
         )
         return DenialResponseInfo(
             denial_type,
+            cls.all_denial_types,
             denial.denial_id,
             your_state,
             procedure,

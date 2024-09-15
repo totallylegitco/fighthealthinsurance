@@ -53,4 +53,5 @@ mypy
 flake8-django
 djangorestframework
 django-filter
-
+# django-rest-framework-braces
+totallylegit-django-rest-framework-braces
