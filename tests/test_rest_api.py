@@ -60,7 +60,6 @@ class DenialCreator(APITestCase):
             ),
             content_type="application/json",
         )
-        assert response == "farts"
         self.assertTrue(status.is_success(response.status_code))
         # Make sure we did that
         denials_for_user_count = Denial.objects.filter(
