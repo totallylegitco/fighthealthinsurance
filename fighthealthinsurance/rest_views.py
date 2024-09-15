@@ -10,11 +10,39 @@ from fighthealthinsurance.rest_serializers import *
 class RemoveData(APIView):
     def delete(self, request):
         pythondata = json.loads(request.body)
-        # in below line convert python data to complex data type :- de-serialization
-        serializer=DeleteDataSerializer(data=pythondata) 
+        # Make sure we got what we expected
+        serializer = DeleteDataFormSerializer(data=pythondata)
         if serializer.is_valid():
             email = serializer.validated_data["email"]
             RemoveDataHelper.remove_data_for_email(email)
             return Response(status=status.HTTP_204_NO_CONTENT)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class FindNextSteps(APIView):
+    def post(self, request):
+        pythondata = json.loads(request.body)
+        # Make sure we got what we expected
+        serializer = PostInferedFormSerializer(data=pythondata)
+        if serializer.is_valid():
+            next_step_info = FindNextStepsHelper.find_next_steps(
+                **serializer.validated_data
+            )
+            return Response(NextStepSerializer(next_step_info).data)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DenialCreator(APIView):
+    def post(self, request):
+        pythondata = json.loads(request.body)
+        # Make sure we got what we expected
+        serializer = DenialFormSerializer(data=pythondata)
+        if serializer.is_valid():
+            denial_response = DenialCreatorHelper.create_denial(
+                **serializer.validated_data
+            )
+            return Response(DenialResponseInfoSerializer(denial_response).data)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

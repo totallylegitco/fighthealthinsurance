@@ -8,6 +8,7 @@ import json
 from fighthealthinsurance.forms import *
 from fighthealthinsurance.models import DenialTypes
 
+
 # Common
 class StringListField(serializers.ListField):
     child = serializers.CharField()
@@ -30,33 +31,41 @@ class DenialTypesSerializer(serializers.ModelSerializer):
         fields = ["id", "name"]
 
 
+class DenialTypesListField(serializers.ListField):
+    child = DenialTypesSerializer()
+
+
 class DenialResponseInfoSerializer(serializers.Serializer):
-    selected_denial_type = DenialTypesSerializer()
-    all_denial_types = DenialTypesSerializer()
+    selected_denial_type = DenialTypesListField()
+    all_denial_types = DenialTypesListField()
     denial_id = serializers.CharField()
     your_state = serializers.CharField()
     procedure = serializers.CharField()
     diagnosis = serializers.CharField()
     semi_sekret = serializers.CharField()
 
+
 # Forms
-class DeleteDataSerializer(FormSerializer):
+class DeleteDataFormSerializer(FormSerializer):
     class Meta(object):
         form = DeleteDataForm
 
 
-class ShareAppealSerializer(FormSerializer):
+class ShareAppealFormSerializer(FormSerializer):
     class Meta(object):
         form = ShareAppealForm
 
-class ChooseAppealSerializer(FormSerializer):
+
+class ChooseAppealFormSerializer(FormSerializer):
     class Meta(object):
         form = ChooseAppealForm
+
 
 class DenialFormSerializer(FormSerializer):
     class Meta(object):
         form = DenialForm
 
-class PostInferedSerializer(FormSerializer):
+
+class PostInferedFormSerializer(FormSerializer):
     class Meta(object):
         form = PostInferedForm
