@@ -22,7 +22,7 @@ from fighthealthinsurance import views
 from fighthealthinsurance.rest_urls import rest_urls
 
 urlpatterns = [
-    path("ziggy/rest/", include(rest_urls, namespace="rest")),
+    path("ziggy/rest/", include(rest_urls)),
     path("timbit/admin/", admin.site.urls),
     path("error", views.ErrorView.as_view()),
     path("scan", views.ProcessView.as_view(), name="scan"),

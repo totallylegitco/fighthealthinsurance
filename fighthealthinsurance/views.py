@@ -467,7 +467,7 @@ class ProcessView(generic.FormView):
 
         form = PostInferedForm(
             initial={
-                "denial_type": denial_response.denial_type,
+                "denial_type": denial_response.selected_denial_type,
                 "denial_id": denial_response.denial_id,
                 "email": form.cleaned_data["email"],
                 "your_state": denial_response.your_state,
