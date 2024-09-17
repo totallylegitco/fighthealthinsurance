@@ -51,3 +51,10 @@ class DenialCreator(APIView):
             return Response(DenialResponseInfoSerializer(denial_response).data)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class AppealsBackend(APIView):
+    """Streaming back the appeals as json :D"""
+
+    def post(self, request):
+        pythondata = json.loads(request.body)
+        return AppealsBackendHelper.generate_appeals(pythondata)

@@ -84,7 +84,8 @@ class DenialEndToEnd(APITestCase):
                     "email": email,
                     "semi_sekret": semi_sekret,
                     "denial_id": denial_id,
-                    "denial_type": [1, 2]
+                    "denial_type": [1, 2],
+                    "diagnosis": "high risk homosexual behaviour",
                 }
             ),
             content_type="application/json",
@@ -102,3 +103,23 @@ class DenialEndToEnd(APITestCase):
             "initial",
             "type"
         ]
+        # Now we need to poke at the appeal creator
+        appeals_gen_url = reverse("api_appeals_json_backend")
+        appeals_gen_response = self.client.post(
+            appeals_gen_url,
+            json.dumps(
+                {
+                    "email": email,
+                    "semi_sekret": semi_sekret,
+                    "medical_reason": "preventive",
+                    "age": "30",
+                    "in_network": True,
+                    "denial_id": denial_id,
+                }
+            ),
+            content_type="application/json",
+        )
+        # It's a streaming response
+        text = b''.join(appeals_gen_response.streaming_content)
+        appeals = json.loads(text)
+        assert appeals.startswith("Dear")

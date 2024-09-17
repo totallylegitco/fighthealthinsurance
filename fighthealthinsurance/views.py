@@ -2,7 +2,6 @@ import asyncio
 import concurrent
 import os
 from io import BytesIO
-from string import Template
 from typing import *
 from django.conf import settings
 
@@ -17,7 +16,6 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib.staticfiles import finders
 from django.contrib.staticfiles.storage import staticfiles_storage
-from django.http import StreamingHttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.decorators import method_decorator
@@ -253,142 +251,21 @@ class GenerateAppeal(View):
 class AppealsBackend(View):
     """Streaming back the appeals as json :D"""
 
-    def __init__(self):
-        self.regex_denial_processor = ProcessDenialRegex()
-
     def post(self, request):
         print(request)
         print(request.POST)
-        form = DenialRefForm(request.POST)
-        return self.handle_for_form(request, form)
+        if form.is_valid():
+            return AppealsBackendHelper.generate_appeals(request.POST)
+        else:
+            print(f"Error processing {form}")
+
 
     def get(self, request):
         form = DenialRefForm(request.GET)
-        return self.handle_for_form(request, form)
-
-    def handle_for_form(self, request, form):
         if form.is_valid():
-            denial_id = form.cleaned_data["denial_id"]
-            hashed_email = Denial.get_hashed_email(form.cleaned_data["email"])
-
-            # Get the current info
-            denial = Denial.objects.filter(
-                denial_id=denial_id, hashed_email=hashed_email
-            ).get()
-
-            non_ai_appeals = list(
-                map(
-                    lambda t: t.appeal_text,
-                    self.regex_denial_processor.get_appeal_templates(
-                        denial.denial_text, denial.diagnosis
-                    ),
-                )
-            )
-
-            insurance_company = denial.insurance_company or "insurance company;"
-            claim_id = denial.claim_id or "YOURCLAIMIDGOESHERE"
-            prefaces = []
-            main = []
-            footer = []
-            medical_reasons = []
-            medical_context = ""
-            # Extract any medical context AND
-            # Apply all of our 'expert system'
-            # (aka six regexes in a trench coat hiding behind a database).
-            for dt in denial.denial_type.all():
-                form = dt.get_form()
-                if form is not None:
-                    parsed = form(request.POST)
-                    if parsed.is_valid():
-                        # Check and see if the form has a context method
-                        op = getattr(parsed, "medical_context", None)
-                        if op is not None and callable(op):
-                            try:
-                                medical_context += parsed.medical_context()
-                            except Exception as e:
-                                print(
-                                    f"Error {e} processing form {form} for medical context"
-                                )
-                        print(parsed.cleaned_data)
-                        print(request.POST)
-                        if (
-                            "medical_reason" in parsed.cleaned_data
-                            and parsed.cleaned_data["medical_reason"] != ""
-                        ):
-                            medical_reasons.append(
-                                parsed.cleaned_data["medical_reason"]
-                            )
-                            print(f"Med reason {medical_reasons}")
-
-                        new_prefaces = parsed.preface()
-                        for p in new_prefaces:
-                            if p not in prefaces:
-                                prefaces.append(p)
-                        new_main = parsed.main()
-                        for m in new_main:
-                            if m not in main:
-                                main.append(m)
-                        new_footer = parsed.footer()
-                        for f in new_footer:
-                            if f not in footer:
-                                footer.append(f)
-                else:
-                    if dt.appeal_text is not None:
-                        main.append(dt.appeal_text)
-
-            # Add the context to the denial
-            denial.qa_context = medical_context
-            denial.save()
-            appeals = itertools.chain(
-                non_ai_appeals,
-                appealGenerator.make_appeals(
-                    denial,
-                    AppealTemplateGenerator(prefaces, main, footer),
-                    medical_context=medical_context,
-                    medical_reasons=medical_reasons,
-                ),
-            )
-
-            def save_appeal(appeal_text):
-                # Save all of the proposed appeals, so we can use RL later.
-                t = time.time()
-                print(f"{t}: Saving {appeal_text}")
-                pa = ProposedAppeal(appeal_text=appeal_text, for_denial=denial)
-                pa.save()
-                return appeal_text
-
-            def sub_in_appeals(appeal: str) -> str:
-                print(f"Processing {appeal}")
-                s = Template(appeal)
-                ret = s.safe_substitute(
-                    {
-                        "insurance_company": denial.insurance_company
-                        or "{insurance_company}",
-                        "[Insurance Company Name]": denial.insurance_company
-                        or "{insurance_company}",
-                        "[Insert Date]": denial.date or "{date}",
-                        "[Reference Number from Denial Letter]": denial.claim_id
-                        or "{claim_id}",
-                        "[Claim ID]": denial.claim_id or "{claim_id}",
-                        "{claim_id}": denial.claim_id or "{claim_id}",
-                        "[Diagnosis]": denial.diagnosis or "{diagnosis}",
-                        "[Procedure]": denial.procedure or "{procedure}",
-                        "{diagnosis}": denial.diagnosis or "{diagnosis}",
-                        "{procedure}": denial.procedure or "{procedure}",
-                    }
-                )
-                return ret
-
-            filtered_appeals = filter(lambda x: x != None, appeals)
-            saved_appeals = map(save_appeal, filtered_appeals)
-            subbed_appeals = map(sub_in_appeals, saved_appeals)
-            subbed_appeals_json = map(lambda e: json.dumps(e) + "\n", subbed_appeals)
-            return StreamingHttpResponse(
-                subbed_appeals_json, content_type="application/json"
-            )
+            return AppealsBackendHelper.generate_appeals(request.GET)
         else:
-            print(f"form {combined_form} is not valid")
-
+            print(f"Error processing {form}")
 
 class OCRView(View):
     def __init__(self):
