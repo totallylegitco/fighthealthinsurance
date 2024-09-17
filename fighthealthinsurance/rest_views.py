@@ -26,10 +26,15 @@ class FindNextSteps(APIView):
         # Make sure we got what we expected
         serializer = PostInferedFormSerializer(data=pythondata)
         if serializer.is_valid():
+            print(f"Got {serializer}")
             next_step_info = FindNextStepsHelper.find_next_steps(
                 **serializer.validated_data
             )
-            return Response(NextStepSerializer(next_step_info).data)
+            return Response(
+                NextStepInfoSerizableSerializer(
+                    next_step_info.convert_to_serializable()
+                ).data
+            )
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

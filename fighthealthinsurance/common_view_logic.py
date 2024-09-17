@@ -63,10 +63,13 @@ class NextStepInfo:
     semi_sekret: str
 
     def convert_to_serializable(self):
+        print(
+            f"Preparing to convert {self.outside_help_details} {self.combined_form} and {self.semi_sekret}"
+        )
         return NextStepInfoSerializable(
-            outside_help_details,
-            map(self._field_to_dict, self.combined_form.items()),
-            semi_sekret,
+            self.outside_help_details,
+            map(lambda xy: self._field_to_dict(*xy), self.combined_form.fields.items()),
+            self.semi_sekret,
         )
 
     def _field_to_dict(self, field_name, field):
@@ -76,15 +79,19 @@ class NextStepInfo:
         help_text = field.help_text
         initial = field.initial
         field_type = field.__class__.__name__
-        return {
-            "field_name": field_type,
+        r = {
+            "name": field_name,
+            "field_type": field_type,
             "label": label,
-            "visible": visble,
+            "visible": visible,
             "required": required,
             "help_text": help_text,
             "initial": initial,
             "type": field_type,
         }
+        if hasattr(field, "choices"):
+            r["choices"] = field.choices
+        return r
 
 
 @dataclass
@@ -173,6 +180,7 @@ class FindNextStepsHelper:
                 new_form = new_form(initial={"medical_reason": dt.appeal_text})
                 question_forms.append(new_form)
         combined_form = magic_combined_form(question_forms)
+        print(f"Form is {combined_form} from {question_forms}")
         return NextStepInfo(outside_help_details, combined_form, semi_sekret)
 
 

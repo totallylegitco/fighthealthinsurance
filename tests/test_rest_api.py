@@ -37,7 +37,7 @@ class Delete(APITestCase):
         assert denials_for_user_count == 0
 
 
-class DenialCreator(APITestCase):
+class DenialEndToEnd(APITestCase):
     def test_url_root(self):
         url = reverse("api_denialcreator")
         email = "timbit@fighthealthinsurance.com"
@@ -61,8 +61,23 @@ class DenialCreator(APITestCase):
             content_type="application/json",
         )
         self.assertTrue(status.is_success(response.status_code))
-        # Make sure we did that
+        parsed = response.json()
+        denial_id = parsed["denial_id"]
+        semi_sekret = parsed["semi_sekret"]
+        # Make sure we added a denial for this user
         denials_for_user_count = Denial.objects.filter(
             hashed_email=hashed_email
         ).count()
         assert denials_for_user_count > 0
+        # Ok now lets get the additional info
+        find_next_steps_url = reverse("api_findnextsteps")
+        find_next_steps_response = self.client.post(
+            find_next_steps_url,
+            json.dumps(
+                {
+                    "email": email,
+                    "semi_sekret": semi_sekret,
+                }
+            ),
+            content_type="application/json",
+        )
