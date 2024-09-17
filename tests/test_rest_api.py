@@ -15,6 +15,9 @@ from fighthealthinsurance.models import *
 
 
 class Delete(APITestCase):
+    """Test just the delete API."""
+    fixtures = ['./fighthealthinsurance/fixtures/initial.yaml']
+
     def test_url_root(self):
         url = reverse("api_delete")
         email = "timbit@fighthealthinsurance.com"
@@ -38,7 +41,10 @@ class Delete(APITestCase):
 
 
 class DenialEndToEnd(APITestCase):
-    def test_url_root(self):
+    """Test end to end, we need to load the initial fixtures so we have denial types."""
+    fixtures = ['./fighthealthinsurance/fixtures/initial.yaml']
+
+    def test_denial_end_to_end(self):
         url = reverse("api_denialcreator")
         email = "timbit@fighthealthinsurance.com"
         hashed_email = hashlib.sha512(email.encode("utf-8")).hexdigest()
@@ -77,7 +83,22 @@ class DenialEndToEnd(APITestCase):
                 {
                     "email": email,
                     "semi_sekret": semi_sekret,
+                    "denial_id": denial_id,
+                    "denial_type": [1, 2]
                 }
             ),
             content_type="application/json",
         )
+        find_next_steps_parsed = find_next_steps_response.json()
+        # Make sure we got back a reasonable set of questions.
+        assert len(find_next_steps_parsed['combined_form']) == 5
+        assert list(find_next_steps_parsed['combined_form'][0].keys()) == [
+            "name",
+            "field_type",
+            "label",
+            "visible",
+            "required",
+            "help_text",
+            "initial",
+            "type"
+        ]
