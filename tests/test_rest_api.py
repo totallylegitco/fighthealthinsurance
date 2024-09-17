@@ -121,7 +121,7 @@ class DenialEndToEnd(APITestCase):
             ),
             content_type="application/json",
         )
-        # It's a streaming response
-        text = b"".join(appeals_gen_response.streaming_content)
-        appeals = json.loads(text)
+        # It's a streaming response with one per new line
+        text = b"".join(appeals_gen_response.streaming_content).split("\n")
+        appeals = json.loads(text[0])
         assert appeals.startswith("Dear")
