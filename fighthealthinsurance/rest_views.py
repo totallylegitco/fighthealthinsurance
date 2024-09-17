@@ -52,6 +52,7 @@ class DenialCreator(APIView):
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
 class AppealsBackend(APIView):
     """Streaming back the appeals as json :D"""
 

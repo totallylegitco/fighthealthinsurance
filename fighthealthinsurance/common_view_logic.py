@@ -263,7 +263,8 @@ class DenialCreatorHelper:
             denial.semi_sekret,
         )
 
-class AppealsBackendHelper():
+
+class AppealsBackendHelper:
     regex_denial_processor = ProcessDenialRegex()
 
     @classmethod
@@ -280,7 +281,7 @@ class AppealsBackendHelper():
             map(
                 lambda t: t.appeal_text,
                 cls.regex_denial_processor.get_appeal_templates(
-                denial.denial_text, denial.diagnosis
+                    denial.denial_text, denial.diagnosis
                 ),
             )
         )
@@ -310,12 +311,10 @@ class AppealsBackendHelper():
                                 f"Error {e} processing form {form} for medical context"
                             )
                     if (
-                            "medical_reason" in parsed.cleaned_data
-                            and parsed.cleaned_data["medical_reason"] != ""
-                        ):
-                        medical_reasons.append(
-                            parsed.cleaned_data["medical_reason"]
-                        )
+                        "medical_reason" in parsed.cleaned_data
+                        and parsed.cleaned_data["medical_reason"] != ""
+                    ):
+                        medical_reasons.append(parsed.cleaned_data["medical_reason"])
                         print(f"Med reason {medical_reasons}")
                     # Questionable dynamic template
                     new_prefaces = parsed.preface()
@@ -384,9 +383,3 @@ class AppealsBackendHelper():
         return StreamingHttpResponse(
             subbed_appeals_json, content_type="application/json"
         )
-
-
-
-
-
-

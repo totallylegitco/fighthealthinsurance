@@ -16,7 +16,8 @@ from fighthealthinsurance.models import *
 
 class Delete(APITestCase):
     """Test just the delete API."""
-    fixtures = ['./fighthealthinsurance/fixtures/initial.yaml']
+
+    fixtures = ["./fighthealthinsurance/fixtures/initial.yaml"]
 
     def test_url_root(self):
         url = reverse("api_delete")
@@ -42,7 +43,8 @@ class Delete(APITestCase):
 
 class DenialEndToEnd(APITestCase):
     """Test end to end, we need to load the initial fixtures so we have denial types."""
-    fixtures = ['./fighthealthinsurance/fixtures/initial.yaml']
+
+    fixtures = ["./fighthealthinsurance/fixtures/initial.yaml"]
 
     def test_denial_end_to_end(self):
         url = reverse("api_denialcreator")
@@ -92,8 +94,8 @@ class DenialEndToEnd(APITestCase):
         )
         find_next_steps_parsed = find_next_steps_response.json()
         # Make sure we got back a reasonable set of questions.
-        assert len(find_next_steps_parsed['combined_form']) == 5
-        assert list(find_next_steps_parsed['combined_form'][0].keys()) == [
+        assert len(find_next_steps_parsed["combined_form"]) == 5
+        assert list(find_next_steps_parsed["combined_form"][0].keys()) == [
             "name",
             "field_type",
             "label",
@@ -101,7 +103,7 @@ class DenialEndToEnd(APITestCase):
             "required",
             "help_text",
             "initial",
-            "type"
+            "type",
         ]
         # Now we need to poke at the appeal creator
         appeals_gen_url = reverse("api_appeals_json_backend")
@@ -120,6 +122,6 @@ class DenialEndToEnd(APITestCase):
             content_type="application/json",
         )
         # It's a streaming response
-        text = b''.join(appeals_gen_response.streaming_content)
+        text = b"".join(appeals_gen_response.streaming_content)
         appeals = json.loads(text)
         assert appeals.startswith("Dear")

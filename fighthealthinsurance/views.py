@@ -260,13 +260,13 @@ class AppealsBackend(View):
         else:
             print(f"Error processing {form}")
 
-
     def get(self, request):
         form = DenialRefForm(request.GET)
         if form.is_valid():
             return AppealsBackendHelper.generate_appeals(request.GET)
         else:
             print(f"Error processing {form}")
+
 
 class OCRView(View):
     def __init__(self):
