@@ -254,6 +254,7 @@ class AppealsBackend(View):
     def post(self, request):
         print(request)
         print(request.POST)
+        form = DenialRefForm(request.POST)
         if form.is_valid():
             return AppealsBackendHelper.generate_appeals(request.POST)
         else:
