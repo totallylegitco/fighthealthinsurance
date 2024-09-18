@@ -7,13 +7,16 @@ from fighthealthinsurance.models import *
 # Auto magic
 models = apps.get_models()
 
+
 @admin.register(Denial)
 class DenialAdmin(admin.ModelAdmin):
     list_filter = [
         ("raw_email", admin.EmptyFieldListFilter),
         "plan_source__name",
         "plan_type__name",
-        "denial_type__name"]
+        "denial_type__name",
+    ]
+
 
 for model in models:
     print(f"Registering {model} in {model.__module__}")
