@@ -59,12 +59,14 @@ class AppealGenerator(object):
         self.palm = PalmAPI()
         self.octoai = OctoAI()
 
-    def get_procedure_and_diagnosis(self, denial_text=None):
+    def get_procedure_and_diagnosis(self, denial_text=None, use_external=False):
         prompt = self.make_open_procedure_prompt(denial_text)
         models_to_try = [
             self.regex_denial_processor,
             self.remotehealth,
         ]
+        if use_external:
+            models_to_try.append(self.octoai)
         procedure = None
         diagnosis = None
         for model in models_to_try:

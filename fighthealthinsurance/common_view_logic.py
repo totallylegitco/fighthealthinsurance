@@ -280,7 +280,7 @@ class DenialCreatorHelper:
                 # Default to no state
                 your_state = None
         (procedure, diagnosis) = appealGenerator.get_procedure_and_diagnosis(
-            denial_text
+            denial_text=denial_text, use_external=denial.use_external
         )
         return DenialResponseInfo(
             denial_type,
