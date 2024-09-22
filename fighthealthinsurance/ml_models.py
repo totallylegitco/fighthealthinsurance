@@ -6,7 +6,7 @@ import os
 import re
 from abc import ABC, abstractmethod
 from functools import cache, lru_cache
-from typing import Tuple, List, Optional
+from typing import Any, Tuple, List, Optional, Iterable, Union, Callable
 import traceback
 import time
 
@@ -167,7 +167,7 @@ class RemoteOpenLike(RemoteModel):
 
     def parallel_infer(
         self, prompt: str, patient_context: Optional[str], infer_type: str
-    ):
+    ) -> List[Future[Tuple[str, Optional[str]]]]:
         print(f"Running inference on {self} of type {infer_type}")
         temperatures = [0.5]
         if infer_type == "full" and not self._expensive:
@@ -176,7 +176,7 @@ class RemoteOpenLike(RemoteModel):
         calls = itertools.chain.from_iterable(
             map(
                 lambda temperature: map(
-                    lambda system_prompt: [
+                    lambda system_prompt: (
                         self._checked_infer,
                         {
                             "prompt": prompt,
@@ -185,14 +185,13 @@ class RemoteOpenLike(RemoteModel):
                             "system_prompt": system_prompt,
                             "temperature": temperature,
                         },
-                    ],
+                    ),
                     self.system_prompts[infer_type],
                 ),
                 temperatures,
             )
-        )
+        ) # type: Iterable[Tuple[Callable[..., Tuple[str, Optional[str]]], dict[str, Union[Optional[str], float]]]]
         futures = list(map(lambda x: executor.submit(x[0], **x[1]), calls))
-        print(f"Returning {futures}")
         return futures
 
     @cache
@@ -237,11 +236,11 @@ class RemoteOpenLike(RemoteModel):
         return self.diagnosis_response_regex.sub("", response)
 
     @cache
-    def questions(self, prompt: str, medical_context: str) -> List[str]:
+    def questions(self, prompt: str, patient_context: str) -> List[str]:
         result = self._infer(
             system_prompt=self.system_prompts["questions"],
             prompt=prompt,
-            medical_context=medical_context,
+            patient_context=patient_context,
         )
         if result is None:
             return []
