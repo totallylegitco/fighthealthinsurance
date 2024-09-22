@@ -190,7 +190,7 @@ class RemoteOpenLike(RemoteModel):
                 ),
                 temperatures,
             )
-        ) # type: Iterable[Tuple[Callable[..., Tuple[str, Optional[str]]], dict[str, Union[Optional[str], float]]]]
+        )  # type: Iterable[Tuple[Callable[..., Tuple[str, Optional[str]]], dict[str, Union[Optional[str], float]]]]
         futures = list(map(lambda x: executor.submit(x[0], **x[1]), calls))
         return futures
 
