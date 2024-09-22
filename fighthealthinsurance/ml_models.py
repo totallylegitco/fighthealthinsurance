@@ -79,14 +79,14 @@ class RemoteOpenLike(RemoteModel):
         api_base,
         token,
         model,
-        system_messages,
+        system_prompts,
         backup_model=None,
         expensive=False,
     ):
         self.api_base = api_base
         self.token = token
         self.model = model
-        self.system_messages = system_messages
+        self.system_prompts = system_prompts
         self.max_len = 4096 * 8
         self.procedure_response_regex = re.compile(
             r"\s*procedure\s*:?\s*", re.IGNORECASE
@@ -166,43 +166,62 @@ class RemoteOpenLike(RemoteModel):
             return result
 
     def parallel_infer(
-        self, prompt: str, patient_context: Optional[str], inf_type: str
+        self, prompt: str, patient_context: Optional[str], infer_type: str
     ):
-        print(f"Running inference on {self} of type {inf_type}")
-        temps = [0.5]
-        if inf_type == "full" and not self._expensive:
+        print(f"Running inference on {self} of type {infer_type}")
+        temperatures = [0.5]
+        if infer_type == "full" and not self._expensive:
             # Special case for the full one where we really want to explore the problem space
-            temps = [0.6, 0.1]
+            temperatures = [0.6, 0.1]
         calls = itertools.chain.from_iterable(
             map(
-                lambda temp: map(
-                    lambda sm: [
+                lambda temperature: map(
+                    lambda system_prompt: [
                         self._checked_infer,
-                        prompt,
-                        patient_context,
-                        inf_type,
-                        sm,
-                        temp,
+                        {
+                            "prompt": prompt,
+                            "patient_context": patient_context,
+                            "infer_type": infer_type,
+                            "system_prompt": system_prompt,
+                            "temperature": temperature,
+                        },
                     ],
-                    self.system_messages[inf_type],
+                    self.system_prompts[infer_type],
                 ),
-                temps,
+                temperatures,
             )
         )
-        futures = list(map(lambda x: executor.submit(x[0], *x[1:]), calls))
+        futures = list(map(lambda x: executor.submit(x[0], **x[1]), calls))
         print(f"Returning {futures}")
         return futures
 
     @cache
-    def _checked_infer(self, prompt: str, patient_context, inf_type, sm: str, temp):
-        result = self._infer(prompt, patient_context, sm, temp)
+    def _checked_infer(
+        self,
+        prompt: str,
+        patient_context,
+        infer_type,
+        system_prompt: str,
+        temperature: float,
+    ):
+        result = self._infer(
+            prompt=prompt,
+            patient_context=patient_context,
+            system_prompt=system_prompt,
+            temperature=temperature,
+        )
         print(f"Got result {result} from {prompt} on {self}")
         # One retry
         if self.bad_result(result):
-            result = self._infer(prompt, patient_context, sm, temp)
+            result = self._infer(
+                prompt=prompt,
+                patient_context=patient_context,
+                system_prompt=system_prompt,
+                temperature=temperature,
+            )
         if self.bad_result(result):
             return []
-        return [(inf_type, self.url_fixer(self.tla_fixer(result)))]
+        return [(infer_type, self.url_fixer(self.tla_fixer(result)))]
 
     def _clean_procedure_response(self, response):
         return self.procedure_response_regex.sub("", response)
@@ -219,7 +238,11 @@ class RemoteOpenLike(RemoteModel):
 
     @cache
     def questions(self, prompt: str, medical_context: str) -> List[str]:
-        result = self._infer(self.system_messages["questions"], prompt, medical_context)
+        result = self._infer(
+            system_prompt=self.system_prompts["questions"],
+            prompt=prompt,
+            medical_context=medical_context,
+        )
         if result is None:
             return []
         else:
@@ -230,13 +253,17 @@ class RemoteOpenLike(RemoteModel):
         self, prompt: str
     ) -> tuple[Optional[str], Optional[str]]:
         print(f"Getting procedure and diagnosis for {self} w/ {prompt}")
-        if self.system_messages["procedure"] is None:
+        if self.system_prompts["procedure"] is None:
             print(f"No procedure message for {self.model} skipping")
             return (None, None)
-        model_response = self._infer(self.system_messages["procedure"], prompt)
+        model_response = self._infer(
+            system_prompt=self.system_prompts["procedure"], prompt=prompt
+        )
         if model_response is None or "Diagnosis" not in model_response:
             print("Retrying query.")
-            model_response = self._infer(self.system_messages["procedure"], prompt)
+            model_response = self._infer(
+                system_prompt=self.system_prompts["procedure"], prompt=prompt
+            )
         if model_response is not None:
             responses: list[str] = model_response.split("\n")
             if len(responses) == 2:
@@ -271,22 +298,30 @@ class RemoteOpenLike(RemoteModel):
         # Retry backup model if necessary
         try:
             r = self.__infer(
-                system_prompt, prompt, patient_context, temperature, self.model
+                system_prompt=system_prompt,
+                prompt=prompt,
+                patient_context=patient_context,
+                temperature=temperature,
+                model=self.model,
             )
         except Exception as e:
             if self.backup_model is None:
                 raise e
             else:
                 return self.__infer(
-                    system_prompt,
-                    prompt,
-                    patient_context,
-                    temperature,
-                    self.backup_model,
+                    system_prompt=system_prompt,
+                    prompt=prompt,
+                    patient_context=patient_context,
+                    temperature=temperature,
+                    model=self.backup_model,
                 )
         if r is None and self.backup_model is not None:
             return self.__infer(
-                system_prompt, prompt, patient_context, temperature, self.backup_model
+                system_prompt=system_prompt,
+                prompt=prompt,
+                patient_context=patient_context,
+                temperature=temperature,
+                model=self.backup_model,
             )
         else:
             return r
@@ -303,6 +338,7 @@ class RemoteOpenLike(RemoteModel):
             print(f"Error: must supply a prompt.")
             return None
         url = f"{self.api_base}/chat/completions"
+        combined_content = None
         try:
             s = requests.Session()
             # Combine the message, Mistral's VLLM container does not like the system role anymore?
@@ -342,7 +378,7 @@ class RemoteOpenLike(RemoteModel):
             return r
         except Exception as e:
             print(
-                f"Error {e} {traceback.format_exc()} processing {json_result} from {self.api_base} w/ url {url} --  {self}"
+                f"Error {e} {traceback.format_exc()} processing {json_result} from {self.api_base} w/ url {url} --  {self} ON -- {combined_content}"
             )
             return None
 

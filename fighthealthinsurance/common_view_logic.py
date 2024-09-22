@@ -238,6 +238,7 @@ class DenialCreatorHelper:
         email,
         denial_text,
         zip,
+        health_history=None,
         pii=False,
         tos=False,
         privacy=False,
@@ -256,6 +257,7 @@ class DenialCreatorHelper:
             hashed_email=hashed_email,
             use_external=use_external_models,
             raw_email=possible_email,
+            health_history=health_history,
         )
 
         # Try and guess at the denial types
@@ -368,7 +370,6 @@ class AppealsBackendHelper:
             appealGenerator.make_appeals(
                 denial,
                 AppealTemplateGenerator(prefaces, main, footer),
-                medical_context=medical_context,
                 medical_reasons=medical_reasons,
             ),
         )
