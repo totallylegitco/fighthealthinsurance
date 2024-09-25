@@ -2,8 +2,10 @@ import os
 
 from django import forms
 
-from django_recaptcha.fields import ReCaptchaField, ReCaptchaV3, ReCaptchaV2Checkbox
-from fighthealthinsurance.models import DenialTypes, PlanType, PlanSource
+from django_recaptcha.fields import ReCaptchaField, ReCaptchaV2Checkbox, ReCaptchaV3
+
+from fighthealthinsurance.models import DenialTypes, PlanSource, PlanType
+
 
 # See https://docs.djangoproject.com/en/5.1/topics/http/file-uploads/
 class MultipleFileInput(forms.ClearableFileInput):

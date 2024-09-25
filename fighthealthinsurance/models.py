@@ -1,15 +1,15 @@
 import hashlib
+import os
 import re
 import sys
 from typing import Optional
+from uuid import UUID
 
 from django.conf import settings
 from django.db import models
+from django.db.models.functions import Now
 
 from regex_field.fields import RegexField
-from django.db.models.functions import Now
-from uuid import UUID
-import os
 
 
 class FollowUpType(models.Model):

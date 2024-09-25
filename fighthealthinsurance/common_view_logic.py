@@ -1,18 +1,17 @@
 import json
-
+from dataclasses import dataclass
+from string import Template
 from typing import Any, Tuple
 
-from django.forms import Form
 from django.core.validators import validate_email
+from django.forms import Form
 from django.http import StreamingHttpResponse
-from string import Template
-
-from fighthealthinsurance.forms import *
-from fighthealthinsurance.models import *
-from fighthealthinsurance.generate_appeal import *
-from dataclasses import dataclass
 
 import uszipcode
+
+from fighthealthinsurance.forms import *
+from fighthealthinsurance.generate_appeal import *
+from fighthealthinsurance.models import *
 
 appealGenerator = AppealGenerator()
 
