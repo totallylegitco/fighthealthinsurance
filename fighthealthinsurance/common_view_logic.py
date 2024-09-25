@@ -244,6 +244,7 @@ class DenialCreatorHelper:
         privacy=False,
         use_external_models=False,
         store_raw_email=False,
+        plan_documents=None,
     ):
         hashed_email = Denial.get_hashed_email(email)
         # If they ask us to store their raw e-mail we do
@@ -258,6 +259,7 @@ class DenialCreatorHelper:
             use_external=use_external_models,
             raw_email=possible_email,
             health_history=health_history,
+            plan_documents=plan_documents,
         )
 
         # Try and guess at the denial types

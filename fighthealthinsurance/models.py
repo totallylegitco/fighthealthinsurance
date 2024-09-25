@@ -3,6 +3,7 @@ import re
 import sys
 from typing import Optional
 
+from django.conf import settings
 from django.db import models
 
 from regex_field.fields import RegexField
@@ -201,6 +202,7 @@ class Denial(models.Model):
     semi_sekret = models.CharField(max_length=100, default=sekret_gen)
     plan_id = models.CharField(max_length=200, primary_key=False, null=True)
     state = models.CharField(max_length=4, primary_key=False, null=True)
+    plan_documents = models.FileField(null=True, storage=settings.EXTERNAL_STORAGE)
 
     def follow_up(self):
         return self.raw_email is not None and "@" in self.raw_email

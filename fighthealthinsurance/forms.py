@@ -5,6 +5,25 @@ from django import forms
 from django_recaptcha.fields import ReCaptchaField, ReCaptchaV3, ReCaptchaV2Checkbox
 from fighthealthinsurance.models import DenialTypes, PlanType, PlanSource
 
+# See https://docs.djangoproject.com/en/5.1/topics/http/file-uploads/
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault("widget", MultipleFileInput())
+        super().__init__(*args, **kwargs)
+
+    def clean(self, data, initial=None):
+        single_file_clean = super().clean
+        if isinstance(data, (list, tuple)):
+            result = [single_file_clean(d, initial) for d in data]
+        else:
+            result = [single_file_clean(data, initial)]
+        return result
+
+# Actual forms
 
 class DeleteDataForm(forms.Form):
     email = forms.CharField(required=True)
@@ -32,6 +51,7 @@ class DenialForm(forms.Form):
     denial_text = forms.CharField(required=True)
     health_history = forms.CharField(required=False)
     email = forms.EmailField(required=True)
+    plan_documents = forms.FileField(required=False)
 
 
 class DenialRefForm(forms.Form):
