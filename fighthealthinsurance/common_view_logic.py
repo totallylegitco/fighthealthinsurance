@@ -259,8 +259,13 @@ class DenialCreatorHelper:
             use_external=use_external_models,
             raw_email=possible_email,
             health_history=health_history,
-            plan_documents=plan_documents,
         )
+
+        for plan_document in plan_documents:
+            pd = PlanDocuments.objects.create(
+                plan_document=plan_document,
+                denial=denial)
+            pd.save()
 
         # Try and guess at the denial types
         denial_types = cls.regex_denial_processor.get_denialtype(denial_text)

@@ -176,6 +176,14 @@ def sekret_gen():
     return str(UUID(bytes=os.urandom(16), version=4))
 
 
+class PlanDocuments(models.Model):
+    plan_document_id = models.AutoField(primary_key=True)
+    plan_document = models.FileField(null=True, storage=settings.EXTERNAL_STORAGE)
+    # If the denial is deleted it's either SPAM or a removal request in either case
+    # we cascade the delete
+    denial = models.ForeignKey("Denial", on_delete=models.CASCADE)
+
+
 class Denial(models.Model):
     denial_id = models.AutoField(primary_key=True)
     hashed_email = models.CharField(max_length=300, primary_key=False)
@@ -202,7 +210,6 @@ class Denial(models.Model):
     semi_sekret = models.CharField(max_length=100, default=sekret_gen)
     plan_id = models.CharField(max_length=200, primary_key=False, null=True)
     state = models.CharField(max_length=4, primary_key=False, null=True)
-    plan_documents = models.FileField(null=True, storage=settings.EXTERNAL_STORAGE)
 
     def follow_up(self):
         return self.raw_email is not None and "@" in self.raw_email

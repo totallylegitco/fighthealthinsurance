@@ -51,7 +51,7 @@ class DenialForm(forms.Form):
     denial_text = forms.CharField(required=True)
     health_history = forms.CharField(required=False)
     email = forms.EmailField(required=True)
-    plan_documents = forms.FileField(required=False)
+    plan_documents = MultipleFileField(required=False)
 
 
 class DenialRefForm(forms.Form):
