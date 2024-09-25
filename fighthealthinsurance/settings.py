@@ -196,6 +196,7 @@ class Base(Configuration):
     @property
     def EXTERNAL_STORAGE(self):
         from django.core.files.storage import FileSystemStorage
+
         return FileSystemStorage(location=self.EXTERNAL_STORAGE_LOCATION)
 
 

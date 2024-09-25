@@ -262,8 +262,8 @@ class DenialCreatorHelper:
 
         for plan_document in plan_documents:
             pd = PlanDocuments.objects.create(
-                plan_document=plan_document,
-                denial=denial)
+                plan_document=plan_document, denial=denial
+            )
             pd.save()
 
         # Try and guess at the denial types

@@ -69,7 +69,7 @@ class ChooseAppealFormSerializer(FormSerializer):
 class DenialFormSerializer(FormSerializer):
     class Meta(object):
         form = DenialForm
-        exclude = ('plan_documents', )
+        exclude = ("plan_documents",)
 
 
 class PostInferedFormSerializer(FormSerializer):

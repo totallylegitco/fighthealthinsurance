@@ -25,7 +25,9 @@ class MultipleFileField(forms.FileField):
             result = [single_file_clean(data, initial)]
         return result
 
+
 # Actual forms
+
 
 class DeleteDataForm(forms.Form):
     email = forms.CharField(required=True)
