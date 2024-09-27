@@ -52,8 +52,6 @@ class InterestedProfessionalForm(forms.ModelForm):
     class Meta:
         model = InterestedProfessional
         exclude = ["paid", "signup_date"]
-        widgets = {}
-        labels = {}
 
 
 class DeleteDataForm(forms.Form):
