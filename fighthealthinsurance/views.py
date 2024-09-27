@@ -32,6 +32,16 @@ from fighthealthinsurance.utils import *
 appealGenerator = AppealGenerator()
 
 
+class ProVersionView(generic.FormView):
+    template_name = "professional.html"
+    form_class = InterestedProfessionalForm
+
+    def form_valid(self, form):
+        form.save()
+        # TODO: Stripe magic for folks who want it.
+        return render(self.request, "professional_thankyou.html")
+
+
 class IndexView(generic.TemplateView):
     template_name = "index.html"
 
