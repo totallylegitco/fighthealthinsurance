@@ -42,14 +42,16 @@ class ProVersionView(generic.FormView):
 
     def form_valid(self, form):
         form.save()
-        if "clicked_for_paid" in form.cleaned_data and form.cleaned_data["clicked_for_paid"]:
+        if (
+            "clicked_for_paid" in form.cleaned_data
+            and form.cleaned_data["clicked_for_paid"]
+        ):
             items = []
             checkout = stripe.checkout.Session.create(
                 line_items=items,
-                mode="payment", # No subscriptions
-                success_url=request.build_absolute_uri(
-                    reverse('pro_version_thankyou')),
-                cancel_url=request.build_absolute_uri(reverse('pro_version_thankyou')),
+                mode="payment",  # No subscriptions
+                success_url=request.build_absolute_uri(reverse("pro_version_thankyou")),
+                cancel_url=request.build_absolute_uri(reverse("pro_version_thankyou")),
             )
             return rederict(self.request, checkout.url)
         # TODO: Stripe magic for folks who want it.

@@ -200,9 +200,7 @@ class Base(Configuration):
 
     @property
     def STRIPE_API_PUBLISHABLE_KEY(self):
-        return os.getenv(
-            "STRIPE_TEST_PUBLISHABLE_KEY",
-            "")
+        return os.getenv("STRIPE_TEST_PUBLISHABLE_KEY", "")
 
     @property
     def EXTERNAL_STORAGE(self):
