@@ -31,6 +31,8 @@ from fighthealthinsurance.utils import *
 
 appealGenerator = AppealGenerator()
 
+class ProVersionThankYouView(generic.TemplateView):
+    template_name = "professional_thankyou.html"
 
 class ProVersionView(generic.FormView):
     template_name = "professional.html"
