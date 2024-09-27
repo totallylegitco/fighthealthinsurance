@@ -192,11 +192,17 @@ class Base(Configuration):
 
     # STRIPE SETTINGS
     @property
-    def STRIPE_API_KEY(self):
+    def STRIPE_API_SECRET_KEY(self):
         return os.getenv(
             "STRIPE_TEST_SECRET_KEY",
             "sk_test_51MGgqqH3tqhFx4rg3scW0nEbQgv4aXCCvjdWkSYcCA5F15akyusRbkU6lzlIqW6XQmCSDvW9CKgKWmWFqyav5zs100rcmjUUDL",
         )
+
+    @property
+    def STRIPE_API_PUBLISHABLE_KEY(self):
+        return os.getenv(
+            "STRIPE_TEST_PUBLISHABLE_KEY",
+            "")
 
     @property
     def EXTERNAL_STORAGE(self):
@@ -235,8 +241,12 @@ class Prod(Base):
         return os.getenv("SECRET_KEY")
 
     @property
-    def STRIPE_API_KEY(self):
+    def STRIPE_API_SECRET_KEY(self):
         return os.getenv("STRIPE_LIVE_SECRET_KEY")
+
+    @property
+    def STRIPE_API_PUBLISHABLE_KEY(self):
+        return os.getenv("STRIPE_LIVE_PUBLISHABLE_KEY")
 
     @property
     def DATABASES(self):
