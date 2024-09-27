@@ -195,8 +195,8 @@ class Base(Configuration):
     def STRIPE_API_KEY(self):
         return os.getenv(
             "STRIPE_TEST_SECRET_KEY",
-            "sk_test_51MGgqqH3tqhFx4rg3scW0nEbQgv4aXCCvjdWkSYcCA5F15akyusRbkU6lzlIqW6XQmCSDvW9CKgKWmWFqyav5zs100rcmjUUDL")
-
+            "sk_test_51MGgqqH3tqhFx4rg3scW0nEbQgv4aXCCvjdWkSYcCA5F15akyusRbkU6lzlIqW6XQmCSDvW9CKgKWmWFqyav5zs100rcmjUUDL",
+        )
 
     @property
     def EXTERNAL_STORAGE(self):
