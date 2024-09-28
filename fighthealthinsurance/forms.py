@@ -43,6 +43,7 @@ class InterestedProfessionalForm(forms.ModelForm):
         required=False, widget=forms.Textarea(attrs={"cols": 80, "rows": 5})
     )
     phone_number = forms.CharField(required=False)
+    job_title_or_provider_type = forms.CharField(required=False)
     clicked_for_paid = forms.BooleanField(
         initial=True,
         required=False,
