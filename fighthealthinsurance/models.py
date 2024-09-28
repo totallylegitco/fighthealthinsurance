@@ -20,10 +20,12 @@ class InterestedProfessional(models.Model):
     address = models.CharField(max_length=1000, primary_key=False, default="")
     email = models.EmailField()
     comments = models.TextField(primary_key=False, default="")
-    paid = models.BooleanField(default=False)
-    signup_date = models.DateField(auto_now=True)
+    provider_type = models.CharField(max_length=300, default="")
+    most_common_denial = models.CharField(max_length=300, default="")
     job_title_or_provider_type = models.CharField(max_length=300, default="")
+    paid = models.BooleanField(default=False)
     clicked_for_paid = models.BooleanField(default=True)
+    signup_date = models.DateField(auto_now=True)
 
 
 class FollowUpType(models.Model):
