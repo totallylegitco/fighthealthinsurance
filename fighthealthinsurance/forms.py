@@ -44,6 +44,7 @@ class InterestedProfessionalForm(forms.ModelForm):
     )
     phone_number = forms.CharField(required=False)
     job_title_or_provider_type = forms.CharField(required=False)
+    most_common_denial = forms.CharField(required=False)
     clicked_for_paid = forms.BooleanField(
         initial=True,
         required=False,
