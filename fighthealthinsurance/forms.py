@@ -372,7 +372,7 @@ class GenderAffirmingCareQuestions(InsuranceQuestions):
                 with open(path, "r") as file:
                     contents = file.read()
             soc_version_re = re.compile(
-                "WPATH.*?Standards of.*?Care.*?Version.*?(\d+).*",
+                "WPATH.*?Standards of.*?Care.*?Version.*?(\\d+).*",
                 re.IGNORECASE | re.MULTILINE | re.DOTALL,
             )
             m = re.search(soc_version_re, contents)
