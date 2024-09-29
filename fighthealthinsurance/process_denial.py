@@ -145,7 +145,7 @@ class ProcessDenialRegex(DenialBase):
                     diagnosis is not None
                     and (
                         d.diagnosis_regex is not None
-                        and d.diagnosis_regex.sarch(diagnosis) is not None
+                        and d.diagnosis_regex.search(diagnosis) is not None
                     )
                 )
             ):
