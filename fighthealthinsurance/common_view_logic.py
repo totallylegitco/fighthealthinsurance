@@ -371,7 +371,7 @@ class AppealsBackendHelper:
                         "medical_reason" in parsed.cleaned_data
                         and parsed.cleaned_data["medical_reason"] != ""
                     ):
-                        medical_reasons.append(parsed.cleaned_data["medical_reason"])
+                        medical_reasons.add(parsed.cleaned_data["medical_reason"])
                         print(f"Med reason {medical_reasons}")
                     # Questionable dynamic template
                     new_prefaces = parsed.preface()
