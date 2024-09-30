@@ -7,6 +7,9 @@ from rest_framework.views import APIView
 from fighthealthinsurance.common_view_logic import *
 from fighthealthinsurance.rest_serializers import *
 
+class Ping(APIView):
+    def get(self, request):
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class RemoveData(APIView):
     def delete(self, request):
