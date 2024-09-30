@@ -194,12 +194,12 @@ class Base(Configuration):
 
     # CORS settings
     CORS_URLS_REGEX = r"^/ziggy/.*$"
-    #CORS_ALLOWED_ORIGINS_REGEXES = [
+    # CORS_ALLOWED_ORIGINS_REGEXES = [
     #    "https://fhi-react.vercel.app",
     #    "http://localhost:\d+",
     #    "https://localhost:\d+",
     #    "http://127.0.0.1:\d+",
-    #]
+    # ]
     CORS_ALLOW_ALL_ORIGINS = True
     CORS_ALLOW_PRIVATE_NETWORK = True
     CORS_ALLOW_CREDENTIALS = True
