@@ -34,6 +34,15 @@ from fighthealthinsurance.utils import *
 appealGenerator = AppealGenerator()
 
 
+class FollowUpView(generic.FormView):
+    template_name = "followup.html"
+    form_class = FeedbackForm
+
+    def form_valid(self, form):
+        # TODO: Check some things and save the stuff
+        return render(self.request, "followup_thankyou.html")
+
+
 class ProVersionThankYouView(generic.TemplateView):
     template_name = "professional_thankyou.html"
 
@@ -73,7 +82,6 @@ class ProVersionView(generic.FormView):
             )
             checkout_url = checkout.url
             return redirect(checkout_url)
-        # TODO: Stripe magic for folks who want it.
         return render(self.request, "professional_thankyou.html")
 
 
