@@ -1,5 +1,6 @@
 from django import forms
 
+
 # See https://docs.djangoproject.com/en/5.1/topics/http/file-uploads/
 class MultipleFileInput(forms.ClearableFileInput):
     allow_multiple_selected = True

@@ -11,6 +11,7 @@ from fighthealthinsurance.form_utils import *
 import urllib
 import requests
 
+
 class InsuranceQuestions(forms.Form):
     """Insurance Questions"""
 
