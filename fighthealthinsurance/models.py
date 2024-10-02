@@ -142,7 +142,7 @@ class DenialTypes(models.Model):
                 return None
         else:
             try:
-                return getattr(sys.modules["fighthealthinsurance.forms"], self.form)
+                return getattr(sys.modules["fighthealthinsurance.question_forms"], self.form)
             except Exception as e:
                 print(f"Error loading form {e}")
                 return None
@@ -232,6 +232,14 @@ class Denial(models.Model):
     semi_sekret = models.CharField(max_length=100, default=sekret_gen)
     plan_id = models.CharField(max_length=200, primary_key=False, null=True)
     state = models.CharField(max_length=4, primary_key=False, null=True)
+    follow_up_sent = models.BooleanField(default=False)
+    follow_up_sent_date = models.DateTimeField(null=True)
+    user_responsed = models.BooleanField(default=False)
+    more_follow_up_requested = models.BooleanField(default=False)
+    more_follow_up_sent = models.BooleanField(default=False)
+    more_follow_up_sent_date = models.DateTimeField(null=True)
+    followup_semi_sekret = models.CharField(max_length=100, default=sekret_gen)
+    user_comments = models.TextField(primary_key=False, null=True)
 
     def follow_up(self):
         return self.raw_email is not None and "@" in self.raw_email
