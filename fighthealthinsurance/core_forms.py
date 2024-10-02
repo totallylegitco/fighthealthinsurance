@@ -124,3 +124,20 @@ class PostInferedForm(DenialRefForm):
         or os.environ["RECAPTCHA_TESTING"].lower() != "true"
     ):
         captcha = ReCaptchaField(widget=ReCaptchaV2Checkbox())
+
+class FeedbackForm(forms.Form):
+    Appeal_Result_Choices = [
+        ('No Appeal Sent', 'No Appeal Sent'),
+        ('Yes', 'Yes'),
+        ('Partial', 'Partial'),
+        ('No', 'No'),
+        ('Do not know yet', 'Do not know yet'),
+        ('Other', 'Other -- see comments'),
+    ]
+
+    denial_id = forms.CharField(required=True, widget=forms.HiddenInput)
+    followup_semi_sekret = forms.CharField(required=True, widget=forms.HiddenInput)
+    user_comments = forms.CharField(
+        required=False, widget=forms.Textarea(attrs={"cols": 80, "rows": 5})
+    )
+    appeal_result = forms.ChoiceField(choices=Appeal_Result_Choices, required=False)

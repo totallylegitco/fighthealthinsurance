@@ -240,6 +240,7 @@ class Denial(models.Model):
     more_follow_up_sent_date = models.DateTimeField(null=True)
     followup_semi_sekret = models.CharField(max_length=100, default=sekret_gen)
     user_comments = models.TextField(primary_key=False, null=True)
+    appeal_result = models.CharField(max_length=200, null=True)
 
     def follow_up(self):
         return self.raw_email is not None and "@" in self.raw_email
