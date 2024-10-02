@@ -10,7 +10,7 @@ from drf_braces.serializers.form_serializer import (
 )
 from rest_framework import serializers, status
 
-from fighthealthinsurance.forms import *
+from fighthealthinsurance.core_forms import *
 from fighthealthinsurance.models import DenialTypes
 
 

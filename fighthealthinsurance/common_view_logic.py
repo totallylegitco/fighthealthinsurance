@@ -9,7 +9,9 @@ from django.http import StreamingHttpResponse
 
 import uszipcode
 
-from fighthealthinsurance.forms import *
+from fighthealthinsurance.core_forms import *
+from fighthealthinsurance.question_forms import *
+from fighthealthinsurance.form_utils import *
 from fighthealthinsurance.generate_appeal import *
 from fighthealthinsurance.models import *
 

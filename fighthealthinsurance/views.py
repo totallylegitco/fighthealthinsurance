@@ -25,7 +25,8 @@ from asgiref.sync import async_to_sync
 import stripe
 
 from fighthealthinsurance.common_view_logic import *
-from fighthealthinsurance.forms import *
+from fighthealthinsurance.core_forms import *
+from fighthealthinsurance.question_forms import *
 from fighthealthinsurance.generate_appeal import *
 from fighthealthinsurance.models import *
 from fighthealthinsurance.utils import *
