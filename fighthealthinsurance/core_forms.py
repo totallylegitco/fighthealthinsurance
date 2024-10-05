@@ -144,5 +144,10 @@ class FeedbackForm(forms.Form):
         required=False, widget=forms.Textarea(attrs={"cols": 80, "rows": 5})
     )
     appeal_result = forms.ChoiceField(choices=Appeal_Result_Choices, required=False)
-    follow_up_again = forms.BooleanField(required=False, label="Follow up with you again")
-    response_documents = MultipleFileField(required=False, label="Optional")
+    follow_up_again = forms.BooleanField(
+        required=False, label="Follow up with you again"
+    )
+    followup_documents = MultipleFileField(
+        required=False,
+        label="Optional -- any documents you received you want to share with us",
+    )

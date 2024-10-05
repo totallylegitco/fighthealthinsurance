@@ -39,7 +39,7 @@ class FollowUpView(generic.FormView):
     form_class = FeedbackForm
 
     def get_initial(self):
-        print(f"Hi {self.kwargs} :)")
+        # Set the initial arguments to the form based on the URL route params.
         return self.kwargs
 
     def form_valid(self, form):

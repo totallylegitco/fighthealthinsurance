@@ -105,6 +105,39 @@ class NextStepInfoSerializable:
     semi_sekret: str
 
 
+class FollowUpHelper:
+    @classmethod
+    def store_followup_result(
+        cls,
+        uuid: str,
+        followup_semi_sekret: str,
+        hashed_email: str,
+        user_comments: str,
+        appeal_results: str,
+        follow_up_again: bool,
+        followup_documents,
+    ):
+        # Store the follow up response returns nothing but may raise
+        denial = Denial.objects.filter(
+            uuid=uuid, followup_semi_sekret=followup_semi_sekret
+        ).get()
+        if denial is None:
+            raise Exception(
+                f"Failed to find denial for {uuid} & {followup_semi_sekret}"
+            )
+        denial_id = denial.denial_id
+        for document in followup_documents:
+            fd = FollowUpDocuments.objects.create(
+                followup_document=document, denial=denial
+            )
+            fd.save()
+        # If the user requested more follow up we reset the more follow up sent flag to false
+        denial.more_follow_up_requested = follow_up_again
+        denial.more_follow_up_sent = False
+        denial.full_clean()
+        denial.save()
+
+
 class FindNextStepsHelper:
     @classmethod
     def find_next_steps(

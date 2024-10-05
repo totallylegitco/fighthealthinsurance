@@ -208,7 +208,7 @@ class PlanDocuments(models.Model):
     denial = models.ForeignKey("Denial", on_delete=models.CASCADE)
 
 
-class FollowUpDocs(models.Model):
+class FollowUpDocuments(models.Model):
     document_id = models.AutoField(primary_key=True)
     followup_document = models.FileField(null=True, storage=settings.EXTERNAL_STORAGE)
     # If the denial is deleted it's either SPAM or a removal request in either case
@@ -253,6 +253,7 @@ class Denial(models.Model):
     followup_semi_sekret = models.CharField(max_length=100, default=sekret_gen)
     user_comments = models.TextField(primary_key=False, null=True)
     appeal_result = models.CharField(max_length=200, null=True)
+    last_interaction = models.DateTimeField(auto_now=True)
 
     def follow_up(self):
         return self.raw_email is not None and "@" in self.raw_email
