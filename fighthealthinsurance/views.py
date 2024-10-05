@@ -40,6 +40,10 @@ class FollowUpView(generic.FormView):
 
     def get_initial(self):
         # Set the initial arguments to the form based on the URL route params.
+        # Also make sure we can resolve the denial
+        denial = FollowUpHelper.fetch_denial(**self.kwargs)
+        if denial is None:
+            raise Exception(f"Failed to find denial using {self.kwargs}")
         return self.kwargs
 
     def form_valid(self, form):

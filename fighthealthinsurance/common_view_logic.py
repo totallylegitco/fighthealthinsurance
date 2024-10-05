@@ -108,6 +108,19 @@ class NextStepInfoSerializable:
 
 class FollowUpHelper:
     @classmethod
+    def fetch_denial(
+        cls, uuid: str, follow_up_semi_sekret: str, hashed_email: str, **kwargs
+    ):
+        denial = Denial.objects.filter(
+            uuid=uuid, follow_up_semi_sekret=follow_up_semi_sekret
+        ).get()
+        if denial is None:
+            raise Exception(
+                f"Failed to find denial for {uuid} & {followup_semi_sekret}"
+            )
+        return denial
+
+    @classmethod
     def store_follow_up_result(
         cls,
         uuid: str,
@@ -118,14 +131,12 @@ class FollowUpHelper:
         follow_up_again: bool,
         followup_documents,
     ):
+        denial = cls.fetch_denial(
+            uuid=uuid,
+            follow_up_semi_sekret=follow_up_semi_sekret,
+            hashed_email=hashed_email,
+        )
         # Store the follow up response returns nothing but may raise
-        denial = Denial.objects.filter(
-            uuid=uuid, follow_up_semi_sekret=follow_up_semi_sekret
-        ).get()
-        if denial is None:
-            raise Exception(
-                f"Failed to find denial for {uuid} & {followup_semi_sekret}"
-            )
         denial_id = denial.denial_id
         for document in followup_documents:
             fd = FollowUpDocuments.objects.create(
