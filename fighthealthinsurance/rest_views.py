@@ -65,9 +65,12 @@ class FollowUp(APIView):
         # Make sure we got what we expected
         serializer = FollowUpFormSerializer(data=pythondata)
         if serializer.is_valid():
-            response = FollowUpHelper.create_denial(**serializer.validated_data)
+            response = FollowUpHelper.store_follow_up_result(
+                **serializer.validated_data
+            )
             return Response(status=status.HTTP_204_NO_CONTENT)
         else:
+            print(f"Serialization error {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

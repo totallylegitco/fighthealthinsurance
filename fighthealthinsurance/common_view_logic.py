@@ -5,6 +5,7 @@ from typing import Any, Tuple
 
 from django.core.validators import validate_email
 from django.forms import Form
+from django.utils import timezone
 from django.http import StreamingHttpResponse
 
 import uszipcode
@@ -107,10 +108,10 @@ class NextStepInfoSerializable:
 
 class FollowUpHelper:
     @classmethod
-    def store_followup_result(
+    def store_follow_up_result(
         cls,
         uuid: str,
-        followup_semi_sekret: str,
+        follow_up_semi_sekret: str,
         hashed_email: str,
         user_comments: str,
         appeal_result: str,
@@ -119,7 +120,7 @@ class FollowUpHelper:
     ):
         # Store the follow up response returns nothing but may raise
         denial = Denial.objects.filter(
-            uuid=uuid, followup_semi_sekret=followup_semi_sekret
+            uuid=uuid, follow_up_semi_sekret=follow_up_semi_sekret
         ).get()
         if denial is None:
             raise Exception(
@@ -136,7 +137,7 @@ class FollowUpHelper:
         # If the user requested more follow up we reset the more follow up sent flag to false
         denial.more_follow_up_requested = follow_up_again
         denial.more_follow_up_sent = False
-        denial.full_clean()
+        denial.last_interaction = timezone.now()
         denial.save()
 
 

@@ -138,8 +138,10 @@ class DenialEndToEnd(APITestCase):
                     "user_comments": "test",
                     "appeal_result": "Yes",
                     "follow_up_again": True,
+                    "follow_up_semi_sekret": denial.follow_up_semi_sekret,
                 }
             ),
             content_type="application/json",
         )
+        print(followup_response)
         self.assertTrue(status.is_success(followup_response.status_code))

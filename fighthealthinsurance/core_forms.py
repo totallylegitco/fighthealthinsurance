@@ -138,7 +138,7 @@ class FollowUpForm(forms.Form):
     ]
 
     uuid = forms.UUIDField(required=True, widget=forms.HiddenInput)
-    followup_semi_sekret = forms.CharField(required=True, widget=forms.HiddenInput)
+    follow_up_semi_sekret = forms.CharField(required=True, widget=forms.HiddenInput)
     hashed_email = forms.CharField(required=True, widget=forms.HiddenInput)
     user_comments = forms.CharField(
         required=False, widget=forms.Textarea(attrs={"cols": 80, "rows": 5})

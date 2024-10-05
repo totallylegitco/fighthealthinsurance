@@ -26,7 +26,7 @@ urlpatterns = [
     path("timbit/admin/", admin.site.urls),
     path("error", views.ErrorView.as_view()),
     path(
-        "v0/followup/<uuid:uuid>/<slug:hashed_email>/<slug:followup_semi_sekret>",
+        "v0/followup/<uuid:uuid>/<slug:hashed_email>/<slug:follow_up_semi_sekret>",
         views.FollowUpView.as_view(),
         name="followup",
     ),

@@ -43,7 +43,7 @@ class FollowUpView(generic.FormView):
         return self.kwargs
 
     def form_valid(self, form):
-        FollowUpHelper.store_followup_result(**form.cleaned_data)
+        FollowUpHelper.store_follow_up_result(**form.cleaned_data)
         return render(self.request, "followup_thankyou.html")
 
 
