@@ -76,3 +76,10 @@ class DenialFormSerializer(FormSerializer):
 class PostInferedFormSerializer(FormSerializer):
     class Meta(object):
         form = PostInferedForm
+
+
+class FollowUpFormSerializer(FormSerializer):
+    class Meta(object):
+        form = FollowUpForm
+        exclude = ("followup_documents",)
+        field_mapping = {forms.UUIDField: serializers.CharField}

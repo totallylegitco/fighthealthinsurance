@@ -127,7 +127,7 @@ class PostInferedForm(DenialRefForm):
         captcha = ReCaptchaField(widget=ReCaptchaV2Checkbox())
 
 
-class FeedbackForm(forms.Form):
+class FollowUpForm(forms.Form):
     Appeal_Result_Choices = [
         ("No Appeal Sent", "No Appeal Sent"),
         ("Yes", "Yes"),

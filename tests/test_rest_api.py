@@ -125,3 +125,21 @@ class DenialEndToEnd(APITestCase):
         text = b"".join(appeals_gen_response.streaming_content).split(b"\n")
         appeals = json.loads(text[0])
         assert appeals.startswith("Dear")
+        # Now lets go ahead and provide follow up
+        denial = Denial.objects.get(denial_id=denial_id)
+        followup_url = reverse("api_followup")
+        followup_response = self.client.post(
+            followup_url,
+            json.dumps(
+                {
+                    "denial_id": denial_id,
+                    "uuid": str(denial.uuid),
+                    "hashed_email": denial.hashed_email,
+                    "user_comments": "test",
+                    "appeal_result": "Yes",
+                    "follow_up_again": True,
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertTrue(status.is_success(followup_response.status_code))

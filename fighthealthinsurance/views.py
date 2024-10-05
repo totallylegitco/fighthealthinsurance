@@ -36,7 +36,7 @@ appealGenerator = AppealGenerator()
 
 class FollowUpView(generic.FormView):
     template_name = "followup.html"
-    form_class = FeedbackForm
+    form_class = FollowUpForm
 
     def get_initial(self):
         # Set the initial arguments to the form based on the URL route params.
