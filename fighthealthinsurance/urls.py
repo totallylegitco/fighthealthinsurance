@@ -25,7 +25,6 @@ urlpatterns = [
     path("ziggy/rest/", include(rest_urls)),
     path("timbit/admin/", admin.site.urls),
     path("error", views.ErrorView.as_view()),
-    path("v0/followup", views.FollowUpView.as_view(), name="followup"),
     path(
         "v0/followup/<uuid:uuid>/<slug:hashed_email>/<slug:followup_semi_sekret>",
         views.FollowUpView.as_view(),

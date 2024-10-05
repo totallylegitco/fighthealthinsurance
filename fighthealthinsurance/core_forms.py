@@ -137,9 +137,12 @@ class FeedbackForm(forms.Form):
         ("Other", "Other -- see comments"),
     ]
 
-    denial_id = forms.CharField(required=True, widget=forms.HiddenInput)
+    uuid = forms.UUIDField(required=True, widget=forms.HiddenInput)
     followup_semi_sekret = forms.CharField(required=True, widget=forms.HiddenInput)
+    hashed_email = forms.CharField(required=True, widget=forms.HiddenInput)
     user_comments = forms.CharField(
         required=False, widget=forms.Textarea(attrs={"cols": 80, "rows": 5})
     )
     appeal_result = forms.ChoiceField(choices=Appeal_Result_Choices, required=False)
+    follow_up_again = forms.BooleanField(required=False, label="Follow up with you again")
+    response_documents = MultipleFileField(required=False, label="Optional")

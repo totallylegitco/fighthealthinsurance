@@ -38,6 +38,10 @@ class FollowUpView(generic.FormView):
     template_name = "followup.html"
     form_class = FeedbackForm
 
+    def get_initial(self):
+        print(f"Hi {self.kwargs} :)")
+        return self.kwargs
+
     def form_valid(self, form):
         # TODO: Check some things and save the stuff
         return render(self.request, "followup_thankyou.html")

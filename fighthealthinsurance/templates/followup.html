@@ -22,7 +22,7 @@ Upload your Health Insurance Denial
 </ul>
 <section class="scan-section mt-2">
   <div class="container">
-    <form action="{% url 'followup' %}" method="post">
+    <form action="{{ request.get_full_path }}" method="post" enctype="multipart/form-data">
       {% csrf_token %}
       <table>
 	{{ form.as_table }}

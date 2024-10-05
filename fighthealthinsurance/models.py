@@ -208,6 +208,14 @@ class PlanDocuments(models.Model):
     denial = models.ForeignKey("Denial", on_delete=models.CASCADE)
 
 
+class FollowUpDocs(models.Model):
+    document_id = models.AutoField(primary_key=True)
+    followup_document = models.FileField(null=True, storage=settings.EXTERNAL_STORAGE)
+    # If the denial is deleted it's either SPAM or a removal request in either case
+    # we cascade the delete
+    denial = models.ForeignKey("Denial", on_delete=models.CASCADE)
+
+
 class Denial(models.Model):
     denial_id = models.AutoField(primary_key=True)
     uuid = models.UUIDField(primary_key=False, default=uuid.uuid4, editable=False)
