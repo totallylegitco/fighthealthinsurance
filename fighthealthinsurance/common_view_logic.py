@@ -132,7 +132,7 @@ class FollowUpHelper:
             )
             fd.save()
         denial.appeal_result = appeal_result
-        denial.user_comments += user_comments
+        denial.user_comments = (denial.user_comments or "") + user_comments
         # If the user requested more follow up we reset the more follow up sent flag to false
         denial.more_follow_up_requested = follow_up_again
         denial.more_follow_up_sent = False
