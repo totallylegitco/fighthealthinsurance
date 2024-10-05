@@ -113,7 +113,7 @@ class FollowUpHelper:
         followup_semi_sekret: str,
         hashed_email: str,
         user_comments: str,
-        appeal_results: str,
+        appeal_result: str,
         follow_up_again: bool,
         followup_documents,
     ):
@@ -131,6 +131,8 @@ class FollowUpHelper:
                 followup_document=document, denial=denial
             )
             fd.save()
+        denial.appeal_result = appeal_result
+        denial.user_comments += user_comments
         # If the user requested more follow up we reset the more follow up sent flag to false
         denial.more_follow_up_requested = follow_up_again
         denial.more_follow_up_sent = False
