@@ -41,6 +41,11 @@ class SeleniumFollowUp(BaseCase, StaticLiveServerTestCase):
         self.assert_title(
             "Follow Up On Your Health Insurance Appeal"
         )
+        self.type("textarea#id_user_comments", "Words Words Words")
+        self.click("button#submit")
+        self.assert_title(
+            "Thank you!"
+        )
 
     def test_follow_up_page_loads_fails(self):
         email = "timbit@test.com"

@@ -129,6 +129,7 @@ class PostInferedForm(DenialRefForm):
 
 class FollowUpForm(forms.Form):
     Appeal_Result_Choices = [
+        ("Do not wish to disclose", "Do not wish to disclose"),
         ("No Appeal Sent", "No Appeal Sent"),
         ("Yes", "Yes"),
         ("Partial", "Partial"),
@@ -145,9 +146,9 @@ class FollowUpForm(forms.Form):
     )
     appeal_result = forms.ChoiceField(choices=Appeal_Result_Choices, required=False)
     follow_up_again = forms.BooleanField(
-        required=False, label="Follow up with you again"
+        required=False, label="Follow up again"
     )
     followup_documents = MultipleFileField(
         required=False,
-        label="Optional -- any documents you received you want to share with us",
+        label="Optional: Any documents you wish to share",
     )

@@ -116,7 +116,7 @@ class FollowUpHelper:
         ).get()
         if denial is None:
             raise Exception(
-                f"Failed to find denial for {uuid} & {followup_semi_sekret}"
+                f"Failed to find denial for {uuid} & {follow_up_semi_sekret}"
             )
         return denial
 
