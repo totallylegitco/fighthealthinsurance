@@ -208,12 +208,32 @@ class PlanDocuments(models.Model):
     denial = models.ForeignKey("Denial", on_delete=models.CASCADE)
 
 
+
 class FollowUpDocuments(models.Model):
     document_id = models.AutoField(primary_key=True)
     followup_document = models.FileField(null=True, storage=settings.EXTERNAL_STORAGE)
     # If the denial is deleted it's either SPAM or a removal request in either case
     # we cascade the delete
     denial = models.ForeignKey("Denial", on_delete=models.CASCADE)
+
+
+class PubMedArticleSummarized(models.Model):
+    """PubMedArticles with a summary for the given query."""
+    class Meta:
+        UniqueConstraint(fields=['doi', 'query'], name='unique_doi_query') 
+    doi = models.CharField(primary_key=False)
+    query = models.CharField(primary_key=False)
+    abstract = models.TextField(primary_key=False, null=True)
+    basic_summary = models.TextField(primary_key=False)
+    says_effective = models.BooleanField()
+    publication_date = models.DateTimeField()
+
+
+class PubQueryMedData(models.Model):
+    internal_id = models.AutoField(primary_key=True)
+    query = models.CharField(null=False)
+    articles = models.CharField(max_length=200, null=True)  # Comma seperated articles
+    query_date = models.DateTimeField(auto_now_add=True)
 
 
 class Denial(models.Model):
