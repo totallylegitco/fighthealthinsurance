@@ -145,9 +145,7 @@ class FollowUpForm(forms.Form):
         required=False, widget=forms.Textarea(attrs={"cols": 80, "rows": 5})
     )
     appeal_result = forms.ChoiceField(choices=Appeal_Result_Choices, required=False)
-    follow_up_again = forms.BooleanField(
-        required=False, label="Follow up again"
-    )
+    follow_up_again = forms.BooleanField(required=False, label="Follow up again")
     followup_documents = MultipleFileField(
         required=False,
         label="Optional: Any documents you wish to share",

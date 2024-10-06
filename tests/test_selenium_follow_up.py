@@ -38,14 +38,10 @@ class SeleniumFollowUp(BaseCase, StaticLiveServerTestCase):
         )
         mylink = f"v0/followup/{denial.uuid}/{denial.hashed_email}/{denial.follow_up_semi_sekret}"
         self.open(f"{self.live_server_url}/{mylink}")
-        self.assert_title(
-            "Follow Up On Your Health Insurance Appeal"
-        )
+        self.assert_title("Follow Up On Your Health Insurance Appeal")
         self.type("textarea#id_user_comments", "Words Words Words")
         self.click("button#submit")
-        self.assert_title(
-            "Thank you!"
-        )
+        self.assert_title("Thank you!")
 
     def test_follow_up_page_loads_fails(self):
         email = "timbit@test.com"
@@ -57,8 +53,8 @@ class SeleniumFollowUp(BaseCase, StaticLiveServerTestCase):
             raw_email=email,
             health_history="",
         )
-        mylink = f"v0/followup/{denial.uuid}/{denial.hashed_email}/{denial.hashed_email}"
-        self.open(f"{self.live_server_url}/{mylink}")
-        self.assert_title(
-            "Server Error (500)"
+        mylink = (
+            f"v0/followup/{denial.uuid}/{denial.hashed_email}/{denial.hashed_email}"
         )
+        self.open(f"{self.live_server_url}/{mylink}")
+        self.assert_title("Server Error (500)")
