@@ -52,5 +52,5 @@ totallylegit-django-rest-framework-braces # Forked from django-rest-framework-br
 types-requests
 typing-extensions
 urllib3
-uszipcode 
+uszipcode
 werkzeug
