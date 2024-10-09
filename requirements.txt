@@ -4,7 +4,6 @@ celery
 django>=5.0.0
 django-celery
 django-celery-beat
-django-celery-beat
 django-cms
 djangocms-attributes-field
 django_compressor
@@ -30,6 +29,7 @@ git+https://github.com/holdenk/static-thumbnails.git
 git+https://github.com/jazzband/django-cookie-consent.git#egg=django-cookie-consent
 gunicorn
 icd10-cm
+metapub==0.5.12
 mypy
 mypy
 packaging>=20.0
@@ -38,7 +38,7 @@ pyarrow
 pymupdf
 pyOpenSSL
 PyPDF2
-pytesseract
+pytesseract # We either need easyocr + opencv-python OR pytesseract + tesseract (so alt is easyocr>=1.7.0 opencv-python)
 python-Levenshtein
 pytz
 pyyaml
@@ -54,5 +54,4 @@ types-requests
 typing-extensions
 urllib3
 uszipcode
-# We either need easyocr + opencv-python OR pytesseract + tesseract: easyocr>=1.7.0 opencv-python
 werkzeug
