@@ -59,3 +59,4 @@ stripe==5.5.0
 pymupdf
 beautifulsoup4==4.12.3
 django-cors-headers
+metapub==0.5.12
