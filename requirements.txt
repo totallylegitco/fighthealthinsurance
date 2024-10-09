@@ -34,28 +34,25 @@ geopy
 django-regex-field
 pytesseract
 uszipcode
-# uszipcode issue see https://github.com/MacHu-GWU/uszipcode-project/issues/79
-sqlalchemy_mate==2.0.0.0
+sqlalchemy_mate==2.0.0.0 # uszipcode issue see https://github.com/MacHu-GWU/uszipcode-project/issues/79
 pyarrow
 packaging>=20.0
 PyPDF2
 django-memoize
-# See https://github.com/mindee/doctr/issues/1186
-RapidFuzz==2.15.1
+RapidFuzz==2.15.1 # See https://github.com/mindee/doctr/issues/1186
 pyOpenSSL
 python-Levenshtein
 django-recaptcha==4.0.0
-# We either need easyocr + opencv-python OR pytesseract + tesseract
-#easyocr>=1.7.0
-# opencv-python
+# We either need easyocr + opencv-python OR pytesseract + tesseract: easyocr>=1.7.0 opencv-python
 pyyaml
 mypy
 flake8-django
 djangorestframework
 django-filter
-# django-rest-framework-braces
-totallylegit-django-rest-framework-braces
+totallylegit-django-rest-framework-braces # forked from django-rest-framework-braces
 stripe==5.5.0
 pymupdf
 beautifulsoup4==4.12.3
 django-cors-headers
+django-celery
+django-celery-beat
