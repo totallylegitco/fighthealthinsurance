@@ -208,7 +208,6 @@ class PlanDocuments(models.Model):
     denial = models.ForeignKey("Denial", on_delete=models.CASCADE)
 
 
-
 class FollowUpDocuments(models.Model):
     document_id = models.AutoField(primary_key=True)
     followup_document = models.FileField(null=True, storage=settings.EXTERNAL_STORAGE)
@@ -219,8 +218,10 @@ class FollowUpDocuments(models.Model):
 
 class PubMedArticleSummarized(models.Model):
     """PubMedArticles with a summary for the given query."""
+
     class Meta:
-        UniqueConstraint(fields=['doi', 'query'], name='unique_doi_query') 
+        UniqueConstraint(fields=["doi", "query"], name="unique_doi_query")
+
     doi = models.CharField(primary_key=False)
     query = models.CharField(primary_key=False)
     abstract = models.TextField(primary_key=False, null=True)
