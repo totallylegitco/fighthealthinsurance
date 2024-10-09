@@ -222,6 +222,7 @@ class PubMedArticleSummarized(models.Model):
 
     class Meta:
         UniqueConstraint(fields=["doi", "pmid", "query"], name="unique_doc_query_combo")
+
     pmid = models.TextField(primary_key=False, blank=True)
     doi = models.TextField(primary_key=False, blank=True)
     query = models.TextField(primary_key=False, blank=True)
