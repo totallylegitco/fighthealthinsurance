@@ -334,8 +334,9 @@ class Prod(Base):
     MINIO_STORAGE_ACCESS_KEY = os.getenv("EX_MINIO_ACCESS", None)
     MINIO_STORAGE_SECRET_KEY = os.getenv("EX_MINIO_SECRET", None)
     MINIO_STORAGE_REGION = os.getenv("EX_MINIO_REGION", None)
-    MINIO_STORAGE_ENDPOINT = os.getenv("EX_MINIO_HOST", None)
-    MINIO_CERT_CHECK = os.getenv("EX_MINIO_CERT_CHECK", True)
+    MINIO_STORAGE_ENDPOINT = os.getenv("EX_MINIO_ENDPOINT", None)
+    MINIO_CERT_CHECK = os.getenv("EX_MINIO_CERT_CHECK", "True") == "True"
+    MINIO_STORAGE_USE_HTTPS = os.getenv("EX_USE_HTTPS", "True") == "True"
 
     @property
     def EXTERNAL_STORAGE_B(self):
