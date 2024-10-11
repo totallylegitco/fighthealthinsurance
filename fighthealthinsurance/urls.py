@@ -20,10 +20,12 @@ from django.views.decorators.cache import cache_control, cache_page
 
 from fighthealthinsurance import views
 from fighthealthinsurance.rest_urls import rest_urls
+from fighthealthinsurance.followup_emails import ScheduleFollowUps
 
 urlpatterns = [
     path("ziggy/rest/", include(rest_urls)),
     path("timbit/admin/", admin.site.urls),
+    path("timbit/admin/followup_sched", ScheduleFollowUps.as_view()),
     path("error", views.ErrorView.as_view()),
     # So if there's an extra / or . at the end we ignore it.
     path(

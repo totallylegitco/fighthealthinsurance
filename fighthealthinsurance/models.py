@@ -13,6 +13,7 @@ from django.db.models.functions import Now
 
 from regex_field.fields import RegexField
 
+from fighthealthinsurance.utils import sekret_gen
 
 class InterestedProfessional(models.Model):
     id = models.AutoField(primary_key=True)
@@ -46,6 +47,9 @@ class FollowUpSched(models.Model):
     follow_up_type = models.ForeignKey(FollowUpType, on_delete=models.CASCADE)
     follow_up_date = models.DateField(auto_now=False)
     initial = models.DateField(auto_now=False, auto_now_add=True)
+    follow_up_sent = models.BooleanField(default=False)
+    follow_up_sent_date = models.DateTimeField(null=True)
+    follow_up_semi_sekret = models.CharField(max_length=100, default=sekret_gen)
     # If the denial is deleted it's either SPAM or a PII removal request
     # in either case lets delete the scheduled follow ups.
     denial_id = models.ForeignKey("Denial", on_delete=models.CASCADE)
@@ -197,10 +201,6 @@ class PlanSourceRelation(models.Model):
     src = models.ForeignKey(DataSource, on_delete=models.SET_NULL, null=True)
 
 
-def sekret_gen():
-    return str(UUID(bytes=os.urandom(16), version=4))
-
-
 class PlanDocuments(models.Model):
     plan_document_id = models.AutoField(primary_key=True)
     plan_document = models.FileField(null=True, storage=settings.COMBINED_STORAGE)
@@ -240,6 +240,13 @@ class PubQueryMedData(models.Model):
     articles = models.TextField(null=True)  # Comma seperated articles
     query_date = models.DateTimeField(auto_now_add=True)
 
+class FollowUp(models.Model):
+    followup_id = models.AutoField(primary_key=True)
+    denial_id = models.ForeignKey("Denial", on_delete=models.CASCADE)
+    more_follow_up_requested = models.BooleanField(default=False)
+    follow_up_medicare_someone_to_help = models.BooleanField(default=False)
+    user_comments = models.TextField(primary_key=False, null=True)
+
 
 class Denial(models.Model):
     denial_id = models.AutoField(primary_key=True)
@@ -269,15 +276,6 @@ class Denial(models.Model):
     semi_sekret = models.CharField(max_length=100, default=sekret_gen)
     plan_id = models.CharField(max_length=200, primary_key=False, null=True)
     state = models.CharField(max_length=4, primary_key=False, null=True)
-    follow_up_sent = models.BooleanField(default=False)
-    follow_up_sent_date = models.DateTimeField(null=True)
-    user_responsed = models.BooleanField(default=False)
-    more_follow_up_requested = models.BooleanField(default=False)
-    more_follow_up_sent = models.BooleanField(default=False)
-    more_follow_up_sent_date = models.DateTimeField(null=True)
-    follow_up_semi_sekret = models.CharField(max_length=100, default=sekret_gen)
-    follow_up_medicare_someone_to_help = models.BooleanField(default=False)
-    user_comments = models.TextField(primary_key=False, null=True)
     appeal_result = models.CharField(max_length=200, null=True)
     last_interaction = models.DateTimeField(auto_now=True)
 
