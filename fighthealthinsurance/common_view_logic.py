@@ -142,22 +142,21 @@ class FollowUpHelper:
         # Store the follow up response returns nothing but may raise
         denial_id = denial.denial_id
         follow_up = FollowUp.objects.create(
-            hashed_email = hashed_email,
+            hashed_email=hashed_email,
             denial_id=denial,
-            more_follow_up_requested = follow_up_again,
-            follow_up_medicare_someone_to_help = medicare_someone_to_help
+            more_follow_up_requested=follow_up_again,
+            follow_up_medicare_someone_to_help=medicare_someone_to_help,
         )
         # If they asked for additional follow up add a new schedule
         if follow_up_again:
             FollowUpSched.objects.create(
                 email=denial.email,
                 denial_id=denial,
-                follow_up_date=denial.date+datetime.timedelta(days=15))
+                follow_up_date=denial.date + datetime.timedelta(days=15),
+            )
         for document in followup_documents:
             fd = FollowUpDocuments.objects.create(
-                follow_up_document=document,
-                denial=denial,
-                follow_up_id=follow_up
+                follow_up_document=document, denial=denial, follow_up_id=follow_up
             )
             fd.save()
         denial.appeal_result = appeal_result

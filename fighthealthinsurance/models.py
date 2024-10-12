@@ -15,6 +15,7 @@ from regex_field.fields import RegexField
 
 from fighthealthinsurance.utils import sekret_gen
 
+
 class InterestedProfessional(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=300, primary_key=False, default="")
@@ -55,7 +56,9 @@ class FollowUp(models.Model):
 class FollowUpSched(models.Model):
     follow_up_id = models.AutoField(primary_key=True)
     email = models.CharField(max_length=300, primary_key=False)
-    follow_up_type = models.ForeignKey(FollowUpType, null=True, on_delete=models.SET_NULL)
+    follow_up_type = models.ForeignKey(
+        FollowUpType, null=True, on_delete=models.SET_NULL
+    )
     initial = models.DateField(auto_now=False, auto_now_add=True)
     follow_up_date = models.DateField(auto_now=False, auto_now_add=False)
     follow_up_sent = models.BooleanField(default=False)

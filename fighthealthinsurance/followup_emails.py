@@ -14,31 +14,47 @@ from typing import Optional
 
 class ScheduleFollowUps(View):
     """A view to go through and schedule any missing follow ups."""
+
     @method_decorator(staff_member_required)
     def get(self, request):
-        denials = Denial.objects.filter(raw_email__isnull=False).filter(followupsched__isnull=True).iterator()
+        denials = (
+            Denial.objects.filter(raw_email__isnull=False)
+            .filter(followupsched__isnull=True)
+            .iterator()
+        )
         c = 0
         for denial in denials:
             FollowUpSched.objects.create(
                 email=denial.raw_email,
-                follow_up_date=denial.date+datetime.timedelta(days=15),
-                denial_id=denial)
-            c = c +1
+                follow_up_date=denial.date + datetime.timedelta(days=15),
+                denial_id=denial,
+            )
+            c = c + 1
         return HttpResponse(str(c))
 
 
-class FollowUpEmailSender():
+class FollowUpEmailSender:
     def find_candidates(self) -> QuerySet[FollowUpSched, FollowUpSched]:
-        candidates = FollowUpSched.objects.filter(follow_up_sent=False).filter(follow_up_date__lt=datetime.date.today())
+        candidates = FollowUpSched.objects.filter(follow_up_sent=False).filter(
+            follow_up_date__lt=datetime.date.today()
+        )
         return candidates
 
     def send_all(self) -> int:
         candidates = self.find_candidates()
         return len(list(map(lambda f: self.dosend(follow_up_sched=f), candidates)))
 
-    def dosend(self, follow_up_sched: Optional[FollowUpSched] = None, email: Optional[str] = None) -> bool:
+    def dosend(
+        self,
+        follow_up_sched: Optional[FollowUpSched] = None,
+        email: Optional[str] = None,
+    ) -> bool:
         if follow_up_sched is None and email is not None:
-            follow_up_sched = FollowUpSched.objects.filter(email=email).filter(follow_up_sent=False).get()
+            follow_up_sched = (
+                FollowUpSched.objects.filter(email=email)
+                .filter(follow_up_sent=False)
+                .get()
+            )
         elif email is None and follow_up_sched is not None:
             email = follow_up_sched.email
         else:
@@ -48,12 +64,13 @@ class FollowUpEmailSender():
         context = {
             "selected_appeal": selected_appeal,
             "followup_link": reverse(
-                'followup',
+                "followup",
                 kwargs={
                     "uuid": denial.uuid,
                     "hashed_email": denial.hashed_email,
                     "follow_up_semi_sekret": denial.follow_up_semi_sekret,
-                }),
+                },
+            ),
         }
 
         # First, render the plain text content.
