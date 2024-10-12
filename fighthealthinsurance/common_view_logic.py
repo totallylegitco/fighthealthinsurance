@@ -150,7 +150,7 @@ class FollowUpHelper:
         # If they asked for additional follow up add a new schedule
         if follow_up_again:
             FollowUpSched.objects.create(
-                email=denial.email,
+                email=denial.raw_email,
                 denial_id=denial,
                 follow_up_date=denial.date + datetime.timedelta(days=15),
             )
