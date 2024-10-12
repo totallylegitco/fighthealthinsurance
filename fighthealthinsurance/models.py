@@ -41,15 +41,25 @@ class FollowUpType(models.Model):
         return self.name
 
 
+class FollowUp(models.Model):
+    followup_result_id = models.AutoField(primary_key=True)
+    hashed_email = models.CharField(max_length=200, null=True)
+    denial_id = models.ForeignKey("Denial", on_delete=models.CASCADE)
+    more_follow_up_requested = models.BooleanField(default=False)
+    follow_up_medicare_someone_to_help = models.BooleanField(default=False)
+    user_comments = models.TextField(primary_key=False, null=True)
+    appeal_result = models.CharField(max_length=200, null=True)
+    response_date = models.DateField(auto_now=False, auto_now_add=True)
+
+
 class FollowUpSched(models.Model):
     follow_up_id = models.AutoField(primary_key=True)
     email = models.CharField(max_length=300, primary_key=False)
-    follow_up_type = models.ForeignKey(FollowUpType, on_delete=models.CASCADE)
-    follow_up_date = models.DateField(auto_now=False)
+    follow_up_type = models.ForeignKey(FollowUpType, null=True, on_delete=models.SET_NULL)
     initial = models.DateField(auto_now=False, auto_now_add=True)
+    follow_up_date = models.DateField(auto_now=False, auto_now_add=False)
     follow_up_sent = models.BooleanField(default=False)
     follow_up_sent_date = models.DateTimeField(null=True)
-    follow_up_semi_sekret = models.CharField(max_length=100, default=sekret_gen)
     # If the denial is deleted it's either SPAM or a PII removal request
     # in either case lets delete the scheduled follow ups.
     denial_id = models.ForeignKey("Denial", on_delete=models.CASCADE)
@@ -211,10 +221,11 @@ class PlanDocuments(models.Model):
 
 class FollowUpDocuments(models.Model):
     document_id = models.AutoField(primary_key=True)
-    followup_document = models.FileField(null=True, storage=settings.COMBINED_STORAGE)
+    follow_up_document = models.FileField(null=True, storage=settings.COMBINED_STORAGE)
     # If the denial is deleted it's either SPAM or a removal request in either case
     # we cascade the delete
     denial = models.ForeignKey("Denial", on_delete=models.CASCADE)
+    follow_up_id = models.ForeignKey("FollowUp", on_delete=models.CASCADE, null=True)
 
 
 class PubMedArticleSummarized(models.Model):
@@ -239,13 +250,6 @@ class PubQueryMedData(models.Model):
     query = models.TextField(null=False, max_length=300)
     articles = models.TextField(null=True)  # Comma seperated articles
     query_date = models.DateTimeField(auto_now_add=True)
-
-class FollowUp(models.Model):
-    followup_id = models.AutoField(primary_key=True)
-    denial_id = models.ForeignKey("Denial", on_delete=models.CASCADE)
-    more_follow_up_requested = models.BooleanField(default=False)
-    follow_up_medicare_someone_to_help = models.BooleanField(default=False)
-    user_comments = models.TextField(primary_key=False, null=True)
 
 
 class Denial(models.Model):
@@ -278,6 +282,7 @@ class Denial(models.Model):
     state = models.CharField(max_length=4, primary_key=False, null=True)
     appeal_result = models.CharField(max_length=200, null=True)
     last_interaction = models.DateTimeField(auto_now=True)
+    follow_up_semi_sekret = models.CharField(max_length=100, default=sekret_gen)
 
     def follow_up(self):
         return self.raw_email is not None and "@" in self.raw_email
