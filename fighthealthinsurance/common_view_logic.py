@@ -132,6 +132,10 @@ class FollowUpHelper:
         appeal_result: str,
         follow_up_again: bool,
         medicare_someone_to_help: bool = False,
+        email: Optional[str] = None,
+        quote: Optional[str] = None,
+        name_for_quote: Optional[str] = None,
+        use_quote: bool = False,
         followup_documents=[],
     ):
         denial = cls.fetch_denial(
@@ -146,6 +150,10 @@ class FollowUpHelper:
             denial_id=denial,
             more_follow_up_requested=follow_up_again,
             follow_up_medicare_someone_to_help=medicare_someone_to_help,
+            use_quote=use_quote,
+            email=email,
+            name_for_quote=name_for_quote,
+            quote=quote,
         )
         # If they asked for additional follow up add a new schedule
         if follow_up_again:

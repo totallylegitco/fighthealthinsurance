@@ -49,6 +49,10 @@ class FollowUp(models.Model):
     more_follow_up_requested = models.BooleanField(default=False)
     follow_up_medicare_someone_to_help = models.BooleanField(default=False)
     user_comments = models.TextField(primary_key=False, null=True)
+    quote = models.TextField(primary_key=False, null=True)
+    use_quote = models.TextField(primary_key=False, default=False)
+    email = models.CharField(max_length=300, null=True)
+    name_for_quote = models.TextField(primary_key=False, null=True)
     appeal_result = models.CharField(max_length=200, null=True)
     response_date = models.DateField(auto_now=False, auto_now_add=True)
 
