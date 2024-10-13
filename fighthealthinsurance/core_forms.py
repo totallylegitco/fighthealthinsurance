@@ -127,6 +127,10 @@ class PostInferedForm(DenialRefForm):
         captcha = ReCaptchaField(widget=ReCaptchaV2Checkbox())
 
 
+class FollowUpTestForm(forms.Form):
+    email = forms.CharField(required=True)
+
+
 class FollowUpForm(forms.Form):
     Appeal_Result_Choices = [
         ("Do not wish to disclose", "Do not wish to disclose"),

@@ -4,10 +4,11 @@ from django.template.loader import render_to_string
 from django.utils.decorators import method_decorator
 from django.contrib.admin.views.decorators import staff_member_required
 from django_celery_beat.models import PeriodicTasks
-from django.views import View
+from django.views import View, generic
 from django.http import HttpResponse
 from django.db.models import QuerySet
 from fighthealthinsurance.models import Denial, FollowUpSched
+from fighthealthinsurance.core_forms import FollowUpTestForm
 import datetime
 from typing import Optional
 
@@ -31,6 +32,18 @@ class ScheduleFollowUps(View):
             )
             c = c + 1
         return HttpResponse(str(c))
+
+
+class FollowUpEmailSenderView(generic.FormView):
+    """A view to test the follow up sender."""
+
+    template_name = "followup_test.html"
+    form_class = FollowUpTestForm
+
+    def form_valid(self, form):
+        s = FollowUpEmailSender()
+        sent = s.dosend(email=form.cleaned_data.get("email"))
+        return HttpResponse(str(sent))
 
 
 class FollowUpEmailSender:
