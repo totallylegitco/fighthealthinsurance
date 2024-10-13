@@ -326,6 +326,12 @@ class DenialCreatorHelper:
             raw_email=possible_email,
             health_history=health_history,
         )
+        if raw_email is not None:
+            FollowUpSched.objects.create(
+                email=denial.raw_email,
+                follow_up_date=denial.date + datetime.timedelta(days=15),
+                denial_id=denial,
+            )
 
         for plan_document in plan_documents:
             pd = PlanDocuments.objects.create(
