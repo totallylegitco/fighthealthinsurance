@@ -370,15 +370,10 @@ class RemoteOpenLike(RemoteModel):
 
     def __timeout_infer(
         self,
-        system_prompt,
-        prompt,
-        patient_context,
-        plan_context,
-        temperature,
-        model,
-        api_base=None,
+        *args,
+        **kwargs,
     ) -> Optional[str]:
-        if self.__timeout is not None:
+        if self._timeout is not None:
             with Timeout(self._timeout) as timeout_ctx:
                 return self.__infer(*args, **kwargs)
         else:
