@@ -7,14 +7,15 @@ import time
 import traceback
 from concurrent.futures import Future
 from functools import cache, lru_cache
-from typing import List, Optional, Tuple, Iterator
+from typing import Any, List, Optional, Tuple, Iterator
 
 import icd10
 import requests
 from typing_extensions import reveal_type
 
 from fighthealthinsurance.exec import *
-from fighthealthinsurance.ml_models import *
+from fighthealthinsurance.model_router import model_router
+from fighthealthinsurance.ml_models import RemoteModelLike, RemoteFullOpenLike
 from fighthealthinsurance.models import (
     AppealTemplates,
     DenialTypes,
@@ -24,7 +25,7 @@ from fighthealthinsurance.models import (
     Regulator,
 )
 from fighthealthinsurance.process_denial import *
-from fighthealthinsurance.utils import as_available
+from fighthealthinsurance.utils import as_available_nested
 
 
 class AppealTemplateGenerator(object):
@@ -51,22 +52,13 @@ class AppealTemplateGenerator(object):
 class AppealGenerator(object):
     def __init__(self):
         self.regex_denial_processor = ProcessDenialRegex()
-        self.anyscale = RemoteOpen()
-        self.anyscale2 = RemoteOpenInst()
-        self.remotehealth = RemoteHealthInsurance()
-        self.together = RemoteTogetherAI()
-        self.palm = PalmAPI()
-        self.octoai = OctoAI()
-        self.perplexity = RemotePerplexityInstruct()
 
-    def get_procedure_and_diagnosis(self, denial_text=None, use_external=False):
+    def get_procedure_and_diagnosis(self, denial_text=None, use_external=False) -> Tuple[Optional[str], Optional[str]]:
         prompt = self.make_open_procedure_prompt(denial_text)
         models_to_try = [
             self.regex_denial_processor,
-            self.remotehealth,
         ]
-        if use_external:
-            models_to_try.append(self.together)
+        models_to_try.extend(model_router.entity_extract_backends(use_external))
         procedure = None
         diagnosis = None
         for model in models_to_try:
@@ -149,20 +141,45 @@ class AppealGenerator(object):
 
         # For any model that we have a prompt for try to call it and return futures
         def get_model_result(
-            model: RemoteModel,
+            model_name: str,
             prompt: str,
             patient_context: Optional[str],
             plan_context: Optional[str],
             infer_type: str,
         ) -> List[Future[Tuple[str, Optional[str]]]]:
-            print(f"Looking up on {model}")
-            if prompt is None:
-                print(f"No prompt for {model} skipping")
+            print(f"Looking up on {model_name}")
+            if model_name not in model_router.models_by_name:
+                print(f"No backend for {model_name}")
                 return []
+            model_backends = model_router.models_by_name[model_name]
+            if prompt is None:
+                print(f"No prompt for {model_name} skipping")
+                return []
+            for model in model_backends:
+                try:
+                    return _get_model_result(
+                        model=model,
+                        prompt=prompt,
+                        patient_context=patient_context,
+                        plan_context=plan_context,
+                        infer_type=infer_type,
+                    )
+                except Exception as e:
+                    print(f"Backend {model} failed {e}")
+            print(f"All backends for {model_name} failed")
+            return []
+
+        def _get_model_result(
+            model: RemoteModelLike,
+            prompt: str,
+            patient_context: Optional[str],
+            plan_context: Optional[str],
+            infer_type: str,
+        ) -> List[Future[Tuple[str, Optional[str]]]]:
             # If the model has parallelism use it
             results = None
             try:
-                if isinstance(model, RemoteOpenLike):
+                if isinstance(model, RemoteFullOpenLike):
                     print(f"Using {model}'s parallel inference")
                     reveal_type(model)
                     results = model.parallel_infer(
@@ -198,7 +215,6 @@ class AppealGenerator(object):
             print(
                 f"Infered {results} for {model}-{infer_type} using {prompt} w/ {patient_context}"
             )
-            print("Yay!")
             return results
 
         medical_context = ""
@@ -207,9 +223,10 @@ class AppealGenerator(object):
         if denial.health_history is not None:
             medical_context += denial.health_history
         plan_context = denial.plan_context
+        backup_calls: List[Any] = []
         calls = [
             {
-                "model": self.remotehealth,
+                "model_name": "fhi",
                 "prompt": open_prompt,
                 "patient_context": medical_context,
                 "plan_context": plan_context,
@@ -221,7 +238,7 @@ class AppealGenerator(object):
             calls.extend(
                 [
                     {
-                        "model": self.perplexity,
+                        "model_name": "perplexity",
                         "prompt": open_prompt,
                         "patient_context": medical_context,
                         "infer_type": "full",
@@ -232,7 +249,18 @@ class AppealGenerator(object):
             calls.extend(
                 [
                     {
-                        "model": self.together,
+                        "model_name": "meta-llama/llama-3.2-405b-instruct",
+                        "prompt": open_prompt,
+                        "patient_context": medical_context,
+                        "infer_type": "full",
+                        "plan_context": plan_context,
+                    }
+                ]
+            )
+            backup_calls.extend(
+                [
+                    {
+                        "model_name": "meta-llama/llama-3.1-70b-instruct",
                         "prompt": open_prompt,
                         "patient_context": medical_context,
                         "infer_type": "full",
@@ -241,8 +269,6 @@ class AppealGenerator(object):
                 ]
             )
 
-        # TODO: Add another external backup for external models.
-        backup_calls: List[Any] = []
         # If we need to know the medical reason ask our friendly LLMs
         static_appeal = template_generator.generate_static()
         initial_appeals = non_ai_appeals
@@ -250,7 +276,7 @@ class AppealGenerator(object):
             calls.extend(
                 [
                     {
-                        "model": self.remotehealth,
+                        "model_name": "fhi",
                         "prompt": open_medically_necessary_prompt,
                         "patient_context": medical_context,
                         "infer_type": "medically_necessary",
@@ -258,6 +284,18 @@ class AppealGenerator(object):
                     },
                 ]
             )
+            if denial.use_external:
+                backup_calls.extend(
+                    [
+                        {
+                            "model_name": "perplexity",
+                            "prompt": open_medically_necessary_prompt,
+                            "patient_context": medical_context,
+                            "infer_type": "medically_necessary",
+                            "plan_context": plan_context,
+                        },
+                    ]
+                )
         else:
             # Otherwise just put in as is.
             initial_appeals.append(static_appeal)
@@ -269,7 +307,7 @@ class AppealGenerator(object):
         print(f"Initial appeal {initial_appeals}")
         # Executor map wants a list for each parameter.
 
-        def make_async_model_calls(calls) -> List[Future[Iterable[str]]]:
+        def make_async_model_calls(calls) -> List[Future[Iterator[str]]]:
             print(f"Calling models: {calls}")
             model_futures = itertools.chain.from_iterable(
                 map(lambda x: get_model_result(**x), calls)
@@ -297,32 +335,26 @@ class AppealGenerator(object):
             )
             return generated_text_futures
 
-        generated_text_futures: List[Future[Iterable[str]]] = make_async_model_calls(
+        generated_text_futures: List[Future[Iterator[str]]] = make_async_model_calls(
             calls
         )
 
         # Since we publish the results as they become available
         # we want to add some randomization to the initial appeals so they are
         # not always appearing in the first position.
-        def random_delay(appeal) -> List[str]:
+        def random_delay(appeal) -> Iterator[str]:
             time.sleep(random.randint(0, 15))
-            return [appeal]
+            return iter([appeal])
 
-        delayed_initial_appeals: List[Future[Iterable[str]]] = list(
+        delayed_initial_appeals: List[Future[Iterator[str]]] = list(
             map(lambda appeal: executor.submit(random_delay, appeal), initial_appeals)
         )
-        appeals_futures: List[Future[Iterable[str]]] = (
-            delayed_initial_appeals + generated_text_futures
-        )
-        appeals: Iterator[str] = itertools.chain.from_iterable(
-            as_available(appeals_futures)
-        )
-        # Check and make sure we have a result
+        appeals: Iterator[str] = as_available_nested(generated_text_futures)
+        # Check and make sure we have some AI powered results
         try:
             appeals = itertools.chain([appeals.__next__()], appeals)
         except StopIteration:
-            appeals = itertools.chain.from_iterable(
-                as_available(make_async_model_calls(backup_calls))
-            )
+            appeals = as_available_nested(make_async_model_calls(backup_calls))
+        appeals = itertools.chain(appeals, as_available_nested(delayed_initial_appeals))
         print(f"Sending back {appeals}")
         return appeals
