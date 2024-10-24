@@ -13,7 +13,7 @@ class ModelRouter(object):
     all_models_by_cost: List[RemoteModelLike] = []
 
     def __init__(self):
-        print(f"Starting model \'router\'")
+        print(f"Starting model 'router'")
         building_internal_models_by_cost = []
         building_all_models_by_cost = []
         building_models_by_name = {}
@@ -50,7 +50,9 @@ class ModelRouter(object):
         self.all_models_by_cost = list(
             map(lambda m: m.model, sorted(building_all_models_by_cost))
         )
-        print(f"Built {self} with i:{self.internal_models_by_cost} a:{self.all_models_by_cost}")
+        print(
+            f"Built {self} with i:{self.internal_models_by_cost} a:{self.all_models_by_cost}"
+        )
 
     def entity_extract_backends(self, use_external) -> list[RemoteModelLike]:
         """Backends for entity extraction."""

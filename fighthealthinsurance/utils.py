@@ -78,4 +78,5 @@ def as_available(futures: List[Future[U]]) -> Iterator[U]:
 
 def all_subclasses(cls: type[U]) -> set[type[U]]:
     return set(cls.__subclasses__()).union(
-        [s for c in cls.__subclasses__() for s in all_subclasses(c)])
+        [s for c in cls.__subclasses__() for s in all_subclasses(c)]
+    )

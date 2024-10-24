@@ -53,7 +53,9 @@ class AppealGenerator(object):
     def __init__(self):
         self.regex_denial_processor = ProcessDenialRegex()
 
-    def get_procedure_and_diagnosis(self, denial_text=None, use_external=False) -> Tuple[Optional[str], Optional[str]]:
+    def get_procedure_and_diagnosis(
+        self, denial_text=None, use_external=False
+    ) -> Tuple[Optional[str], Optional[str]]:
         prompt = self.make_open_procedure_prompt(denial_text)
         models_to_try = [
             self.regex_denial_processor,
