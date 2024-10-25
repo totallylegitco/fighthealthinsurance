@@ -540,7 +540,7 @@ class DeepInfra(RemoteFullOpenLike):
     """Use DeepInfra."""
 
     def __init__(self, model: str):
-        api_base = "https://api.deepinfra.com/v1/openai"
+        api_base = "https://api.deepinfra.com/v1/openai/chat/completions"
         token = os.getenv("DEEPINFRA_API")
         super().__init__(api_base, token, model=model)
 
