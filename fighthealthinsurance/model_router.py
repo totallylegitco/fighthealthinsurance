@@ -61,5 +61,18 @@ class ModelRouter(object):
         else:
             return self.internal_models_by_cost
 
+    def summarize(self, text: str, query: str, abstract: str) -> Optional[str]:
+        models: list[RemoteModelLike] = []
+        if "meta-llama/llama-3.1-70b-instruct" in self.models_by_name:
+            models = self.models_by_name["meta-llama/llama-3.1-70b-instruct"]
+        else:
+            models = self.all_models_by_cost
+        for m in models:
+            return m._infer(
+                system_prompt="You are a helpful assistant summarizing an article for a doctor.",
+                prompt=f"Given this query {query} summarize the following for {query}: {abstract} -- {text}",
+            )
+        return None
+
 
 model_router = ModelRouter()

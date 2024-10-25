@@ -37,9 +37,11 @@ def is_valid_url(url) -> bool:
         # Look for those craft 200 OKs which should be 404s
         for bad_result_text in common_bad_result:
             if bad_result_text.lower() in result_text:
+                print(f"Found bad result on {url}")
                 return False
         return True
     except RequestException as e:
+        print(f"Error {e} looking up {url}")
         groups = maybe_bad_url_endings.search(url)
         if groups is not None:
             return is_valid_url(groups.group(1))
@@ -85,7 +87,8 @@ def all_subclasses(cls: type[U]) -> set[type[U]]:
     )
 
 
-url_re = re.compile(r"https?://\S+", re.IGNORECASE)
+url_pattern = "https?:\\/\\/(?:www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b(?:[-a-zA-Z0-9@:%_\\+.~#?&\\/=]*)"
+url_re = re.compile(url_pattern, re.IGNORECASE)
 
 
 def url_fixer(result: Optional[str]) -> Optional[str]:

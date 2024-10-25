@@ -1,3 +1,7 @@
+import tempfile
+from metapub import PubMedFetcher, FindIt
+import PyPDF2
+from stopit import ThreadingTimeout as Timeout
 import random
 import concurrent
 import csv
@@ -8,6 +12,9 @@ import traceback
 from concurrent.futures import Future
 from functools import cache, lru_cache
 from typing import Any, List, Optional, Tuple, Iterator
+import json
+
+import metapub
 
 import icd10
 import requests
@@ -23,9 +30,13 @@ from fighthealthinsurance.models import (
     PlanType,
     Procedures,
     Regulator,
+    PubMedQueryData,
+    PubMedArticleSummarized,
 )
 from fighthealthinsurance.process_denial import *
 from fighthealthinsurance.utils import as_available_nested
+
+pubmed_fetcher = PubMedFetcher()
 
 
 class AppealTemplateGenerator(object):
@@ -126,9 +137,81 @@ class AppealGenerator(object):
         else:
             return None
 
+    def find_more_context(self, denial) -> str:
+        # PubMed
+        pmids = None
+        pmid_text: list[str] = []
+        articles: list[PubMedArticleSummarized] = []
+        with Timeout(30.0) as timeout_ctx:
+            query = f"{denial.procedure} {denial.diagnosis}"
+            pmids = pubmed_fetcher.pmids_for_query(query)
+            articles_json = json.dumps(pmids)
+            PubMedQueryData.objects.create(query=query, articles=articles_json).save()
+            for article_id in pmids[0:10]:
+                possible_articles = PubMedArticleSummarized.objects.filter(
+                    pmid=article_id,
+                    query=query,
+                    basic_summary__isnull=False,
+                )[:1]
+                article = None
+                if len(possible_articles) > 0:
+                    article = possible_articles[0]
+
+                if article is None:
+                    fetched = pubmed_fetcher.article_by_pmid(article_id)
+                    src = FindIt(article_id)
+                    url = src.url
+                    article_text = ""
+                    if url is not None:
+                        response = requests.get(url)
+                        if (
+                            ".pdf" in url
+                            or response.headers.get("Content-Type") == "application/pdf"
+                        ):
+                            with tempfile.NamedTemporaryFile(
+                                suffix=".pdf", delete=False
+                            ) as my_data:
+                                my_data.write(response.content)
+
+                                open_pdf_file = open(my_data.name, "rb")
+                                read_pdf = PyPDF2.PdfReader(open_pdf_file)
+                                if read_pdf.is_encrypted:
+                                    read_pdf.decrypt("")
+                                    for page in read_pdf.pages:
+                                        article_text += page.extract_text()
+                                else:
+                                    for page in read_pdf.pages:
+                                        article_text += page.extract_text()
+                        else:
+                            article_text += response.text
+                    else:
+                        article_text = fetched.content.text
+
+                    article = PubMedArticleSummarized.objects.create(
+                        pmid=article_id,
+                        doi=fetched.doi,
+                        title=fetched.title,
+                        abstract=fetched.abstract,
+                        text=article_text,
+                        query=query,
+                        basic_summary=model_router.summarize(
+                            query=query, abstract=fetched.abstract, text=article_text
+                        ),
+                    )
+                articles.append(article)
+
+            def article_to_summary(article) -> str:
+                return f"PubMed DOI {article.doi} title {article.title} summary {article.basic_summary}"
+
+            if len(articles) > 0:
+                return "\n".join(map(article_to_summary, articles))
+            else:
+                return ""
+
     def make_appeals(
         self, denial, template_generator, medical_reasons=[], non_ai_appeals=[]
     ) -> Iterator[str]:
+
         open_prompt = self.make_open_prompt(
             denial_text=denial.denial_text,
             procedure=denial.procedure,
@@ -139,6 +222,13 @@ class AppealGenerator(object):
             diagnosis=denial.diagnosis,
         )
 
+        pubmed_context = None
+        try:
+            pubmed_context = self.find_more_context(denial)
+        except Exception as e:
+            print(f"Error {e} looking up context for {denial}.")
+            pass
+
         # TODO: use the streaming and cancellable APIs (maybe some fancy JS on the client side?)
 
         # For any model that we have a prompt for try to call it and return futures
@@ -148,6 +238,7 @@ class AppealGenerator(object):
             patient_context: Optional[str],
             plan_context: Optional[str],
             infer_type: str,
+            pubmed_context: Optional[str] = None,
         ) -> List[Future[Tuple[str, Optional[str]]]]:
             print(f"Looking up on {model_name}")
             if model_name not in model_router.models_by_name:
@@ -165,6 +256,7 @@ class AppealGenerator(object):
                         patient_context=patient_context,
                         plan_context=plan_context,
                         infer_type=infer_type,
+                        pubmed_context=pubmed_context,
                     )
                 except Exception as e:
                     print(f"Backend {model} failed {e}")
@@ -177,6 +269,7 @@ class AppealGenerator(object):
             patient_context: Optional[str],
             plan_context: Optional[str],
             infer_type: str,
+            pubmed_context: Optional[str],
         ) -> List[Future[Tuple[str, Optional[str]]]]:
             # If the model has parallelism use it
             results = None
@@ -188,6 +281,7 @@ class AppealGenerator(object):
                         prompt=prompt,
                         patient_context=patient_context,
                         plan_context=plan_context,
+                        pubmed_context=pubmed_context,
                         infer_type=infer_type,
                     )
                 else:
@@ -199,6 +293,7 @@ class AppealGenerator(object):
                             patient_context=patient_context,
                             plan_context=plan_context,
                             infer_type=infer_type,
+                            pubmed_context=pubmed_context,
                         )
                     ]
             except Exception as e:
@@ -212,6 +307,7 @@ class AppealGenerator(object):
                         patient_context=patient_context,
                         plan_context=plan_context,
                         infer_type=infer_type,
+                        pubmed_context=pubmed_context,
                     )
                 ]
             print(
@@ -233,6 +329,7 @@ class AppealGenerator(object):
                 "patient_context": medical_context,
                 "plan_context": plan_context,
                 "infer_type": "full",
+                "pubmed_context": pubmed_context,
             },
         ]
 
@@ -245,6 +342,7 @@ class AppealGenerator(object):
                         "patient_context": medical_context,
                         "infer_type": "full",
                         "plan_context": plan_context,
+                        "pubmed_context": pubmed_context,
                     }
                 ]
             )
@@ -256,6 +354,7 @@ class AppealGenerator(object):
                         "patient_context": medical_context,
                         "infer_type": "full",
                         "plan_context": plan_context,
+                        "pubmed_context": pubmed_context,
                     }
                 ]
             )
@@ -267,6 +366,7 @@ class AppealGenerator(object):
                         "patient_context": medical_context,
                         "infer_type": "full",
                         "plan_context": plan_context,
+                        "pubmed_context": pubmed_context,
                     }
                 ]
             )
@@ -283,6 +383,7 @@ class AppealGenerator(object):
                         "patient_context": medical_context,
                         "infer_type": "medically_necessary",
                         "plan_context": plan_context,
+                        "pubmed_context": pubmed_context,
                     },
                 ]
             )
@@ -295,6 +396,7 @@ class AppealGenerator(object):
                             "patient_context": medical_context,
                             "infer_type": "medically_necessary",
                             "plan_context": plan_context,
+                            "pubmed_context": pubmed_context,
                         },
                     ]
                 )

@@ -30,7 +30,18 @@ from fighthealthinsurance.models import (
 
 
 class RemoteModelLike(object):
-    def infer(self, prompt, patient_context, plan_context, infer_type):
+    def infer(self, prompt, patient_context, plan_context, pubmed_context, infer_type):
+        pass
+
+    def _infer(
+        self,
+        system_prompt,
+        prompt,
+        patient_context=None,
+        plan_context=None,
+        pubmed_context=None,
+        temperature=0.7,
+    ) -> Optional[str]:
         pass
 
     def get_procedure_and_diagnosis(self, prompt):
@@ -79,37 +90,6 @@ class RemoteModel(RemoteModelLike):
             return None
         else:
             return re.sub(r"\n\s*\**\s*Note.*\Z", "", result)
-
-
-class PalmAPI(RemoteModel):
-    def bad_result(self, result) -> bool:
-        return result is not None
-
-    @cache
-    def infer(
-        self, prompt: str, patient_context, plan_context, infer_type: str
-    ) -> List[Tuple[str, str]]:
-        result = self._infer(prompt)
-        if self.bad_result(result):
-            result = self._infer(prompt)
-        if result is not None:
-            return [(infer_type, result)]
-        else:
-            return []
-
-    def _infer(self, prompt) -> Optional[str]:
-        API_KEY = os.getenv("PALM_KEY")
-        if API_KEY is None:
-            return None
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={API_KEY}"
-        try:
-            s = requests.Session()
-            result = s.post(url, json={"contents": [{"parts": [{"text": prompt}]}]})
-            json_result = result.json()
-            candidates = json_result["candidates"]
-            return candidates[0]["content"]["parts"][0]["text"]
-        except Exception as e:
-            return None
 
 
 class RemoteOpenLike(RemoteModel):
@@ -163,6 +143,7 @@ class RemoteOpenLike(RemoteModel):
         prompt: str,
         patient_context: Optional[str],
         plan_context: Optional[str],
+        pubmed_context: Optional[str],
         infer_type: str,
     ) -> List[Future[Tuple[str, Optional[str]]]]:
         print(f"Running inference on {self} of type {infer_type}")
@@ -182,6 +163,7 @@ class RemoteOpenLike(RemoteModel):
                             "infer_type": infer_type,
                             "system_prompt": system_prompt,
                             "temperature": temperature,
+                            "pubmed_context": pubmed_context,
                         },
                     ),
                     self.system_prompts[infer_type],
@@ -199,6 +181,7 @@ class RemoteOpenLike(RemoteModel):
         patient_context,
         plan_context,
         infer_type,
+        pubmed_context,
         system_prompt: str,
         temperature: float,
     ):
@@ -207,6 +190,7 @@ class RemoteOpenLike(RemoteModel):
             patient_context=patient_context,
             plan_context=plan_context,
             system_prompt=system_prompt,
+            pubmed_context=pubmed_context,
             temperature=temperature,
         )
         print(f"Got result {result} from {prompt} on {self}")
@@ -217,6 +201,7 @@ class RemoteOpenLike(RemoteModel):
                 patient_context=patient_context,
                 plan_context=plan_context,
                 system_prompt=system_prompt,
+                pubmed_context=pubmed_context,
                 temperature=temperature,
             )
         if self.bad_result(result):
@@ -294,14 +279,15 @@ class RemoteOpenLike(RemoteModel):
         prompt,
         patient_context=None,
         plan_context=None,
+        pubmed_context=None,
         temperature=0.7,
     ) -> Optional[str]:
-        print("Hiiii!!!")
         r = self.__timeout_infer(
             system_prompt=system_prompt,
             prompt=prompt,
             patient_context=patient_context,
             plan_context=plan_context,
+            pubmed_context=pubmed_context,
             temperature=temperature,
             model=self.model,
         )
@@ -312,6 +298,7 @@ class RemoteOpenLike(RemoteModel):
                 patient_context=patient_context,
                 plan_context=plan_context,
                 temperature=temperature,
+                pubmed_context=pubmed_context,
                 model=self.model,
                 api_base=self.backup_api_base,
             )
@@ -336,6 +323,7 @@ class RemoteOpenLike(RemoteModel):
         plan_context,
         temperature,
         model,
+        pubmed_context=None,
         api_base=None,
     ) -> Optional[str]:
         if api_base is None:
@@ -359,6 +347,8 @@ class RemoteOpenLike(RemoteModel):
                 patient_context_max = int(self.max_len / 2)
                 max_len = self.max_len - min(len(patient_context), patient_context_max)
                 context_extra = f"When answering the following question you can use the patient context {patient_context[0:patient_context_max]}."
+            if pubmed_context is not None:
+                context_extra += f"You can also use this context from pubmed: {pubmed_context} and you can include the DOI number in the appeal."
             if plan_context is not None and len(plan_context) > 3:
                 context_extra += f"For answering the question you can use this context about the plan {plan_context}"
             combined_content = f"<<SYS>>{system_prompt}<</SYS>>{context_extra}{prompt[0 : self.max_len]}"
@@ -474,6 +464,8 @@ class RemoteTogetherAI(RemoteFullOpenLike):
     def __init__(self, model: str):
         api_base = "https://api.together.xyz"
         token = os.getenv("TOGETHER_KEY")
+        if token is None or len(token) < 1:
+            raise Exception("No token found for together")
         super().__init__(api_base, token, model=model)
 
     @classmethod
@@ -482,22 +474,22 @@ class RemoteTogetherAI(RemoteFullOpenLike):
             ModelDescription(
                 cost=350,
                 name="meta-llama/llama-3.2-405B-instruct",
-                internal_name="meta-llama/Llama-3.2-405B-Instruct-Turbo",
+                internal_name="meta-llama/Meta-Llama-3.2-405B-Instruct-Turbo",
             ),
             ModelDescription(
                 cost=350,
                 name="meta-llama/llama-3.1-405B-instruct",
-                internal_name="meta-llama/Llama-3.1-405B-Instruct-Turbo",
+                internal_name="meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
             ),
             ModelDescription(
                 cost=88,
                 name="meta-llama/llama-3.2-70B-instruct",
-                internal_name="meta-llama/Llama-3.2-70B-Instruct-Turbo",
+                internal_name="meta-llama/Meta-Llama-3.2-70B-Instruct-Turbo",
             ),
             ModelDescription(
                 cost=88,
                 name="meta-llama/llama-3.1-70b-instruct",
-                internal_name="meta-llama/Llama-3.1-70B-Instruct-Turbo",
+                internal_name="meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
             ),
         ]
 
@@ -508,6 +500,8 @@ class RemotePerplexity(RemoteFullOpenLike):
     def __init__(self, model: str):
         api_base = "https://api.perplexity.ai"
         token = os.getenv("PERPLEXITY_API")
+        if token is None or len(token) < 1:
+            raise Exception("No token found for perplexity")
         super().__init__(api_base, token, model=model)
 
     @classmethod
@@ -542,6 +536,8 @@ class DeepInfra(RemoteFullOpenLike):
     def __init__(self, model: str):
         api_base = "https://api.deepinfra.com/v1/openai/chat/completions"
         token = os.getenv("DEEPINFRA_API")
+        if token is None or len(token) < 1:
+            raise Exception("No token found for deepinfra")
         super().__init__(api_base, token, model=model)
 
     @classmethod
