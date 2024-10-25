@@ -262,7 +262,7 @@ class AppealGenerator(object):
             backup_calls.extend(
                 [
                     {
-                        "model_name": "meta-llama/llama-3.1-70b-instruct",
+                        "model_name": "meta-llama/llama-3.1-405b-instruct",
                         "prompt": open_prompt,
                         "patient_context": medical_context,
                         "infer_type": "full",

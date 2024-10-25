@@ -481,28 +481,23 @@ class RemoteTogetherAI(RemoteFullOpenLike):
         return [
             ModelDescription(
                 cost=350,
-                name="meta-llama/llama-3.2-405B-Instruct",
+                name="meta-llama/llama-3.2-405B-instruct",
                 internal_name="meta-llama/Llama-3.2-405B-Instruct-Turbo",
             ),
             ModelDescription(
-                cost=120,
-                name="meta-llama/llama-3.2-90B-Vision-Instruct-Turbo",
-                internal_name="meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo",
+                cost=350,
+                name="meta-llama/llama-3.1-405B-instruct",
+                internal_name="meta-llama/Llama-3.1-405B-Instruct-Turbo",
             ),
             ModelDescription(
                 cost=88,
-                name="meta-llama/llama-3.2-70B-Instruct",
+                name="meta-llama/llama-3.2-70B-instruct",
                 internal_name="meta-llama/Llama-3.2-70B-Instruct-Turbo",
             ),
             ModelDescription(
                 cost=88,
                 name="meta-llama/llama-3.1-70b-instruct",
                 internal_name="meta-llama/Llama-3.1-70B-Instruct-Turbo",
-            ),
-            ModelDescription(
-                cost=18,
-                name="meta-llama/llama-3.2-8B-Vision-Instruct-Turbo",
-                internal_name="meta-llama/Llama-3.2-8B-Vision-Instruct-Turbo",
             ),
         ]
 
@@ -537,6 +532,30 @@ class RemotePerplexity(RemoteFullOpenLike):
                 cost=20,
                 name="meta-llama/llama-3.1-8b-instruct",
                 internal_name="llama-3.1-8b-instruct",
+            ),
+        ]
+
+
+class DeepInfra(RemoteFullOpenLike):
+    """Use DeepInfra."""
+
+    def __init__(self, model: str):
+        api_base = "https://api.deepinfra.com/v1/openai"
+        token = os.getenv("DEEPINFRA_API")
+        super().__init__(api_base, token, model=model)
+
+    @classmethod
+    def models(cls) -> List[ModelDescription]:
+        return [
+            ModelDescription(
+                cost=179,
+                name="meta-llama/meta-llama-3.1-405B-instruct",
+                internal_name="meta-llama/Meta-Llama-3.1-70B-Instruct",
+            ),
+            ModelDescription(
+                cost=40,
+                name="meta-llama/meta-llama-3.1-70B-instruct",
+                internal_name="meta-llama/Meta-Llama-3.1-70B-Instruct",
             ),
         ]
 
