@@ -18,7 +18,7 @@ import requests
 from typing_extensions import reveal_type
 
 from fighthealthinsurance.exec import *
-from fighthealthinsurance.utils import all_subclasses, is_valid_url
+from fighthealthinsurance.utils import all_subclasses, is_valid_url, url_fixer
 from fighthealthinsurance.models import (
     AppealTemplates,
     DenialTypes,
@@ -71,17 +71,6 @@ class RemoteModel(RemoteModelLike):
                 tla = m.group(1) + m.group(2) + m.group(3)
                 if tla != m.group(4):
                     return re.sub(f"(?<=[\\.\\( ]){m.group(4)}", tla, result)
-            return result
-
-    def url_fixer(self, result: Optional[str]) -> Optional[str]:
-        """LLMs like to hallucinate URLs drop them if they are not valid"""
-        if result is None:
-            return None
-        else:
-            urls = re.findall(r"(https?://\S+)", result)
-            for u in urls:
-                if not is_valid_url(u):
-                    result = result.replace(u, "")
             return result
 
     def note_remover(self, result: Optional[str]) -> Optional[str]:
@@ -232,7 +221,7 @@ class RemoteOpenLike(RemoteModel):
             )
         if self.bad_result(result):
             return []
-        return [(infer_type, self.note_remover(self.url_fixer(self.tla_fixer(result))))]
+        return [(infer_type, self.note_remover(url_fixer(self.tla_fixer(result))))]
 
     def _clean_procedure_response(self, response):
         return self.procedure_response_regex.sub("", response)

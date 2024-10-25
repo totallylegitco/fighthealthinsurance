@@ -6,6 +6,8 @@ import concurrent
 from concurrent.futures import Future
 from typing import List, Iterator, TypeVar, Generic, Optional
 import re
+import requests
+from requests.exceptions import RequestException
 
 U = TypeVar("U")
 T = TypeVar("T")
@@ -21,22 +23,23 @@ common_bad_result = [
 maybe_bad_url_endings = re.compile("^(.*)[\\.\\:\\;\\,\\?\\>]+$")
 
 
-def is_valid_url(url):
+def is_valid_url(url) -> bool:
     try:
         result = requests.get(url)
+        # If it we don't get a valid response try some quick cleanup.
         if result.status_code != 200:
-            groups = self.maybe_bad_url_endings.search(url)
-        if groups is not None:
-            return is_valid_url(groups.group(1))
-        else:
-            return False
-        if result.status_code == 200 and ".pdf" not in url:
-            result_text = result.text.lower()
-            for bad_result_text in self.common_bad_result:
-                if bad_result_text.lower() in result_text:
-                    raise Exception(f"Found {bad_result_text} in {result_text}")
-            return True
-    except Exception as e:
+            groups = maybe_bad_url_endings.search(url)
+            if groups is not None:
+                return is_valid_url(groups.group(1))
+            else:
+                return False
+        result_text = result.text.lower()
+        # Look for those craft 200 OKs which should be 404s
+        for bad_result_text in common_bad_result:
+            if bad_result_text.lower() in result_text:
+                return False
+        return True
+    except RequestException as e:
         groups = maybe_bad_url_endings.search(url)
         if groups is not None:
             return is_valid_url(groups.group(1))
@@ -80,3 +83,20 @@ def all_subclasses(cls: type[U]) -> set[type[U]]:
     return set(cls.__subclasses__()).union(
         [s for c in cls.__subclasses__() for s in all_subclasses(c)]
     )
+
+
+url_re = re.compile(r"https?://\S+", re.IGNORECASE)
+
+
+def url_fixer(result: Optional[str]) -> Optional[str]:
+    """LLMs like to hallucinate URLs drop them if they are not valid"""
+    if result is None:
+        return None
+    else:
+        urls = url_re.findall(result)
+        for u in urls:
+            print(f"{u}")
+            if not is_valid_url(u):
+                print(f"Removing invalud url {u}")
+                result = result.replace(u, "")
+        return result
