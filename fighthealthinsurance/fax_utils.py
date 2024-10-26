@@ -4,6 +4,8 @@ import re
 from typing import Optional
 import os
 
+FROM_FAX = os.getenv("FROM_FAX", "4158407591")
+FROM_VOICE = os.getenv("FROM_VOICE", "2029383266")
 
 class FaxSenderBase(object):
     base_cost = 0
@@ -59,28 +61,27 @@ class SonicFax(FaxSenderBase):
             csrf_key = csrf_matched.group(1)
             print(f"Got csrf {csrf_key}")
             head, tail = os.path.split(path)
-            #            r = s.post(
-            #                "https://members.sonic.net/labs/fax/?a=upload",
-            #                files={"filename": (tail, open(path, "rb"))}
-            #            )
+            r = s.post(
+                "https://members.sonic.net/labs/fax/?a=upload",
+                files={"filename": (tail, open(path, "rb"))}
+            )
             r.raise_for_status
-            print(r.text)
             r = s.post(
                 "https://members.sonic.net/labs/fax/",
-                files={"filename": (tail, open(path, "rb"), "text/plain")},
                 data={
                     "destination": destination,
-                    "a": "sendfax",
+                    "a": "sendFax",
                     "csrfKey": csrf_key,
                     "coverTo": dest_name or destination or "HealthCo",
                     "coverFrom": "Fight Health Insurance",
                     "MAX_FILE_SIZE": "52428800",
                     "email": self.notification_email,
-                    "fromVoice": "202-938-3266",
-                    "fromFax": "4158407591",
+                    "fromVoice": FROM_VOICE,
+                    "fromFax": FROM_FAX,
                     "message": "Fight Health Insurance",
                     "includeCover": "1",
                 },
             )
+            print(r)
             r.raise_for_status
-            return False
+            return (tail in r.text and destination in r.text)
