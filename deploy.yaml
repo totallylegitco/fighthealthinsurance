@@ -46,7 +46,7 @@ metadata:
   labels:
     app: fight-health-insurance
 spec:
-  replicas: 4
+  replicas: 7
   selector:
     matchLabels:
       app: fight-health-insurance
