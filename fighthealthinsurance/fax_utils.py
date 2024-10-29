@@ -85,3 +85,10 @@ class SonicFax(FaxSenderBase):
             print(r)
             r.raise_for_status
             return (tail in r.text and destination in r.text)
+
+class HylaFaxClient(FaxSenderBase):
+    base_cost = 0
+    cost_per_page = 0
+
+    # Going above 9600 causes issues sometimes
+    command = f"sendfax -n -d '{phonenumber}' -B 9600 -o {self.user} {}"
