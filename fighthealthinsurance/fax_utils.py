@@ -184,4 +184,4 @@ class HylaFaxClient(FaxSenderBase):
         self, destination: str, path: str, dest_name: Optional[str] = None
     ) -> bool:
         # Going above 9600 causes issues sometimes
-        command = f"sendfax -n -d '{phonenumber}' -B 9600 -o {self.user} -h {self.host}"
+        command = f"sendfax -n -d '{phonenumber}' -B 9600 -o {self.user} -h {self.host} {destination}"
