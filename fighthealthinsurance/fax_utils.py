@@ -362,6 +362,10 @@ class FlexibleFaxMagic(object):
             )
             if r is False:
                 return r
+        time.sleep(1)
+        # Clean the pdfs post transmission
+        for f in transmission_files:
+            os.remove(f)
         return True
 
     def _send_fax(self, path: str, destination: str, blocking: bool) -> bool:
