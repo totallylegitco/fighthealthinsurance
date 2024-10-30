@@ -1,8 +1,11 @@
+import tempfile
 import requests
 import re
 from typing import Optional
 import os
 import time
+import subprocess
+
 
 FROM_FAX = os.getenv("FROM_FAX", "4158407591")
 FROM_VOICE = os.getenv("FROM_VOICE", "2029383266")
@@ -49,7 +52,7 @@ class FaxSenderBase(object):
 
 class SonicFax(FaxSenderBase):
     base_cost = 0
-    cost_per_page = 0
+    cost_per_page = 2
     csrf_regex = re.compile(r"\"csrfKey\" value=\"(.*?)\"")
     headers = {
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
@@ -152,7 +155,7 @@ class SonicFax(FaxSenderBase):
                     elif ">success<" in chunk:
                         print(f"Success: {chunk}")
                         return True
-        print(f"Timed out! last chunk {cunk}")
+        print(f"Timed out! last chunk {chunk}")
         return False
 
     def send_fax_non_blocking(self, destination, path, dest_name: Optional[str] = None):
@@ -202,17 +205,42 @@ class SonicFax(FaxSenderBase):
 class HylaFaxClient(FaxSenderBase):
     base_cost = 0
     cost_per_page = 0
-    host = None
-    proxy = None
+    host: Optional[str] = None
     max_speed = 9600
 
     def send_fax_blocking(
         self, destination: str, path: str, dest_name: Optional[str] = None
     ) -> bool:
+        if self.host is None:
+            raise Exception("Can not send fax without a host to fax from")
         # Going above 9600 causes issues sometimes
         with tempfile.NamedTemporaryFile(
-            suffix=".txt", prefix="meeps", mode="w+t", delete=True
+            suffix=".txt", prefix="meeps", mode="w+t", delete=False
         ) as f:
             f.write(destination)
+            f.flush()
             os.sync()
-            command = f"sendfax -n -d -z {destination_file} -B {self.max_speed} -o {self.user} -h {self.host} {destination} -w"
+            time.sleep(1)
+            destination_file = f.name
+            command = [
+                "sendfax",
+                "-n",
+                f"-B{self.max_speed}",
+                f"-h{self.host}",
+                "-w",
+                path,
+                f"-z{destination_file}",
+            ]
+            print(f"Sending command {command}")
+            result = subprocess.run(command)
+            print(result.stdout)  # Output of the command
+            print(result.stderr)  # Error output (if any)
+            print(result.returncode)  # Exit code of the command
+            return result.returncode == 0
+
+
+class FaxyMcFaxFace(HylaFaxClient):
+    base_cost = 0
+    cost_per_page = 1
+    host = os.getenv("FAXYMCFAXFACE_HOST")
+    max_speed = 9600
