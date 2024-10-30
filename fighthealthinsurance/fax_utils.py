@@ -211,6 +211,24 @@ class HylaFaxClient(FaxSenderBase):
     def send_fax_blocking(
         self, destination: str, path: str, dest_name: Optional[str] = None
     ) -> bool:
+        return self._send_fax(
+            destination=destination, path=path, dest_name=dest_name, blocking=True
+        )
+
+    def send_fax_nonblocking(
+        self, destination: str, path: str, dest_name: Optional[str] = None
+    ) -> bool:
+        return self._send_fax(
+            destination=destination, path=path, dest_name=dest_name, blocking=False
+        )
+
+    def _send_fax(
+        self,
+        destination: str,
+        path: str,
+        dest_name: Optional[str] = None,
+        blocking: bool = False,
+    ) -> bool:
         if self.host is None:
             raise Exception("Can not send fax without a host to fax from")
         # Going above 9600 causes issues sometimes
@@ -222,15 +240,18 @@ class HylaFaxClient(FaxSenderBase):
             os.sync()
             time.sleep(1)
             destination_file = f.name
-            command = [
-                "sendfax",
-                "-n",
-                f"-B{self.max_speed}",
-                f"-h{self.host}",
-                "-w",
-                path,
-                f"-z{destination_file}",
-            ]
+            command = ["sendfax"]
+            if blocking:
+                command.append("-w")
+            command.extend(
+                [
+                    "-n",
+                    f"-B{self.max_speed}",
+                    f"-h{self.host}",
+                    path,
+                    f"-z{destination_file}",  # It is important this is last
+                ]
+            )
             print(f"Sending command {command}")
             result = subprocess.run(command)
             print(result.stdout)  # Output of the command
