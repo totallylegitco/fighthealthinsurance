@@ -58,3 +58,4 @@ werkzeug
 django-minio-storage
 stopit
 telnyx
+pandoc
