@@ -5,7 +5,7 @@ from typing import Optional
 import os
 import time
 import subprocess
-from PyPDF2 import PdfFileReader, PdfFileWriter
+from PyPDF2 import PdfReader, PdfWriter
 
 
 FROM_FAX = os.getenv("FROM_FAX", "4158407591")
@@ -250,7 +250,7 @@ class HylaFaxClient(FaxSenderBase):
             raise Exception("Can not send fax without a host to fax from")
         # Going above 9600 causes issues sometimes
         with tempfile.NamedTemporaryFile(
-            suffix=".txt", prefix="meeps", mode="w+t", delete=True
+            suffix=".txt", prefix="dest", mode="w+t", delete=True
         ) as f:
             f.write(destination)
             f.flush()
@@ -297,18 +297,18 @@ class FlexibleFaxMagic(object):
         total_input_pages = 0
         # Start with converting everything into pdf & counting the pages
         for input_path in input_paths:
-            command = ["pandoc", input_path, f"-o{input_path}.pdf"]
+            command = ["pandoc", "--wrap=auto", input_path, f"-o{input_path}.pdf"]
             result = subprocess.run(command)
-            reader = PdfFileReader(f"{input_path}.pdf")
+            reader = PdfReader(f"{input_path}.pdf")
             total_input_pages += len(reader.pages)
-        # How many chunks do we need to make
+        # How many chunks do we need to make + 1
         number_of_transmissions = 1 + int(total_input_pages / self.max_pages)
         results: list[str] = []
         # Iterate through making the chunks
         input_index = 0
-        current_input_file = PdfFileReader(f"{input_path[0]}.pdf")
+        current_input_file = PdfReader(f"{input_paths[0]}.pdf")
         index_in_current_file = 0
-        for i in range(1, number_of_transmissions):
+        for i in range(1, number_of_transmissions + 1):
             # Compute the number of pages in this transmission.
             x_pages = self.max_pages
             if i == number_of_transmissions:
@@ -316,35 +316,36 @@ class FlexibleFaxMagic(object):
             # Write out the header
             header_path = ""
             with tempfile.NamedTemporaryFile(
-                suffix=".txt", prefix="meeps", mode="w+t", delete=False
-            ) as f:
+                suffix=".txt", prefix="header", mode="w+t", delete=False
+            ) as t:
                 header = f"""This part of transmission {user_header} which is transmission {i} of {number_of_transmissions} with {x_pages} in this transmission in addition to the cover page [this page]."""
-                f.write(header)
-                f.sync()
-                command = ["pandoc", f.name, f"-o{f.name}.pdf"]
+                t.write(header)
+                t.flush()
+                command = ["pandoc", t.name, f"-o{t.name}.pdf"]
                 subprocess.run(command)
-                header_path = f"{f.name}.pdf"
+                header_path = f"{t.name}.pdf"
             with tempfile.NamedTemporaryFile(
-                suffix=".pdf", prefix="meeps", mode="w+t", delete=False
-            ) as f:
-                results.append(f.name)
-                w = PdfFileWriter(f)
-                header_reader = PdfFileReader(header_path)
-                w.addPage(header_reader.pages[0])
+                suffix=".pdf", prefix="combined", mode="w+t", delete=False
+            ) as t:
+                results.append(t.name)
+                w = PdfWriter()
+                header_reader = PdfReader(header_path)
+                w.add_page(header_reader.pages[0])
                 transmission_page_count = 0
                 while transmission_page_count < self.max_pages:
                     if index_in_current_file < len(current_input_file.pages):
-                        w.addPage(current_input_file.pages[index_in_current_file])
+                        w.add_page(current_input_file.pages[index_in_current_file])
                         transmission_page_count += 1
                         index_in_current_file += 1
-                    elif input_index < len(input_paths):
+                    elif input_index + 1 < len(input_paths):
                         index_in_current_file = 0
                         input_index += 1
-                        current_input_file = PdfFileReader(
+                        current_input_file = PdfReader(
                             f"{input_paths[input_index]}.pdf"
                         )
                     else:
                         break
+                w.write(t.name)
         return results
 
     def send_fax(
@@ -365,7 +366,7 @@ class FlexibleFaxMagic(object):
 
     def _send_fax(self, path: str, destination: str, blocking: bool) -> bool:
         backend = self.backends[0]
-        page_count = len(PdfFileReader(path).pages)
+        page_count = len(PdfReader(path).pages)
         backend_cost = backend.estimate_cost(destination, page_count)
         for candidate in self.backends[1:]:
             candidate_cost = candidate.estimate_cost(destination, page_count)
