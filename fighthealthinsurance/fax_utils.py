@@ -45,12 +45,13 @@ class FaxSenderBase(object):
         dest_name: Optional[str] = None,
         blocking: bool = False,
     ):
+        destination = self.parse_phone_number(destination)
         if blocking:
-            self.send_fax_blocking(
+            return self.send_fax_blocking(
                 destination=destination, path=path, dest_name=dest_name
             )
         else:
-            self.send_fax_nonblocking(
+            return self.send_fax_nonblocking(
                 destination=destination, path=path, dest_name=dest_name
             )
 
@@ -291,7 +292,9 @@ class FlexibleFaxMagic(object):
         self.backends = backends
         self.max_pages = max_pages
 
-    def assemble_outputs(self, user_header: str, input_paths: list[str]) -> list[str]:
+    def assemble_outputs(
+        self, user_header: str, extra: str, input_paths: list[str]
+    ) -> list[str]:
         """Assemble the outputs into chunks of max_pages length"""
         # Keep track of the total pages
         total_input_pages = 0
@@ -318,7 +321,7 @@ class FlexibleFaxMagic(object):
             with tempfile.NamedTemporaryFile(
                 suffix=".txt", prefix="header", mode="w+t", delete=False
             ) as t:
-                header = f"""This part of transmission {user_header} which is transmission {i} of {number_of_transmissions} with {x_pages} in this transmission in addition to the cover page [this page]."""
+                header = f"""This part of transmission {user_header} which is transmission {i} of {number_of_transmissions} with {x_pages} in this transmission in addition to the cover page [this page]. {extra}"""
                 t.write(header)
                 t.flush()
                 command = ["pandoc", t.name, f"-o{t.name}.pdf"]
@@ -349,13 +352,13 @@ class FlexibleFaxMagic(object):
         return results
 
     def send_fax(
-        self, input_paths: list[str], destination: str, blocking: bool
+        self, input_paths: list[str], extra: str, destination: str, blocking: bool
     ) -> bool:
         import uuid
 
         myuuid = uuid.uuid4()
         myuuidStr = str(myuuid)
-        transmission_files = self.assemble_outputs(myuuidStr, input_paths)
+        transmission_files = self.assemble_outputs(myuuidStr, extra, input_paths)
         for transmission in transmission_files:
             r = self._send_fax(
                 path=transmission, destination=destination, blocking=blocking

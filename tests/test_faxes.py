@@ -27,7 +27,7 @@ class FaxSendBaseTest(unittest.TestCase):
             t.flush()
             os.sync()
             print(f"Using temp file {t.name}")
-            r = m.assemble_outputs("MyHeader", [t.name])
+            r = m.assemble_outputs("MyHeader", "", [t.name])
             self.assertEquals(len(r), 1)
             reader = PdfReader(r[0])
             header_text = reader.pages[0].extract_text()
@@ -43,7 +43,7 @@ class FaxSendBaseTest(unittest.TestCase):
             for i in range(0, 10000):
                 t1.write("Test ")
             t1.flush()
-            r = m.assemble_outputs("MyHeader", [t1.name])
+            r = m.assemble_outputs("MyHeader", "", [t1.name])
             self.assertEquals(len(r), 2)
             reader = PdfReader(r[0])
             header_text = reader.pages[0].extract_text()

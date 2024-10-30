@@ -16,6 +16,7 @@ from fighthealthinsurance.question_forms import *
 from fighthealthinsurance.form_utils import *
 from fighthealthinsurance.generate_appeal import *
 from fighthealthinsurance.models import *
+from fighthealthinsurance.fax_utils import flexible_fax_magic
 
 appealGenerator = AppealGenerator()
 

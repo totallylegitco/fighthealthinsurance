@@ -32,6 +32,7 @@ class SonicFaxTest(unittest.TestCase):
                 s.send_fax(
                     destination=os.getenv("TEST_GOOD_FAX_NUMBER", "4158407591"),
                     path=file_name,
+                    blocking=True,
                 )
             )
 
@@ -52,5 +53,6 @@ class SonicFaxTest(unittest.TestCase):
                 s.send_fax(
                     destination=os.getenv("TEST_BAD_FAX_NUMBER", "4255555555"),
                     path=file_name,
+                    blocking=True,
                 )
             )
