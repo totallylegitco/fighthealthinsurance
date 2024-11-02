@@ -12,7 +12,6 @@ from django.urls import reverse
 
 import ray
 import requests
-from celery import shared_task
 from fighthealthinsurance.ray import *
 from PyPDF2 import PdfMerger, PdfReader, PdfWriter
 
