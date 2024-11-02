@@ -252,13 +252,16 @@ class ChooseAppeal(View):
         form = ChooseAppealForm(request.POST)
         if form.is_valid():
             appeal_info_extracted = ""
-            appeal_fax_number = ChooseAppealHelper.choose_appeal(**form.cleaned_data)
+            (appeal_fax_number, candidate_articles) = ChooseAppealHelper.choose_appeal(
+                **form.cleaned_data
+            )
             fax_form = FaxForm(
                 initial={
                     "denial_id": form.cleaned_data["denial_id"],
                     "email": form.cleaned_data["email"],
                     "semi_sekret": form.cleaned_data["semi_sekret"],
                     "fax_phone": appeal_fax_number,
+                    "pubmed_articles_to_include": candidate_articles,
                 }
             )
             return render(

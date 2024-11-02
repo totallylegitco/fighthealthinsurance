@@ -8,6 +8,9 @@ from typing import List, Iterator, TypeVar, Generic, Optional
 import re
 import requests
 from requests.exceptions import RequestException
+from metapub import PubMedFetcher, FindIt
+
+pubmed_fetcher = PubMedFetcher()
 
 U = TypeVar("U")
 T = TypeVar("T")

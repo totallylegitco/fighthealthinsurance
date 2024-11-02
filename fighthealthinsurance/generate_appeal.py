@@ -35,8 +35,7 @@ from fighthealthinsurance.models import (
 )
 from fighthealthinsurance.process_denial import *
 from fighthealthinsurance.utils import as_available_nested
-
-pubmed_fetcher = PubMedFetcher()
+from fighthealthinsurance.utils import pubmed_fetcher
 
 
 class AppealTemplateGenerator(object):

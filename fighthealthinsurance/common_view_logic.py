@@ -1,7 +1,7 @@
 import json
 from dataclasses import dataclass
 from string import Template
-from typing import Any, Tuple
+from typing import Any, Tuple, Optional
 import datetime
 
 from django.core.files import File
@@ -11,6 +11,7 @@ from django.utils import timezone
 from django.http import StreamingHttpResponse
 from django.core.files.base import ContentFile
 from django.db.models.fields.files import FieldFile
+from django.template.loader import render_to_string
 
 import uszipcode
 
@@ -21,6 +22,7 @@ from fighthealthinsurance.generate_appeal import *
 from fighthealthinsurance.models import *
 from fighthealthinsurance.fax_utils import flexible_fax_magic
 from fighthealthinsurance.fax_actor_ref import fax_actor_ref
+from fighthealthinsurance.utils import pubmed_fetcher
 import ray
 
 appealGenerator = AppealGenerator()
@@ -125,7 +127,7 @@ class SendFaxHelper:
         completed_appeal_text: str,
         include_provided_health_history: bool,
         name: str,
-        pubmed_ids: str = "",
+        pubmed_articles_to_include: str = "",
     ):
         hashed_email = Denial.get_hashed_email(email)
         # Get the current info
@@ -133,11 +135,31 @@ class SendFaxHelper:
             denial_id=denial_id, hashed_email=hashed_email
         ).get()
         files_for_fax: list[str] = []
+        # Cover page
+        cover_context = {
+            "receiver_name": denial.insurance_company or "",
+            "receiver_fax_number": fax_phone,
+            "company_name": "Fight Health Insurance -- A service of Totally Legit Co.",
+            "company_fax_number": "415-840-7591",
+            "fax_sent_datetime": str(datetime.datetime.now()),
+        }
+        html_content = render_to_string(
+            "emails/fax_followup.html",
+            context=cover_context,
+        )
+        with tempfile.NamedTemporaryFile(
+            suffix=".html", prefix="info_cover", mode="w+t", delete=False
+        ) as f:
+            f.write(html_content)
+            files_for_fax.append(f.name)
+        # Actual appeal
         with tempfile.NamedTemporaryFile(
             suffix=".txt", prefix="appealtxt", mode="w+t", delete=False
         ) as f:
             f.write(completed_appeal_text)
             f.flush()
+            files_for_fax.append(f.name)
+        # Health history (if enabled)
         if include_provided_health_history and denial.health_history is not None:
             with tempfile.NamedTemporaryFile(
                 suffix=".txt", prefix="healthhist", mode="w+t", delete=False
@@ -147,8 +169,23 @@ class SendFaxHelper:
                 files_for_fax.append(f.name)
                 f.flush()
 
-        pubmed_ids_parsed = pubmed_ids.split(",")
-        pubmed_docs = PubMedArticleSummarized.objects.filter(pmid__in=pubmed_ids_parsed)
+        pubmed_ids_parsed = pubmed_articles_to_include.split(",")
+        pubmed_docs: list[PubMedArticleSummarized] = []
+        # Try and include the pubmed ids that we have but also fetch if not present
+        for pmid in pubmed_ids_parsed:
+            try:
+                pubmed_docs.append(PubMedArticleSummarized.objects.get(pmid == pmid))
+            except:
+                fetched = pubmed_fetcher.article_by_pmid(pmid)
+                article = PubMedArticleSummarized.objects.create(
+                    pmid=pmid,
+                    doi=fetched.doi,
+                    title=fetched.title,
+                    abstract=fetched.abstract,
+                    text=fetched.content.text,
+                )
+                pubmed_docs.append(article)
+
         for pubmed_doc in pubmed_docs:
             with tempfile.NamedTemporaryFile(
                 suffix=".txt", prefix="pubmeddoc", mode="w+t", delete=False
@@ -164,9 +201,8 @@ class SendFaxHelper:
                 files_for_fax.append(f.name)
                 f.flush()
 
-        extra = f"This is regarding {denial.claim_id} for {name}"
         doc_path = flexible_fax_magic.assemble_single_output(
-            input_paths=files_for_fax, extra=extra, user_header=str(uuid.uuid4())
+            input_paths=files_for_fax, extra="", user_header=str(uuid.uuid4())
         )
         doc_fname = os.path.basename(doc_path)
         doc = open(doc_path, "rb")
@@ -204,7 +240,7 @@ class ChooseAppealHelper:
     @classmethod
     def choose_appeal(
         cls, denial_id: str, appeal_text: str, email: str, semi_sekret: str
-    ) -> Optional[str]:
+    ) -> Tuple[Optional[str], Optional[str]]:
         hashed_email = Denial.get_hashed_email(email)
         # Get the current info
         denial = Denial.objects.filter(
@@ -214,7 +250,14 @@ class ChooseAppealHelper:
         denial.save()
         pa = ProposedAppeal(appeal_text=appeal_text, for_denial=denial, chosen=True)
         pa.save()
-        return denial.appeal_fax_number
+        articles = None
+        try:
+            pmqd = PubMedQueryData.objects.filter(denial_id=denial_id).get()
+            if pmqd.articles is not None:
+                articles = ",".join(pmqd.articles.split(",")[0:2])
+        except:
+            pass
+        return (denial.appeal_fax_number, articles)
 
 
 @dataclass

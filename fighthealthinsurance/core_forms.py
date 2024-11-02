@@ -82,6 +82,7 @@ class FaxForm(DenialRefForm):
     fax_phone = forms.CharField(required=True)
     completed_appeal_text = forms.CharField(widget=forms.Textarea)
     include_provided_health_history = forms.BooleanField(required=False)
+    pubmed_articles_to_include = forms.CharField(required=False)
 
 
 class FaxResendForm(forms.Form):
