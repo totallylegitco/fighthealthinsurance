@@ -1,31 +1,17 @@
-import concurrent
-import csv
 import itertools
 import os
 import re
-import time
 import traceback
-from abc import ABC, abstractmethod
 from concurrent.futures import Future
 from dataclasses import dataclass
-from functools import cache, lru_cache
-from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
+from functools import cache
+from typing import List, Optional, Tuple
 
-import icd10
 import requests
 from fighthealthinsurance.exec import *
-from fighthealthinsurance.models import (
-    AppealTemplates,
-    DenialTypes,
-    Diagnosis,
-    PlanType,
-    Procedures,
-    Regulator,
-)
 from fighthealthinsurance.utils import all_subclasses, url_fixer
 from fighthealthinsurance.process_denial import DenialBase
 from stopit import ThreadingTimeout as Timeout
-from typing_extensions import reveal_type
 
 
 class RemoteModelLike(DenialBase):

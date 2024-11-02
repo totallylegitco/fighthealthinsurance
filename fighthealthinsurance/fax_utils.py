@@ -1,4 +1,3 @@
-import asyncio
 import os
 import re
 import subprocess
@@ -12,7 +11,6 @@ from django.urls import reverse
 
 import ray
 import requests
-from fighthealthinsurance.ray import *
 from PyPDF2 import PdfMerger, PdfReader, PdfWriter
 
 FROM_FAX = os.getenv("FROM_FAX", "4158407591")
@@ -65,13 +63,11 @@ class FaxSenderBase(object):
     def send_fax_blocking(
         self, destination: str, path: str, dest_name: Optional[str] = None
     ) -> bool:
-        pass
         return True
 
     def send_fax_nonblocking(
         self, destination: str, path: str, dest_name: Optional[str] = None
     ) -> bool:
-        pass
         return True
 
 
@@ -458,7 +454,6 @@ class FaxActor:
     def __init__(self):
         # This is a bit of a hack but we do this so we have the app configured
         from configurations.wsgi import get_wsgi_application
-        import fighthealthinsurance.settings
 
         os.environ.setdefault("DJANGO_SETTINGS_MODULE", "fighthealthinsurance.settings")
         self.application = get_wsgi_application()

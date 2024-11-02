@@ -1,4 +1,4 @@
-from typing import List, Mapping
+from typing import List
 
 from fighthealthinsurance.ml_models import *
 
@@ -41,7 +41,6 @@ class ModelRouter(object):
                     print(f"Added {m}")
             except Exception as e:
                 print(f"Skipping {backend} due to {e} of {type(e)}")
-                pass
         for k, v in building_models_by_name.items():
             sorted_model_descriptions: list[ModelDescription] = sorted(v)
             self.models_by_name[k] = [

@@ -1,5 +1,3 @@
-import asyncio
-import time
 import os
 
 import ray
@@ -13,7 +11,6 @@ class EmailPollingActor:
     def __init__(self):
         # This is a bit of a hack but we do this so we have the app configured
         from configurations.wsgi import get_wsgi_application
-        import fighthealthinsurance.settings
 
         os.environ.setdefault("DJANGO_SETTINGS_MODULE", "fighthealthinsurance.settings")
         application = get_wsgi_application()

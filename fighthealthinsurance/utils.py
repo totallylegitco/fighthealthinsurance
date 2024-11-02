@@ -1,14 +1,13 @@
 import concurrent
-import itertools
 import os
 import re
 from concurrent.futures import Future
 from functools import reduce
-from typing import Generic, Iterator, List, Optional, TypeVar
+from typing import Iterator, List, Optional, TypeVar
 from uuid import UUID
 
 import requests
-from metapub import FindIt, PubMedFetcher
+from metapub import PubMedFetcher
 from requests.exceptions import RequestException
 
 pubmed_fetcher = PubMedFetcher()

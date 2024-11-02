@@ -1,20 +1,13 @@
 import os
-import re
-import urllib
 
 from django import forms
 
-import pymupdf
-import requests
-from bs4 import BeautifulSoup
-from django_recaptcha.fields import ReCaptchaField, ReCaptchaV2Checkbox, ReCaptchaV3
+from django_recaptcha.fields import ReCaptchaField, ReCaptchaV2Checkbox
 from fighthealthinsurance.form_utils import *
 from fighthealthinsurance.models import (
-    Denial,
     DenialTypes,
     InterestedProfessional,
     PlanSource,
-    PlanType,
 )
 
 

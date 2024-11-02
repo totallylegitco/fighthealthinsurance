@@ -1,4 +1,3 @@
-import os
 import re
 import urllib
 
@@ -7,7 +6,6 @@ from django import forms
 import pymupdf
 import requests
 from bs4 import BeautifulSoup
-from fighthealthinsurance.form_utils import *
 from fighthealthinsurance.models import Denial, PlanDocuments
 
 

@@ -10,7 +10,6 @@ from django.urls import reverse
 from django.utils.decorators import method_decorator
 from django.views import View, generic
 
-from django_celery_beat.models import PeriodicTasks
 from fighthealthinsurance.core_forms import FollowUpTestForm
 from fighthealthinsurance.models import Denial, FollowUpSched
 

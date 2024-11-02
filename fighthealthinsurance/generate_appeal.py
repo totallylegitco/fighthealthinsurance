@@ -1,18 +1,12 @@
-import concurrent
-import csv
 import itertools
 import json
-import os
 import random
 import tempfile
 import time
 import traceback
 from concurrent.futures import Future
-from functools import cache, lru_cache
 from typing import Any, Iterator, List, Optional, Tuple
 
-import icd10
-import metapub
 import PyPDF2
 import requests
 from fighthealthinsurance.denial_base import DenialBase
@@ -20,18 +14,12 @@ from fighthealthinsurance.exec import *
 from fighthealthinsurance.ml_models import RemoteFullOpenLike, RemoteModelLike
 from fighthealthinsurance.model_router import model_router
 from fighthealthinsurance.models import (
-    AppealTemplates,
-    DenialTypes,
-    Diagnosis,
-    PlanType,
-    Procedures,
     PubMedArticleSummarized,
     PubMedQueryData,
-    Regulator,
 )
 from fighthealthinsurance.process_denial import *
 from fighthealthinsurance.utils import as_available_nested, pubmed_fetcher
-from metapub import FindIt, PubMedFetcher
+from metapub import FindIt
 from stopit import ThreadingTimeout as Timeout
 from typing_extensions import reveal_type
 
@@ -176,7 +164,6 @@ class AppealGenerator(object):
                 t = t - 1
             except Exception as e:
                 print(f"Skipping appending article from {f} due to {e} of {type(e)}")
-                pass
 
         if len(articles) > 0:
             return "\n".join(map(article_to_summary, articles))
@@ -255,7 +242,6 @@ class AppealGenerator(object):
             pubmed_context = self.find_more_context(denial)
         except Exception as e:
             print(f"Error {e} looking up context for {denial}.")
-            pass
 
         # TODO: use the streaming and cancellable APIs (maybe some fancy JS on the client side?)
 

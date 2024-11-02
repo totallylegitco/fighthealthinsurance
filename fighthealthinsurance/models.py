@@ -4,11 +4,9 @@ import re
 import sys
 import tempfile
 import uuid
-from typing import Optional
 
 from django.conf import settings
 from django.db import models
-from django.db.models import UniqueConstraint
 from django.db.models.functions import Now
 
 from fighthealthinsurance.utils import sekret_gen

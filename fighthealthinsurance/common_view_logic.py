@@ -5,15 +5,11 @@ from string import Template
 from typing import Any, Optional, Tuple, Iterable
 
 from django.core.files import File
-from django.core.files.base import ContentFile
 from django.core.validators import validate_email
-from django.db.models.fields.files import FieldFile
 from django.forms import Form
 from django.http import StreamingHttpResponse
 from django.template.loader import render_to_string
-from django.utils import timezone
 
-import ray
 import uszipcode
 from fighthealthinsurance.core_forms import *
 from fighthealthinsurance.fax_actor_ref import fax_actor_ref

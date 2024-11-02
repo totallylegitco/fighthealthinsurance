@@ -261,7 +261,6 @@ class ChooseAppeal(View):
             )
         else:
             print(form)
-            pass
 
 
 class FaxFollowUpView(generic.FormView):
