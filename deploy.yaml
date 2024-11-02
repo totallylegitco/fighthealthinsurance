@@ -63,7 +63,6 @@ spec:
         labelSelector:
           matchLabels:
             app: fight-health-insurance
-      serviceAccountName: "tailscale"
       containers:
         - image: holdenk/fight-health-insurance:v0.6.1b
           name: totallylegitco
