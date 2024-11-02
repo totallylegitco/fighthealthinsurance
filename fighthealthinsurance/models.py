@@ -68,7 +68,9 @@ class FollowUpSched(models.Model):
     follow_up_date = models.DateField(auto_now=False, auto_now_add=False)
     follow_up_sent = models.BooleanField(default=False)
     follow_up_sent_date = models.DateTimeField(null=True)
-    attempting_to_send_as_of = models.DateField(auto_now=False, auto_now_add=False, null=True)
+    attempting_to_send_as_of = models.DateField(
+        auto_now=False, auto_now_add=False, null=True
+    )
     # If the denial is deleted it's either SPAM or a PII removal request
     # in either case lets delete the scheduled follow ups.
     denial_id = models.ForeignKey("Denial", on_delete=models.CASCADE)
@@ -275,7 +277,9 @@ class FaxesToSend(models.Model):
         max_length=300, primary_key=False, default=uuid.uuid4, editable=False
     )
     sent = models.BooleanField(default=False)
-    attempting_to_send_as_of = models.DateField(auto_now=False, auto_now_add=False, null=True)
+    attempting_to_send_as_of = models.DateField(
+        auto_now=False, auto_now_add=False, null=True
+    )
     denial_id = models.ForeignKey("Denial", on_delete=models.CASCADE, null=True)
     destination = models.CharField(max_length=20, null=True)
 

@@ -17,6 +17,7 @@ import ray
 FROM_FAX = os.getenv("FROM_FAX", "4158407591")
 FROM_VOICE = os.getenv("FROM_VOICE", "2029383266")
 
+
 class FaxSenderBase(object):
     base_cost = 0
     cost_per_page = 0
@@ -419,12 +420,14 @@ class FlexibleFaxMagic(object):
                 backend_cost = candidate_cost
         return backend.send_fax(destination=destination, path=path, blocking=blocking)
 
+
 @ray.remote
 class FaxActor:
     def __init__(self):
         # This is a bit of a hack but we do this so we have the app configured
         from configurations.wsgi import get_wsgi_application
         import fighthealthinsurance.settings
+
         os.environ.setdefault("DJANGO_SETTINGS_MODULE", "fighthealthinsurance.settings")
         self.application = get_wsgi_application()
 
@@ -434,10 +437,11 @@ class FaxActor:
     def version(self):
         """Bump this to restart the fax actor."""
         return 1
-    
+
     def do_send_fax(self, hashed_email, uuid) -> bool:
         # Now that we have an app instance we can import faxes to send
         from fighthealthinsurance.models import FaxesToSend
+
         fts = FaxesToSend.objects.filter(uuid=uuid, hashed_email=hashed_email).get()
         print(f"Doing {fts}")
         email = fts.email
@@ -482,5 +486,5 @@ class FaxActor:
         msg.send()
         return True
 
-    
+
 flexible_fax_magic = FlexibleFaxMagic([FaxyMcFaxFace()])
