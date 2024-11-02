@@ -8,6 +8,7 @@ from fighthealthinsurance.ray import *
 
 class EmailPollingActorRef:
     """A reference to the email polling actor."""
+
     @cached_property
     def get(self):
         # Shut down existing actor
