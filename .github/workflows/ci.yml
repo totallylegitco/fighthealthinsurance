@@ -76,8 +76,8 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v3
 
-      - name: Install tesseract ocr
-        run: sudo apt-get install -y tesseract-ocr pdflatex
+      - name: Install system level packages
+        run: sudo apt-get update && sudo apt-get install -y tesseract-ocr pdflatex texlive
 
       - name: Install dependencies
         run: pip install tox tox-gh-actions
