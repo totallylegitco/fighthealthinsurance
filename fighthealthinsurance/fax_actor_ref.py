@@ -9,8 +9,8 @@ class FaxActorRef:
     @cached_property
     def get(self):
 
-        # Shut down existing actor if needed
-        name = "FaxActor"
+        # Shut down existing actor if needed.
+        name = f"FaxActor"
         fax_actor = None
         try:
             fax_actor = ray.get_actor(name, namespace="fhi")
@@ -18,6 +18,8 @@ class FaxActorRef:
                 fax_version = 1
                 if ray.get(fax_actor.version.remote()) != fax_version:
                     ray.kill(fax_actor)
+                    # This sleep is kind of a "code smell" but Ray's actor tracking has some
+                    # race conditions inside it we are unlikely to be the people to fix.
                     time.sleep(10)
                     fax_actor = None
         except Exception as e:

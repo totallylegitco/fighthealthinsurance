@@ -7,6 +7,7 @@ from fighthealthinsurance.ray import *
 
 
 class EmailPollingActorRef:
+    """A reference to the email polling actor."""
     @cached_property
     def get(self):
         # Shut down existing actor
@@ -14,9 +15,11 @@ class EmailPollingActorRef:
             a = ray.get_actor(name, namespace="fhi")
             if a is not None:
                 ray.kill(a)
+                # This sleep is kind of a "code smell" but Ray's actor tracking has some
+                # race conditions inside it we are unlikely to be the people to fix.
                 time.sleep(10)
         except Exception as e:
-            print(f"No exisitng email actor to stop {e}")
+            print(f"No existing email actor to stop {e}")
 
         email_polling_actor = EmailPollingActor.options(  # type: ignore
             name=name, lifetime="detached", namespace="fhi"

@@ -19,6 +19,9 @@ spec:
         affinity: {}
         containers:
           - image: holdenk/fhi-ray:v0.7.0.a
+            env:
+              - name: RAY_gcs_server_request_timeout_seconds
+                value: "20"
             envFrom:
               - secretRef:
                   name: fight-health-insurance-secret
@@ -51,6 +54,9 @@ spec:
       spec:
         containers:
           - image: holdenk/fhi-ray:v0.7.0.a
+            env:
+              - name: RAY_gcs_server_request_timeout_seconds
+                value: "20"
             envFrom:
               - secretRef:
                   name: fight-health-insurance-secret

@@ -220,7 +220,7 @@ class RemoteOpenLike(RemoteModel):
     def get_fax_number(self, denial: str) -> Optional[str]:
         return self._infer(
             system_prompt="You are a helpful assistant.",
-            prompt=f"Tell me what the to appeal fax number in the provided denial. If unknown write UNKNOWN. If known just without any pre-amble and as a snippet from the original doc. The denial follows: {denial}",
+            prompt=f"Tell me the to appeal fax number is within the provided denial. If the fax number is unknown write UNKNOWN. If known just output the fax number without any pre-amble and as a snipper from the original doc. The denial follows: {denial}",
         )
 
     @cache

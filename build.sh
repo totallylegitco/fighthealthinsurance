@@ -14,5 +14,6 @@ source build_ray.sh
 IMAGE=holdenk/fight-health-insurance:v0.7.0a
 docker pull "${IMAGE}" || docker buildx build --platform=linux/amd64,linux/arm64 -t "${IMAGE}" . --push
 kubectl apply -f deploy.yaml
+# The raycluster operator doesn't handle upgrades well so delete + recreate instead.
 kubectl delete raycluster -n totallylegitco raycluster-kuberay || echo "No raycluster present"
 kubectl apply -f cluster.yaml
