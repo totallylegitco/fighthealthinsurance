@@ -361,7 +361,7 @@ class FlexibleFaxMagic(object):
             with tempfile.NamedTemporaryFile(
                 suffix=".txt", prefix="header", mode="w+t", delete=False
             ) as t:
-                header = f"""This part of transmission {user_header} which is transmission {i} of {number_of_transmissions} with {x_pages} in this transmission in addition to the cover page [this page]. {extra}"""
+                header = f"""This part of transmission {user_header} which is transmission {i} of {number_of_transmissions} with {x_pages}  pages in this transmission in addition to the cover page [this page]. {extra}"""
                 t.write(header)
                 t.flush()
                 command = ["pandoc", t.name, f"-o{t.name}.pdf"]
@@ -450,9 +450,14 @@ class FaxActor:
             return False
         if fts.destination is None:
             return False
+        extra = ""
+        if denial.claim_id is not None:
+            extra += "This is regarding claim id {denial.claim_id}."
+        if fts.name is not None:
+            extra += "This fax is sent on behalf of {fts.name}."
         fax_sent = flexible_fax_magic.send_fax(
             input_paths=[fts.get_temporary_document_path()],
-            extra=f"This is regarding {denial.claim_id} for {fts.name}",
+            extra=extra,
             destination=fts.destination,
             blocking=True,
         )
