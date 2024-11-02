@@ -144,7 +144,7 @@ class SendFaxHelper:
             "fax_sent_datetime": str(datetime.datetime.now()),
         }
         html_content = render_to_string(
-            "emails/fax_followup.html",
+            "faxes/cover.html",
             context=cover_context,
         )
         with tempfile.NamedTemporaryFile(
@@ -160,7 +160,11 @@ class SendFaxHelper:
             f.flush()
             files_for_fax.append(f.name)
         # Health history (if enabled)
-        if include_provided_health_history and denial.health_history is not None:
+        if (
+            include_provided_health_history
+            and denial.health_history is not None
+            and len(denial.health_history) > 2
+        ):
             with tempfile.NamedTemporaryFile(
                 suffix=".txt", prefix="healthhist", mode="w+t", delete=False
             ) as f:
@@ -173,18 +177,23 @@ class SendFaxHelper:
         pubmed_docs: list[PubMedArticleSummarized] = []
         # Try and include the pubmed ids that we have but also fetch if not present
         for pmid in pubmed_ids_parsed:
+            if pmid is None or pmid == "":
+                continue
             try:
                 pubmed_docs.append(PubMedArticleSummarized.objects.get(pmid == pmid))
             except:
-                fetched = pubmed_fetcher.article_by_pmid(pmid)
-                article = PubMedArticleSummarized.objects.create(
-                    pmid=pmid,
-                    doi=fetched.doi,
-                    title=fetched.title,
-                    abstract=fetched.abstract,
-                    text=fetched.content.text,
-                )
-                pubmed_docs.append(article)
+                try:
+                    fetched = pubmed_fetcher.article_by_pmid(pmid)
+                    article = PubMedArticleSummarized.objects.create(
+                        pmid=pmid,
+                        doi=fetched.doi,
+                        title=fetched.title,
+                        abstract=fetched.abstract,
+                        text=fetched.content.text,
+                    )
+                    pubmed_docs.append(article)
+                except:
+                    print(f"Skipping {pmid}")
 
         for pubmed_doc in pubmed_docs:
             with tempfile.NamedTemporaryFile(

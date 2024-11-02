@@ -316,7 +316,28 @@ class FlexibleFaxMagic(object):
             else:
                 command = ["pandoc", "--wrap=auto", input_path, f"-o{input_path}.pdf"]
                 result = subprocess.run(command)
-                merger.append(f"{input_path}.pdf")
+                # Handle non utf-8 input
+                if result.returncode != 0:
+                    command = [
+                        "iconv",
+                        "-c",
+                        "-t utf8",
+                        f"-o{input_path}.u8.txt",
+                        input_path,
+                    ]
+                    result = subprocess.run(command)
+                    command = [
+                        "pandoc",
+                        "--wrap=auto",
+                        f"{input_path}.u8.txt",
+                        f"-o{input_path}.pdf",
+                    ]
+                    result = subprocess.run(command)
+                if result.returncode == 0:
+                    print(f"Adding {input_path}")
+                    merger.append(f"{input_path}.pdf")
+                else:
+                    print(f"Skipping {input_path} from {result} with {command}")
         with tempfile.NamedTemporaryFile(
             suffix=".pdf", prefix="alltogether", mode="w+t", delete=False
         ) as t:
@@ -334,16 +355,27 @@ class FlexibleFaxMagic(object):
         # Start with converting everything into pdf & counting the pages
         for input_path in input_paths:
             reader = None
-            # Don't double convert pdfs
-            if input_path.endswith(".pdf"):
-                reader = PdfReader(input_path)
-                modified_paths.append(input_path)
-            else:
-                command = ["pandoc", "--wrap=auto", input_path, f"-o{input_path}.pdf"]
-                result = subprocess.run(command)
-                reader = PdfReader(f"{input_path}.pdf")
-                modified_paths.append(f"{input_path}.pdf")
-            total_input_pages += len(reader.pages)
+            pages = 0
+            try:
+                # Don't double convert pdfs
+                if input_path.endswith(".pdf"):
+                    reader = PdfReader(input_path)
+                    pages = len(reader.pages)
+                    modified_paths.append(input_path)
+                else:
+                    command = [
+                        "pandoc",
+                        "--wrap=auto",
+                        input_path,
+                        f"-o{input_path}.pdf",
+                    ]
+                    result = subprocess.run(command)
+                    reader = PdfReader(f"{input_path}.pdf")
+                    pages = len(reader.pages)
+                    modified_paths.append(f"{input_path}.pdf")
+                total_input_pages += pages
+            except Exception as e:
+                print(f"Skipping input {input_path} {e}")
         # How many chunks do we need to make + 1
         number_of_transmissions = 1 + int(total_input_pages / self.max_pages)
         results: list[str] = []

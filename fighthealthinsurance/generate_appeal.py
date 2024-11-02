@@ -153,11 +153,15 @@ class AppealGenerator(object):
         pmids = None
         pmid_text: list[str] = []
         article_futures: list[Future[PubMedArticleSummarized]] = []
-        with Timeout(10.0) as timeout_ctx:
+        with Timeout(15.0) as timeout_ctx:
             query = f"{denial.procedure} {denial.diagnosis}"
             pmids = pubmed_fetcher.pmids_for_query(query)
             articles_json = json.dumps(pmids)
-            PubMedQueryData.objects.create(query=query, articles=articles_json).save()
+            PubMedQueryData.objects.create(
+                query=query,
+                articles=articles_json,
+                denial_id=denial.denial_id,
+            ).save()
             for article_id in pmids[0:3]:
                 article_futures.append(
                     pubmed_executor.submit(self.do_article_summary, article_id, query)
