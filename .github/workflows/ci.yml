@@ -77,10 +77,10 @@ jobs:
         uses: actions/setup-node@v3
 
       - name: Install tesseract ocr
-        run: sudo apt-get install -y tesseract-ocr
+        run: sudo apt-get install -y tesseract-ocr pdflatex
 
       - name: Install dependencies
-        run: pip install tox tox-gh-actions pdflatex
+        run: pip install tox tox-gh-actions
 
       - name: Install
         uses: pandoc/actions/setup@v1
