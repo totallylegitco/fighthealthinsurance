@@ -83,7 +83,7 @@ jobs:
         run: pip install tox tox-gh-actions pandoc
 
       - name: Check for pandoc?
-        run: pandoc --help
+        run: pandoc --help || (find / | grep pandoc; exit 1)
 
       - name: Build npm js (needed for the e2e tests in django)
         run:
