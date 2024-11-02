@@ -446,6 +446,10 @@ class FaxActor:
         print(f"Doing {fts}")
         email = fts.email
         denial = fts.denial_id
+        if denial is None:
+            return False
+        if fts.destination is None:
+            return False
         fax_sent = flexible_fax_magic.send_fax(
             input_paths=[fts.get_temporary_document_path()],
             extra=f"This is regarding {denial.claim_id} for {fts.name}",
