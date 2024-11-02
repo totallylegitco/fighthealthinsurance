@@ -345,6 +345,8 @@ class FlexibleFaxMagic(object):
         self, user_header: str, extra: str, input_paths: list[str]
     ) -> list[str]:
         """Assemble the outputs into chunks of max_pages length"""
+        if len(input_paths) == 0:
+            raise Exception(f"Empty fax request")
         # Keep track of the total pages
         total_input_pages = 0
         modified_paths = []
@@ -373,7 +375,7 @@ class FlexibleFaxMagic(object):
             except Exception as e:
                 print(f"Skipping input {input_path} {e}")
         if len(modified_paths) == 0:
-            raise Exception("All rejected all inputs from {input_paths}")
+            raise Exception(f"Rejected all inputs from {input_paths}")
         # How many chunks do we need to make + 1
         number_of_transmissions = 1 + int(total_input_pages / self.max_pages)
         results: list[str] = []

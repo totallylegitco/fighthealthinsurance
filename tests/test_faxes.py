@@ -39,7 +39,7 @@ class FaxSendBaseTest(unittest.TestCase):
     def test_assemble_longer_input(self):
         m = FlexibleFaxMagic([])
         with tempfile.NamedTemporaryFile(
-            suffix=".txt", prefix="long_meeps", mode="w+t", delete=False
+            suffix=".txt", prefix="long_meeps", mode="w+t", delete=True
         ) as t1:
             for i in range(0, 10000):
                 t1.write("Test ")
@@ -61,7 +61,7 @@ class FaxSendBaseTest(unittest.TestCase):
     def test_assemble_multi_input(self):
         m = FlexibleFaxMagic([])
         with tempfile.NamedTemporaryFile(
-            suffix=".txt", prefix="short_meeps", mode="w+t", delete=False
+            suffix=".txt", prefix="short_meeps", mode="w+t", delete=True
         ) as t1:
             for i in range(0, 10):
                 t1.write("Test ")
