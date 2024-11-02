@@ -37,9 +37,14 @@ spec:
             volumeMounts:
               - mountPath: /tmp/ray
                 name: log-volume
+              - name: uploads
+                mountPath: /external_data
         volumes:
         - emptyDir: {}
           name: log-volume
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: uploads
   workerGroupSpecs:
   - groupName: workergroup
     maxReplicas: 4
@@ -73,6 +78,11 @@ spec:
             volumeMounts:
             - mountPath: /tmp/ray
               name: log-volume
+            - name: uploads
+              mountPath: /external_data
         volumes:
         - emptyDir: {}
           name: log-volume
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: uploads
