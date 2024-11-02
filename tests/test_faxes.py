@@ -3,6 +3,7 @@ from os import environ
 import unittest
 from fighthealthinsurance.fax_utils import FaxSenderBase, FlexibleFaxMagic
 import tempfile
+import time
 import pytest
 from PyPDF2 import PdfReader
 
@@ -43,6 +44,7 @@ class FaxSendBaseTest(unittest.TestCase):
             for i in range(0, 10000):
                 t1.write("Test ")
             t1.flush()
+            time.sleep(1)
             r = m.assemble_outputs("MyHeader", "", [t1.name])
             self.assertEquals(len(r), 2)
             reader = PdfReader(r[0])
@@ -64,6 +66,7 @@ class FaxSendBaseTest(unittest.TestCase):
             for i in range(0, 10):
                 t1.write("Test ")
             t1.flush()
+            time.sleep(1)
             with tempfile.NamedTemporaryFile(
                 suffix=".txt", prefix="short_meeps", mode="w+t", delete=False
             ) as t2:

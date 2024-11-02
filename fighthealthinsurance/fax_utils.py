@@ -372,6 +372,8 @@ class FlexibleFaxMagic(object):
                 total_input_pages += pages
             except Exception as e:
                 print(f"Skipping input {input_path} {e}")
+        if len(modified_paths) == 0:
+            raise Exception("All rejected all inputs from {input_paths}")
         # How many chunks do we need to make + 1
         number_of_transmissions = 1 + int(total_input_pages / self.max_pages)
         results: list[str] = []
