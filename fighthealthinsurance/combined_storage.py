@@ -11,9 +11,8 @@ class CombinedStorage(Storage):
         self.backends = args
 
     def open(self, *args, **kwargs):
+        print(f"Attempting to open {args} {kwargs}")
         last_error = None
-        if name is None:
-            return
         for backend in self.backends:
             try:
                 with Timeout(2.0) as timeout_ctx:
@@ -37,13 +36,16 @@ class CombinedStorage(Storage):
         raise last_error
 
     def save(self, *args, **kwargs):
+        print(f"Saving with {args}{kwargs}")
         for backend in self.backends:
             try:
                 print(f"Called with {args} {kwargs}")
                 with Timeout(2.0) as timeout_ctx:
-                    backend.save(*args, **kwargs)
+                    l = backend.save(*args, **kwargs)
             except Exception as e:
                 print(f"Error saving {e}")
+        print(f"Saved to {self.backends}")
+        return l
 
     def exists(self, name):
         if name is None:

@@ -19,7 +19,6 @@ from django.utils.decorators import method_decorator
 from django.views import View, generic
 from django.views.decorators.cache import cache_control
 
-import stripe
 import numpy as np
 from asgiref.sync import async_to_sync
 import stripe
@@ -252,33 +251,86 @@ class ChooseAppeal(View):
     def post(self, request):
         form = ChooseAppealForm(request.POST)
         if form.is_valid():
-            denial_id = form.cleaned_data["denial_id"]
-            hashed_email = Denial.get_hashed_email(form.cleaned_data["email"])
-            appeal_text = form.cleaned_data["appeal_text"]
-            email = form.cleaned_data["email"]
-
-            # Get the current info
-            denial = Denial.objects.filter(
-                denial_id=denial_id, hashed_email=hashed_email
-            ).get()
-            denial.appeal_text = appeal_text
             appeal_info_extracted = ""
-            denial.save()
+            appeal_fax_number = ChooseAppealHelper.choose_appeal(**form.cleaned_data)
+            fax_form = FaxForm(
+                initial={
+                    "denial_id": form.cleaned_data["denial_id"],
+                    "email": form.cleaned_data["email"],
+                    "semi_sekret": form.cleaned_data["semi_sekret"],
+                    "fax_phone": appeal_fax_number,
+                }
+            )
             return render(
                 request,
                 "appeal.html",
                 context={
-                    "appeal": appeal_text,
-                    "user_email": email,
-                    "denial_id": denial_id,
+                    "appeal": form.cleaned_data["appeal_text"],
+                    "user_email": form.cleaned_data["email"],
+                    "denial_id": form.cleaned_data["denial_id"],
                     "appeal_info_extract": appeal_info_extracted,
+                    "fax_form": fax_form,
                 },
             )
-            pa = ProposedAppeal(appeal_text=appeal_text, for_denial=denial, chosen=True)
-            pa.save()
         else:
             print(form)
             pass
+
+
+class FaxFollowUpView(generic.FormView):
+    template_name = "faxfollowup.html"
+    form_class = FaxResendForm
+
+    def get_initial(self):
+        # Set the initial arguments to the form based on the URL route params.
+        return self.kwargs
+
+    def form_valid(self, form):
+        FollowUpHelper.store_follow_up_result(**form.cleaned_data)
+        return render(self.request, "fax_followup_thankyou.html")
+
+
+class SendFaxView(View):
+
+    def get(self, request, **kwargs):
+        SendFaxHelper.remote_send_fax(**self.kwargs)
+        return render(self.request, "fax_thankyou.html")
+
+
+class StageFaxView(generic.FormView):
+    form_class = FaxForm
+
+    def form_valid(self, form):
+        staged = SendFaxHelper.stage_appeal_fax(**form.cleaned_data)
+        stripe.api_key = settings.STRIPE_API_SECRET_KEY
+        stripe.publishable_key = settings.STRIPE_API_PUBLISHABLE_KEY
+        product = stripe.Product.create(name="Fax")
+        product_price = stripe.Price.create(
+            unit_amount=500, currency="usd", product=product["id"]
+        )
+        items = [
+            {
+                "price": product_price["id"],
+                "quantity": 1,
+            }
+        ]
+        checkout = stripe.checkout.Session.create(
+            line_items=items,
+            mode="payment",  # No subscriptions
+            success_url=self.request.build_absolute_uri(
+                reverse(
+                    "sendfaxview",
+                    kwargs={
+                        "uuid": staged.uuid,
+                        "hashed_email": staged.hashed_email,
+                    },
+                ),
+            ),
+            cancel_url=self.request.build_absolute_uri(reverse("root")),
+            customer_email=form.cleaned_data["email"],
+        )
+        checkout_url = checkout.url
+        return redirect(checkout_url)
 
 
 class GenerateAppeal(View):

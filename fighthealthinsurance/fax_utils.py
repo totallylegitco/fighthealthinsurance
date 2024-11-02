@@ -5,12 +5,17 @@ from typing import Optional
 import os
 import time
 import subprocess
-from PyPDF2 import PdfReader, PdfWriter
-
+from PyPDF2 import PdfReader, PdfWriter, PdfMerger
+from celery import shared_task
+import asyncio
+from django.urls import reverse
+from django.template.loader import render_to_string
+from django.core.mail import EmailMultiAlternatives
+from fighthealthinsurance.ray import *
+import ray
 
 FROM_FAX = os.getenv("FROM_FAX", "4158407591")
 FROM_VOICE = os.getenv("FROM_VOICE", "2029383266")
-
 
 class FaxSenderBase(object):
     base_cost = 0
@@ -226,6 +231,12 @@ class HylaFaxClient(FaxSenderBase):
     host: Optional[str] = None
     max_speed = 9600
 
+    def estimate_cost(self, destination: str, pages: int) -> int:
+        if self.host is not None:
+            return self.base_cost + self.cost_per_page * pages
+        else:
+            return 9999999999999999
+
     def send_fax_blocking(
         self, destination: str, path: str, dest_name: Optional[str] = None
     ) -> bool:
@@ -292,24 +303,52 @@ class FlexibleFaxMagic(object):
         self.backends = backends
         self.max_pages = max_pages
 
+    def assemble_single_output(
+        self, user_header: str, extra: str, input_paths: list[str]
+    ) -> str:
+        """Assembles all the inputs into one output. Will need to be chunked."""
+        merger = PdfMerger()
+        for input_path in input_paths:
+            # Don't double convert pdfs
+            if input_path.endswith(".pdf"):
+                merger.append(input_path)
+            else:
+                command = ["pandoc", "--wrap=auto", input_path, f"-o{input_path}.pdf"]
+                result = subprocess.run(command)
+                merger.append(f"{input_path}.pdf")
+        with tempfile.NamedTemporaryFile(
+            suffix=".pdf", prefix="alltogether", mode="w+t", delete=False
+        ) as t:
+            merger.write(t.name)
+            merger.close()
+            return t.name
+
     def assemble_outputs(
         self, user_header: str, extra: str, input_paths: list[str]
     ) -> list[str]:
         """Assemble the outputs into chunks of max_pages length"""
         # Keep track of the total pages
         total_input_pages = 0
+        modified_paths = []
         # Start with converting everything into pdf & counting the pages
         for input_path in input_paths:
-            command = ["pandoc", "--wrap=auto", input_path, f"-o{input_path}.pdf"]
-            result = subprocess.run(command)
-            reader = PdfReader(f"{input_path}.pdf")
+            reader = None
+            # Don't double convert pdfs
+            if input_path.endswith(".pdf"):
+                reader = PdfReader(input_path)
+                modified_paths.append(input_path)
+            else:
+                command = ["pandoc", "--wrap=auto", input_path, f"-o{input_path}.pdf"]
+                result = subprocess.run(command)
+                reader = PdfReader(f"{input_path}.pdf")
+                modified_paths.append(f"{input_path}.pdf")
             total_input_pages += len(reader.pages)
         # How many chunks do we need to make + 1
         number_of_transmissions = 1 + int(total_input_pages / self.max_pages)
         results: list[str] = []
         # Iterate through making the chunks
         input_index = 0
-        current_input_file = PdfReader(f"{input_paths[0]}.pdf")
+        current_input_file = PdfReader(modified_paths[0])
         index_in_current_file = 0
         for i in range(1, number_of_transmissions + 1):
             # Compute the number of pages in this transmission.
@@ -343,9 +382,7 @@ class FlexibleFaxMagic(object):
                     elif input_index + 1 < len(input_paths):
                         index_in_current_file = 0
                         input_index += 1
-                        current_input_file = PdfReader(
-                            f"{input_paths[input_index]}.pdf"
-                        )
+                        current_input_file = PdfReader(modified_paths[input_index])
                     else:
                         break
                 w.write(t.name)
@@ -382,5 +419,68 @@ class FlexibleFaxMagic(object):
                 backend_cost = candidate_cost
         return backend.send_fax(destination=destination, path=path, blocking=blocking)
 
+@ray.remote
+class FaxActor:
+    def __init__(self):
+        # This is a bit of a hack but we do this so we have the app configured
+        from configurations.wsgi import get_wsgi_application
+        import fighthealthinsurance.settings
+        os.environ.setdefault("DJANGO_SETTINGS_MODULE", "fighthealthinsurance.settings")
+        self.application = get_wsgi_application()
 
-flexible_fax_magic = FlexibleFaxMagic([SonicFax(), FaxyMcFaxFace()])
+    def hi(self):
+        return "ok"
+
+    def version(self):
+        """Bump this to restart the fax actor."""
+        return 1
+    
+    def do_send_fax(self, hashed_email, uuid) -> bool:
+        # Now that we have an app instance we can import faxes to send
+        from fighthealthinsurance.models import FaxesToSend
+        fts = FaxesToSend.objects.filter(uuid=uuid, hashed_email=hashed_email).get()
+        print(f"Doing {fts}")
+        email = fts.email
+        denial = fts.denial_id
+        fax_sent = flexible_fax_magic.send_fax(
+            input_paths=[fts.get_temporary_document_path()],
+            extra=f"This is regarding {denial.claim_id} for {fts.name}",
+            destination=fts.destination,
+            blocking=True,
+        )
+        fax_redo_link = "https://www.fighthealthinsurance.com" + reverse(
+            "fax-followup",
+            kwargs={
+                "hashed_email": hashed_email,
+                "uuid": uuid,
+            },
+        )
+        context = {
+            "name": fts.name,
+            "success": fax_sent,
+            "fax_redo_link": fax_redo_link,
+        }
+        # First, render the plain text content.
+        text_content = render_to_string(
+            "emails/fax_followup.txt",
+            context=context,
+        )
+
+        # Secondly, render the HTML content.
+        html_content = render_to_string(
+            "emails/fax_followup.html",
+            context=context,
+        )
+        # Then, create a multipart email instance.
+        msg = EmailMultiAlternatives(
+            "Following up from Fight Health Insurance",
+            text_content,
+            "support42@fighthealthinsurance.com",
+            [email],
+        )
+        msg.attach_alternative(html_content, "text/html")
+        msg.send()
+        return True
+
+    
+flexible_fax_magic = FlexibleFaxMagic([FaxyMcFaxFace()])

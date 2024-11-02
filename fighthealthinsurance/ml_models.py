@@ -47,6 +47,9 @@ class RemoteModelLike(object):
     def get_procedure_and_diagnosis(self, prompt):
         return (None, None)
 
+    def get_fax_number(self, prompt) -> Optional[str]:
+        return None
+
     def external(self):
         return True
 
@@ -215,6 +218,14 @@ class RemoteOpenLike(RemoteModel):
         if self.invalid_diag_procedure_regex.search(response):
             return None
         return self.diagnosis_response_regex.sub("", response)
+
+    @cache
+    def get_fax_number(self, denial: str) -> Optional[str]:
+        print(f"Getting fax number on {self}")
+        return self._infer(
+            system_prompt="You are a helpful assistant.",
+            prompt=f"Tell me what the to appeal fax number in the provided denial. If unknown write UNKNOWN. If known just without any pre-amble and as a snippet from the original doc. The denial follows: {denial}",
+        )
 
     @cache
     def questions(self, prompt: str, patient_context: str, plan_context) -> List[str]:
@@ -554,6 +565,11 @@ class DeepInfra(RemoteFullOpenLike):
                 cost=40,
                 name="meta-llama/meta-llama-3.1-70B-instruct",
                 internal_name="meta-llama/Meta-Llama-3.1-70B-Instruct",
+            ),
+            ModelDescription(
+                cost=5,
+                name="meta-llama/llama-3.2-3B-instruct",
+                internal_name="meta-llama/Llama-3.2-3B-Instruct",
             ),
         ]
 

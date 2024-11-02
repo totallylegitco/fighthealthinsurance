@@ -94,22 +94,6 @@ spec:
               port: 80
             periodSeconds: 10
             failureThreshold: 45
-        - name: ts-sidecar
-          image: "ghcr.io/tailscale/tailscale:latest"
-          env:
-            # Store the state in a k8s secret
-            - name: TS_KUBE_SECRET
-              value: "tailscale"
-            - name: TS_USERSPACE
-              value: "true"
-            - name: TS_DEBUG_FIREWALL_MODE
-              value: auto
-            - name: TS_AUTHKEY
-              valueFrom:
-                secretKeyRef:
-                  name: tailscale-auth
-                  key: TS_AUTHKEY
-                  optional: true
       volumes:
         - name: uploads
           persistentVolumeClaim:

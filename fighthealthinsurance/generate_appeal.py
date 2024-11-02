@@ -64,6 +64,15 @@ class AppealGenerator(object):
     def __init__(self):
         self.regex_denial_processor = ProcessDenialRegex()
 
+    def get_fax_number(self, denial_text=None, use_external=False) -> Optional[str]:
+        models_to_try = model_router.entity_extract_backends(use_external)
+        print(f"Using {models_to_try} models to extract fax")
+        for model in models_to_try:
+            fax_number = model.get_fax_number(denial_text)
+            if fax_number is not None and "UNKNOWN" not in fax_number:
+                return fax_number
+        return None
+
     def get_procedure_and_diagnosis(
         self, denial_text=None, use_external=False
     ) -> Tuple[Optional[str], Optional[str]]:
