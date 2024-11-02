@@ -23,7 +23,7 @@ jobs:
         run: sudo apt-get install -y tesseract-ocr
 
       - name: Install dependencies
-        run: pip install tox tox-gh-actions
+        run: pip install tox tox-gh-actions pandoc
 
       - name: Check npm build
         run:
