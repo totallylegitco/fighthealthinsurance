@@ -22,7 +22,7 @@ from fighthealthinsurance.models import (
     Procedures,
     Regulator,
 )
-from fighthealthinsurance.utils import all_subclasses, is_valid_url, url_fixer
+from fighthealthinsurance.utils import all_subclasses, url_fixer
 from fighthealthinsurance.process_denial import DenialBase
 from stopit import ThreadingTimeout as Timeout
 from typing_extensions import reveal_type

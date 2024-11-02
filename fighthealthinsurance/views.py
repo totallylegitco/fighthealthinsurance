@@ -1,27 +1,12 @@
-import asyncio
-import concurrent
-import itertools
 import json
-import os
-import time
-from io import BytesIO
 from typing import *
 
 from django.conf import settings
-from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
-from django.contrib.staticfiles import finders
-from django.contrib.staticfiles.storage import staticfiles_storage
 from django.shortcuts import redirect, render
 from django.urls import reverse
-from django.utils.decorators import method_decorator
 from django.views import View, generic
-from django.views.decorators.cache import cache_control
 
-import numpy as np
 import stripe
-from asgiref.sync import async_to_sync
 from fighthealthinsurance.common_view_logic import *
 from fighthealthinsurance.core_forms import *
 from fighthealthinsurance.generate_appeal import *
@@ -40,6 +25,8 @@ class FollowUpView(generic.FormView):
         # Set the initial arguments to the form based on the URL route params.
         # Also make sure we can resolve the denial
         denial = FollowUpHelper.fetch_denial(**self.kwargs)
+        if denial is None:
+            raise Exception(f"Could not find denial for {self.kwargs}")
         return self.kwargs
 
     def form_valid(self, form):
@@ -337,8 +324,7 @@ class GenerateAppeal(View):
     def post(self, request):
         form = DenialRefForm(request.POST)
         if form.is_valid():
-            denial_id = form.cleaned_data["denial_id"]
-            hashed_email = Denial.get_hashed_email(form.cleaned_data["email"])
+            # We copy _most_ of the input over for the form context
             elems = dict(request.POST)
             # Query dict is of lists
             elems = dict((k, v[0]) for k, v in elems.items())
@@ -385,7 +371,7 @@ class OCRView(View):
             import easyocr
 
             self._easy_ocr_reader = easyocr.Reader(["en"], gpu=False)
-        except:
+        except Exception:
             pass
 
     def get(self, request):
@@ -393,7 +379,6 @@ class OCRView(View):
 
     def post(self, request):
         try:
-            txt = ""
             print(request.FILES)
             files = dict(request.FILES.lists())
             uploader = files["uploader"]
@@ -403,12 +388,12 @@ class OCRView(View):
                 "scrub.html",
                 context={"ocr_result": doc_txt, "upload_more": False},
             )
-        except AttributeError as e:
+        except AttributeError:
             error_txt = "Unsupported file"
             return render(
                 request, "server_side_ocr_error.html", context={"error": error_txt}
             )
-        except KeyError as e:
+        except KeyError:
             error_txt = "Missing file"
             return render(
                 request, "server_side_ocr_error.html", context={"error": error_txt}
@@ -423,7 +408,7 @@ class OCRView(View):
 
                 img = Image.open(x)
                 return pytesseract.image_to_string(img)
-            except:
+            except Exception:
                 result = self._easy_ocr_reader.readtext(x.read())
                 return " ".join([text for _, text, _ in result])
 

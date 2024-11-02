@@ -5,7 +5,6 @@ import sys
 import tempfile
 import uuid
 from typing import Optional
-from uuid import UUID
 
 from django.conf import settings
 from django.db import models
