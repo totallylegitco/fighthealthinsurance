@@ -82,6 +82,9 @@ jobs:
       - name: Install dependencies
         run: pip install tox tox-gh-actions pandoc
 
+      - name: Check for pandoc?
+        run: pandoc --help
+
       - name: Build npm js (needed for the e2e tests in django)
         run:
           cd fighthealthinsurance/static/js; npm i; npm run build
