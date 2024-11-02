@@ -8,11 +8,10 @@ from drf_braces.serializers.form_serializer import (
     FormSerializerFailure,
     make_form_serializer_field,
 )
-from rest_framework import serializers, status
-
 from fighthealthinsurance.core_forms import *
-from fighthealthinsurance.question_forms import *
 from fighthealthinsurance.models import DenialTypes
+from fighthealthinsurance.question_forms import *
+from rest_framework import serializers, status
 
 
 # Common

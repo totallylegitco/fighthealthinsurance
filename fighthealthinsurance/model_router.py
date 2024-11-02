@@ -1,4 +1,4 @@
-from typing import Mapping, List
+from typing import List, Mapping
 
 from fighthealthinsurance.ml_models import *
 

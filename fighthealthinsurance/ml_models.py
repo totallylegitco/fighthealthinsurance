@@ -7,18 +7,13 @@ import time
 import traceback
 from abc import ABC, abstractmethod
 from concurrent.futures import Future
-from functools import cache, lru_cache
-from stopit import ThreadingTimeout as Timeout
-from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
 from dataclasses import dataclass
-
+from functools import cache, lru_cache
+from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
 
 import icd10
 import requests
-from typing_extensions import reveal_type
-
 from fighthealthinsurance.exec import *
-from fighthealthinsurance.utils import all_subclasses, is_valid_url, url_fixer
 from fighthealthinsurance.models import (
     AppealTemplates,
     DenialTypes,
@@ -27,6 +22,9 @@ from fighthealthinsurance.models import (
     Procedures,
     Regulator,
 )
+from fighthealthinsurance.utils import all_subclasses, is_valid_url, url_fixer
+from stopit import ThreadingTimeout as Timeout
+from typing_extensions import reveal_type
 
 
 class RemoteModelLike(object):

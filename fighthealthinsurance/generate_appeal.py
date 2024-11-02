@@ -1,41 +1,38 @@
-import tempfile
-from metapub import PubMedFetcher, FindIt
-import PyPDF2
-from stopit import ThreadingTimeout as Timeout
-import random
 import concurrent
 import csv
 import itertools
+import json
 import os
+import random
+import tempfile
 import time
 import traceback
 from concurrent.futures import Future
 from functools import cache, lru_cache
-from typing import Any, List, Optional, Tuple, Iterator
-import json
-
-import metapub
+from typing import Any, Iterator, List, Optional, Tuple
 
 import icd10
+import metapub
+import PyPDF2
 import requests
-from typing_extensions import reveal_type
-
 from fighthealthinsurance.exec import *
+from fighthealthinsurance.ml_models import RemoteFullOpenLike, RemoteModelLike
 from fighthealthinsurance.model_router import model_router
-from fighthealthinsurance.ml_models import RemoteModelLike, RemoteFullOpenLike
 from fighthealthinsurance.models import (
     AppealTemplates,
     DenialTypes,
     Diagnosis,
     PlanType,
     Procedures,
-    Regulator,
-    PubMedQueryData,
     PubMedArticleSummarized,
+    PubMedQueryData,
+    Regulator,
 )
 from fighthealthinsurance.process_denial import *
-from fighthealthinsurance.utils import as_available_nested
-from fighthealthinsurance.utils import pubmed_fetcher
+from fighthealthinsurance.utils import as_available_nested, pubmed_fetcher
+from metapub import FindIt, PubMedFetcher
+from stopit import ThreadingTimeout as Timeout
+from typing_extensions import reveal_type
 
 
 class AppealTemplateGenerator(object):

@@ -15,16 +15,16 @@ Including another URLconf
 """
 
 from django.contrib import admin
+from django.contrib.admin.views.decorators import staff_member_required
 from django.urls import include, path
 from django.views.decorators.cache import cache_control, cache_page
-from django.contrib.admin.views.decorators import staff_member_required
 
 from fighthealthinsurance import views
-from fighthealthinsurance.rest_urls import rest_urls
 from fighthealthinsurance.followup_emails import (
-    ScheduleFollowUps,
     FollowUpEmailSenderView,
+    ScheduleFollowUps,
 )
+from fighthealthinsurance.rest_urls import rest_urls
 
 urlpatterns = [
     # Internal-ish-views

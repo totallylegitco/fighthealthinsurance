@@ -1,10 +1,10 @@
-import tempfile
 import hashlib
 import os
 import re
 import sys
-from typing import Optional
+import tempfile
 import uuid
+from typing import Optional
 from uuid import UUID
 
 from django.conf import settings
@@ -12,9 +12,8 @@ from django.db import models
 from django.db.models import UniqueConstraint
 from django.db.models.functions import Now
 
-from regex_field.fields import RegexField
-
 from fighthealthinsurance.utils import sekret_gen
+from regex_field.fields import RegexField
 
 
 class InterestedProfessional(models.Model):

@@ -1,6 +1,7 @@
-from stopit import ThreadingTimeout as Timeout
 from django.core.files.storage import Storage
 from django.utils.deconstruct import deconstructible
+
+from stopit import ThreadingTimeout as Timeout
 
 
 @deconstructible(path="fighthealthinsurance.combined_storage.CombinedStorage")

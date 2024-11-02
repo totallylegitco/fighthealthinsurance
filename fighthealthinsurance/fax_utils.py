@@ -1,18 +1,20 @@
-import tempfile
-import requests
-import re
-from typing import Optional
-import os
-import time
-import subprocess
-from PyPDF2 import PdfReader, PdfWriter, PdfMerger
-from celery import shared_task
 import asyncio
-from django.urls import reverse
-from django.template.loader import render_to_string
+import os
+import re
+import subprocess
+import tempfile
+import time
+from typing import Optional
+
 from django.core.mail import EmailMultiAlternatives
-from fighthealthinsurance.ray import *
+from django.template.loader import render_to_string
+from django.urls import reverse
+
 import ray
+import requests
+from celery import shared_task
+from fighthealthinsurance.ray import *
+from PyPDF2 import PdfMerger, PdfReader, PdfWriter
 
 FROM_FAX = os.getenv("FROM_FAX", "4158407591")
 FROM_VOICE = os.getenv("FROM_VOICE", "2029383266")

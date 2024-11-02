@@ -1,15 +1,14 @@
 import os
+import re
+import urllib
 
 from django import forms
 
-from bs4 import BeautifulSoup
-
 import pymupdf
-import re
-from fighthealthinsurance.models import Denial, PlanDocuments
-from fighthealthinsurance.form_utils import *
-import urllib
 import requests
+from bs4 import BeautifulSoup
+from fighthealthinsurance.form_utils import *
+from fighthealthinsurance.models import Denial, PlanDocuments
 
 
 class InsuranceQuestions(forms.Form):

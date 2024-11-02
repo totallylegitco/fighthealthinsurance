@@ -1,29 +1,28 @@
+import datetime
 import json
 from dataclasses import dataclass
 from string import Template
-from typing import Any, Tuple, Optional
-import datetime
+from typing import Any, Optional, Tuple
 
 from django.core.files import File
-from django.core.validators import validate_email
-from django.forms import Form
-from django.utils import timezone
-from django.http import StreamingHttpResponse
 from django.core.files.base import ContentFile
+from django.core.validators import validate_email
 from django.db.models.fields.files import FieldFile
+from django.forms import Form
+from django.http import StreamingHttpResponse
 from django.template.loader import render_to_string
+from django.utils import timezone
 
+import ray
 import uszipcode
-
 from fighthealthinsurance.core_forms import *
-from fighthealthinsurance.question_forms import *
+from fighthealthinsurance.fax_actor_ref import fax_actor_ref
+from fighthealthinsurance.fax_utils import flexible_fax_magic
 from fighthealthinsurance.form_utils import *
 from fighthealthinsurance.generate_appeal import *
 from fighthealthinsurance.models import *
-from fighthealthinsurance.fax_utils import flexible_fax_magic
-from fighthealthinsurance.fax_actor_ref import fax_actor_ref
+from fighthealthinsurance.question_forms import *
 from fighthealthinsurance.utils import pubmed_fetcher
-import ray
 
 appealGenerator = AppealGenerator()
 

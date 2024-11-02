@@ -20,14 +20,13 @@ from django.views import View, generic
 from django.views.decorators.cache import cache_control
 
 import numpy as np
-from asgiref.sync import async_to_sync
 import stripe
-
+from asgiref.sync import async_to_sync
 from fighthealthinsurance.common_view_logic import *
 from fighthealthinsurance.core_forms import *
-from fighthealthinsurance.question_forms import *
 from fighthealthinsurance.generate_appeal import *
 from fighthealthinsurance.models import *
+from fighthealthinsurance.question_forms import *
 from fighthealthinsurance.utils import *
 
 appealGenerator = AppealGenerator()

@@ -1,6 +1,7 @@
+from functools import cached_property
+
 import ray
 from fighthealthinsurance.fax_utils import FaxActor
-from functools import cached_property
 
 
 class FaxActorRef:
