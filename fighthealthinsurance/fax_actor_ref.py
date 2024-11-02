@@ -1,5 +1,6 @@
 from functools import cached_property
 
+import time
 import ray
 from fighthealthinsurance.fax_utils import FaxActor
 
@@ -23,7 +24,7 @@ class FaxActorRef:
             print(f"No exisitng fax actor to stop {e}")
 
         if fax_actor is None:
-            fax_actor = FaxActor.options(
+            fax_actor = FaxActor.options(  # type: ignore
                 name=name, lifetime="detached", namespace="fhi"
             ).remote()
         return fax_actor

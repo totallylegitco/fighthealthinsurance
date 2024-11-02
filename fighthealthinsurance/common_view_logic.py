@@ -2,7 +2,7 @@ import datetime
 import json
 from dataclasses import dataclass
 from string import Template
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Tuple, Iterable
 
 from django.core.files import File
 from django.core.files.base import ContentFile
@@ -82,9 +82,14 @@ class NextStepInfo:
 
     def convert_to_serializable(self):
         return NextStepInfoSerializable(
-            self.outside_help_details,
-            map(lambda xy: self._field_to_dict(*xy), self.combined_form.fields.items()),
-            self.semi_sekret,
+            outside_help_details=self.outside_help_details,
+            combined_form=list(
+                map(
+                    lambda xy: self._field_to_dict(*xy),
+                    self.combined_form.fields.items(),
+                )
+            ),
+            semi_sekret=self.semi_sekret,
         )
 
     def _field_to_dict(self, field_name, field):
@@ -274,7 +279,7 @@ class ChooseAppealHelper:
 
 @dataclass
 class NextStepInfoSerializable:
-    outside_help_details: list[str]
+    outside_help_details: list[Tuple[str, str]]
     combined_form: list[Any]
     semi_sekret: str
 
@@ -438,11 +443,11 @@ class FindNextStepsHelper:
 class DenialResponseInfo:
     selected_denial_type: list[DenialTypes]
     all_denial_types: list[DenialTypes]
-    denial_id: str
-    your_state: str
-    procedure: str
-    diagnosis: str
-    employer_name: str
+    denial_id: int
+    your_state: Optional[str]
+    procedure: Optional[str]
+    diagnosis: Optional[str]
+    employer_name: Optional[str]
     semi_sekret: str
     appeal_fax_number: Optional[str]
 

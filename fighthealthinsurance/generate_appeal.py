@@ -15,6 +15,7 @@ import icd10
 import metapub
 import PyPDF2
 import requests
+from fighthealthinsurance.denial_base import DenialBase
 from fighthealthinsurance.exec import *
 from fighthealthinsurance.ml_models import RemoteFullOpenLike, RemoteModelLike
 from fighthealthinsurance.model_router import model_router
@@ -72,7 +73,7 @@ class AppealGenerator(object):
         self, denial_text=None, use_external=False
     ) -> Tuple[Optional[str], Optional[str]]:
         prompt = self.make_open_procedure_prompt(denial_text)
-        models_to_try = [
+        models_to_try: list[DenialBase] = [
             self.regex_denial_processor,
         ]
         models_to_try.extend(model_router.entity_extract_backends(use_external))

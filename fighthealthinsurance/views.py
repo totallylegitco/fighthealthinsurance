@@ -138,9 +138,6 @@ class ShareDenialView(View):
     def get(self, request):
         return render(request, "share_denial.html", context={"title": "Share Denial"})
 
-    def post(self, request):
-        form = ShareDenailForm(request.POST)
-
 
 class ShareAppealView(View):
     def get(self, request):
@@ -159,7 +156,7 @@ class ShareAppealView(View):
                 hashed_email=hashed_email,
             ).get()
             print(form.cleaned_data)
-            denial.appeal = form.cleaned_data["appeal_text"]
+            denial.appeal_text = form.cleaned_data["appeal_text"]
             denial.save()
             pa = ProposedAppeal(
                 appeal_text=form.cleaned_data["appeal_text"],

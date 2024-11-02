@@ -23,11 +23,12 @@ from fighthealthinsurance.models import (
     Regulator,
 )
 from fighthealthinsurance.utils import all_subclasses, is_valid_url, url_fixer
+from fighthealthinsurance.process_denial import DenialBase
 from stopit import ThreadingTimeout as Timeout
 from typing_extensions import reveal_type
 
 
-class RemoteModelLike(object):
+class RemoteModelLike(DenialBase):
     def infer(self, prompt, patient_context, plan_context, pubmed_context, infer_type):
         pass
 
@@ -41,6 +42,15 @@ class RemoteModelLike(object):
         temperature=0.7,
     ) -> Optional[str]:
         pass
+
+    def get_denialtype(self, denial_text, procedure, diagnosis):
+        return None
+
+    def get_regulator(self, text):
+        return None
+
+    def get_plan_type(self, text):
+        return None
 
     def get_procedure_and_diagnosis(self, prompt):
         return (None, None)
@@ -64,6 +74,9 @@ class ModelDescription:
 
 
 class RemoteModel(RemoteModelLike):
+    def __init__(self, model: str):
+        pass
+
     @classmethod
     def models(cls) -> List[ModelDescription]:
         return []

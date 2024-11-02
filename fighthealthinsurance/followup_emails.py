@@ -27,6 +27,9 @@ class ScheduleFollowUps(View):
         )
         c = 0
         for denial in denials:
+            # Shouldn't happen but makes the type checker happy.
+            if denial.raw_email is None:
+                continue
             FollowUpSched.objects.create(
                 email=denial.raw_email,
                 follow_up_date=denial.date + datetime.timedelta(days=15),

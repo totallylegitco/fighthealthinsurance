@@ -322,6 +322,7 @@ class Denial(models.Model):
     use_external = models.BooleanField(default=False)
     health_history = models.TextField(primary_key=False, null=True)
     qa_context = models.TextField(primary_key=False, null=True)
+    plan_context = models.TextField(primary_key=False, null=True)
     semi_sekret = models.CharField(max_length=100, default=sekret_gen)
     plan_id = models.CharField(max_length=200, primary_key=False, null=True)
     state = models.CharField(max_length=4, primary_key=False, null=True)
@@ -356,4 +357,7 @@ class ProposedAppeal(models.Model):
     editted = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"{self.for_denial}: {self.appeal_text[0:100]}"
+        if self.appeal_text is not None:
+            return f"{self.for_denial}: {self.appeal_text[0:100]}"
+        else:
+            return f"{self.for_denial}: {self.appeal_text}"

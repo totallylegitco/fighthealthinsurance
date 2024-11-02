@@ -19,7 +19,7 @@ class EmailPollingActorRef:
         except Exception as e:
             print(f"No exisitng email actor to stop {e}")
 
-        email_polling_actor = EmailPollingActor.options(
+        email_polling_actor = EmailPollingActor.options(  # type: ignore
             name=name, lifetime="detached", namespace="fhi"
         ).remote()
         # Kick of the remote task
