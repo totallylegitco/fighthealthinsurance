@@ -80,15 +80,12 @@ jobs:
         run: sudo apt-get install -y tesseract-ocr
 
       - name: Install dependencies
-        run: pip install tox tox-gh-actions
+        run: pip install tox tox-gh-actions pdflatex
 
       - name: Install
         uses: pandoc/actions/setup@v1
         with:
           version: 2.19
-
-      - name: Check for pandoc?
-        run: pandoc --help || (find / | grep pandoc; exit 1)
 
       - name: Build npm js (needed for the e2e tests in django)
         run:
