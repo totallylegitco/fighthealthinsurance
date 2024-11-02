@@ -79,6 +79,7 @@ class ChooseAppealForm(DenialRefForm):
 
 class FaxForm(DenialRefForm):
     name = forms.CharField(required=True, label="Your name (for the cover page)")
+    insurance_company = forms.CharField(required=True)
     fax_phone = forms.CharField(required=True)
     completed_appeal_text = forms.CharField(widget=forms.Textarea)
     include_provided_health_history = forms.BooleanField(required=False)

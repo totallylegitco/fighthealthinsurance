@@ -127,6 +127,7 @@ class SendFaxHelper:
         completed_appeal_text: str,
         include_provided_health_history: bool,
         name: str,
+        insurance_company: str,
         pubmed_articles_to_include: str = "",
     ):
         hashed_email = Denial.get_hashed_email(email)
@@ -134,6 +135,7 @@ class SendFaxHelper:
         denial = Denial.objects.filter(
             denial_id=denial_id, hashed_email=hashed_email
         ).get()
+        denial.insurance_company = insurance_company
         files_for_fax: list[str] = []
         # Cover page
         cover_context = {
@@ -240,16 +242,18 @@ class SendFaxHelper:
     @classmethod
     def remote_send_fax(cls, hashed_email, uuid):
         """Send a fax using ray non-blocking"""
+        # Mark fax as to be sent just in case ray doesn't follow through
+        f = FaxesToSend.objects.filter(hashed_email=hashed_email, uuid=uuid).get()
+        f.should_send = True
+        f.save()
         future = fax_actor_ref.get.do_send_fax.remote(hashed_email, uuid)
-        r = ray.get(future)
-        print(r)
 
 
 class ChooseAppealHelper:
     @classmethod
     def choose_appeal(
         cls, denial_id: str, appeal_text: str, email: str, semi_sekret: str
-    ) -> Tuple[Optional[str], Optional[str]]:
+    ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
         hashed_email = Denial.get_hashed_email(email)
         # Get the current info
         denial = Denial.objects.filter(
@@ -266,7 +270,7 @@ class ChooseAppealHelper:
                 articles = ",".join(pmqd.articles.split(",")[0:2])
         except:
             pass
-        return (denial.appeal_fax_number, articles)
+        return (denial.appeal_fax_number, denial.insurance_company, articles)
 
 
 @dataclass

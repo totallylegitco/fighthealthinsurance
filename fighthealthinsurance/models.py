@@ -282,6 +282,7 @@ class FaxesToSend(models.Model):
     )
     denial_id = models.ForeignKey("Denial", on_delete=models.CASCADE, null=True)
     destination = models.CharField(max_length=20, null=True)
+    should_send = models.BooleanField(default=False)
 
     def get_temporary_document_path(self):
         with tempfile.NamedTemporaryFile(
