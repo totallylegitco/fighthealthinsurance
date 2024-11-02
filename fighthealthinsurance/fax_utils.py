@@ -334,7 +334,6 @@ class FlexibleFaxMagic(object):
                     ]
                     result = subprocess.run(command)
                 if result.returncode == 0:
-                    print(f"Adding {input_path}")
                     merger.append(f"{input_path}.pdf")
                 else:
                     print(f"Skipping {input_path} from {result} with {command}")
@@ -475,7 +474,6 @@ class FaxActor:
         from fighthealthinsurance.models import FaxesToSend
 
         fts = FaxesToSend.objects.filter(uuid=uuid, hashed_email=hashed_email).get()
-        print(f"Doing {fts}")
         email = fts.email
         denial = fts.denial_id
         if denial is None:
