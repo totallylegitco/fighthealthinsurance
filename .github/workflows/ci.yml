@@ -23,7 +23,7 @@ jobs:
         run: sudo apt-get install -y tesseract-ocr
 
       - name: Install dependencies
-        run: pip install tox tox-gh-actions pandoc
+        run: pip install tox tox-gh-actions
 
       - name: Check npm build
         run:
@@ -40,7 +40,7 @@ jobs:
       - uses: actions/setup-python@v4
 
       - name: Install dependencies
-        run: pip install tox tox-gh-actions pandoc
+        run: pip install tox tox-gh-actions
 
       - name: Check types
         run:
@@ -80,7 +80,12 @@ jobs:
         run: sudo apt-get install -y tesseract-ocr
 
       - name: Install dependencies
-        run: pip install tox tox-gh-actions pandoc
+        run: pip install tox tox-gh-actions
+
+      - name: Install
+        uses: pandoc/actions/setup@v1
+        with:
+          version: 2.19
 
       - name: Check for pandoc?
         run: pandoc --help || (find / | grep pandoc; exit 1)
