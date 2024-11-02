@@ -5,7 +5,7 @@ import traceback
 from concurrent.futures import Future
 from dataclasses import dataclass
 from functools import cache
-from typing import List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple, Iterable, Union
 
 import requests
 from fighthealthinsurance.exec import *
