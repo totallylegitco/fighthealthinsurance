@@ -1,3 +1,4 @@
+from typing import Tuple
 import ray
 from fighthealthinsurance.fax_utils import *
 from django.utils import timezone
@@ -21,7 +22,7 @@ class FaxActor:
         """Bump this to restart the fax actor."""
         return 1
 
-    def send_delayed_faxes(self) -> (int, int):
+    def send_delayed_faxes(self) -> Tuple[int, int]:
         from fighthealthinsurance.models import FaxesToSend
 
         target_time = timezone.now() - timedelta(hours=1)

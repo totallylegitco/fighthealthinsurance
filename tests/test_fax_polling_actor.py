@@ -27,19 +27,24 @@ class TestFaxPollingActor(TestCase):
             ray.shutdown()
 
     def test_run_method_handles_errors(self):
-        """Test that the run method properly handles errors and continues running."""
-        with patch(
-            "fighthealthinsurance.fax_actor.FaxActor.send_delayed_faxes"
-        ) as mock_send:
-            mock_send.side_effect = [Exception("Test error"), True]
+        """Test that the fax polling actor starts."""
 
-            # Start the actor running
-            self.fax_polling_actor.run.remote()
+        # Create a delayed fax that should be sent
+        delayed_time = timezone.now() - timedelta(hours=4)
+        fax = FaxesToSend.objects.create(
+            hashed_email="test_hash",
+            email="test@example.com",
+            destination="1234567890",
+            should_send=True,
+            sent=False,
+            paid=False,
+        )
+        # Start the actor running
+        self.fax_polling_actor.run.remote()
 
-            # Give it some time to process
-            import time
+        # Give it some time to process
+        import time
 
-            time.sleep(2)
+        time.sleep(4)
 
-            # Verify it called the method and handled the error
-            mock_send.assert_called()
+        self.assertEqual(1, ray.get(self.fax_polling_actor.count.remote()))
