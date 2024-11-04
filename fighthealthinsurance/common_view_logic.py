@@ -245,6 +245,7 @@ class SendFaxHelper:
         # Mark fax as to be sent just in case ray doesn't follow through
         f = FaxesToSend.objects.filter(hashed_email=hashed_email, uuid=uuid).get()
         f.should_send = True
+        f.paid = True
         f.save()
         future = fax_actor_ref.get.do_send_fax.remote(hashed_email, uuid)
         return True

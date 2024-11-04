@@ -1,6 +1,8 @@
 import ray
 from fighthealthinsurance.fax_utils import *
+from django.utils import timezone
 from datetime import datetime, timedelta
+from fighthealthinsurance.models import Denial, FaxesToSend
 
 
 @ray.remote
@@ -19,20 +21,25 @@ class FaxActor:
         """Bump this to restart the fax actor."""
         return 1
 
-    def send_delayed_faxes(self) -> bool:
+    def send_delayed_faxes(self) -> (int, int):
         from fighthealthinsurance.models import FaxesToSend
 
-        target_time = datetime.now() - timedelta(hours=4)
+        target_time = timezone.now() - timedelta(hours=1)
+        print(f"Target: {target_time}")
 
         delayed_faxes = FaxesToSend.objects.filter(
             should_send=True, sent=False, date__lt=target_time
         )
+        t = 0
+        f = 0
         for fax in delayed_faxes:
             try:
+                t = t + 1
                 self.do_send_fax_object(fax)
             except Exception as e:
                 print(f"Error sending fax {fax}: {e}")
-        return True
+                f = f + 1
+        return (t, f)
 
     def do_send_fax(self, hashed_email: str, uuid: str) -> bool:
         # Now that we have an app instance we can import faxes to send
