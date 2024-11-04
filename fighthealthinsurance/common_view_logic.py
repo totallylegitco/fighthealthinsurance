@@ -383,6 +383,8 @@ class FindNextStepsHelper:
         # Only set employer name if it's not too long
         if employer_name is not None and len(employer_name) < 300:
             denial.employer_name = employer_name
+        else:
+            employer_name = None
         if (
             appeal_fax_number is not None
             and len(appeal_fax_number) > 5
@@ -547,7 +549,7 @@ class DenialCreatorHelper:
         (procedure, diagnosis) = appealGenerator.get_procedure_and_diagnosis(
             denial_text=denial_text, use_external=denial.use_external
         )
-        r = re.compile(r"Group Name:\s*(.*?)(,|)\s*(INC|CO|LTD)")
+        r = re.compile(r"Group Name:\s*(.*?)(,|)\s*(INC|CO|LTD|LLC)\s+", re.IGNORECASE)
         g = r.search(denial_text)
         employer_name = None
         if g is not None:

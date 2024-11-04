@@ -75,6 +75,48 @@ class SeleniumTestAppealGeneration(BaseCase, StaticLiveServerTestCase):
             "textarea#denial_text",
         )
 
+    def test_submit_an_appeal_with_enough_and_fax(self):
+        self.open(f"{self.live_server_url}/")
+        self.assert_title(
+            "Fight Your Health Insurance Denial -- Use AI to Generate Your Health Insurance Appeal"
+        )
+        self.click('a[id="scanlink"]')
+        self.assert_title("Upload your Health Insurance Denial")
+        self.type("input#store_fname", "First NameTest")
+        self.type("input#store_lname", "LastName")
+        self.type("input#email", "farts@fart.com")
+        self.type(
+            "textarea#denial_text",
+            """Dear First NameTest LastName;
+Your claim for Truvada has been denied as not medically necessary.
+
+Sincerely,
+Cheap-O-Insurance-Corp""",
+        )
+        self.click("input#pii")
+        self.click("input#privacy")
+        self.click("input#tos")
+        self.click("button#submit")
+        self.assert_title(
+            "Categorize your denial (so we can generate the right kind of appeal)"
+        )
+        self.type("input#id_procedure", "prep")
+        self.type("input#id_diagnosis", "high risk homosexual behaviour")
+        self.click("input#submit_cat")
+        self.assert_title("Updating denial with your feedback & checking for resources")
+        self.type("input#id_medical_reason", "FakeReason")
+        self.click("input#submit")
+        self.assert_title("Fight Your Health Insurnace Denial")
+        # It takes time for the appeals to populate
+        time.sleep(11)
+        self.click("button#submit1")
+        self.type("input#id_name", "Testy McTestFace")
+        self.type("input#id_fax_phone", "425555555")
+        self.type("input#id_insurance_company", "EvilCo")
+        self.click("button#fax_appeal")
+        # Make sure we get to stripe checkout
+        self.assert_title("Totally Legit, Co.")
+
     def test_submit_an_appeal_with_enough(self):
         self.open(f"{self.live_server_url}/")
         self.assert_title(
