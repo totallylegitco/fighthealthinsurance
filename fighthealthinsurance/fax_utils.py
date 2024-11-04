@@ -4,7 +4,6 @@ import subprocess
 import tempfile
 import time
 from typing import Optional
-from datetime import datetime, timedelta
 
 from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
