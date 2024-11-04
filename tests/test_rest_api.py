@@ -40,10 +40,12 @@ class Delete(APITestCase):
         ).count()
         assert denials_for_user_count == 0
 
+
 class DenialLongEmployerName(APITestCase):
     """Test denial with long employer name."""
+
     fixtures = ["./fighthealthinsurance/fixtures/initial.yaml"]
-    
+
     def test_long_employer_name(self):
         denial_text = "Group Name: "
         for a in range(0, 300):
