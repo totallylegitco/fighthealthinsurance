@@ -1,6 +1,7 @@
 import ray
 from fighthealthinsurance.fax_utils import *
 
+
 @ray.remote
 class FaxActor:
     def __init__(self):
@@ -90,5 +91,3 @@ class FaxActor:
         msg.attach_alternative(html_content, "text/html")
         msg.send()
         return True
-
-
