@@ -20,7 +20,7 @@ class EmailPollingActor:
 
         self.sender = FollowUpEmailSender
 
-    def run(self):
+    async def run(self):
         self.running = True
         while self.running:
             try:

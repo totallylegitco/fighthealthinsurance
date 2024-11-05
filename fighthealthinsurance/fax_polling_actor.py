@@ -17,7 +17,7 @@ class FaxPollingActor:
         self.interval = i
         self.c = 0
         self.e = 0
-        self.actor_error_count = 0
+        self.aec = 0
 
     async def hello(self) -> str:
         return "Hi"
@@ -33,7 +33,7 @@ class FaxPollingActor:
                 self.c += c
             except Exception as e:
                 print(f"Error {e} while checking outbound faxes")
-                self.actor_error_count = self.actor_error_count + 1
+                self.aec += 1
                 raise e
             finally:
                 # Success or failure we wait.
@@ -47,4 +47,4 @@ class FaxPollingActor:
         return self.e
 
     async def actor_error_count(self) -> int:
-        return self.actor_error_count
+        return self.aec
