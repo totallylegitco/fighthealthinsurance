@@ -18,6 +18,11 @@ class FaxActor:
     def hi(self):
         return "ok"
 
+    def db_settings(self):
+        from django.db import connection
+
+        return str(dict(connection.settings_dict))
+
     def version(self):
         """Bump this to restart the fax actor."""
         return 1
@@ -39,6 +44,7 @@ class FaxActor:
                 self.do_send_fax_object(fax)
             except Exception as e:
                 print(f"Error sending fax {fax}: {e}")
+                raise e
                 f = f + 1
         return (t, f)
 

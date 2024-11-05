@@ -6,27 +6,25 @@ import pytest
 import ray
 from django.test import TestCase
 from django.utils import timezone
+from django.db import connection
 
 from fighthealthinsurance.fax_actor import FaxActor
 from fighthealthinsurance.models import Denial, FaxesToSend
 
 
-@pytest.mark.django_db
 class TestFaxActor(TestCase):
     fixtures = ["fighthealthinsurance/fixtures/initial.yaml"]
 
     def setUp(self):
-        # Initialize Ray for testing
         if not ray.is_initialized():
-            vars = dict(os.environ)
-            runtime_env = {"env_vars": dict(os.environ)}
             ray.init(
                 namespace="fhi",
                 ignore_reinit_error=True,
-                runtime_env=runtime_env,
+                # We need this to point to the same testing DB
                 local_mode=True,
             )
         self.fax_actor = FaxActor.remote()
+        self.maxDiff = None
 
     def tearDown(self):
         # Clean up Ray
@@ -37,6 +35,10 @@ class TestFaxActor(TestCase):
         """Test that the actor initializes correctly."""
         result = ray.get(self.fax_actor.hi.remote())
         self.assertEqual(result, "ok")
+
+    def test_same_db(self):
+        result = ray.get(self.fax_actor.db_settings.remote())
+        self.assertEqual(result, str(dict(connection.settings_dict)))
 
     def test_send_delayed_faxes_success(self):
         """Test successful sending of delayed faxes."""
@@ -50,13 +52,17 @@ class TestFaxActor(TestCase):
             sent=False,
             paid=False,
         )
-        fax.date = delayed_time
-        fax.save()
+        try:
+            fax.date = delayed_time
+            fax.save()
+            os.sync()
 
-        # Call the method and verify results
-        (t, f) = ray.get(self.fax_actor.send_delayed_faxes.remote())
-        self.assertEqual(f, 0)
-        self.assertEqual(t, 1)
+            # Call the method and verify results
+            (t, f) = ray.get(self.fax_actor.send_delayed_faxes.remote())
+            self.assertEqual(f, 0)
+            self.assertEqual(t, 1)
+        finally:
+            fax.delete()
 
     def test_send_delayed_faxes_no_delayed_faxes(self):
         """Test behavior when there are no delayed faxes to send."""

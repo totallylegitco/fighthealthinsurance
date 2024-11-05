@@ -2,6 +2,7 @@ import os
 
 import ray
 from fighthealthinsurance.ray import *
+import asyncio
 
 name = "EmailPollingActor"
 
@@ -24,5 +25,6 @@ class EmailPollingActor:
         while self.running:
             try:
                 print(self.sender.find_candidates)
+                await asyncio.sleep(1)
             except Exception as e:
                 print(f"Error {e} while checking messages.")
