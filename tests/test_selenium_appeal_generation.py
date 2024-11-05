@@ -96,6 +96,7 @@ Cheap-O-Insurance-Corp""",
         self.click("input#pii")
         self.click("input#privacy")
         self.click("input#tos")
+        self.assert_title("Upload your Health Insurance Denial")
         self.click("button#submit")
         self.assert_title(
             "Categorize your denial (so we can generate the right kind of appeal)"
@@ -115,7 +116,7 @@ Cheap-O-Insurance-Corp""",
         self.type("input#id_insurance_company", "EvilCo")
         self.click("button#fax_appeal")
         # Make sure we get to stripe checkout
-        self.assert_title("Totally Legit, Co.")
+        self.assertTrue("stripe" in self.driver.current_url)
 
     def test_submit_an_appeal_with_enough(self):
         self.open(f"{self.live_server_url}/")
