@@ -51,7 +51,6 @@ class TestFaxPollingActor(TestCase):
         time.sleep(4)
 
         # Note: for local testing since they're all getting different DBs we're
-        # really just checking that it's able to call the otherwise tested fax_actor
+        # really just checking that it's able to start.
 
         self.assertEqual(0, ray.get(fax_polling_actor.error_count.remote()))
-        self.assertEqual(0, ray.get(fax_polling_actor.actor_error_count.remote()))

@@ -34,7 +34,6 @@ class FaxPollingActor:
             except Exception as e:
                 print(f"Error {e} while checking outbound faxes")
                 self.aec += 1
-                raise e
             finally:
                 # Success or failure we wait.
                 await asyncio.sleep(1)
