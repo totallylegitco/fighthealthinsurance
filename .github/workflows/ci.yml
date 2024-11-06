@@ -57,7 +57,7 @@ jobs:
           cd fighthealthinsurance/static/js; npm i; npm run build
 
 
-  tests:
+  tests-sync:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -92,7 +92,47 @@ jobs:
           cd fighthealthinsurance/static/js; npm i; npm run build
 
       - name: Run tests
-        run: tox -e py${{ matrix.python }}-django${{ matrix.django }}
+        run: tox -e py${{ matrix.python }}-django${{ matrix.django }}-sync
+        env:
+          FARTS: "farts"
+          GOOGLE_CLIENT_SECRETS_TEXT: ${{ secrets.GOOGLE_CLIENT_SECRETS_TEXT }}
+
+  tests-async:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['310']
+        django: ['50']
+        include:
+          - python: '310'
+            django: '50'
+
+    name: Run the test suite (Python ${{ matrix.python }}, Django ${{ matrix.django }})
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+
+      - name: Setup node
+        uses: actions/setup-node@v3
+
+      - name: Install system level packages
+        run: sudo apt-get update && sudo apt-get install -y tesseract-ocr texlive
+
+      - name: Install dependencies
+        run: pip install tox tox-gh-actions
+
+      - name: Install
+        uses: pandoc/actions/setup@v1
+        with:
+          version: 2.19
+
+      - name: Build npm js (needed for the e2e tests in django)
+        run:
+          cd fighthealthinsurance/static/js; npm i; npm run build
+
+      - name: Run tests
+        run: tox -e py${{ matrix.python }}-django${{ matrix.django }}-async
         env:
           FARTS: "farts"
           GOOGLE_CLIENT_SECRETS_TEXT: ${{ secrets.GOOGLE_CLIENT_SECRETS_TEXT }}
