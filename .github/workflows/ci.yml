@@ -96,6 +96,7 @@ jobs:
         env:
           FARTS: "farts"
           GOOGLE_CLIENT_SECRETS_TEXT: ${{ secrets.GOOGLE_CLIENT_SECRETS_TEXT }}
+          STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
 
   tests-async:
     runs-on: ubuntu-latest
@@ -136,3 +137,4 @@ jobs:
         env:
           FARTS: "farts"
           GOOGLE_CLIENT_SECRETS_TEXT: ${{ secrets.GOOGLE_CLIENT_SECRETS_TEXT }}
+          STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
