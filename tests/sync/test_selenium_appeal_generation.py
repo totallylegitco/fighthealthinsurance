@@ -65,7 +65,7 @@ class SeleniumTestAppealGeneration(BaseCase, StaticLiveServerTestCase):
         except:
             pathname = os.path.dirname(sys.argv[0])
             path_to_image = os.path.join(
-                pathname, "../../../tests/sample_ocr_image.png"
+                pathname, "../../../../tests/sample_ocr_image.png"
             )
         file_input.send_keys(path_to_image)
         self.click("button#submit")
@@ -120,7 +120,7 @@ Cheap-O-Insurance-Corp""",
         self.assertIn(
             "stripe",
             self.driver.current_url,
-            f"Should be redirected to stripe f{self.driver.driver_current_url}")
+            f"Should be redirected to stripe f{self.driver.get_current_url}")
 
     def test_submit_an_appeal_with_enough(self):
         self.open(f"{self.live_server_url}/")
