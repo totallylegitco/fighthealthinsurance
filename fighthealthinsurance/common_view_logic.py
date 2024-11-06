@@ -19,6 +19,7 @@ from fighthealthinsurance.generate_appeal import *
 from fighthealthinsurance.models import *
 from fighthealthinsurance.question_forms import *
 from fighthealthinsurance.utils import pubmed_fetcher
+import ray
 
 appealGenerator = AppealGenerator()
 
@@ -238,6 +239,23 @@ class SendFaxHelper:
             destination=fax_phone,
         )
         return FaxHelperResults(uuid=fts.uuid, hashed_email=hashed_email)
+
+    @classmethod
+    def blocking_dosend_target(cls, email) -> int:
+        f = FaxesToSend.objects.filter(email=email, sent=False).get()
+        future = fax_actor_ref.get.do_send_fax.remote(f.hashed_email, f.uuid)
+        ray.get(future)
+        return 1
+
+    @classmethod
+    def blocking_dosend_all(cls, count) -> int:
+        faxes = FaxesToSend.objects.filter(sent=False)[0:count]
+        c = 0
+        for fax in faxes:
+            future = fax_actor_ref.get.do_send_fax.remote(fax.hashed_email, fax.uuid)
+            ray.get(future)
+            c = c + 1
+        return c
 
     @classmethod
     def remote_send_fax(cls, hashed_email, uuid) -> bool:
