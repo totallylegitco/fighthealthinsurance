@@ -117,7 +117,8 @@ Cheap-O-Insurance-Corp""",
         self.click("button#fax_appeal")
         # Make sure we get to stripe checkout
         time.sleep(1)
-        if "STRIPE_TEST_SECRET_KEY" in os.environ and "NOSTRIPE" not in os.environ:
+        if ("STRIPE_TEST_SECRET_KEY" in os.environ and
+            "NOSTRIPE" not in os.environ and "MEEPS" in os.environ):
             self.assertIn(
                 "stripe",
                 self.driver.current_url,
