@@ -116,7 +116,11 @@ Cheap-O-Insurance-Corp""",
         self.type("input#id_insurance_company", "EvilCo")
         self.click("button#fax_appeal")
         # Make sure we get to stripe checkout
-        self.assertTrue("stripe" in self.driver.current_url)
+        time.sleep(1)
+        self.assertIn(
+            "stripe",
+            self.driver.current_url,
+            f"Should be redirected to stripe f{self.driver_current_url}")
 
     def test_submit_an_appeal_with_enough(self):
         self.open(f"{self.live_server_url}/")
