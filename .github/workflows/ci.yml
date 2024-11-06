@@ -29,6 +29,14 @@ jobs:
         run:
           cd fighthealthinsurance/static/js; npm i; npm run build
 
+      - name: Cache Tox
+        id: tox
+        uses: actions/cache@v4
+        with:
+          path: .tox
+          key: ${{ runner.os }}-black-${{ hashFiles('tox.ini') }}-${{ hashFiles('requirements.txt') }}
+
+
       - name: Check style
         run:
           tox -e black
@@ -41,6 +49,13 @@ jobs:
 
       - name: Install dependencies
         run: pip install tox tox-gh-actions
+
+      - name: Cache Tox
+        id: tox
+        uses: actions/cache@v4
+        with:
+          path: .tox
+          key: ${{ runner.os }}-mypy-tox-${{ hashFiles('tox.ini') }}-${{ hashFiles('requirements.txt') }}
 
       - name: Check types
         run:
@@ -91,6 +106,13 @@ jobs:
         run:
           cd fighthealthinsurance/static/js; npm i; npm run build
 
+      - name: Cache Tox
+        id: tox
+        uses: actions/cache@v4
+        with:
+          path: .tox
+          key: ${{ runner.os }}-${{ matrix.python }}-${{ matrix.django }}-tox-${{ hashFiles('tox.ini') }}-${{ hashFiles('requirements.txt') }}
+
       - name: Run tests
         run: tox -e py${{ matrix.python }}-django${{ matrix.django }}-sync
         env:
@@ -127,6 +149,13 @@ jobs:
         uses: pandoc/actions/setup@v1
         with:
           version: 2.19
+
+      - name: Cache Tox
+        id: tox
+        uses: actions/cache@v4
+        with:
+          path: .tox
+          key: ${{ runner.os }}-${{ matrix.python }}-${{ matrix.django }}-tox-${{ hashFiles('tox.ini') }}-${{ hashFiles('requirements.txt') }}
 
       - name: Build npm js (needed for the e2e tests in django)
         run:
