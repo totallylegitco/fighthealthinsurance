@@ -120,8 +120,7 @@ Cheap-O-Insurance-Corp""",
         self.assertIn(
             "stripe",
             self.driver.current_url,
-            f"Should be redirected to stripe f{self.driver_current_url}",
-        )
+            f"Should be redirected to stripe f{self.driver.driver_current_url}")
 
     def test_submit_an_appeal_with_enough(self):
         self.open(f"{self.live_server_url}/")

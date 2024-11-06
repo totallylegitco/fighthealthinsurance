@@ -150,3 +150,4 @@ external_data_b
 localish_data
 # misc
 downloaded_files/
+test.db.sqlite3
