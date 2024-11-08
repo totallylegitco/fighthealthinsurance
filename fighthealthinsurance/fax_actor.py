@@ -66,9 +66,9 @@ class FaxActor:
         if fax.destination is None:
             return False
         extra = ""
-        if denial.claim_id is not None:
+        if denial.claim_id is not None and len(denial.claim_id) > 2:
             extra += f"This is regarding claim id {denial.claim_id}."
-        if fax.name is not None:
+        if fax.name is not None and len(fax.name) > 2:
             extra += f"This fax is sent on behalf of {fax.name}."
         print(f"Recording attempt to send time")
         fax.attempting_to_send_as_of = timezone.now()
