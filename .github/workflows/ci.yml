@@ -42,6 +42,9 @@ jobs:
 
       - uses: actions/setup-python@v4
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
       - name: Install dependencies
         run: uv tool install tox
 
@@ -91,6 +94,9 @@ jobs:
 
       - uses: actions/setup-python@v4
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
       - name: Install dependencies
         run: uv tool install tox
 
@@ -139,6 +145,9 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y tesseract-ocr texlive && sudo apt-get clean
 
       - uses: actions/setup-python@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
 
       - name: Install dependencies
         run: uv tool install tox
