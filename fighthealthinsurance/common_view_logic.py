@@ -535,17 +535,22 @@ class DenialCreatorHelper:
         if store_raw_email:
             possible_email = email
 
+        # Try and extract the appeal fax number
         appeal_fax_number = None
         try:
             appeal_fax_number = appealGenerator.get_fax_number(
                 denial_text=denial_text, use_external=use_external_models
             )
-            if appeal_fax_number is not None:
-                if appeal_fax_number not in denial_text or len(appeal_fax_number) > 30:
-                    appeal_fax_number = None
         except:
             pass
+        # Slight gaurd against halucinations
+        if appeal_fax_number is not None:
+            if appeal_fax_number not in denial_text or len(appeal_fax_number) > 30:
+                appeal_fax_number = None
 
+
+        # This is a temporary hack to drop non-ASCII characters
+        denial_text = denial_text.encode('ascii', errors='ignore').decode(errors='ignore')
         denial = Denial.objects.create(
             denial_text=denial_text,
             hashed_email=hashed_email,
