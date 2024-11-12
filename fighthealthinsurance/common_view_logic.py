@@ -548,17 +548,29 @@ class DenialCreatorHelper:
             if appeal_fax_number not in denial_text or len(appeal_fax_number) > 30:
                 appeal_fax_number = None
 
+        try:
+            denial = Denial.objects.create(
+                denial_text=denial_text,
+                hashed_email=hashed_email,
+                use_external=use_external_models,
+                raw_email=possible_email,
+                health_history=health_history,
+                appeal_fax_number=appeal_fax_number,
+            )
+        except Exception as e:
+            # This is a temporary hack to drop non-ASCII characters
+            denial_text = denial_text.encode("ascii", errors="ignore").decode(
+                errors="ignore"
+            )
+            denial = Denial.objects.create(
+                denial_text=denial_text,
+                hashed_email=hashed_email,
+                use_external=use_external_models,
+                raw_email=possible_email,
+                health_history=health_history,
+                appeal_fax_number=appeal_fax_number,
+            )
 
-        # This is a temporary hack to drop non-ASCII characters
-        denial_text = denial_text.encode('ascii', errors='ignore').decode(errors='ignore')
-        denial = Denial.objects.create(
-            denial_text=denial_text,
-            hashed_email=hashed_email,
-            use_external=use_external_models,
-            raw_email=possible_email,
-            health_history=health_history,
-            appeal_fax_number=appeal_fax_number,
-        )
         if possible_email is not None:
             FollowUpSched.objects.create(
                 email=possible_email,
