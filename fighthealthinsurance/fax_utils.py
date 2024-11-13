@@ -226,7 +226,11 @@ class HylaFaxClient(FaxSenderBase):
     base_cost = 0
     cost_per_page = 0
     host: Optional[str] = None
+    # Going above 9600 causes issues sometimes
     max_speed = 9600
+    default_modem = None
+    # Mapping from prefixes to modem names
+    modem_mapping: Mapping[str, str] = {}
 
     def estimate_cost(self, destination: str, pages: int) -> int:
         if self.host is not None:
@@ -248,6 +252,19 @@ class HylaFaxClient(FaxSenderBase):
             destination=destination, path=path, dest_name=dest_name, blocking=False
         )
 
+    def _choose_modems(self, destination: str) -> list[str]:
+        prefix = destination[0:4]
+        return modem_mapping.get(prefix, []) + [self.default_modem]
+            
+
+    def _host_strings(self, destination: str) -> list[str]:
+        def __host_string(modem: str) -> str:
+            if modem is None:
+                return self.host
+            else:
+                return f"{modem}@{self.host}"
+        return list(map(__host_string, self._choose_modems(destination)))
+
     def _send_fax(
         self,
         destination: str,
@@ -257,7 +274,6 @@ class HylaFaxClient(FaxSenderBase):
     ) -> bool:
         if self.host is None:
             raise Exception("Can not send fax without a host to fax from")
-        # Going above 9600 causes issues sometimes
         with tempfile.NamedTemporaryFile(
             suffix=".txt", prefix="dest", mode="w+t", delete=True
         ) as f:
@@ -267,23 +283,40 @@ class HylaFaxClient(FaxSenderBase):
             os.sync()
             time.sleep(1)
             destination_file = f.name
-            command = ["sendfax"]
+            command = ["sendfax",
+                       "-n",
+                       f"-B{self.max_speed}"]
+            # For a blocking send cycle through the fax modems until one works
             if blocking:
                 command.append("-w")
-            command.extend(
-                [
-                    "-n",
-                    f"-B{self.max_speed}",
-                    f"-h{self.host}",
-                    path,
-                    f"-z{destination_file}",  # It is important this is last
-                ]
-            )
-            print(f"Sending command {command}")
-            result = subprocess.run(command)
-            print(f"Sent -- result {result}")
-            print(f"Exit code {result.returncode}")
-            return result.returncode == 0
+                for host_string in host_strings:
+                    command.extend(
+                        [
+                            f"-h{host_string}",
+                            path,
+                            f"-z{destination_file}",  # It is important this is last
+                        ]
+                    )
+                    print(f"Sending command {command}")
+                    result = subprocess.run(command)
+                    print(f"Sent -- result {result}")
+                    print(f"Exit code {result.returncode}")
+                    if result.returncode == 0:
+                        return True
+                return False
+            else:
+                command.extend(
+                    [
+                        f"-h{self._host_string(destination)[0]}",
+                        path,
+                        f"-z{destination_file}",  # It is important this is last
+                    ]
+                )
+                print(f"Sending command {command}")
+                result = subprocess.run(command)
+                print(f"Sent -- result {result}")
+                print(f"Exit code {result.returncode}")
+                return result.returncode == 0
 
 
 class SshHylaFaxClient(HylaFaxClient):
@@ -366,6 +399,8 @@ class FaxyMcFaxFace(SshHylaFaxClient):
     cost_per_page = 1
     host = os.getenv("FAXYMCFAXFACE_HOST")
     max_speed = 9600
+    default_modem = "ttyACM0"
+    modem_mapping = {"1800": "ttyIAX0", "1877": "ttyIAX0", "1888": "ttyIAX0"}
 
 
 class FlexibleFaxMagic(object):
