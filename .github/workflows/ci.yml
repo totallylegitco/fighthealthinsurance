@@ -139,6 +139,9 @@ jobs:
         run:
           cd fighthealthinsurance/static/js && npm i && npm run build && npm cache clean --force
 
+      - name: Setup DB (long story)
+        run: ./manage.py makemigrations && ./manage.py migrate
+
       - name: Run tests
         run: tox -e py${{ matrix.python }}-django${{ matrix.django }}-async
         env:
