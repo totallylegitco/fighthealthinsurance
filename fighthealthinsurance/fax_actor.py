@@ -32,6 +32,7 @@ class FaxActor:
 
     def __test_create_fax_object(self, **kwargs):
         from fighthealthinsurance.models import FaxesToSend
+
         fax = FaxesToSend.objects.create(**kwargs)
         # reset the date to the specified old date for testing.
         if "date" in kwargs:
@@ -41,7 +42,7 @@ class FaxActor:
 
     async def test_create_fax_object(self, **kwargs):
         """Test function to create fax object. Used in test mode because of _reasons_"""
-        return await(sync_to_async(self.__test_create_fax_object)(**kwargs))
+        return await sync_to_async(self.__test_create_fax_object)(**kwargs)
 
     async def test_delete(self, fax):
         return await sync_to_async(fax.delete)()
@@ -86,7 +87,6 @@ class FaxActor:
         fax.fax_success = fax_success
         fax.save()
 
-
     async def do_send_fax_object(self, fax) -> bool:
         email = fax.email
         denial = fax.denial_id
@@ -107,7 +107,9 @@ class FaxActor:
             destination=fax.destination,
             blocking=True,
         )
-        await sync_to_async(self._update_fax_for_sent, thread_sensitive=True)(fax, fax_sent)
+        await sync_to_async(self._update_fax_for_sent, thread_sensitive=True)(
+            fax, fax_sent
+        )
         print(f"Notifing user of result {fax_sent}")
         fax_redo_link = "https://www.fighthealthinsurance.com" + reverse(
             "fax-followup",

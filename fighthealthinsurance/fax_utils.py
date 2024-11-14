@@ -180,7 +180,9 @@ class SonicFax(FaxSenderBase):
         print(f"Timed out! last chunk {chunk}")
         return False
 
-    async def send_fax_non_blocking(self, destination, path, dest_name: Optional[str] = None):
+    async def send_fax_non_blocking(
+        self, destination, path, dest_name: Optional[str] = None
+    ):
         with requests.Session() as s:
             cookies = self._login(s)
             return self._send_fax_non_blocking(s, cookies, destination, path, dest_name)
@@ -333,6 +335,7 @@ class HylaFaxClient(FaxSenderBase):
 class SshHylaFaxClient(HylaFaxClient):
     """HylaFaxClient that uses ssh to connect to a remote host, this is useful
     since the default ftp is... less than ideal (and does not do well with NAT)"""
+
     username = os.getenv("USERNAME", "idk")
     remote_host: Optional[str]
 
@@ -356,14 +359,13 @@ class SshHylaFaxClient(HylaFaxClient):
         ssh = self._create_ssh_client()
         target = f"/tmp/{self.username}/{path}"
         # Avoid //s
-        if path[0] == '/':
+        if path[0] == "/":
             target = f"/tmp/{self.username}{path}"
         try:
             sftp_client = ssh.open_sftp()
             # Make the remote directory if needed.
             dir = os.path.dirname(target)
-            exit_code = await self._run_command_with_exit_code(
-                ["mkdir", "-p", dir])
+            exit_code = await self._run_command_with_exit_code(["mkdir", "-p", dir])
             if exit_code != 0:
                 print("Failed to make dir")
                 return None
@@ -371,7 +373,8 @@ class SshHylaFaxClient(HylaFaxClient):
             return target
         except Exception as e:
             print(
-                f"Error during upload: {e} sending remote file {path} to {target} on {self.remote_host}")
+                f"Error during upload: {e} sending remote file {path} to {target} on {self.remote_host}"
+            )
             return None
 
     async def _run_command_with_exit_code(self, command: list[str]) -> int:
@@ -555,7 +558,9 @@ class FlexibleFaxMagic(object):
             key=lambda backend: backend.estimate_cost(destination, page_count),
         )
         for backend in backends_by_cost:
-            r = await backend.send_fax(destination=destination, path=path, blocking=blocking)
+            r = await backend.send_fax(
+                destination=destination, path=path, blocking=blocking
+            )
             if r == True:
                 print(f"Sent fax to {destination} using {backend}")
                 return True
