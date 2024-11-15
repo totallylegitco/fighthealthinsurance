@@ -41,7 +41,7 @@ Upload your Health Insurance Denial
 					<label for="email" class="form-label">
 						Email
 						<span class="d-block small text-muted">
-						(Note: Your email will be stored. To delete after your appeal is generated, refer to 'Remove Your Data' at top.)
+						(Note: Your email (hashed) will be stored. To delete after your appeal is generated, refer to `Remove Your Data` at top.)
 						</span>
 					</label><br>
 					<input type="email" id="email" name="email" class="form-control"><br>
@@ -152,8 +152,8 @@ Upload your Health Insurance Denial
 	    <button type="submit" class="btn btn-green" id="submit">Submit</button>
 	</form>
 	<p>
-	    * We store the email that is linked to your denial so you can request removal from our database
-	    (should you wish). Coming soon, if you opt-in, we will store your email to follow-up after insurance
+	    * We store your hashed email that is linked to your denial so you can request removal from our database
+	    (should you wish). Coming soon, if you opt-in, we will store your raw email to follow-up after insurance
 		company timelines may have expired so you can "remind" them. If you opt-in, we may follow-up by email
 		after reviewing your denial with a better template if our Machine Learning model does not find a good
 		model on the first pass-through. You may choose to use a different or temporary email
