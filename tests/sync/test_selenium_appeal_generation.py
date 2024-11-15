@@ -29,7 +29,7 @@ class SeleniumTestAppealGeneration(BaseCase, StaticLiveServerTestCase):
         super(BaseCase, cls).tearDownClass()
 
     def assert_title_eventually(self, desired_title):
-        WebDriverWait(driver, 15).until(EC.title_is(desired_title))
+        WebDriverWait(self.driver, 15).until(EC.title_is(desired_title))
         self.assert_title(desired_title)
 
     def test_submit_an_appeal_with_missing_info_and_fail(self):
