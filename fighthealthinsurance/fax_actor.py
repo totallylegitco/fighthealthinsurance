@@ -55,10 +55,10 @@ class FaxActor:
         if env != "Test":
             raise Exception(f"Tried to call test migrate in non-test env -- {env}")
         try:
-            call_command("migrate")
+            FaxesToSend.objects.all().delete()
         except Exception as e:
-            print(f"Already migrated {e}")
-        FaxesToSend.objects.all().delete()
+            print(f"Couldn't delete faxes {e}")
+            call_command("migrate")
 
     async def test_migrate(self):
         return await sync_to_async(self.__test_migrate)()
