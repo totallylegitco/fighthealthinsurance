@@ -3,7 +3,7 @@ import re
 import subprocess
 import tempfile
 import time
-from typing import Mapping, Optional
+from typing import Mapping, Optional, Tuple
 from paramiko import SSHClient
 import asyncio, asyncssh
 
@@ -282,13 +282,20 @@ class HylaFaxClient(FaxSenderBase):
         """Upload files to remote host if needed. Returns None on failure. Return remote path."""
         return file
 
-    async def _run_command_with_exit_code(self, command: list[str]) -> int:
+    async def _run_command(self, command: list[str]) -> Tuple[int, str]:
+        """Return the command and it's output"""
         print(f"Sending command {command}")
-        proc = await asyncio.create_subprocess_shell(" ".join(command))
+        proc = await asyncio.create_subprocess_shell(
+            " ".join(command),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
         print(f"Exit code {proc.returncode}")
+        result_text = f"STDOUT: {stdout.decode()} STDERR: {stderr.decode()}"
         if proc.returncode is None:
-            return 254
-        return proc.returncode
+            return (254, result_text)
+        return (proc.returncode, result_text)
 
     async def _send_fax(
         self,
@@ -326,9 +333,41 @@ class HylaFaxClient(FaxSenderBase):
                         f"-z{uploaded_destination_file}",  # It is important this is last
                     ]
                 )
-                exitcode = await self._run_command_with_exit_code(command)
-                if exitcode == 0:
+                (exitcode, result_text) = await self._run_command(command)
+                if exitcode != 0:
+                    continue
+                if not blocking:
                     return True
+                else:
+                    # Regex to match the job id
+                    pattern = r"request id is (\d+)"
+
+                    match = re.search(pattern, result_text, re.MULTILINE)
+
+                    # Extracting the job ID
+                    if match:
+                        job_id = match.group(1)
+                        print("Job ID:", job_id)
+                        (exit_code, result_text) = await self._run_command(
+                            ["faxstat", "-d"]
+                        )
+                        if exit_code != 0:
+                            continue
+                        # Regular expression pattern to check if the job ID succeeded
+                        pattern = rf"^{job_id}\s+\d+\s+D\b"
+
+                        match = re.search(pattern, result_text, re.MULTILINE)
+
+                        # Checking if the job succeeded
+                        if match:
+                            print(f"Job ID {job_id} succeeded.")
+                            return True
+                        else:
+                            print(f"Job ID {job_id} did not succeed.")
+                            return False
+                    else:
+                        print("No job ID found.")
+                        return False
             return False
 
 
@@ -365,7 +404,7 @@ class SshHylaFaxClient(HylaFaxClient):
             sftp_client = ssh.open_sftp()
             # Make the remote directory if needed.
             dir = os.path.dirname(target)
-            exit_code = await self._run_command_with_exit_code(["mkdir", "-p", dir])
+            (exit_code, result_text) = await self._run_command(["mkdir", "-p", dir])
             if exit_code != 0:
                 print("Failed to make dir")
                 return None
@@ -377,19 +416,21 @@ class SshHylaFaxClient(HylaFaxClient):
             )
             return None
 
-    async def _run_command_with_exit_code(self, command: list[str]) -> int:
+    async def _run_command(self, command: list[str]) -> Tuple[int, str]:
         try:
             async with self._create_async_ssh_client() as conn:
                 print(f"Sending remote command {command}")
-                result = await conn.run(" ".join(command))
+                process = conn.run(" ".join(command))
+                result = await process
                 print(f"Sent cmd")
                 exit_code = result.exit_status
+                result_text = f"STDOUT: {result.stdout} STDERR: {result.stderr}"
                 if exit_code != 0:
                     print(f"Failed :( -- {result}")
-                return exit_code
+                return (exit_code, result_text)
         except Exception as e:
-            print(f"Error sending command {command}")
-            return 254
+            print(f"Error sending command {command} -- {e}")
+            return (254, f"{e} fron {command}")
 
 
 class FaxyMcFaxFace(SshHylaFaxClient):
