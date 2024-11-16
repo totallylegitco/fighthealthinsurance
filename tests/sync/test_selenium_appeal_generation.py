@@ -104,16 +104,14 @@ Cheap-O-Insurance-Corp""",
         self.click("input#tos")
         self.assert_title_eventually("Upload your Health Insurance Denial")
         self.click("button#submit")
-        self.assert_title_eventually(
-            "Categorize your denial (so we can generate the right kind of appeal)"
-        )
+        self.assert_title_eventually("Categorize Your Denial")
         self.type("input#id_procedure", "prep")
         self.type("input#id_diagnosis", "high risk homosexual behaviour")
         self.click("input#submit_cat")
         self.assert_title_eventually("Updating Denial")
         self.type("input#id_medical_reason", "FakeReason")
         self.click("input#submit")
-        self.assert_title_eventually("Fight Your Health Insurnace Denial")
+        self.assert_title_eventually("Fight Your Health Insurance Denial")
         # It takes time for the appeals to populate
         time.sleep(11)
         self.click("button#submit1")
