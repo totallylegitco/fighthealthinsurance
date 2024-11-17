@@ -366,13 +366,12 @@ class ProcessView(generic.FormView):
     def get_ocr_result(self):
         if self.request.method == "POST":
             return self.request.POST.get("denial_text", "")
-        return ""
+        return None
 
     def get_context_data(self, **kwargs):
-        context = {
-            "ocr_result": self.get_ocr_result(),
-            "upload_more": True,
-        }
+        context = super().get_context_data(**kwargs)
+        context["ocr_result"] = context["ocr_result"] or self.get_ocr_result()
+        context["upload_more"] = True
         return context
 
     def form_valid(self, form):
