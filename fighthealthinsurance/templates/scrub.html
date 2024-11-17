@@ -20,7 +20,7 @@ Upload your Health Insurance Denial
 	    {{ form.errors }}
 	</div>
 	{% endif %}
-	<div class="container" style="margin-top: 2.5rem !important">
+	<div class="main-form">
 	<form method="post" action="{% url 'process' %}" id="fuck_health_insurance_form" enctype="multipart/form-data">
 		{% csrf_token %}
 	<div class="form-group">

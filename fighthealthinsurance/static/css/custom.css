@@ -83,6 +83,11 @@ a.link:hover::after {
   }
 }
 
+.main-form {
+    margin-top: 2.5rem !important;
+    width: 100%;
+}
+
 .hidden-error-message {
     visibility: hidden; /* Hides the element but keeps its space occupied */
     color: red; /* Sets the text color */
