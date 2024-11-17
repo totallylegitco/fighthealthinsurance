@@ -29,8 +29,11 @@ class SeleniumTestAppealGeneration(BaseCase, StaticLiveServerTestCase):
         super(BaseCase, cls).tearDownClass()
 
     def assert_title_eventually(self, desired_title):
-        WebDriverWait(self.driver, 15).until(EC.title_is(desired_title))
-        self.assert_title(desired_title)
+        try:
+            WebDriverWait(self.driver, 15).until(EC.title_is(desired_title))
+        except Exception:
+            # On failure assert_title gives us a better error message than the timeout.
+            self.assert_title(desired_title)
 
     def test_submit_an_appeal_with_missing_info_and_fail(self):
         self.open(f"{self.live_server_url}/")
@@ -111,7 +114,7 @@ Cheap-O-Insurance-Corp""",
         self.assert_title_eventually("Updating Denial")
         self.type("input#id_medical_reason", "FakeReason")
         self.click("input#submit")
-        self.assert_title_eventually("Fight Your Health Insurance Denial")
+        self.assert_title_eventually("Fight Your Health Insurance Denial: Choose an Appeal")
         # It takes time for the appeals to populate
         time.sleep(11)
         self.click("button#submit1")
