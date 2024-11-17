@@ -65,8 +65,8 @@ class DenialRefForm(forms.Form):
 
 class ChooseAppealForm(DenialRefForm):
     appeal_text = forms.CharField(
-        widget=forms.Textarea(attrs={'class': "appeal_text"}),
-        required=True)
+        widget=forms.Textarea(attrs={"class": "appeal_text"}), required=True
+    )
 
 
 class FaxForm(DenialRefForm):
@@ -74,8 +74,8 @@ class FaxForm(DenialRefForm):
     insurance_company = forms.CharField(required=True)
     fax_phone = forms.CharField(required=True)
     completed_appeal_text = forms.CharField(
-        widget=forms.Textarea(attrs={'class': "appeal_text"}),
-        required=True)
+        widget=forms.Textarea(attrs={"class": "appeal_text"}), required=True
+    )
     include_provided_health_history = forms.BooleanField(required=False)
     pubmed_articles_to_include = forms.CharField(required=False)
 
