@@ -110,15 +110,15 @@ class FaxActor:
             extra += f"This fax is sent on behalf of {fax.name}."
         self._update_fax_for_sending(fax)
         print(f"Kicking of fax sending")
-        fax_sent = asyncio.run(flexible_fax_magic.send_fax(
-            input_paths=[fax.get_temporary_document_path()],
-            extra=extra,
-            destination=fax.destination,
-            blocking=True,
-        ))
-        self._update_fax_for_sent(
-            fax, fax_sent
+        fax_sent = asyncio.run(
+            flexible_fax_magic.send_fax(
+                input_paths=[fax.get_temporary_document_path()],
+                extra=extra,
+                destination=fax.destination,
+                blocking=True,
+            )
         )
+        self._update_fax_for_sent(fax, fax_sent)
         print(f"Notifing user of result {fax_sent}")
         fax_redo_link = "https://www.fighthealthinsurance.com" + reverse(
             "fax-followup",
