@@ -102,38 +102,54 @@ function isPDF(file: File): boolean {
     return file.type.match('application/pdf') !== null;
 }
 
+const recognizePDF = async function(file: File) {
+    const reader = new FileReader();
+    reader.onload = function (event: ProgressEvent<FileReader>) {
+	if (event.target && event.target.result instanceof ArrayBuffer) {
+	    const typedarray = new Uint8Array(event.target.result);
+	    console.log("Data?")
+	    console.log(typedarray)
+	    const loadingTask = pdfjsLib.getDocument(typedarray);
+	    loadingTask.promise.then(doc => {
+		const ret = getPDFText(doc);
+		ret.then((t) => {
+		    console.log("ret:");
+		    console.log(ret);
+		    addText(t);
+		});
+	    })
+	}
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+const recognizeImage = async function(file: File) {
+    const worker = await getTesseractWorker()
+    const ret = await worker.recognize(file);
+    console.log("Recognize done!")
+    console.log(ret.data.text);
+    addText(ret.data.text);
+}
+
 const recognize = async function(evt: Event) {
     const input = evt.target as HTMLInputElement;
     const files = input.files;
     const file = files[0];
 
     if (isPDF(file)) {
-	console.log("PDF!")
-	const reader = new FileReader();
-	reader.onload = function (event: ProgressEvent<FileReader>) {
-	    if (event.target && event.target.result instanceof ArrayBuffer) {
-		const typedarray = new Uint8Array(event.target.result);
-		console.log("Data?")
-		console.log(typedarray)
-		const loadingTask = pdfjsLib.getDocument(typedarray);
-		loadingTask.promise.then(doc => {
-		    const ret = getPDFText(doc);
-		    ret.then((t) => {
-			console.log("ret:");
-			console.log(ret);
-			addText(t);
-		    });
-		})
-	    }
-	};
-	reader.readAsArrayBuffer(file);
+	console.log("probably pdf")
+	try {
+	    await recognizePDF(file)
+	} catch {
+	    await recognizeImage(file)
+	}
     } else {
 	console.log("Assuming image...")
-	const worker = await getTesseractWorker()
-	const ret = await worker.recognize(files[0]);
-	console.log("Recognize done!")
-	console.log(ret.data.text);
-	addText(ret.data.text);
+	try {
+	    await recognizeImage(file)
+	} catch {
+	    await recognizePDF(file)
+	}
     }
 }
 
