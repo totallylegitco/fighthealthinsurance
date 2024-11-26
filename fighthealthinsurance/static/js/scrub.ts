@@ -32,7 +32,26 @@ function rehideHiddenMessage(name: string): void {
 function showHiddenMessage(name: string): void {
     document.getElementById(name).classList.add('visible');
 }
-
+function hideErrorMessages(event: Event): void {
+    const form = document.getElementById("fuck_health_insurance_form") as HTMLFormElement;
+    if (form == null) {
+	return
+    }
+    if(form.privacy.checked && form.personalonly.checked && form.tos.checked) {
+	rehideHiddenMessage('agree_chk_error');
+    }
+    if (form.pii.checked) {
+	rehideHiddenMessage('pii_error');
+    }
+    if (form.email.value.length > 1) {
+	document.getElementById('email-label').style.color="";
+	rehideHiddenMessage('email_error');
+    }
+    if (form.denial_text.value.length > 1) {
+	document.getElementById('denial_text_label').style.color="";
+	rehideHiddenMessage('need_denial');
+    }
+}
 function validateScrubForm(event: Event): void {
     const form = event.target as HTMLFormElement;
     if(!form.privacy.checked || !form.personalonly.checked || !form.tos.checked) {
@@ -211,9 +230,15 @@ function setupScrub(): void {
     if (scrub2 != null) {
 	scrub2.onclick = clean;
     }
-    const form = document.getElementById("fuck_health_insurance_form");
+    const form = document.getElementById("fuck_health_insurance_form") as HTMLFormElement;
     if (form) {
 	form.addEventListener("submit", validateScrubForm);
+	form.privacy.addEventListener("input", hideErrorMessages);
+	form.personalonly.addEventListener("input", hideErrorMessages);
+	form.tos.addEventListener("input", hideErrorMessages);
+	form.pii.addEventListener("input", hideErrorMessages);
+	form.email.addEventListener("input", hideErrorMessages);
+	form.denial_text.addEventListener("input", hideErrorMessages);
     } else {
 	console.log("Missing form?!?")
     }
