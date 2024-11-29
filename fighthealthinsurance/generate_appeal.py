@@ -73,7 +73,12 @@ class AppealGenerator(object):
             if procedure_diagnosis is not None:
                 if len(procedure_diagnosis) > 1:
                     procedure = procedure or procedure_diagnosis[0]
+                    # If it's too long then we're probably not valid
+                    if procedure is not None and len(procedure) > 200:
+                        procedure = None
                     diagnosis = diagnosis or procedure_diagnosis[1]
+                    if diagnosis is not None and len(diagnosis) > 200:
+                        diagnosis = None
                 else:
                     print(
                         f"Unexpected procedure diagnosis len on {procedure_diagnosis}"
@@ -145,7 +150,7 @@ class AppealGenerator(object):
             PubMedQueryData.objects.create(
                 query=query,
                 articles=articles_json,
-                denial_id=denial.denial_id,
+                denial_id=denial,
             ).save()
             for article_id in pmids[0:3]:
                 article_futures.append(

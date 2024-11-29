@@ -239,7 +239,7 @@ class PubMedArticleSummarized(models.Model):
     """PubMedArticles with a summary for the given query."""
 
     pmid = models.TextField(primary_key=False, blank=True)
-    doi = models.TextField(primary_key=False, blank=True)
+    doi = models.TextField(primary_key=False, blank=True, null=True)
     query = models.TextField(primary_key=False, blank=True)
     title = models.TextField(blank=True, null=True)
     abstract = models.TextField(primary_key=False, blank=True, null=True)

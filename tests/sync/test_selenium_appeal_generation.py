@@ -35,6 +35,18 @@ class SeleniumTestAppealGeneration(BaseCase, StaticLiveServerTestCase):
             # On failure assert_title gives us a better error message than the timeout.
             self.assert_title(desired_title)
 
+    def assert_text_eventually(self, expected_text, target):
+        try:
+            element_locator = (By.ID, target)
+            WebDriverWait(self.driver, 15).until(
+                lambda d: d.find_element(*element_locator).text == expected_text
+            )
+        except Exception:
+            # On failure assert_title gives us a better error message than the timeout.
+            self.assert_text(
+                expected_text,
+                target)
+
     def test_submit_an_appeal_with_missing_info_and_fail(self):
         self.open(f"{self.live_server_url}/")
         self.assert_title_eventually(
@@ -78,10 +90,9 @@ class SeleniumTestAppealGeneration(BaseCase, StaticLiveServerTestCase):
             )
         file_input.send_keys(path_to_image)
         self.click("button#submit")
-        time.sleep(5)  # wait for OCR process to complete
-        self.assert_text(
+        self.assert_text_eventually(
             """UnidentifiedImageError""",
-            "textarea#denial_text",
+            "denial_text",
         )
 
     def test_submit_an_appeal_with_enough_and_fax(self):
@@ -119,8 +130,8 @@ Cheap-O-Insurance-Corp""",
         self.type("input#id_medical_reason", "FakeReason")
         self.click("input#submit")
         self.assert_title_eventually("Fight Your Health Insurance Denial: Choose an Appeal")
-        # It takes time for the appeals to populate
-        time.sleep(11)
+        # TODO: Use eventually instead.
+        time.sleep(20)
         self.click("button#submit1")
         self.type("input#id_name", "Testy McTestFace")
         self.type("input#id_fax_phone", "425555555")

@@ -187,14 +187,15 @@ class SendFaxHelper:
             except:
                 try:
                     fetched = pubmed_fetcher.article_by_pmid(pmid)
-                    article = PubMedArticleSummarized.objects.create(
-                        pmid=pmid,
-                        doi=fetched.doi,
-                        title=fetched.title,
-                        abstract=fetched.abstract,
-                        text=fetched.content.text,
-                    )
-                    pubmed_docs.append(article)
+                    if fetched.doi is not None:
+                        article = PubMedArticleSummarized.objects.create(
+                            pmid=pmid,
+                            doi=fetched.doi,
+                            title=fetched.title,
+                            abstract=fetched.abstract,
+                            text=fetched.content.text,
+                        )
+                        pubmed_docs.append(article)
                 except:
                     print(f"Skipping {pmid}")
 
@@ -221,7 +222,7 @@ class SendFaxHelper:
         pmids = ""
         try:
             pmids = (
-                PubMedQueryData.objects.filter(denial_id=denial_id).get().articles or ""
+                PubMedQueryData.objects.filter(denial_id=denial).get().articles or ""
             )
         except:
             pass
@@ -296,7 +297,7 @@ class ChooseAppealHelper:
         pa.save()
         articles = None
         try:
-            pmqd = PubMedQueryData.objects.filter(denial_id=denial_id).get()
+            pmqd = PubMedQueryData.objects.filter(denial_id=denial).get()
             if pmqd.articles is not None:
                 articles = ",".join(pmqd.articles.split(",")[0:2])
         except:
@@ -405,8 +406,10 @@ class FindNextStepsHelper:
         ).get()
         denial.denial_date = denial_date
 
-        denial.procedure = procedure
-        denial.diagnosis = diagnosis
+        if procedure is not None and len(procedure) < 200:
+            denial.procedure = procedure
+        if diagnosis is not None and len(diagnosis) < 200:
+            denial.diagnosis = diagnosis
         if plan_source is not None:
             denial.plan_source.set(plan_source)
         denial.save()
@@ -588,8 +591,10 @@ class DenialCreatorHelper:
         (procedure, diagnosis) = appealGenerator.get_procedure_and_diagnosis(
             denial_text=denial_text, use_external=denial.use_external
         )
-        denial.procedure = procedure
-        denial.diagnosis = diagnosis
+        if procedure is not None and len(procedure) < 200:
+            denial.procedure = procedure
+        if diagnosis is not None and len(diagnosis) < 200:
+            denial.diagnosis = diagnosis
         denial.save()
         r = re.compile(r"Group Name:\s*(.*?)(,|)\s*(INC|CO|LTD|LLC)\s+", re.IGNORECASE)
         g = r.search(denial_text)
