@@ -9,6 +9,7 @@ from django.core.validators import validate_email
 from django.forms import Form
 from django.http import StreamingHttpResponse
 from django.template.loader import render_to_string
+from django.db.models import QuerySet
 
 import uszipcode
 from fighthealthinsurance.core_forms import *
@@ -130,6 +131,7 @@ class SendFaxHelper:
         name: str,
         insurance_company: str,
         pubmed_articles_to_include: str = "",
+        pubmed_ids_parsed: Optional[List[str]] = None,
     ):
         hashed_email = Denial.get_hashed_email(email)
         # Get the current info
@@ -176,7 +178,8 @@ class SendFaxHelper:
                 files_for_fax.append(f.name)
                 f.flush()
 
-        pubmed_ids_parsed = pubmed_articles_to_include.split(",")
+        if pubmed_ids_parsed is None:
+            pubmed_ids_parsed = pubmed_articles_to_include.split(",")
         pubmed_docs: list[PubMedArticleSummarized] = []
         # Try and include the pubmed ids that we have but also fetch if not present
         for pmid in pubmed_ids_parsed:
@@ -187,15 +190,14 @@ class SendFaxHelper:
             except:
                 try:
                     fetched = pubmed_fetcher.article_by_pmid(pmid)
-                    if fetched.doi is not None:
-                        article = PubMedArticleSummarized.objects.create(
-                            pmid=pmid,
-                            doi=fetched.doi,
-                            title=fetched.title,
-                            abstract=fetched.abstract,
-                            text=fetched.content.text,
-                        )
-                        pubmed_docs.append(article)
+                    article = PubMedArticleSummarized.objects.create(
+                        pmid=pmid,
+                        doi=fetched.doi,
+                        title=fetched.title,
+                        abstract=fetched.abstract,
+                        text=fetched.content.text,
+                    )
+                    pubmed_docs.append(article)
                 except:
                     print(f"Skipping {pmid}")
 
@@ -219,17 +221,10 @@ class SendFaxHelper:
         )
         doc_fname = os.path.basename(doc_path)
         doc = open(doc_path, "rb")
-        pmids = ""
-        try:
-            pmids = (
-                PubMedQueryData.objects.filter(denial_id=denial).get().articles or ""
-            )
-        except:
-            pass
         fts = FaxesToSend.objects.create(
             hashed_email=hashed_email,
             paid=False,
-            pmids=pmids,
+            pmids=json.dumps(pubmed_ids_parsed),
             appeal_text=completed_appeal_text,
             health_history=denial.health_history,
             email=email,
@@ -285,7 +280,9 @@ class ChooseAppealHelper:
     @classmethod
     def choose_appeal(
         cls, denial_id: str, appeal_text: str, email: str, semi_sekret: str
-    ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    ) -> Tuple[
+        Optional[str], Optional[str], Optional[QuerySet[PubMedArticleSummarized]]
+    ]:
         hashed_email = Denial.get_hashed_email(email)
         # Get the current info
         denial = Denial.objects.filter(
@@ -297,10 +294,14 @@ class ChooseAppealHelper:
         pa.save()
         articles = None
         try:
-            pmqd = PubMedQueryData.objects.filter(denial_id=denial).get()
+            pmqd = PubMedQueryData.objects.filter(denial_id=denial_id).get()
             if pmqd.articles is not None:
-                articles = ",".join(pmqd.articles.split(",")[0:2])
-        except:
+                article_ids = json.loads(pmqd.articles)
+                articles = PubMedArticleSummarized.objects.filter(
+                    pmid__in=article_ids
+                ).distinct()
+        except Exception as e:
+            print(f"Error loading pubmed data {e}")
             pass
         return (denial.appeal_fax_number, denial.insurance_company, articles)
 
