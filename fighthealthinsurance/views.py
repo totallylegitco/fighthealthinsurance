@@ -255,7 +255,7 @@ class ChooseAppeal(View):
                     title = article.title
                     link = f"http://www.ncbi.nlm.nih.gov/pubmed/{article_id}"
                     label = mark_safe(
-                        f"Include Summary of PubMed Article <a href='{link}'>{title} -- {article_id}</a>"
+                        f"Include Summary* of PubMed Article <a href='{link}'>{title} -- {article_id}</a>"
                     )
                     fax_form.fields["pubmed_" + article_id] = forms.BooleanField(
                         label=label, required=False, initial=True
