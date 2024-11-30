@@ -87,7 +87,9 @@ class PubMedTools(object):
                     print(f"Skipping {pmid}")
         return pubmed_docs
 
-    def do_article_summary(self, article_id, query) -> Optional[PubMedArticleSummarized]:
+    def do_article_summary(
+        self, article_id, query
+    ) -> Optional[PubMedArticleSummarized]:
         possible_articles = PubMedArticleSummarized.objects.filter(
             pmid=article_id,
             basic_summary__isnull=False,
