@@ -26,7 +26,7 @@ class PubMedTools(object):
         # PubMed
         pmids = None
         pmid_text: list[str] = []
-        article_futures: list[Future[PubMedArticleSummarized]] = []
+        article_futures: list[Future[Optional[PubMedArticleSummarized]]] = []
         with Timeout(15.0) as timeout_ctx:
             query = f"{denial.procedure} {denial.diagnosis}"
             pmids = pubmed_fetcher.pmids_for_query(query)
@@ -50,7 +50,9 @@ class PubMedTools(object):
         t = 10
         for f in article_futures:
             try:
-                articles.append(f.result(timeout=t))
+                result = f.result(timeout=t)
+                if result is not None:
+                    articles.append(result)
                 t = t - 1
             except Exception as e:
                 print(f"Skipping appending article from {f} due to {e} of {type(e)}")
@@ -85,7 +87,7 @@ class PubMedTools(object):
                     print(f"Skipping {pmid}")
         return pubmed_docs
 
-    def do_article_summary(self, article_id, query) -> PubMedArticleSummarized:
+    def do_article_summary(self, article_id, query) -> Optional[PubMedArticleSummarized]:
         possible_articles = PubMedArticleSummarized.objects.filter(
             pmid=article_id,
             basic_summary__isnull=False,
@@ -144,6 +146,7 @@ class PubMedTools(object):
             else:
                 print(f"Skipping {fetched}")
                 return None
+        return None
 
     def article_as_pdf(self, article: PubMedArticleSummarized) -> Optional[str]:
         """Return the best PDF we can find of the article."""
