@@ -147,6 +147,7 @@ class SendFaxHelper:
             "receiver_fax_number": fax_phone,
             "company_name": "Fight Health Insurance -- A service of Totally Legit Co.",
             "company_fax_number": "415-840-7591",
+            "company_phone_number": "202-938-3266",
             "fax_sent_datetime": str(datetime.datetime.now()),
         }
         html_content = render_to_string(
@@ -266,7 +267,7 @@ class ChooseAppealHelper:
         pa.save()
         articles = None
         try:
-            pmqd = PubMedQueryData.objects.filter(denial_id=denial_id).get()
+            pmqd = PubMedQueryData.objects.filter(denial_id=denial_id)[0]
             if pmqd.articles is not None:
                 article_ids = json.loads(pmqd.articles)
                 articles = PubMedArticleSummarized.objects.filter(

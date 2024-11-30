@@ -94,5 +94,6 @@ class StageFaxView(generic.FormView):
             cancel_url=self.request.build_absolute_uri(reverse("root")),
             customer_email=form.cleaned_data["email"],
         )
+        raise Exception("sup")
         checkout_url = checkout.url
         return redirect(checkout_url)

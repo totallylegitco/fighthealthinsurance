@@ -460,7 +460,10 @@ class FlexibleFaxMagic(object):
             command = []
             # Don't double convert pdfs
             if input_path.endswith(".pdf"):
-                merger.append(input_path)
+                try:
+                    merger.append(input_path)
+                except Exception as e:
+                    print(f"Skipping {input_path} due to {e}")
             else:
                 command = ["pandoc", "--wrap=auto", input_path, f"-o{input_path}.pdf"]
                 result = subprocess.run(command)

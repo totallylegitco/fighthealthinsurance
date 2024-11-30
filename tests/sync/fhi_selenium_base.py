@@ -3,6 +3,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from seleniumbase import BaseCase
 
+
 class FHISeleniumBase(BaseCase):
     def assert_title_eventually(self, desired_title):
         try:
@@ -19,9 +20,7 @@ class FHISeleniumBase(BaseCase):
             )
         except Exception as e:
             # On failure assert_text gives us a better error message than the timeout.
-            self.assert_text(
-                expected_text,
-                target)
+            self.assert_text(expected_text, target)
 
     def assert_text_eventually_contains(self, expected_text, target):
         element_locator = (By.ID, target)
@@ -35,4 +34,3 @@ class FHISeleniumBase(BaseCase):
             lambda d: d.find_element(*element_locator) != None
         )
         return self.click(f"button#{target}")
-

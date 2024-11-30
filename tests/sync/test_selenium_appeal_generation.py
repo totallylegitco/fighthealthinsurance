@@ -109,7 +109,9 @@ Cheap-O-Insurance-Corp""",
         self.assert_title_eventually("Updating Denial")
         self.type("input#id_medical_reason", "FakeReason")
         self.click("input#submit")
-        self.assert_title_eventually("Fight Your Health Insurance Denial: Choose an Appeal")
+        self.assert_title_eventually(
+            "Fight Your Health Insurance Denial: Choose an Appeal"
+        )
         self.click_button_eventually("submit1")
         self.type("input#id_name", "Testy McTestFace")
         self.type("input#id_fax_phone", "425555555")

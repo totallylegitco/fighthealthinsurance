@@ -37,6 +37,7 @@ class PubMedTools(object):
                 denial_id=denial,
             ).save()
             for article_id in pmids[0:10]:
+                print(f"Loading {article_id}")
                 article_futures.append(
                     pubmed_executor.submit(self.do_article_summary, article_id, query)
                 )
@@ -65,18 +66,21 @@ class PubMedTools(object):
             if pmid is None or pmid == "":
                 continue
             try:
-                pubmed_docs.append(PubMedArticleSummarized.objects.get(pmid == pmid))
+                pubmed_docs.append(
+                    PubMedArticleSummarized.objects.filter(pmid == pmid)[0]
+                )
             except:
                 try:
                     fetched = pubmed_fetcher.article_by_pmid(pmid)
-                    article = PubMedArticleSummarized.objects.create(
-                        pmid=pmid,
-                        doi=fetched.doi,
-                        title=fetched.title,
-                        abstract=fetched.abstract,
-                        text=fetched.content.text,
-                    )
-                    pubmed_docs.append(article)
+                    if fetched is not None:
+                        article = PubMedArticleSummarized.objects.create(
+                            pmid=pmid,
+                            doi=fetched.doi,
+                            title=fetched.title,
+                            abstract=fetched.abstract,
+                            text=fetched.content.text,
+                        )
+                        pubmed_docs.append(article)
                 except:
                     print(f"Skipping {pmid}")
         return pubmed_docs
@@ -121,19 +125,25 @@ class PubMedTools(object):
             else:
                 article_text = fetched.content.text
 
-            article = PubMedArticleSummarized.objects.create(
-                pmid=article_id,
-                doi=fetched.doi,
-                title=fetched.title,
-                abstract=fetched.abstract,
-                text=article_text,
-                query=query,
-                article_url=url,
-                basic_summary=model_router.summarize(
-                    query=query, abstract=fetched.abstract, text=article_text
-                ),
-            )
-        return article
+            if fetched is not None and (
+                fetched.abstract is not None or article_text is not None
+            ):
+                article = PubMedArticleSummarized.objects.create(
+                    pmid=article_id,
+                    doi=fetched.doi,
+                    title=fetched.title,
+                    abstract=fetched.abstract,
+                    text=article_text,
+                    query=query,
+                    article_url=url,
+                    basic_summary=model_router.summarize(
+                        query=query, abstract=fetched.abstract, text=article_text
+                    ),
+                )
+                return article
+            else:
+                print(f"Skipping {fetched}")
+                return None
 
     def article_as_pdf(self, article: PubMedArticleSummarized) -> Optional[str]:
         """Return the best PDF we can find of the article."""
@@ -144,30 +154,58 @@ class PubMedTools(object):
                 url = article.article_url
                 if url is not None:
                     response = requests.get(url)
-                    if (
+                    if response.ok and (
                         ".pdf" in url
                         or response.headers.get("Content-Type") == "application/pdf"
                     ):
                         with tempfile.NamedTemporaryFile(
                             prefix=f"{article_id}", suffix=".pdf", delete=False
                         ) as my_data:
-                            my_data.write(response.content)
-                            return my_data.name
+                            if len(response.content) > 20:
+                                my_data.write(response.content)
+                                my_data.flush()
+                                return my_data.name
+                            else:
+                                print(f"No content from fetching {url}")
         except Exception as e:
             print(f"Error {e} fetching article for {article}")
             pass
-        # Backup us markdown & pandoc
-        markdown_text = f"#{markdown_escape(article.title)} @ {article.pmid} / {article.doi}\n\n{markdown_escape(article.abstract)}\n\n---{markdown_escape(article.text)}"
+        # Backup us markdown & pandoc -- but only if we have something to write
+        if article.abstract is None and article.text is None:
+            return None
+        markdown_text = f"# {markdown_escape(article.title)} \n\n PMID {article.pmid} / DOI {article.doi}\n\n{markdown_escape(article.abstract)}\n\n---{markdown_escape(article.text)}"
         with tempfile.NamedTemporaryFile(
-            prefix=f"{article_id}", suffix=".text", delete=True
+            prefix=f"{article_id}",
+            suffix=".md",
+            delete=False,
+            encoding="utf-8",
+            mode="w",
         ) as my_data:
+            my_data.write(markdown_text)
+            my_data.flush()
             command = [
                 "pandoc",
+                "--read=markdown",
                 "--wrap=auto",
-                f"{my_data.name}",
+                my_data.name,
                 f"-o{my_data.name}.pdf",
             ]
             result = subprocess.run(command)
             if result.returncode == 0:
-                return "{my_data.name}.pdf"
+                return f"{my_data.name}.pdf"
+            else:
+                print(f"Error processing {command} trying again with different engine")
+                command = [
+                    "pandoc",
+                    "--wrap=auto",
+                    "--read=markdown",
+                    "--pdf-engine=lualatex",
+                    my_data.name,
+                    f"-o{my_data.name}.pdf",
+                ]
+                result = subprocess.run(command)
+                if result.returncode == 0:
+                    return f"{my_data.name}.pdf"
+                else:
+                    print(f"Error processing {command}")
         return None
