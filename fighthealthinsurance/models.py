@@ -248,6 +248,7 @@ class PubMedArticleSummarized(models.Model):
     says_effective = models.BooleanField(null=True)
     publication_date = models.DateTimeField(null=True)
     retrival_date = models.TextField(blank=True, null=True)
+    article_url = models.TextField(primary_key=False, blank=True, null=True)
 
 
 class PubMedQueryData(models.Model):

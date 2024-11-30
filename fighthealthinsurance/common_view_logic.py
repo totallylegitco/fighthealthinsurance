@@ -21,6 +21,7 @@ from fighthealthinsurance.models import *
 from fighthealthinsurance.question_forms import *
 from fighthealthinsurance.utils import pubmed_fetcher
 import ray
+from .pubmed_tools import PubMedTools
 
 appealGenerator = AppealGenerator()
 
@@ -180,42 +181,13 @@ class SendFaxHelper:
 
         if pubmed_ids_parsed is None:
             pubmed_ids_parsed = pubmed_articles_to_include.split(",")
-        pubmed_docs: list[PubMedArticleSummarized] = []
+        pmt = PubMedTools()
+        pubmed_docs: list[PubMedArticleSummarized] = pmt.get_articles(pubmed_ids_parsed)
         # Try and include the pubmed ids that we have but also fetch if not present
-        for pmid in pubmed_ids_parsed:
-            if pmid is None or pmid == "":
-                continue
-            try:
-                pubmed_docs.append(PubMedArticleSummarized.objects.get(pmid == pmid))
-            except:
-                try:
-                    fetched = pubmed_fetcher.article_by_pmid(pmid)
-                    article = PubMedArticleSummarized.objects.create(
-                        pmid=pmid,
-                        doi=fetched.doi,
-                        title=fetched.title,
-                        abstract=fetched.abstract,
-                        text=fetched.content.text,
-                    )
-                    pubmed_docs.append(article)
-                except:
-                    print(f"Skipping {pmid}")
-
-        for pubmed_doc in pubmed_docs:
-            with tempfile.NamedTemporaryFile(
-                suffix=".txt", prefix="pubmeddoc", mode="w+t", delete=False
-            ) as f:
-                if pubmed_doc.title is not None:
-                    f.write(pubmed_doc.title + "\n")
-                if pubmed_doc.abstract is not None:
-                    f.write("Abstract:\n")
-                    f.write(pubmed_doc.abstract)
-                if pubmed_doc.text is not None:
-                    f.write("Text:\n")
-                    f.write(pubmed_doc.text)
-                files_for_fax.append(f.name)
-                f.flush()
-
+        pubmed_docs_paths = [
+            x for x in map(pmt.article_as_pdf, pubmed_docs) if x is not None
+        ]
+        files_for_fax.extend(pubmed_docs_paths)
         doc_path = flexible_fax_magic.assemble_single_output(
             input_paths=files_for_fax, extra="", user_header=str(uuid.uuid4())
         )
