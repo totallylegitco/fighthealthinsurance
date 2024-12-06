@@ -8,15 +8,11 @@ Upload your Health Insurance Denial - Server Side Processing
 <div style="color:red">
   {{ error }}
 </div>
-<form  method="post" action="{% url 'server_side_ocr' %}" enctype="multipart/form-data"
-style="display: grid; justify-items: center; text-align: center; width: 100%; margin: 0 auto;">
+<form  method="post" action="{% url 'server_side_ocr' %}" enctype="multipart/form-data">
     {% csrf_token %}
-    <h4>Transferred to our server (may be temporarily stored)</h4>
-    <label class="custom-file-label" for="uploader">(Optical Character Recognition (OCR) makes the text understandable to machines, allowing our generative AI model able to produce
-    potential appeals for you to choose from.)
-    <br>Attach all insurance denial pages below:
-    </label>
+    <h2>Transfered to our server for Optical Character Recognition (OCR) (may be temporarily stored)</h2>
+    <label class="custom-file-label" for="uploader">Scan & OCR your health insurance denial (select all pages)</label><br>
     <input id="uploader" type="file" name="uploader" multiple>
-    <button type="submit" id="submit" class="btn btn-blue">Submit</button>
+    <button type="submit" id="submit" class="btn btn-green">Submit</button>
 </form>
 {% endblock content %}
