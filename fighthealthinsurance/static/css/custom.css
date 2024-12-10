@@ -186,6 +186,14 @@ a.link:hover::after {
     padding: 5px;
 }
 
+.img-fluid.img-logo {
+    max-width: 25px;
+    margin: auto;
+    border: none;
+    height: auto;
+    padding: 5px;
+}
+
 .row.align-items-center {
     box-shadow: rgba(0, 0, 0, 0.1) 0px 10px 50px;
 }
