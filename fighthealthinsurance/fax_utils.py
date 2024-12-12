@@ -5,6 +5,7 @@ import tempfile
 import time
 from typing import Mapping, Optional, Tuple
 from paramiko import SSHClient
+from stopit import ThreadingTimeout as Timeout
 import asyncio, asyncssh
 
 from django.core.mail import EmailMultiAlternatives
