@@ -89,13 +89,6 @@ class OtherResourcesView(generic.TemplateView):
     template_name = "other_resources.html"
 
 
-class ScanView(generic.TemplateView):
-    template_name = "scrub.html"
-
-    def get_context_data(self, **kwargs):
-        return {"ocr_result": "", "upload_more": True}
-
-
 class PrivacyPolicyView(generic.TemplateView):
     template_name = "privacy_policy.html"
 
@@ -341,7 +334,7 @@ class OCRView(View):
             doc_txt = self._ocr(uploader)
             return render(
                 request,
-                "scrub.html",
+                "scan.html",
                 context={"ocr_result": doc_txt, "upload_more": False},
             )
         except AttributeError:
@@ -373,7 +366,7 @@ class OCRView(View):
 
 
 class InitialProcessView(generic.FormView):
-    template_name = "scrub.html"
+    template_name = "scan.html"
     form_class = DenialForm
 
     def get_ocr_result(self) -> Optional[str]:
@@ -385,6 +378,9 @@ class InitialProcessView(generic.FormView):
         context = super().get_context_data(**kwargs)
         context["ocr_result"] = self.get_ocr_result() or ""
         context["upload_more"] = True
+        form = context.get('form')
+        if form and form.errors:
+            print(form.errors)
         return context
 
     def form_valid(self, form):

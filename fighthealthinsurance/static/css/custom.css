@@ -1,5 +1,21 @@
+html > body {
+    background-color: #FEFEFE;
+}
+
+.form-check {
+    padding: 0;
+}
+
+ul.errorlist {
+    list-style: none;
+}
+
+ul.errorlist > li {
+    color: red;
+}
+
 a.link {
-    color: #a5c422 !important;
+    color: #a6c422 !important;
     transition: all 1s !important;
     display: inline-block;
     position: relative;

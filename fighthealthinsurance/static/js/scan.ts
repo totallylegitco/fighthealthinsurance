@@ -14,11 +14,13 @@ async function getTesseractWorkerRaw(): Promise<Tesseract.Worker> {
 	{
 	    corePath: node_module_path + "/tesseract.js-core/tesseract-core.wasm.js",
 	    workerPath: node_module_path + "/tesseract.js/dist/worker.min.js",
-	    logger: function(m){console.log(m);}
+	    logger: console.log,
 	});
+
     await worker.setParameters({
-	tessedit_pageseg_mode: Tesseract.PSM.AUTO_OSD,
+		tessedit_pageseg_mode: Tesseract.PSM.AUTO_OSD,
     });
+
     return worker;
 }
 
@@ -33,8 +35,7 @@ function showHiddenMessage(name: string): void {
     document.getElementById(name).classList.add('visible');
 }
 function hideErrorMessages(event: Event): void {
-    const form = document.getElementById("fuck_health_insurance_form") as HTMLFormElement;
-    if (form == null) {
+    const form = document.getElementById("fuck_health_insurance_form") as HTMLFormElement; if (form == null) {
 	return
     }
     if(form.privacy.checked && form.personalonly.checked && form.tos.checked) {

@@ -22,7 +22,7 @@ If you don't have a GPU handy the other option is to use an external model. The 
 
 ## Tests
 
-Tests are run through `tox`. If you dont have tox you can `pip` or `uv` install it. The tests are broken up into sync and async. You can run all tests by running `tox`.
+Tests are run through `tox`. If you dont have tox you can `pip` install it. The tests are broken up into sync and async. You can run all tests by running `tox`.
 
 An example of running just one test suite is `tox -e py311-django50-sync -- tests/sync/test_selenium_appeal_generation.py`
 

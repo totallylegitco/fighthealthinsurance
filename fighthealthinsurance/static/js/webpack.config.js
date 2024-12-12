@@ -3,7 +3,7 @@ const path = require('path');
 module.exports = {
   entry: {
     'shared': './shared.ts',
-    'scrub': './scrub.ts',
+    'scan': './scan.ts',
     'appeal': './appeal.ts',  
   },
   resolve: {
