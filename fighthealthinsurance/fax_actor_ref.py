@@ -24,6 +24,7 @@ class FaxActorRef:
                     fax_actor = None
         except Exception as e:
             print(f"No exisitng fax actor to stop {e}")
+            fax_actor = None
 
         if fax_actor is None:
             fax_actor = FaxActor.options(  # type: ignore

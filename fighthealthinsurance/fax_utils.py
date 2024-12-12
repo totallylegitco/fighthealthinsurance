@@ -607,12 +607,16 @@ class FlexibleFaxMagic(object):
             key=lambda backend: backend.estimate_cost(destination, page_count),
         )
         for backend in backends_by_cost:
-            r = await backend.send_fax(
-                destination=destination, path=path, blocking=blocking
-            )
-            if r == True:
-                print(f"Sent fax to {destination} using {backend}")
-                return True
+            with Timeout(1200.0) as timeout_ctx:
+                try:
+                    r = await backend.send_fax(
+                        destination=destination, path=path, blocking=blocking
+                    )
+                    if r == True:
+                        print(f"Sent fax to {destination} using {backend}")
+                        return True
+                except Exception as e:
+                    print(f"Error {e} sending fax on {backend}")
         print(f"Unable to send fax to {destination} using {self.backends}")
         return False
 
