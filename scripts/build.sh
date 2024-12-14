@@ -3,6 +3,13 @@ set -ex
 
 BUILDX_CMD=${BUILDX_CMD:-push}
 
+# Activate the venv if present.
+if [ -f ./build_venv/bin/activate ]; then
+  source ./build_venv/bin/activate
+elif [ -f ./.venv/bin/activate ]; then
+  source ./.venv/bin/activate
+fi
+
 mypy -p fighthealthinsurance
 ./scripts/manage.py migrate
 ./scripts/manage.py makemigrations

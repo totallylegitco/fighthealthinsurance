@@ -145,7 +145,7 @@ jobs:
         uses: astral-sh/setup-uv@v3
       - name: Install mypy
         run:
-          uv pip install -r requirements.txt
+          uv venv build && source build/bin/activate && uv pip install -r requirements.txt
         env:
           BUILDX_CMD: "--load"
       - name: Run django docker build
