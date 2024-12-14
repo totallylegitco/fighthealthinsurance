@@ -123,6 +123,7 @@ jobs:
           ./scripts/build_ray.sh
         env:
           BUILDX_CMD: "--load"
+          FHI_VERSION: "ci"
 
   build-docker-django-container:
     runs-on: ubuntu-latest
@@ -150,9 +151,10 @@ jobs:
           BUILDX_CMD: "--load"
       - name: Run django docker build
         run:
-          ./scripts/build.sh
+          ./scripts/build_django.sh
         env:
           BUILDX_CMD: "--load"
+          FHI_VERSION: "ci"
 
   tests-async:
     runs-on: ubuntu-latest

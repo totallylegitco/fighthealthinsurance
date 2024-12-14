@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# Activate the venv if present.
+if [ -f ./build_venv/bin/activate ]; then
+  source ./build_venv/bin/activate
+elif [ -f ./.venv/bin/activate ]; then
+  source ./.venv/bin/activate
+fi
+
 check_python_environment() {
 	python -c 'import configurations' 2>&1 >/dev/null
 	python_dep_check=$?
