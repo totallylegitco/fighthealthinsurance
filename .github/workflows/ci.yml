@@ -124,7 +124,7 @@ jobs:
         env:
           BUILDX_CMD: "--load"
           FHI_VERSION: "ci"
-          PALTFORM: linux/amd64
+          PLATFORM: linux/amd64
 
   build-docker-django-container:
     runs-on: ubuntu-latest
@@ -156,7 +156,7 @@ jobs:
         env:
           BUILDX_CMD: "--load"
           FHI_VERSION: "ci"
-          PALTFORM: linux/amd64
+          PLATFORM: linux/amd64
 
   tests-async:
     runs-on: ubuntu-latest
