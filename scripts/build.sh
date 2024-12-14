@@ -16,7 +16,7 @@ export FHI_VERSION
 source "${SCRIPT_DIR}/build_ray.sh"
 # The raycluster operator doesn't handle upgrades well so delete + recreate instead.
 kubectl delete raycluster -n totallylegitco raycluster-kuberay || echo "No raycluster present"
-kubectl apply -f k8s/cluster.yaml
+kubectl apply -f k8s/ray/cluster.yaml
 
 # Build the django container
 source "${SCRIPT_DIR}/build_django.sh"
