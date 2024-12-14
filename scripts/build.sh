@@ -14,7 +14,8 @@ pushd ./static/js
 npm i
 npm run build
 popd
-FHI_VERSION=v0.9.4c
+FHI_VERSION=v0.9.5b
+
 export FHI_VERSION
 # Build ray cluster first so that the cluster can come up before the job that registers the workers
 source build_ray.sh
