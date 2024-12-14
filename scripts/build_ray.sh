@@ -5,11 +5,13 @@ set -ex
 RAY_VERSION=2.38.0-py311
 RAY_IMAGE=holdenk/ray:${RAY_VERSION}
 
+BUILDX_CMD=${BUILDX_CMD:-push}
+
 pull_or_build_image() {
 	local image=$1
 	local ray_version=$2
 
-	docker pull "${image}" || docker buildx build --platform=linux/amd64,linux/arm64 -t "${image}" . -f RayDockerfile --push --build-arg RAY_VERSION="${ray_version}"
+	docker pull "${image}" || docker buildx build --platform=linux/amd64,linux/arm64 -t "${image}" . -f k8s/RayDockerfile "${BUILDX_CMD}" --build-arg RAY_VERSION="${ray_version}"
 }
 export RAY_VERSION
 

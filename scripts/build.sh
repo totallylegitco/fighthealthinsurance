@@ -1,5 +1,8 @@
 #!/bin/bash
 set -ex
+
+BUILDX_CMD=${BUILDX_CMD:-push}
+
 mypy -p fighthealthinsurance
 ./scripts/manage.py migrate
 ./scripts/manage.py makemigrations
@@ -20,5 +23,5 @@ kubectl delete raycluster -n totallylegitco raycluster-kuberay || echo "No raycl
 kubectl apply -f k8s/cluster.yaml
 # Build the web app
 IMAGE=holdenk/fight-health-insurance:${FHI_VERSION}
-(docker pull "${IMAGE}" && sleep 10) || docker buildx build --platform=linux/amd64,linux/arm64 -t "${IMAGE}" k8s --push
+(docker pull "${IMAGE}" && sleep 10) || docker buildx build --platform=linux/amd64,linux/arm64 -t "${IMAGE}" -f k8s/Dockerfile "${BUILDX_CMD}"
 kubectl apply -f k8s/deploy.yaml
