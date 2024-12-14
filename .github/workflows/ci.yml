@@ -105,6 +105,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+    name: Build the docker ray containers
       -
         name: Checkout
         uses: actions/checkout@v4
@@ -126,6 +127,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+    name: Build the docker django containers
       -
         name: Checkout
         uses: actions/checkout@v4
