@@ -34,13 +34,13 @@ set -ex
 #   echo 'No connection to kube vllm health svc'
 # fi
 
-python -m scripts.manage migrate
-python -m scripts.manage loaddata initial
-python -m scripts.manage loaddata followup
-python -m scripts.manage loaddata plan_source
+python manage.py migrate
+python manage.py loaddata initial
+python manage.py loaddata followup
+python manage.py loaddata plan_source
 
 # Make sure we have an admin user so folks can test the admin view
-FIGHT_HEALTH_ADMIN_USER="admin" FIGHT_HEALTH_ADMIN_PASSWORD="admin" python -m scripts.manage ensure_adminuser --no-input
+FIGHT_HEALTH_ADMIN_USER="admin" FIGHT_HEALTH_ADMIN_PASSWORD="admin" python manage.py ensure_adminuser --no-input
 
 RECAPTCHA_TESTING=true OAUTHLIB_RELAX_TOKEN_SCOPE=1 \
-	python -m scripts.manage runserver_plus --cert-file cert.pem --key-file key.pem $@
+	python manage.py runserver_plus --cert-file cert.pem --key-file key.pem $@

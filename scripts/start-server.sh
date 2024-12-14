@@ -6,12 +6,12 @@ export DJANGO_CONFIGURATION=${DJANGO_CONFIGURATION:-"Prod"}
 export DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE:-"fighthealthinsurance.settings"}
 # Run migrations on primary only
 if [ ! -z "$PRIMARY" ]; then
-  python -m scripts.manage migrate
-  python -m scripts.manage loaddata initial
-  python -m scripts.manage loaddata followup
-  python -m scripts.manage loaddata plan_source
-  python -m scripts.manage ensure_adminuser --no-input
-  python -m scripts.manage launch_polling_actors || (echo "Error starting ray actor?" && sleep 480)
+  python manage.py migrate
+  python manage.py loaddata initial
+  python manage.py loaddata followup
+  python manage.py loaddata plan_source
+  python manage.py ensure_adminuser --no-input
+  python manage.py launch_polling_actors || (echo "Error starting ray actor?" && sleep 480)
   sleep 60
   exit 0
 fi

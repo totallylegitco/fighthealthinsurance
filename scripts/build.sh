@@ -11,11 +11,11 @@ elif [ -f ./.venv/bin/activate ]; then
 fi
 
 mypy -p fighthealthinsurance
-./scripts/manage.py migrate
-./scripts/manage.py makemigrations
-./scripts/manage.py migrate
-./scripts/manage.py validate_templates
-./scripts/manage.py collectstatic --no-input
+./manage.py migrate
+./manage.py makemigrations
+./manage.py migrate
+./manage.py validate_templates
+./manage.py collectstatic --no-input
 
 pushd ./static/js
 npm i

@@ -195,7 +195,7 @@ jobs:
           cd fighthealthinsurance/static/js && npm i && npm run build && npm cache clean --force
 
       - name: Setup DB (long story)
-        run: uv venv && source .venv/bin/activate && uv pip install -r requirements.txt && python -m scripts.manage makemigrations && python -m scripts.manage migrate && ENVIRONMENT=Test ./manage.py migrate
+        run: uv venv && source .venv/bin/activate && uv pip install -r requirements.txt && python manage.py makemigrations && python manage.py migrate && ENVIRONMENT=Test ./manage.py migrate
 
       - name: Run tests
         run: ENVIRONMENT=Test tox -e py${{ matrix.python }}-django${{ matrix.django }}-async
