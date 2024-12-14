@@ -106,6 +106,7 @@ jobs:
     strategy:
       fail-fast: false
     name: Build the docker ray containers
+    steps:
       -
         name: Checkout
         uses: actions/checkout@v4
@@ -128,6 +129,7 @@ jobs:
     strategy:
       fail-fast: false
     name: Build the docker django containers
+    steps:
       -
         name: Checkout
         uses: actions/checkout@v4
