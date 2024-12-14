@@ -2,6 +2,8 @@
 
 set -ex
 
+python min_version.py
+
 python -m venv .venv &&
 	. .venv/bin/activate &&
 	pip install -r requirements.txt
