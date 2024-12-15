@@ -31,8 +31,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Lint
-        uses: azohra/shell-linter@latest
+      - name: Install shell check
+        run: sudo apt-get install -y shellcheck
+      - name: Run shellcheck
+        run: ./scripts/check_shell_style.sh
 
   types:
     runs-on: ubuntu-latest
