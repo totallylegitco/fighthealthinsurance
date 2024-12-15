@@ -27,6 +27,13 @@ jobs:
         run:
           tox -e black
 
+  shell-linter:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint
+        uses: azohra/shell-linter@latest
+
   types:
     runs-on: ubuntu-latest
     steps:
