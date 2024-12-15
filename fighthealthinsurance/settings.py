@@ -83,6 +83,7 @@ class Base(Configuration):
         "django_recaptcha",
         "rest_framework",
         "corsheaders",
+        'django_prometheus',
     ]
 
     COMPRESS_JS_FILTERS = [
@@ -105,6 +106,7 @@ class Base(Configuration):
     )
 
     MIDDLEWARE = [
+        'django_prometheus.middleware.PrometheusBeforeMiddleware',
         "corsheaders.middleware.CorsMiddleware",
         "django.middleware.security.SecurityMiddleware",
         "django.contrib.sessions.middleware.SessionMiddleware",
@@ -115,6 +117,7 @@ class Base(Configuration):
         "django.middleware.clickjacking.XFrameOptionsMiddleware",
         "cookie_consent.middleware.CleanCookiesMiddleware",
         "django_user_agents.middleware.UserAgentMiddleware",
+        'django_prometheus.middleware.PrometheusAfterMiddleware',
     ]
 
     GOOGLE_ANALYTICS = {
@@ -212,6 +215,8 @@ class Base(Configuration):
     CORS_ALLOW_ALL_ORIGINS = True
     CORS_ALLOW_PRIVATE_NETWORK = True
     CORS_ALLOW_CREDENTIALS = True
+
+    PROMETHEUS_METRIC_NAMESPACE = "fhi"
 
     # STRIPE SETTINGS
     @property
@@ -319,7 +324,7 @@ class Prod(Base):
 
     @property
     def DATABASES(self):
-        engine = "django.db.backends.mysql"
+        engine = "django_prometheus.django.db.backends.mysql"
         return {
             "default": {
                 "ENGINE": engine,
