@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 
 import os
 from pathlib import Path
+import re
 from typing import *
 import traceback
 from functools import cached_property
@@ -250,6 +251,15 @@ class Base(Configuration):
         return CombinedStorage(
             self.LOCALISH_STORAGE, self.EXTERNAL_STORAGE, self.EXTERNAL_STORAGE_B
         )
+
+    # Ignore some 404 errors
+    IGNORABLE_404_URLS = [
+        re.compile(r"\.(php|cgi)$"),
+        re.compile(r"^/phpmyadmin/"),
+        re.compile(r"^/apple-touch-icon.*\.png$"),
+        re.compile(r"^/favicon\.ico$"),
+        re.compile(r"^/robots\.txt$"),
+    ]
 
 
 class Dev(Base):
