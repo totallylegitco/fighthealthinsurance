@@ -1,3 +1,4 @@
+asyncssh
 beautifulsoup4==4.12.3
 black
 django>=5.0.0
@@ -20,11 +21,13 @@ django-stubs
 django-treebeard
 django_user_agents
 easy_thumbnails
+exceptionite
 flake8-django
 geopy
 git+https://github.com/holdenk/static-thumbnails.git
 git+https://github.com/jazzband/django-cookie-consent.git#egg=django-cookie-consent
 icd10-cm
+markdown_strings
 metapub==0.5.12
 mypy
 packaging>=20.0
@@ -55,5 +58,3 @@ typing-extensions
 urllib3
 uszipcode
 werkzeug
-asyncssh
-markdown_strings

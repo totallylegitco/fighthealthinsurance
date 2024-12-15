@@ -366,6 +366,17 @@ class Prod(Base):
                 "include_html": True,
             },
         },
+        "loggers": {
+            "django": {
+                "handlers": ["console"],
+                "propagate": True,
+            },
+            "django.request": {
+                "handlers": ["mail_admins"],
+                "level": "ERROR",
+                "propagate": True,
+            },
+        },
     }
 
     MINIO_STORAGE_ACCESS_KEY = os.getenv("EX_MINIO_ACCESS", None)

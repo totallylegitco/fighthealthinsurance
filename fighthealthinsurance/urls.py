@@ -33,6 +33,7 @@ urlpatterns = [
     # Internal-ish-views
     path("ziggy/rest/", include(rest_urls)),
     path("timbit/admin/", admin.site.urls),
+    path("error", views.ErrorView.as_view()),
     path("timbit/help/followup_sched", ScheduleFollowUps.as_view()),
     path(
         "timbit/help/followup_sender_test",
