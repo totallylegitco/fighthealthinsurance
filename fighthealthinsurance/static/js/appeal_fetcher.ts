@@ -92,40 +92,53 @@ export function doQuery(
     }
     showLoading();
 
-    $.ajax({
-        url: backend_url,
-        type: 'POST',
-        data: data,
-        contentType: 'application/x-www-form-urlencoded',
-        dataType: 'text',
-        processData: true,
-        xhr: function () {
-            const xhr = new XMLHttpRequest();
-            xhr.addEventListener('progress', (event) => {
-                const chunk = (event.currentTarget as XMLHttpRequest).responseText;
-                processResponseChunk(chunk);
-            });
-            return xhr;
-        },
-        success: (response: string) => {
-            console.log('AJAX success:', response);
-            processResponseChunk(response);
+    try {
+	$.ajax({
+            url: backend_url,
+            type: 'POST',
+            data: data,
+            contentType: 'application/x-www-form-urlencoded',
+            dataType: 'text',
+            processData: true,
+            xhr: function () {
+		const xhr = new XMLHttpRequest();
+		xhr.addEventListener('progress', (event) => {
+                    const chunk = (event.currentTarget as XMLHttpRequest).responseText;
+                    processResponseChunk(chunk);
+		});
+		return xhr;
+            },
+            success: (response: string) => {
+		console.log('AJAX success:', response);
+		processResponseChunk(response);
 
-            if (appealsSoFar.length < 3 && retries < 2) {
-                doQuery(backend_url, data, retries + 1);
-            } else {
-                hideLoading();
+		// If we've reached stream end but also less than max_retries appeals retry
+		if (appealsSoFar.length < 3 && retries < max_retries) {
+		    console.error('Did not have expected number of appeals, retrying.');
+                    doQuery(backend_url, data, retries + 1);
+		} else {
+                    hideLoading();
+		}
+            },
+            error: (error: any) => {
+		console.error('AJAX error:', error);
+		if (retries < max_retries) {
+                    doQuery(backend_url, data, retries + 1);
+		} else {
+                    hideLoading();
+		}
             }
-        },
-        error: (error: any) => {
-            console.error('AJAX error:', error);
-            if (retries < max_retries) {
-                doQuery(backend_url, data, retries + 1);
-            } else {
-                hideLoading();
-            }
+	});
+    } catch (error) {
+        console.error('Client-side error:', error);
+
+        if (retries < max_retries) {
+            console.log(`Retrying after client-side error... (${retries + 1}/${max_retries})`);
+            doQuery(backend_url, data, retries + 1);
+        } else {
+            hideLoading();
         }
-    });
+    }
 }
 
 // Make it available
