@@ -12,7 +12,7 @@ const loadingMore = document.getElementById('loading-more');
 // Variables
 let respBuffer = '';
 let appealId = 0;
-let retries = 0;
+let max_retries = 2;
 const appealsSoFar: any[] = [];
 
 // Helper Functions
@@ -81,29 +81,28 @@ function processResponseChunk(chunk: string): void {
     }
 }
 
-function doRetry(): void {
-    console.log('Retrying...');
-    doQuery();
-}
-
-function doQuery(): void {
+export function doQuery(
+  backend_url: string, 
+  data: Map<string, string>, 
+  retries: number
+): void {
+    if (retries > max_retries) {
+	console.log("Error requesting backend");
+	return;
+    }
     showLoading();
 
     $.ajax({
-        url: '{% url \"appeals_json_backend\" %}',
+        url: backend_url,
         type: 'POST',
-        data: {
-            ...{% autoescape off %}{{ form_context }}{% endautoescape %},
-            csrfmiddlewaretoken: '{{ csrf_token }}',
-            timbit: 'is most awesomex2'
-        },
+        data: data,
         contentType: 'application/x-www-form-urlencoded',
         dataType: 'text',
         processData: true,
         xhr: function () {
             const xhr = new XMLHttpRequest();
             xhr.addEventListener('progress', (event) => {
-                const chunk = event.currentTarget.responseText;
+                const chunk = (event.currentTarget as XMLHttpRequest).responseText;
                 processResponseChunk(chunk);
             });
             return xhr;
@@ -113,17 +112,15 @@ function doQuery(): void {
             processResponseChunk(response);
 
             if (appealsSoFar.length < 3 && retries < 2) {
-                retries++;
-                doRetry();
+                doQuery(backend_url, data, retries + 1);
             } else {
                 hideLoading();
             }
         },
         error: (error: any) => {
             console.error('AJAX error:', error);
-            if (retries < 2) {
-                retries++;
-                doRetry();
+            if (retries < max_retries) {
+                doQuery(backend_url, data, retries + 1);
             } else {
                 hideLoading();
             }
@@ -131,5 +128,5 @@ function doQuery(): void {
     });
 }
 
-// On Document Ready
-$(document).ready(doQuery);
+// Make it available
+(window as any).doQuery = doQuery;
