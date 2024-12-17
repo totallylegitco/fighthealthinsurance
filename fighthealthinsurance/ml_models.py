@@ -1,3 +1,5 @@
+import asyncio
+import aiohttp
 import itertools
 import os
 import re
@@ -18,7 +20,7 @@ class RemoteModelLike(DenialBase):
     def infer(self, prompt, patient_context, plan_context, pubmed_context, infer_type):
         pass
 
-    def _infer(
+    async def _infer(
         self,
         system_prompt,
         prompt,
@@ -29,19 +31,19 @@ class RemoteModelLike(DenialBase):
     ) -> Optional[str]:
         pass
 
-    def get_denialtype(self, denial_text, procedure, diagnosis):
+    async def get_denialtype(self, denial_text, procedure, diagnosis):
         return None
 
-    def get_regulator(self, text):
+    async def get_regulator(self, text):
         return None
 
-    def get_plan_type(self, text):
+    async def get_plan_type(self, text):
         return None
 
-    def get_procedure_and_diagnosis(self, prompt):
+    async def get_procedure_and_diagnosis(self, prompt):
         return (None, None)
 
-    def get_fax_number(self, prompt) -> Optional[str]:
+    async def get_fax_number(self, prompt) -> Optional[str]:
         return None
 
     def external(self):
@@ -155,7 +157,7 @@ class RemoteOpenLike(RemoteModel):
             map(
                 lambda temperature: map(
                     lambda system_prompt: (
-                        self._checked_infer,
+                        self._blocking_checked_infer,
                         {
                             "prompt": prompt,
                             "patient_context": patient_context,
@@ -174,8 +176,28 @@ class RemoteOpenLike(RemoteModel):
         futures = list(map(lambda x: executor.submit(x[0], **x[1]), calls))
         return futures
 
-    @cache
-    def _checked_infer(
+    def _blocking_checked_infer(
+            self,
+            prompt: str,
+            patient_context,
+            plan_context,
+            infer_type,
+            pubmed_context,
+            system_prompt: str,
+            temperature: float,
+    ):
+        return asyncio.run(self._checked_infer(
+            prompt,
+            patient_context,
+            plan_context,
+            infer_type,
+            pubmed_context,
+            system_prompt,
+            temperature
+        ))
+
+
+    async def _checked_infer(
         self,
         prompt: str,
         patient_context,
@@ -185,7 +207,7 @@ class RemoteOpenLike(RemoteModel):
         system_prompt: str,
         temperature: float,
     ):
-        result = self._infer(
+        result = await self._infer(
             prompt=prompt,
             patient_context=patient_context,
             plan_context=plan_context,
@@ -196,7 +218,7 @@ class RemoteOpenLike(RemoteModel):
         print(f"Got result {result} from {prompt} on {self}")
         # One retry
         if self.bad_result(result):
-            result = self._infer(
+            result = await self._infer(
                 prompt=prompt,
                 patient_context=patient_context,
                 plan_context=plan_context,
@@ -216,16 +238,14 @@ class RemoteOpenLike(RemoteModel):
             return None
         return self.diagnosis_response_regex.sub("", response)
 
-    @cache
-    def get_fax_number(self, denial: str) -> Optional[str]:
-        return self._infer(
+    async def get_fax_number(self, denial: str) -> Optional[str]:
+        return await self._infer(
             system_prompt="You are a helpful assistant.",
             prompt=f"Tell me the to appeal fax number is within the provided denial. If the fax number is unknown write UNKNOWN. If known just output the fax number without any pre-amble and as a snipper from the original doc. The denial follows: {denial}",
         )
 
-    @cache
-    def questions(self, prompt: str, patient_context: str, plan_context) -> List[str]:
-        result = self._infer(
+    async def questions(self, prompt: str, patient_context: str, plan_context) -> List[str]:
+        result = await self._infer(
             system_prompt=self.system_prompts["questions"],
             prompt=prompt,
             patient_context=patient_context,
@@ -236,20 +256,19 @@ class RemoteOpenLike(RemoteModel):
         else:
             return result.split("\n")
 
-    @cache
-    def get_procedure_and_diagnosis(
+    async def get_procedure_and_diagnosis(
         self, prompt: str
     ) -> tuple[Optional[str], Optional[str]]:
         print(f"Getting procedure and diagnosis for {self} w/ {prompt}")
         if self.system_prompts["procedure"] is None:
             print(f"No procedure message for {self.model} skipping")
             return (None, None)
-        model_response = self._infer(
+        model_response = await self._infer(
             system_prompt=self.system_prompts["procedure"], prompt=prompt
         )
         if model_response is None or "Diagnosis" not in model_response:
             print("Retrying query.")
-            model_response = self._infer(
+            model_response = await self._infer(
                 system_prompt=self.system_prompts["procedure"], prompt=prompt
             )
         if model_response is not None:
@@ -322,7 +341,7 @@ class RemoteOpenLike(RemoteModel):
         else:
             return self.__infer(*args, **kwargs)
 
-    def __infer(
+    async def __infer(
         self,
         system_prompt,
         prompt,
@@ -345,40 +364,41 @@ class RemoteOpenLike(RemoteModel):
             return None
         url = f"{api_base}/chat/completions"
         combined_content = None
+        json_result = {}
         try:
-            s = requests.Session()
-            # Combine the message, Mistral's VLLM container does not like the system role anymore?
-            # despite it still being fine-tuned with the system role.
-            context_extra = ""
-            if patient_context is not None and len(patient_context) > 3:
-                patient_context_max = int(self.max_len / 2)
-                max_len = self.max_len - min(len(patient_context), patient_context_max)
-                context_extra = f"When answering the following question you can use the patient context {patient_context[0:patient_context_max]}."
-            if pubmed_context is not None:
-                context_extra += f"You can also use this context from pubmed: {pubmed_context} and you can include the DOI number in the appeal."
-            if plan_context is not None and len(plan_context) > 3:
-                context_extra += f"For answering the question you can use this context about the plan {plan_context}"
-            combined_content = f"<<SYS>>{system_prompt}<</SYS>>{context_extra}{prompt[0 : self.max_len]}"
-            print(f"Using {combined_content}")
-            result = s.post(
-                url,
-                headers={"Authorization": f"Bearer {self.token}"},
-                json={
-                    "model": model,
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": combined_content,
-                        },
-                    ],
-                    "temperature": temperature,
-                },
-            )
-            json_result = result.json()
-            if "object" in json_result and json_result["object"] != "error":
-                print(f"Response on {self} Looks ok")
-            else:
-                print(f"***WARNING*** Response {result} on {self} looks _bad_")
+            async with aiohttp.ClientSession() as s:
+                # Combine the message, Mistral's VLLM container does not like the system role anymore?
+                # despite it still being fine-tuned with the system role.
+                context_extra = ""
+                if patient_context is not None and len(patient_context) > 3:
+                    patient_context_max = int(self.max_len / 2)
+                    max_len = self.max_len - min(len(patient_context), patient_context_max)
+                    context_extra = f"When answering the following question you can use the patient context {patient_context[0:patient_context_max]}."
+                if pubmed_context is not None:
+                    context_extra += f"You can also use this context from pubmed: {pubmed_context} and you can include the DOI number in the appeal."
+                if plan_context is not None and len(plan_context) > 3:
+                    context_extra += f"For answering the question you can use this context about the plan {plan_context}"
+                combined_content = f"<<SYS>>{system_prompt}<</SYS>>{context_extra}{prompt[0 : self.max_len]}"
+                print(f"Using {combined_content}")
+                async with s.post(
+                    url,
+                    headers={"Authorization": f"Bearer {self.token}"},
+                    json={
+                        "model": model,
+                        "messages": [
+                            {
+                                "role": "user",
+                                "content": combined_content,
+                            },
+                        ],
+                        "temperature": temperature,
+                    },
+                ) as response:
+                    json_result = await response.json()
+                if "object" in json_result and json_result["object"] != "error":
+                    print(f"Response on {self} Looks ok")
+                else:
+                    print(f"***WARNING*** Response {result} on {self} looks _bad_")
         except Exception as e:
             print(f"Error {e} {traceback.format_exc()} calling {api_base}")
             return None

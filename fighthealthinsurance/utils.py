@@ -1,3 +1,4 @@
+import asyncio
 import concurrent
 import os
 import re
@@ -113,3 +114,4 @@ def url_fixer(result: Optional[str]) -> Optional[str]:
                 print(f"Removing invalud url {u}")
                 result = result.replace(u, "")
         return result
+

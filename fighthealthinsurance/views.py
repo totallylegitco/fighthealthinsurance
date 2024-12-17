@@ -303,19 +303,19 @@ class GenerateAppeal(View):
 class AppealsBackend(View):
     """Streaming back the appeals as json :D"""
 
-    def post(self, request):
+    async def post(self, request):
         print(request)
         print(request.POST)
         form = DenialRefForm(request.POST)
         if form.is_valid():
-            return AppealsBackendHelper.generate_appeals(request.POST)
+            return await AppealsBackendHelper.generate_appeals(request.POST)
         else:
             print(f"Error processing {form}")
 
-    def get(self, request):
+    async def get(self, request):
         form = DenialRefForm(request.GET)
         if form.is_valid():
-            return AppealsBackendHelper.generate_appeals(request.GET)
+            return await AppealsBackendHelper.generate_appeals(request.GET)
         else:
             print(f"Error processing {form}")
 
