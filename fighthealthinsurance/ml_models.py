@@ -606,4 +606,4 @@ class DeepInfra(RemoteFullOpenLike):
         ]
 
 
-candidate_model_backends: list[type[RemoteModel]] = all_concrete_subclasses(RemoteModel) # type: ignore[type-abstract]
+candidate_model_backends: list[type[RemoteModel]] = all_concrete_subclasses(RemoteModel)  # type: ignore[type-abstract]

@@ -298,10 +298,10 @@ class Test(Dev):
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / f"test{dt}.db.sqlite3",
+            "NAME": BASE_DIR / f"test.db.sqlite3",
             "TIMEOUT": 20,
             "TEST": {
-                "NAME": BASE_DIR / f"test{dt}.db.sqlite3",
+                "NAME": BASE_DIR / f"test.db.sqlite3",
             },
         },
     }

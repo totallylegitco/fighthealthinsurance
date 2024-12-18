@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 from fighthealthinsurance.common_view_logic import *
@@ -99,4 +100,12 @@ class AppealsBackend(APIView):
 
     def post(self, request):
         pythondata = json.loads(request.body)
-        return AppealsBackendHelper.generate_appeals(pythondata)
+        return asyncio.run(AppealsBackendHelper.generate_appeals(pythondata))
+
+
+class StreamingEntityBackend(APIView):
+    """Streaming back the updates as json :D"""
+
+    def post(self, request):
+        pythondata = json.loads(request.body)
+        return asyncio.run(DenialCreatorHelper.extract_entity(**pythondata))

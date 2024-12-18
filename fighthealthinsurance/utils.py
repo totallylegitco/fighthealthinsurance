@@ -98,8 +98,10 @@ def all_subclasses(cls: type[U]) -> set[type[U]]:
         [s for c in cls.__subclasses__() for s in all_subclasses(c)]
     )
 
+
 def all_concrete_subclasses(cls: type[U]):
     return [c for c in all_subclasses(cls) if not isabstract(c)]
+
 
 url_pattern = "https?:\\/\\/(?:www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b(?:[-a-zA-Z0-9@:%_\\+.~#?&\\/=]*)"
 url_re = re.compile(url_pattern, re.IGNORECASE)

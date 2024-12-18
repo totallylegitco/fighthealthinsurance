@@ -51,9 +51,6 @@ function processResponseChunk(chunk: string): void {
                     console.log('Duplicate appeal found. Skipping.');
                     return;
                 }
-		if (appeal == "") {
-		    console.log("Skipping the pong")
-		}
 
                 appealsSoFar.push(parsedLine);
                 appealId++;

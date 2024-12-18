@@ -4,7 +4,7 @@ import datetime
 import json
 from dataclasses import dataclass
 from string import Template
-from typing import Any, Optional, Tuple, Iterable
+from typing import Awaitable, Any, Optional, Tuple, Iterable
 import threading
 
 from django.core.files import File
@@ -580,15 +580,17 @@ class DenialCreatorHelper:
 
     @classmethod
     async def extract_entity(cls, denial_id=None, **kwargs):
-        asyncs = [
+        asyncs: list[Awaitable[Any]] = [
             cls.extract_set_fax_number(denial_id),
             cls.extract_set_denial_and_diagnosis(denial_id),
             cls.extract_set_denialtype(denial_id),
+            asyncio.sleep(0, result=""),
         ]
 
         def wait_for_result(r):
+            print(f"Running {r}")
             asyncio.run(r)
-            return ""
+            return f"{r}"
 
         responses = map(wait_for_result, asyncs)
         formatted = map(lambda e: e + "\n", responses)
@@ -714,11 +716,19 @@ class AppealsBackendHelper:
     @classmethod
     async def generate_appeals(cls, parameters):
         denial_id = parameters["denial_id"]
-        hashed_email = Denial.get_hashed_email(parameters["email"])
+        email = parameters["email"]
+        semi_sekret = parameters["semi_sekret"]
+        hashed_email = Denial.get_hashed_email(email)
 
+        if denial_id is None:
+            raise Exception("Invalid denial id")
+        if semi_sekret is None:
+            raise Exception("Missing sekret")
+
+        print(f"Hiiiii!!!! {denial_id} / {email}")
         # Get the current info
         denial = await Denial.objects.filter(
-            denial_id=denial_id, hashed_email=hashed_email
+            denial_id=denial_id, hashed_email=hashed_email, semi_sekret=semi_sekret
         ).aget()
 
         non_ai_appeals: List[str] = list(

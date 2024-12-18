@@ -73,10 +73,12 @@ class ModelRouter(object):
         else:
             models = self.all_models_by_cost
         for m in models:
-            return asyncio.run(m._infer(
-                system_prompt="You are a helpful assistant summarizing an article for a person or other LLM wriitng an appeal. Be very concise.",
-                prompt=f"Given this query {query} summarize the following for {query}: {abstract} -- {text}.",
-            ))
+            return asyncio.run(
+                m._infer(
+                    system_prompt="You are a helpful assistant summarizing an article for a person or other LLM wriitng an appeal. Be very concise.",
+                    prompt=f"Given this query {query} summarize the following for {query}: {abstract} -- {text}.",
+                )
+            )
         return None
 
     def working(self) -> bool:
