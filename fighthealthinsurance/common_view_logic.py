@@ -1,4 +1,4 @@
-from asgiref.sync import sync_to_async
+from asgiref.sync import sync_to_async, async_to_sync
 import asyncio
 import datetime
 import json
@@ -576,19 +576,21 @@ class DenialCreatorHelper:
 
     @classmethod
     def start_background(cls, denial_id):
-        asyncio.run(cls._start_background(denial_id))
+        async_to_sync(cls._start_background(denial_id))
 
     @classmethod
     async def extract_entity(cls, denial_id=None, **kwargs):
+        # Fax extraction is fire and forget and can run in parallel to the other tass
+        asyncio.create_task(cls.extract_set_fax_number(denial_id))
         asyncs: list[Awaitable[Any]] = [
-            cls.extract_set_fax_number(denial_id),
+            # Denial type depends on denial and diagnosis
             cls.extract_set_denial_and_diagnosis(denial_id),
             cls.extract_set_denialtype(denial_id),
             asyncio.sleep(0, result=""),
         ]
 
+        # Run the tasks in order
         def wait_for_result(r):
-            print(f"Running {r}")
             asyncio.run(r)
             return f"{r}"
 
@@ -715,22 +717,17 @@ class AppealsBackendHelper:
 
     @classmethod
     async def generate_appeals(cls, parameters):
-        denial_id = parameters["denial_id"]
+        did = parameters["denial_id"]
         email = parameters["email"]
         semi_sekret = parameters["semi_sekret"]
         hashed_email = Denial.get_hashed_email(email)
 
-        if denial_id is None:
-            raise Exception("Invalid denial id")
         if semi_sekret is None:
             raise Exception("Missing sekret")
 
         # Get the current info
         await asyncio.sleep(0)
-        denial = await Denial.objects.filter(
-            denial_id=denial_id
-        ).aget()
-
+        denial = await sync_to_async(Denial.objects.filter(denial_id=did).get)()
 
         non_ai_appeals: List[str] = list(
             map(

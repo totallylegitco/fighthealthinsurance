@@ -1,3 +1,4 @@
+from asgiref.sync import sync_to_async, async_to_sync
 import asyncio
 import json
 
@@ -100,7 +101,8 @@ class AppealsBackend(APIView):
 
     def post(self, request):
         pythondata = json.loads(request.body)
-        return asyncio.run(AppealsBackendHelper.generate_appeals(pythondata))
+        denial_id = pythondata["denial_id"]
+        return async_to_sync(AppealsBackendHelper.generate_appeals)(pythondata)
 
 
 class StreamingEntityBackend(APIView):
@@ -108,4 +110,4 @@ class StreamingEntityBackend(APIView):
 
     def post(self, request):
         pythondata = json.loads(request.body)
-        return asyncio.run(DenialCreatorHelper.extract_entity(**pythondata))
+        return async_to_sync(DenialCreatorHelper.extract_entity)(**pythondata)
