@@ -820,8 +820,6 @@ class AppealsBackendHelper:
 
         def save_appeal(appeal_text):
             # Save all of the proposed appeals, so we can use RL later.
-            if appeal_text == None:
-                return  # Skip the ones that failed
             t = time.time()
             print(f"{t}: Saving {appeal_text}")
             pa = ProposedAppeal(appeal_text=appeal_text, for_denial=denial)
