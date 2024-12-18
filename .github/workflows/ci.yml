@@ -21,7 +21,7 @@ jobs:
         uses: astral-sh/setup-uv@v3
 
       - name: Install dependencies
-        run: uv tool install tox
+        run: uv tool install tox --with tox-uv
 
       - name: Check style
         run:
@@ -45,6 +45,10 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v3
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.10
 
       - name: Install tox
         run: uv tool install tox --with tox-uv
@@ -87,6 +91,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y tesseract-ocr texlive && sudo apt-get clean
 
       - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v3
@@ -190,6 +196,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y tesseract-ocr texlive && sudo apt-get clean
 
       - uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v3
