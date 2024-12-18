@@ -46,8 +46,11 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
 
-      - name: Install dependencies
+      - name: Install tox
         run: uv tool install tox
+
+      - name: Install Py3.10
+        run: uv python install 3.10
 
       - name: Check types
         run:
@@ -91,10 +94,13 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
 
-      - name: Install dependencies
+      - name: Install tox
         run: uv tool install tox
 
-      - name: Install
+      - name: Install python ${{matrix.python}}
+        run: uv python install ${{matrix.python}}
+
+      - name: Install pandoc
         uses: pandoc/actions/setup@v1
         with:
           version: 2.19
@@ -194,10 +200,13 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v3
 
-      - name: Install dependencies
+      - name: Install tox
         run: uv tool install tox
 
-      - name: Install
+      - name: Install python ${{matrix.python}}
+        run: uv python install ${{matrix.python}}
+
+      - name: Install pandoc
         uses: pandoc/actions/setup@v1
         with:
           version: 2.19
