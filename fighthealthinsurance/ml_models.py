@@ -13,13 +13,13 @@ import requests
 from stopit import ThreadingTimeout as Timeout
 
 from fighthealthinsurance.exec import *
-from fighthealthinsurance.utils import all_subclasses, url_fixer
+from fighthealthinsurance.utils import all_concrete_subclasses, url_fixer
 from fighthealthinsurance.process_denial import DenialBase
 
 
 class RemoteModelLike(DenialBase):
     def infer(self, prompt, patient_context, plan_context, pubmed_context, infer_type):
-        pass
+        return None
 
     @abstractmethod
     async def _infer(
@@ -606,4 +606,4 @@ class DeepInfra(RemoteFullOpenLike):
         ]
 
 
-candidate_model_backends: list[type[RemoteModel]] = list(all_subclasses(RemoteModel))
+candidate_model_backends: list[type[RemoteModel]] = all_concrete_subclasses(RemoteModel) # type: ignore[type-abstract]
