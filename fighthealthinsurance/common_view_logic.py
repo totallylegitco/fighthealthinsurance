@@ -726,9 +726,11 @@ class AppealsBackendHelper:
             raise Exception("Missing sekret")
 
         # Get the current info
+        await asyncio.sleep(0)
         denial = await Denial.objects.filter(
-            denial_id=denial_id, hashed_email=hashed_email, semi_sekret=semi_sekret
+            denial_id=denial_id
         ).aget()
+
 
         non_ai_appeals: List[str] = list(
             map(

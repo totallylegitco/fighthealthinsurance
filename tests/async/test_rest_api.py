@@ -114,10 +114,11 @@ class DenialEndToEnd(APITestCase):
         ).count()
         assert denials_for_user_count > 0
         # Make sure we can get the denial
-        denials = Denial.objects.filter(
+        denial = Denial.objects.filter(
             hashed_email=hashed_email,
             denial_id=denial_id
-        ).get
+        ).get()
+        print(f"We should find {denial}")
         # Now we need to poke entity extraction
         entity_extraction_url = reverse("api_streamingentity_json_backend")
         response = self.client.post(
