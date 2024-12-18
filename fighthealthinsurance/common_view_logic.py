@@ -645,7 +645,8 @@ class DenialCreatorHelper:
         if appeal_fax_number is not None:
             # TODO: More flexible regex matching
             if (
-                appeal_fax_number not in denial.denial_text
+                (appeal_fax_number not in denial.denial_text and
+                 "Fax" not in denial.denial_text)
                 or len(appeal_fax_number) > 30
             ):
                 appeal_fax_number = None
