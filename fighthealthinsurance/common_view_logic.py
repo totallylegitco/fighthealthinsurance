@@ -717,17 +717,23 @@ class AppealsBackendHelper:
 
     @classmethod
     async def generate_appeals(cls, parameters):
-        did = parameters["denial_id"]
+        denial_id = parameters["denial_id"]
         email = parameters["email"]
         semi_sekret = parameters["semi_sekret"]
         hashed_email = Denial.get_hashed_email(email)
 
+        if denial_id is None:
+            raise Exception("Missing denial id")
         if semi_sekret is None:
             raise Exception("Missing sekret")
 
         # Get the current info
         await asyncio.sleep(0)
-        denial = await sync_to_async(Denial.objects.filter(denial_id=did).get)()
+        denial = await sync_to_async(
+            Denial.objects.filter(
+                denial_id=denial_id, semi_sekret=semi_sekret, hashed_email=hashed_email
+            ).get
+        )()
 
         non_ai_appeals: List[str] = list(
             map(
