@@ -22,7 +22,10 @@ from fighthealthinsurance.form_utils import *
 from fighthealthinsurance.generate_appeal import *
 from fighthealthinsurance.models import *
 from fighthealthinsurance.question_forms import *
-from fighthealthinsurance.utils import pubmed_fetcher
+from fighthealthinsurance.utils import (
+    pubmed_fetcher,
+    interleave_iterator_for_keep_alive,
+)
 import ray
 from .pubmed_tools import PubMedTools
 
@@ -522,7 +525,6 @@ class DenialCreatorHelper:
                 use_external=use_external_models,
                 raw_email=possible_email,
                 health_history=health_history,
-                appeal_fax_number=appeal_fax_number,
             )
         except Exception as e:
             # This is a temporary hack to drop non-ASCII characters
@@ -534,7 +536,7 @@ class DenialCreatorHelper:
                 hashed_email=hashed_email,
                 use_external=use_external_models,
                 raw_email=possible_email,
-                health_history=health_history
+                health_history=health_history,
             )
 
         if possible_email is not None:
@@ -551,9 +553,11 @@ class DenialCreatorHelper:
             except:
                 # Default to no state
                 your_state = None
+        # Optionally:
         # Fire off some async requests to the model to extract info.
-        denial_id = denial.denial_id
-        executor.submit(cls.start_background, denial_id)
+        # denial_id = denial.denial_id
+        # executor.submit(cls.start_background, denial_id)
+        # For now we fire this off "later" on a dedicated page with javascript magic.
         r = re.compile(r"Group Name:\s*(.*?)(,|)\s*(INC|CO|LTD|LLC)\s+", re.IGNORECASE)
         g = r.search(denial_text)
         # TODO: Update based on plan document upload if present.
@@ -575,7 +579,27 @@ class DenialCreatorHelper:
         asyncio.run(cls._start_background(denial_id))
 
     @classmethod
+    async def extract_entity(cls, denial_id=None, **kwargs):
+        asyncs = [
+            cls.extract_set_fax_number(denial_id),
+            cls.extract_set_denial_and_diagnosis(denial_id),
+            cls.extract_set_denialtype(denial_id),
+        ]
+
+        def wait_for_result(r):
+            asyncio.run(r)
+            return ""
+
+        responses = map(wait_for_result, asyncs)
+        formatted = map(lambda e: e + "\n", responses)
+        return StreamingHttpResponse(
+            interleave_iterator_for_keep_alive(formatted),
+            content_type="application/json",
+        )
+
+    @classmethod
     async def _start_background(cls, denial_id):
+        """Run"""
         asyncio.ensure_future(cls.extract_set_fax_number(denial_id))
         await cls.extract_set_denial_and_diagnosis(denial_id)
         await cls.extract_set_denialtype(denial_id)
@@ -586,38 +610,40 @@ class DenialCreatorHelper:
         # Try and guess at the denial types
         denial = await Denial.objects.filter(denial_id=denial_id).aget()
         denial_types = await cls.regex_denial_processor.get_denialtype(
-            denial_text=denial.denial_text, procedure=denial.procedure, diagnosis=denial.diagnosis
+            denial_text=denial.denial_text,
+            procedure=denial.procedure,
+            diagnosis=denial.diagnosis,
         )
         print(f"Ok lets rock with {denial_types}")
         for dt in denial_types:
             print(f"K: {dt}")
             try:
                 await DenialTypesRelation.objects.acreate(
-                        denial=denial,
-                        denial_type=dt,
-                        src=await cls.regex_src()
-                    )
+                    denial=denial, denial_type=dt, src=await cls.regex_src()
+                )
             except Exception as e:
                 print(f"Failed with {e}")
             print(f"meep")
         print(f"Done setting denial types")
 
     @classmethod
-    async def extract_set_fax_number(
-            cls,
-            denial_id):
+    async def extract_set_fax_number(cls, denial_id):
         # Try and extract the appeal fax number
         denial = await Denial.objects.filter(denial_id=denial_id).aget()
         appeal_fax_number = None
         try:
-            appeal_fax_number = appealGenerator.get_fax_number(
+            appeal_fax_number = await appealGenerator.get_fax_number(
                 denial_text=denial.denial_text, use_external=denial.use_external_models
             )
         except:
             pass
         # Slight gaurd against halucinations
         if appeal_fax_number is not None:
-            if appeal_fax_number not in denial_text or len(appeal_fax_number) > 30:
+            # TODO: More flexible regex matching
+            if (
+                appeal_fax_number not in denial.denial_text
+                or len(appeal_fax_number) > 30
+            ):
                 appeal_fax_number = None
         if appeal_fax_number is not None:
             denial = await Denial.objects.filter(denial_id=denial_id).aget()
@@ -625,9 +651,7 @@ class DenialCreatorHelper:
             await denial.asave()
 
     @classmethod
-    async def extract_set_denial_and_diagnosis(
-            cls,
-            denial_id):
+    async def extract_set_denial_and_diagnosis(cls, denial_id):
         try:
             denial = await Denial.objects.filter(denial_id=denial_id).aget()
             (procedure, diagnosis) = await appealGenerator.get_procedure_and_diagnosis(
@@ -771,8 +795,8 @@ class AppealsBackendHelper:
             denial.qa_context = " ".join(medical_context)
         if plan_context is not None:
             denial.plan_context = " ".join(set(plan_context))
-        denial.asave()
-        appeals: Iterable[str] = appealGenerator.make_appeals(
+        await denial.asave()
+        appeals: Iterable[str] = await sync_to_async(appealGenerator.make_appeals)(
             denial,
             AppealTemplateGenerator(prefaces, main, footer),
             medical_reasons=medical_reasons,
@@ -781,10 +805,12 @@ class AppealsBackendHelper:
 
         def save_appeal(appeal_text):
             # Save all of the proposed appeals, so we can use RL later.
+            if appeal_text == None:
+                return  # Skip the ones that failed
             t = time.time()
             print(f"{t}: Saving {appeal_text}")
             pa = ProposedAppeal(appeal_text=appeal_text, for_denial=denial)
-            pa.asave()
+            pa.save()
             return appeal_text
 
         def sub_in_appeals(appeal: str) -> str:
@@ -809,9 +835,11 @@ class AppealsBackendHelper:
             return ret
 
         filtered_appeals = filter(lambda x: x != None, appeals)
+        # TODO: Move out of hot path (async)
         saved_appeals = map(save_appeal, filtered_appeals)
         subbed_appeals = map(sub_in_appeals, saved_appeals)
         subbed_appeals_json = map(lambda e: json.dumps(e) + "\n", subbed_appeals)
         return StreamingHttpResponse(
-            subbed_appeals_json, content_type="application/json"
+            interleave_iterator_for_keep_alive(subbed_appeals_json),
+            content_type="application/json",
         )

@@ -115,3 +115,16 @@ def url_fixer(result: Optional[str]) -> Optional[str]:
                 result = result.replace(u, "")
         return result
 
+
+async def filter_async_generator(predicate, list_in):
+    for elem in list_in:
+        if await predicate(elem):
+            yield elem
+
+
+# Interleave empty for keep alive -- hacky we should fix later.
+def interleave_iterator_for_keep_alive(iterator):
+    for item in iterator:
+        yield ""
+        yield item
+        yield ""
