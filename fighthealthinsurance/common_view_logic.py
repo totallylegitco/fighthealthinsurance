@@ -725,7 +725,6 @@ class AppealsBackendHelper:
         if semi_sekret is None:
             raise Exception("Missing sekret")
 
-        print(f"Hiiiii!!!! {denial_id} / {email}")
         # Get the current info
         denial = await Denial.objects.filter(
             denial_id=denial_id, hashed_email=hashed_email, semi_sekret=semi_sekret
