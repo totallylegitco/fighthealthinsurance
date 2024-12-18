@@ -730,11 +730,9 @@ class AppealsBackendHelper:
 
         # Get the current info
         await asyncio.sleep(0)
-        denial = await sync_to_async(
-            Denial.objects.filter(
+        denial = await Denial.objects.filter(
                 denial_id=denial_id, semi_sekret=semi_sekret, hashed_email=hashed_email
-            ).get
-        )()
+            ).aget()
 
         non_ai_appeals: List[str] = list(
             map(
