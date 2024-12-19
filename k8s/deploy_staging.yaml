@@ -68,7 +68,7 @@ spec:
           name: totallylegitco
           envFrom:
           - secretRef:
-              name: fight-health-insurance-secret
+              name: fight-health-insurance-secret-staging
           imagePullPolicy: Always
           ports:
             - containerPort: 80
@@ -125,7 +125,7 @@ metadata:
     cert-manager.io/cluster-issuer: letsencrypt
     cert-manager.io/issue-temporary-certificate: "true"
     acme.cert-manager.io/http01-edit-in-place: "true"
-    cert-manager.io/renew-before: "20d"
+    cert-manager.io/renew-before: 360h
     nginx.ingress.kubernetes.io/affinity: "cookie"
     nginx.ingress.kubernetes.io/session-cookie-name: "route"
     nginx.ingress.kubernetes.io/session-cookie-max-age: "30000"
