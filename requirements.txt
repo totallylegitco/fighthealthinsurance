@@ -62,3 +62,4 @@ urllib3
 uszipcode
 uvicorn[standard]
 werkzeug
+asyncstdlib

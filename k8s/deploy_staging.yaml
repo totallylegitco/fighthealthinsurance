@@ -68,7 +68,7 @@ spec:
           name: totallylegitco
           envFrom:
           - secretRef:
-              name: fight-health-insurance-secret-staging
+              name: fight-health-insurance-secret
           imagePullPolicy: Always
           ports:
             - containerPort: 80
@@ -135,7 +135,7 @@ spec:
   tls:
   - hosts:
       - staging.fighthealthinsurance.com
-    secretName: combined-tls-secret
+    secretName: combined-tls-secret-staging
   rules:
     - host: staging.fighthealthinsurance.com
       http:
