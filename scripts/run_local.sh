@@ -52,5 +52,5 @@ if [ -z "$UVICORN" ]; then
   RECAPTCHA_TESTING=true OAUTHLIB_RELAX_TOKEN_SCOPE=1 \
 			 python manage.py runserver_plus --cert-file cert.pem --key-file key.pem $@
 else
-  uvicorn fighthealthinsurance.asgi:application --reload --reload-dir fighthealthinsurance --access-log --log-config conf/uvlog_config.yaml --port 8000 --ssl-keyfile key.pem --ssl-certfile cert.pem
+  uvicorn fighthealthinsurance.asgi:application --reload --reload-dir fighthealthinsurance --access-log --log-config conf/uvlog_config.yaml --port 8000 --ssl-keyfile key.pem --ssl-certfile cert.pem $@
 fi

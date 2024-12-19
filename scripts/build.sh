@@ -7,7 +7,7 @@ BUILDX_CMD=${BUILDX_CMD:-push}
 
 source "${SCRIPT_DIR}/setup_templates.sh"
 
-FHI_VERSION=v0.9.11k
+FHI_VERSION=v0.9.11l
 
 export FHI_VERSION
 
@@ -15,7 +15,7 @@ export FHI_VERSION
 source "${SCRIPT_DIR}/build_django.sh"
 # Deploy a staging env
 envsubst < k8s/deploy_staging.yaml | kubectl apply -f -
-read -p "Have you checked staging and are ready to deploy to prod? (y/n) " yn
+read -rp "Have you checked staging and are ready to deploy to prod? (y/n) " yn
 
 case $yn in
     [Yy]* ) echo "Proceeding...";;
