@@ -182,7 +182,8 @@ urlpatterns = [
         name="contact",
     ),
     path(
-        "favicon.ico", RedirectView.as_view(url=staticfiles_storage.url("favicon.ico"))
+        "favicon.ico",
+        RedirectView.as_view(url=staticfiles_storage.url("images/favicon.ico")),
     ),
 ]
 
