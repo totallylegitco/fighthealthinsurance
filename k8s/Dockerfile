@@ -29,6 +29,8 @@ COPY --chown=www-data:www-data scripts/start-server.sh /opt/fighthealthinsurance
 COPY --chown=www-data:www-data *.py /opt/fighthealthinsurance/
 WORKDIR /opt/fighthealthinsurance/
 RUN sudo -u www-data HOME=$(pwd) python initial.py
+RUN mkdir -p ~www-data
+RUN chown -R www-data ~www-data
 # RUN chown -R www-data:www-data /opt/fighthealthinsurance
 # start server
 EXPOSE 80
