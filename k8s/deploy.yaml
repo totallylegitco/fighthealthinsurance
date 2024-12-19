@@ -14,7 +14,7 @@ spec:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: web-primary
+  name: web-migrations
   namespace: totallylegitco
 spec:
   ttlSecondsAfterFinished: 10
@@ -28,7 +28,34 @@ spec:
         - image: holdenk/fight-health-insurance:${FHI_VERSION}
           name: totallylegitco
           env:
-          - name: PRIMARY
+          - name: MIGRATIONS
+            value: "1"
+          envFrom:
+          - secretRef:
+              name: fight-health-insurance-secret
+          - secretRef:
+              name: fight-health-insurance-primary-secret
+          imagePullPolicy: Always
+      restartPolicy: OnFailure
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: web-actor-launch
+  namespace: totallylegitco
+spec:
+  ttlSecondsAfterFinished: 10
+  template:
+    metadata:
+      labels:
+        group: fight-health-insurance-webbackend-batch
+        special: web-primary-pod
+    spec:
+      containers:
+        - image: holdenk/fight-health-insurance:${FHI_VERSION}
+          name: totallylegitco
+          env:
+          - name: POLLING_ACTORS
             value: "1"
           envFrom:
           - secretRef:
