@@ -6,6 +6,8 @@ import { TextContent, TextItem } from 'pdfjs-dist/types/src/display/api';
 // Tesseract
 import Tesseract from 'tesseract.js';
 
+
+
 async function getTesseractWorkerRaw(): Promise<Tesseract.Worker> {
     console.log("Loading tesseract worker.")
     const worker = await Tesseract.createWorker(
@@ -102,25 +104,48 @@ function isPDF(file: File): boolean {
     return file.type.match('application/pdf') !== null;
 }
 
+async function getFileAsArrayBuffer(file: File): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+	  if (reader.result instanceof ArrayBuffer) {
+	      resolve(new Uint8Array(reader.result));
+	  } else {
+	      reject(new Error("Unexpected result type from FileReader"));
+	  }
+    };
+
+    reader.onerror = () => {
+      reject(reader.error);
+    };
+
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 const recognizePDF = async function(file: File) {
     const reader = new FileReader();
-    reader.onload = function (event: ProgressEvent<FileReader>) {
-	if (event.target && event.target.result instanceof ArrayBuffer) {
-	    const typedarray = new Uint8Array(event.target.result);
-	    console.log("Data?")
-	    console.log(typedarray)
-	    const loadingTask = pdfjsLib.getDocument(typedarray);
-	    loadingTask.promise.then(doc => {
-		const ret = getPDFText(doc);
-		ret.then((t) => {
-		    console.log("ret:");
-		    console.log(ret);
-		    addText(t);
-		});
-	    })
-	}
-    };
-    reader.readAsArrayBuffer(file);
+    const worker = await getTesseractWorker();
+    let extractedText = "";
+    const typedarray = await getFileAsArrayBuffer(file); 
+    console.log("Data?")
+    console.log(typedarray)
+    const loadingTask = pdfjsLib.getDocument(typedarray);
+    loadingTask.promise.then(doc => {
+	const ret = getPDFText(doc);
+	ret.then((t) => {
+	    console.log("ret:");
+	    console.log(ret);
+	    addText(t);
+	    extractedText += t;
+	});
+    });
+    // Did we have almost no text? Try OCR
+    //if (extractedText.length < 10) {
+	//const ret = await worker.recognize(image);
+	//addText(ret.data.text);
+    //}
 }
 
 const recognizeImage = async function(file: File) {
