@@ -1119,6 +1119,17 @@ footer a:hover {
     .angle-up-btn {
 	bottom: 10em;
     }
+
+    .form-group .row {
+        margin-left: 0;
+        margin-right: 0;
+    }
+
+    .form-group .col-md-4 {
+    padding-left: 0;
+    padding-right: 0;
+    }
+
 }
 
 /* Mobile */
