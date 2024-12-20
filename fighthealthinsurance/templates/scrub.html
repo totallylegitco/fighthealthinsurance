@@ -24,20 +24,17 @@ Upload your Health Insurance Denial
 	<form method="post" action="{% url 'process' %}" id="fuck_health_insurance_form" enctype="multipart/form-data">
 		{% csrf_token %}
 	<div class="form-group">
-	    <div class="row">
-			<div class="col-md-4">
+			<div class="col-12 col-sm-6 col-md-4 px-2">
 				<label for="store_fname" class="form-label">First name*</label><br>
 				<input type="text" id="store_fname" name="fname" class="form-control"><br>
 			</div>
-			<div class="col-md-4">
+			<div class="col-12 col-sm-6 col-md-4 px-2">
 				<label for="store_lname" class="form-label">Last name*</label><br>
 				<input type="text" id="store_lname" name="lname" class="form-control"><br>
 			</div>
-		</div>
 	</div>
 			<div class="form-group">
-				<div class="row">
-				<div class="col-md-4">
+				<div class="col-12 col-sm-6 col-md-4 px-2">
 					<label for="email" class="form-label">
 					  <div id="email-label">Email**</div>
 						<span class="d-block small text-muted">
@@ -45,25 +42,22 @@ Upload your Health Insurance Denial
 					</label><br>
 					<input type="email" id="email" name="email" class="form-control"><br>
 				</div>
-			</div>
 		</div>
 		<div class="form-group">
-			<div class="row">
-				<div class="col-md-4">
+				<div class="col-12 col-sm-6 col-md-4 px-2">
 					<label for="store_street" class="form-label">
 						Street Address*
 						<small class="text-muted">(e.g. 283 24th St)</small>
 					</label><br>
 					<input type="text" id="store_street" name="street" class="form-control"><br>
 				</div>
-				<div class="col-md-4">
+				<div class="col-12 col-sm-6 col-md-4 px-2">
 					<label for="store_zip" class="form-label">
 						Zip Code
 						<small class="text-muted">(e.g. 94103)</small>
 					</label><br>
 					<input type="text" id="store_zip" name="zip" class="form-control"><br>
 				</div>
-			</div>
 	    </div>
 	{% if upload_more %}
 	<div id="image_select_magic" style="visibility:visible">
@@ -72,7 +66,7 @@ Upload your Health Insurance Denial
 		</label><br>
 		<small class="text-muted">Attach all insurance denial pages below:</small><br>
 		<small class="text-muted">Once uploaded, your file(s) will populate below in plain text.</small><br>
-	    <div class="col-md-4">
+	    <div class="col-12 col-sm-6 col-md-4 px-2">
 			<input id="uploader" type="file" name="uploader" multiple="true" class="form-control mt-2"><br>
 	    </div>
 	</div>
