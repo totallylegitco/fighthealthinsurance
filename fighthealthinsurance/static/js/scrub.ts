@@ -126,26 +126,34 @@ async function getFileAsArrayBuffer(file: File): Promise<Uint8Array> {
 
 const recognizePDF = async function(file: File) {
     const reader = new FileReader();
-    const worker = await getTesseractWorker();
-    let extractedText = "";
     const typedarray = await getFileAsArrayBuffer(file); 
     console.log("Data?")
     console.log(typedarray)
     const loadingTask = pdfjsLib.getDocument(typedarray);
-    loadingTask.promise.then(doc => {
-	const ret = getPDFText(doc);
-	ret.then((t) => {
-	    console.log("ret:");
-	    console.log(ret);
-	    addText(t);
-	    extractedText += t;
-	});
-    });
+    const doc = await loadingTask.promise;
+    const pdfText = await getPDFText(doc);
+    addText(pdfText);
     // Did we have almost no text? Try OCR
-    //if (extractedText.length < 10) {
-	//const ret = await worker.recognize(image);
-	//addText(ret.data.text);
-    //}
+    if (pdfText.trim().length < 10) {
+	const numPages = doc.numPages;
+	const worker = await getTesseractWorker()
+
+        for (let pageNo = 1; pageNo <= numPages; pageNo++) {
+            const page = await doc.getPage(pageNo);
+            const viewport = page.getViewport({ scale: 1.0 });
+	    
+            const canvas = document.createElement("canvas");
+            const context = canvas.getContext("2d")!;
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+	    
+            await page.render({ canvasContext: context, viewport }).promise;
+	    
+            const imageData = canvas.toDataURL("image/png");
+            const ocrResult = await worker.recognize(imageData);
+	    addText(ocrResult.data.text + "\n");
+        }
+    }
 }
 
 const recognizeImage = async function(file: File) {
