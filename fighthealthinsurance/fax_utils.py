@@ -638,4 +638,11 @@ class FlexibleFaxMagic(object):
         return False
 
 
-flexible_fax_magic = FlexibleFaxMagic([FaxyMcFaxFace(), SonicFax()])
+flexible_fax_magic = FlexibleFaxMagic([FaxyMcFaxFace()])
+
+# Add Sonic if we can support it
+try:
+    s = SonicFax()
+    flexible_fax_magic.append(s)
+except:
+    pass
