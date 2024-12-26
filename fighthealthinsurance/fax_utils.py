@@ -468,6 +468,9 @@ class FlexibleFaxMagic(object):
         self.backends = backends
         self.max_pages = max_pages
 
+    def _add_backend(self, backend: FaxSenderBase) -> None:
+        self.backends.append(backend)
+
     def assemble_single_output(
         self, user_header: str, extra: str, input_paths: list[str]
     ) -> str:
@@ -643,6 +646,6 @@ flexible_fax_magic = FlexibleFaxMagic([FaxyMcFaxFace()])
 # Add Sonic if we can support it
 try:
     s = SonicFax()
-    flexible_fax_magic.append(s)
+    flexible_fax_magic._add_backend(s)
 except:
     pass
