@@ -2,6 +2,7 @@
 set -ex
 
 pwd
+find ./ #wtf
 
 # Activate the venv if present.
 if [ -f ./build_venv/bin/activate ]; then
