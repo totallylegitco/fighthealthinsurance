@@ -13,7 +13,6 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 import os
 from pathlib import Path
 import re
-from typing import Any
 import traceback
 from functools import cached_property
 
@@ -312,15 +311,15 @@ class Prod(Base):
 
     @property
     def SECRET_KEY(self):
-        return os.getenv("SECRET_KEY")
+        return os.getenv("SECRET_KEY", "")
 
     @property
     def STRIPE_API_SECRET_KEY(self):
-        return os.getenv("STRIPE_LIVE_SECRET_KEY")
+        return os.getenv("STRIPE_LIVE_SECRET_KEY", "")
 
     @property
     def STRIPE_API_PUBLISHABLE_KEY(self):
-        return os.getenv("STRIPE_LIVE_PUBLISHABLE_KEY")
+        return os.getenv("STRIPE_LIVE_PUBLISHABLE_KEY", "")
 
     @property
     def DATABASES(self):
