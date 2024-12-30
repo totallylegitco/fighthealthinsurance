@@ -15,7 +15,7 @@ from django.template.loader import render_to_string
 from django.db.models import QuerySet
 
 import uszipcode
-from fighthealthinsurance.core_forms import *
+from fighthealthinsurance import forms as core_forms
 from fighthealthinsurance.fax_actor_ref import fax_actor_ref
 from fighthealthinsurance.fax_utils import flexible_fax_magic
 from fighthealthinsurance.form_utils import *
