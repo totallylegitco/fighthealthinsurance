@@ -379,8 +379,8 @@ class ThirdPartyQuestions(InsuranceQuestions):
                 "As requested the 3rd party insurance is "
                 + self.cleaned_data["alternate_insurance_details"]
             )
-        else:
-            return super().preface()
+
+        return super().preface()
 
 
 class StepTherapy(MedicalNeccessaryQuestions):
