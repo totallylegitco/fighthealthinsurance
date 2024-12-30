@@ -12,7 +12,7 @@ from fighthealthinsurance.common_view_logic import *
 from fighthealthinsurance.core_forms import *
 from fighthealthinsurance.generate_appeal import *
 from fighthealthinsurance.models import *
-from fighthealthinsurance.question_forms import *
+from fighthealthinsurance.forms import questions as question_forms
 from fighthealthinsurance.utils import *
 
 

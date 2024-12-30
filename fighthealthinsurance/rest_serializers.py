@@ -5,7 +5,7 @@ from drf_braces.serializers.form_serializer import (
 )
 from fighthealthinsurance.core_forms import *
 from fighthealthinsurance.models import DenialTypes
-from fighthealthinsurance.question_forms import *
+from fighthealthinsurance.forms import questions as question_forms
 from rest_framework import serializers
 
 
