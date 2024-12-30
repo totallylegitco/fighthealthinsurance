@@ -252,7 +252,7 @@ class GenderAffirmingCareQuestions(InsuranceQuestions):
                     contents = ""
                     for page in doc:
                         contents += page.get_text()
-                except:
+                except RuntimeError:
                     print(f"Error reading {path}")
             if contents is None:
                 with open(path, "r") as file:
