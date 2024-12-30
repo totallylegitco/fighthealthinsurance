@@ -391,6 +391,6 @@ class StepTherapy(MedicalNeccessaryQuestions):
         label=(
             "Why the option from the insurnace company does not "
             "work (e.g. you've tried the suggested medication, are "
-            "allergic, not recommended, etc.)",
+            "allergic, not recommended, etc.)"
         ),
     )
