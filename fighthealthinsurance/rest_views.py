@@ -1,12 +1,14 @@
 import json
+import typing
 
 from asgiref.sync import async_to_sync
 from django.conf import settings
 
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework import viewsets
 from rest_framework import status
+from rest_framework import viewsets
+from rest_framework.response import Response
+from rest_framework.serializers import Serializer
+from rest_framework.views import APIView
 
 from fighthealthinsurance import common_view_logic
 from fighthealthinsurance.model_router import model_router
@@ -15,7 +17,19 @@ from fighthealthinsurance import rest_serializers as serializers
 from stopit import ThreadingTimeout as Timeout
 
 
-class CreateMixin:
+class SerializerMixin:
+    serializer_class: typing.Optional[Serializer] = None
+
+    def get_serializer(self, data=None):
+        if self.serializer_class is None:
+            raise ValueError(
+                'serializer_class must be defined and not None'
+            )
+
+        return self.serializer_class(data=data)
+
+
+class CreateMixin(SerializerMixin):
     def perform_create(self, request, serializer):
         pass
 
@@ -32,8 +46,7 @@ class CreateMixin:
         return Response(result, status=status.HTTP_201_CREATED)
 
 
-
-class DeleteMixin:
+class DeleteMixin(SerializerMixin):
     def perform_delete(self, request, serializer):
         pass
 
@@ -59,7 +72,7 @@ class DeleteOnlyMixin:
         return Response(status=status.HTTP_404_NOT_FOUND)
 
 
-class DataRemovalViewSet(viewsets.GenericViewSet, DeleteMixin, DeleteOnlyMixin):
+class DataRemovalViewSet(viewsets.ViewSet, DeleteMixin, DeleteOnlyMixin):
     serializer_class = serializers.DeleteDataFormSerializer
 
     def perform_delete(self, request, serializer):
@@ -67,7 +80,7 @@ class DataRemovalViewSet(viewsets.GenericViewSet, DeleteMixin, DeleteOnlyMixin):
         common_view_logic.RemoveDataHelper.remove_data_for_email(email)
 
 
-class NextStepsViewSet(viewsets.GenericViewSet, CreateMixin):
+class NextStepsViewSet(viewsets.ViewSet, CreateMixin):
     serializer_class = serializers.PostInferedFormSerializer
 
     def perform_create(self, request, serializer):
@@ -80,7 +93,7 @@ class NextStepsViewSet(viewsets.GenericViewSet, CreateMixin):
         )
 
 
-class DenialViewSet(viewsets.GenericViewSet, CreateMixin):
+class DenialViewSet(viewsets.ViewSet, CreateMixin):
     serializer_class = serializers.DenialFormSerializer
 
     def perform_create(self, request, serializer):
@@ -94,7 +107,7 @@ class DenialViewSet(viewsets.GenericViewSet, CreateMixin):
         return serializers.DenialResponseInfoSerializer(instance=denial)
 
 
-class FollowUpViewSet(viewsets.GenericViewSet, CreateMixin):
+class FollowUpViewSet(viewsets.ViewSet, CreateMixin):
     serializer_class = serializers.FollowUpFormSerializer
 
     def perform_create(self, request, serializer):
