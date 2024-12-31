@@ -13,14 +13,14 @@ else:
 
 router = RouterClass()
 
-router.register(r"denials", rest_views.DenialViewSet, basename="denial")
+router.register(r"denials", rest_views.DenialViewSet, basename="denials")
 router.register(r"next_steps", rest_views.NextStepsViewSet, basename="nextsteps")
-router.register(r"follow_up", rest_views.FollowUpViewSet, basename="followup")
+router.register(r"follow_up", rest_views.FollowUpViewSet, basename="followups")
 
 router.register(
-    r"remove_data",
-    rest_views.RemoveDataViewSet,
-    basename="removedata",
+    r"data_removal",
+    rest_views.DataRemovalViewSet,
+    basename="dataremoval",
 )
 
 urlpatterns = [

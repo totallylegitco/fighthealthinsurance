@@ -59,7 +59,7 @@ class DeleteOnlyMixin:
         return Response(status=status.HTTP_404_NOT_FOUND)
 
 
-class RemoveDataViewSet(viewsets.GenericViewSet, DeleteMixin):
+class DataRemovalViewSet(viewsets.GenericViewSet, DeleteMixin, DeleteOnlyMixin):
     serializer_class = serializers.DeleteDataFormSerializer
 
     def perform_delete(self, request, serializer):
