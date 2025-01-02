@@ -7,6 +7,7 @@ import pymupdf
 import requests
 from bs4 import BeautifulSoup
 from fighthealthinsurance.models import Denial, PlanDocuments
+from loguru import logger
 
 
 class InsuranceQuestions(forms.Form):
@@ -253,7 +254,7 @@ class GenderAffirmingCareQuestions(InsuranceQuestions):
                     for page in doc:
                         contents += page.get_text()
                 except RuntimeError:
-                    print(f"Error reading {path}")
+                    logger.warning(f"Error reading {path}")
             if contents is None:
                 with open(path, "r") as file:
                     contents = file.read()
@@ -297,7 +298,7 @@ class GenderAffirmingCareQuestions(InsuranceQuestions):
                 elif "45/50" in text or "50/50" in text:
                     return True
         except Exception as e:
-            print(f"Error {e} getting employer HRC score")
+            logger.debug(f"Error {e} getting employer HRC score")
             return False
         return False
 

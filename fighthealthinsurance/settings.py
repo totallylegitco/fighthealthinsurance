@@ -22,6 +22,7 @@ import minio as m
 from django.core.files.storage import Storage
 from minio_storage.storage import MinioStorage
 import time
+from dj_easy_log import load_loguru
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "fighthealthinsurance.settings")
 os.environ.setdefault("DJANGO_CONFIGURATION", os.getenv("ENVIRONMENT", "Dev"))
@@ -422,6 +423,6 @@ class Prod(Base):
             print(traceback.format_exc())
             return None
 
-# Configure logging
 
+# Configure logging
 load_loguru(globals())
