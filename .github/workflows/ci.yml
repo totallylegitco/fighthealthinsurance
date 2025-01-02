@@ -164,10 +164,14 @@ jobs:
       - name: Install dependencies
         run: uv tool install tox --with tox-uv
 
+
+      - name: Install our build env
+        run:
+          pwd && uv venv build_venv --python python3.11 && source build_venv/bin/activate && uv pip install -r requirements.txt
+
       - name: Run build the templates
         run:
           ./scripts/setup_templates.sh
-
       - name: Run django docker build
         run:
           ./scripts/build_django.sh
