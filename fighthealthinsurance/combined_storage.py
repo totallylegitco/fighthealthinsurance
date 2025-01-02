@@ -4,6 +4,7 @@ from django.utils.deconstruct import deconstructible
 
 from stopit import ThreadingTimeout as Timeout
 from typing import Any, Optional, IO
+from loguru import logger
 
 
 @deconstructible(path="fighthealthinsurance.combined_storage.CombinedStorage")
@@ -23,12 +24,12 @@ class CombinedStorage(Storage):
                     assert isinstance(result, File), "Opened object is not a File instance."
                     return result
             except Exception as e:
-                print(
+                logger.warning(
                     f"Error opening from {name} {mode} on backend {backend} from {self.backends}: {e}"
                 )
                 last_error = e
         if last_error is not None:
-            print(
+            logger.error(
                 f"Opening failed on all backends -- {self.backends} -- raising {last_error}"
             )
             raise last_error
@@ -42,7 +43,7 @@ class CombinedStorage(Storage):
                 with Timeout(1.0) as _timeout_ctx:
                     return backend.delete(name)
             except Exception as e:
-                print(f"Error {e} deleteing {name} from {self}")
+                logger.error(f"Error {e} deleteing {name} from {self}")
                 last_error = e
         if last_error is not None:
             raise last_error
@@ -58,7 +59,7 @@ class CombinedStorage(Storage):
                         content=content,
                         max_length=max_length)
             except Exception as e:
-                print(f"Error saving {e} to {backend}")
+                logger.error(f"Error saving {e} to {backend}")
                 last_error = e
         if l is None:
             raise Exception(
@@ -73,7 +74,7 @@ class CombinedStorage(Storage):
                 with Timeout(2.0) as _timeout_ctx:
                     return backend.url(name)
             except Exception as e:
-                print(f"Error saving {e} to {backend}")
+                logger.error(f"Error saving {e} to {backend}")
         if last_error is not None:
             raise last_error
         else:
@@ -88,7 +89,7 @@ class CombinedStorage(Storage):
                     if r:
                         return r
             except Exception as e:
-                print(f"Error {e}")
+                logger.error(f"Error {e}")
                 last_error = e
         if last_error is not None:
             raise last_error

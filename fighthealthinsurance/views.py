@@ -1,6 +1,7 @@
 import json
 import stripe
 import typing
+from loguru import logger
 
 from PIL import Image
 from django import forms
@@ -151,7 +152,7 @@ class ShareAppealView(View):
                 # Include the hashed e-mail so folks can't brute force denial_id
                 hashed_email=hashed_email,
             ).get()
-            print(form.cleaned_data)
+            logger.debug(form.cleaned_data)
             denial.appeal_text = form.cleaned_data["appeal_text"]
             denial.save()
             pa = models.ProposedAppeal(
@@ -239,7 +240,7 @@ class ChooseAppeal(View):
         form = core_forms.ChooseAppealForm(request.POST)
 
         if not form.is_valid():
-            print(form)
+            logger.debug(form)
             return
 
         (
@@ -313,25 +314,25 @@ class StreamingEntityBackend(View):
     """Streaming Entity Extraction"""
 
     async def post(self, request):
-        print(request)
-        print(request.POST)
+        logger.debug(request)
+        logger.debug(request.POST)
         form = core_forms.DenialRefForm(request.POST)
         if form.is_valid():
             return await common_view_logic.DenialCreatorHelper.extract_entity(
                 form.cleaned_data["denial_id"])
         else:
-            print(f"Error processing {form}")
+            logger.debug(f"Error processing {form}")
 
 
 class AppealsBackend(View):
     """Streaming back the appeals as json :D"""
 
     async def post(self, request):
-        print(request)
-        print(request.POST)
+        logger.debug(request)
+        logger.debug(request.POST)
         form = core_forms.DenialRefForm(request.POST)
         if not form.is_valid():
-            print(f"Error processing {form}")
+            logger.debug(f"Error processing {form}")
             return
 
         return await common_view_logic.AppealsBackendHelper.generate_appeals(request.POST)
@@ -340,7 +341,7 @@ class AppealsBackend(View):
         form = core_forms.DenialRefForm(request.GET)
 
         if not form.is_valid():
-            print(f"Error processing {form}")
+            logger.debug(f"Error processing {form}")
             return
 
         return await common_view_logic.AppealsBackendHelper.generate_appeals(
@@ -362,7 +363,7 @@ class OCRView(View):
 
     def post(self, request):
         try:
-            print(request.FILES)
+            logger.debug(request.FILES)
             files = dict(request.FILES.lists())
             uploader = files["uploader"]
             doc_txt = self._ocr(uploader)

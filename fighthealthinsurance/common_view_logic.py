@@ -6,6 +6,7 @@ import json
 from dataclasses import dataclass
 from string import Template
 from typing import AsyncIterator, Awaitable, Any, Optional, Tuple, Iterable
+from loguru import logger
 
 from django.core.files import File
 from django.core.validators import validate_email
@@ -277,7 +278,7 @@ class ChooseAppealHelper:
                     pmid__in=article_ids
                 ).distinct()
         except Exception as e:
-            print(f"Error loading pubmed data {e}")
+            logger.debug(f"Error loading pubmed data {e}")
             pass
         return (denial.appeal_fax_number, denial.insurance_company, articles)
 
@@ -606,7 +607,7 @@ class DenialCreatorHelper:
 
     @classmethod
     async def extract_set_denialtype(cls, denial_id):
-        print(f"Extracting and setting denial types....")
+        logger.debug(f"Extracting and setting denial types....")
         # Try and guess at the denial types
         denial = await Denial.objects.filter(denial_id=denial_id).aget()
         denial_types = await cls.regex_denial_processor.get_denialtype(
@@ -614,15 +615,15 @@ class DenialCreatorHelper:
             procedure=denial.procedure,
             diagnosis=denial.diagnosis,
         )
-        print(f"Ok lets rock with {denial_types}")
+        logger.debug(f"Ok lets rock with {denial_types}")
         for dt in denial_types:
             try:
                 await DenialTypesRelation.objects.acreate(
                     denial=denial, denial_type=dt, src=await cls.regex_src()
                 )
             except Exception as e:
-                print(f"Failed setting denial type with {e}")
-        print(f"Done setting denial types")
+                logger.debug(f"Failed setting denial type with {e}")
+        logger.debug(f"Done setting denial types")
 
     @classmethod
     async def extract_set_fax_number(cls, denial_id):
@@ -760,7 +761,7 @@ class AppealsBackendHelper:
                             if mc is not None:
                                 medical_context.add(mc)
                         except Exception as e:
-                            print(
+                            logger.debug(
                                 f"Error {e} processing form {form} for medical context"
                             )
                     # Check for plan context
@@ -771,14 +772,14 @@ class AppealsBackendHelper:
                             if pc is not None:
                                 plan_context.add(pc)
                         except Exception as e:
-                            print(f"Error {e} processing form {form} for plan context")
+                            logger.debug(f"Error {e} processing form {form} for plan context")
                     # See if we have a provided medical reason
                     if (
                         "medical_reason" in parsed.cleaned_data
                         and parsed.cleaned_data["medical_reason"] != ""
                     ):
                         medical_reasons.add(parsed.cleaned_data["medical_reason"])
-                        print(f"Med reason {medical_reasons}")
+                        logger.debug(f"Med reason {medical_reasons}")
                     # Questionable dynamic template
                     new_prefaces = parsed.preface()
                     for p in new_prefaces:
@@ -812,7 +813,7 @@ class AppealsBackendHelper:
         async def save_appeal(appeal_text: str) -> str:
             # Save all of the proposed appeals, so we can use RL later.
             t = time.time()
-            print(f"{t}: Saving {appeal_text}")
+            logger.debug(f"{t}: Saving {appeal_text}")
             pa = ProposedAppeal(appeal_text=appeal_text, for_denial=denial)
             await pa.asave()
             return appeal_text

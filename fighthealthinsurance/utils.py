@@ -9,6 +9,7 @@ from functools import reduce
 from typing import AsyncIterator, Iterator, List, Optional, TypeVar
 from uuid import UUID
 from subprocess import CalledProcessError
+from loguru import logger
 
 import requests
 from metapub import PubMedFetcher
@@ -31,7 +32,7 @@ common_bad_result = [
 maybe_bad_url_endings = re.compile("^(.*)[\\.\\:\\;\\,\\?\\>]+$")
 
 async def check_call(cmd, max_retries=0, **kwargs):
-    print(f"Running: {cmd}")
+    logger.debug(f"Running: {cmd}")
     process = await asyncio.create_subprocess_exec(
         *cmd, **kwargs, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
     )
@@ -40,10 +41,10 @@ async def check_call(cmd, max_retries=0, **kwargs):
         if max_retries < 1:
             raise CalledProcessError(return_code, cmd)
         else:
-            print(f"Retrying {cmd}")
+            logger.debug(f"Retrying {cmd}")
             return await check_call(cmd, max_retries=max_retries - 1, **kwargs)
     else:
-        print(f"Success {cmd}")
+        logger.debug(f"Success {cmd}")
 
 
 def markdown_escape(string: Optional[str]) -> str:
@@ -67,11 +68,11 @@ def is_valid_url(url) -> bool:
         # Look for those craft 200 OKs which should be 404s
         for bad_result_text in common_bad_result:
             if bad_result_text.lower() in result_text:
-                print(f"Found bad result on {url}")
+                logger.debug(f"Found bad result on {url}")
                 return False
         return True
     except RequestException as e:
-        print(f"Error {e} looking up {url}")
+        logger.debug(f"Error {e} looking up {url}")
         groups = maybe_bad_url_endings.search(url)
         if groups is not None:
             return is_valid_url(groups.group(1))

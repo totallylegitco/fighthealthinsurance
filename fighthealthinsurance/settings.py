@@ -421,3 +421,7 @@ class Prod(Base):
             )
             print(traceback.format_exc())
             return None
+
+# Configure logging
+
+load_loguru(globals())
