@@ -72,6 +72,7 @@ class RemoteModelLike(DenialBase):
 @dataclass(kw_only=True)
 class ModelDescription:
     """Model description with a rough proxy for cost."""
+
     cost: int = 200  # Cost of the model (must be first for ordered if/when we upgrade)
     name: str  # Common model name
     internal_name: str  # Internal model name
@@ -95,6 +96,7 @@ class RemoteModel(RemoteModelLike):
         if result is None or len(result) < 3:
             return True
         return False
+
 
 class RemoteOpenLike(RemoteModel):
 
@@ -231,7 +233,14 @@ class RemoteOpenLike(RemoteModel):
             )
         if self.bad_result(result):
             return []
-        return [(infer_type, CleanerUtils.note_remover(CleanerUtils.url_fixer(CleanerUtils.tla_fixer(result))))]
+        return [
+            (
+                infer_type,
+                CleanerUtils.note_remover(
+                    CleanerUtils.url_fixer(CleanerUtils.tla_fixer(result))
+                ),
+            )
+        ]
 
     def _clean_procedure_response(self, response):
         return self.procedure_response_regex.sub("", response)
@@ -528,7 +537,7 @@ class RemoteTogetherAI(RemoteFullOpenLike):
                 cost=88,
                 name="meta-llama/llama-3.1-70b-instruct",
                 internal_name="meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
-            )
+            ),
         ]
 
 
@@ -599,7 +608,8 @@ class DeepInfra(RemoteFullOpenLike):
             ModelDescription(
                 cost=30,
                 name="meta-llama/Llama-3.3-70B-Instruct-Turbo",
-                internal_name="meta-llama/Llama-3.3-70B-Instruct-Turbo")
+                internal_name="meta-llama/Llama-3.3-70B-Instruct-Turbo",
+            ),
         ]
 
 

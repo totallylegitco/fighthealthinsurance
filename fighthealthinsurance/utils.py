@@ -1,3 +1,4 @@
+import nest_asyncio
 import asyncstdlib
 import asyncio
 from asgiref.sync import sync_to_async, async_to_sync
@@ -32,6 +33,7 @@ common_bad_result = [
 
 maybe_bad_url_endings = re.compile("^(.*)[\\.\\:\\;\\,\\?\\>]+$")
 
+
 async def check_call(cmd, max_retries=0, **kwargs):
     logger.debug(f"Running: {cmd}")
     process = await asyncio.create_subprocess_exec(
@@ -51,7 +53,7 @@ async def check_call(cmd, max_retries=0, **kwargs):
 def markdown_escape(string: Optional[str]) -> str:
     if string is None:
         return ""
-    result: str= esc_format(string, esc=True)
+    result: str = esc_format(string, esc=True)
     return result
 
 
@@ -122,13 +124,19 @@ def all_subclasses(cls: type[U]) -> set[type[U]]:
 def all_concrete_subclasses(cls: type[U]):
     return [c for c in all_subclasses(cls) if not isabstract(c)]
 
+
 # I'm lazy and we only work with strings right now.
 
-def interleave_iterator_for_keep_alive(iterator: AsyncIterator[str]) -> AsyncIterator[str]:
+
+def interleave_iterator_for_keep_alive(
+    iterator: AsyncIterator[str],
+) -> AsyncIterator[str]:
     return asyncstdlib.iter(_interleave_iterator_for_keep_alive(iterator))
 
 
-async def _interleave_iterator_for_keep_alive(iterator: AsyncIterator[str]) -> AsyncIterator[str]:
+async def _interleave_iterator_for_keep_alive(
+    iterator: AsyncIterator[str],
+) -> AsyncIterator[str]:
     yield ""
     await asyncio.sleep(0)
     async for item in iterator:
@@ -152,17 +160,18 @@ def async_to_sync_iterator(async_gen: AsyncIterator[str]) -> Iterator[str]:
         Iterator[str]: A synchronous iterator yielding the same items.
     """
 
-    _loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(_loop)
+    async def get_next():
+        return await async_gen.__anext__()
 
     def generator() -> Iterator[str]:
         """Synchronous generator wrapping the asynchronous generator."""
+        nest_asyncio.apply()
         while True:
             try:
-                item: str = _loop.run_until_complete(async_gen.__anext__())
+                # Use asyncio.run with to_thread to fetch the next item
+                item: str = asyncio.run(get_next())
                 yield item
             except StopAsyncIteration:
                 break
-        _loop.close()
 
     return generator()

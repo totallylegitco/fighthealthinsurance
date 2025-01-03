@@ -47,12 +47,15 @@ My name is $your_name_here and I am writing you regarding claim {claim_id}{denia
             and self.cleaned_data["urgent"]
             and self.cleaned_data["pre_service"]
         ):
-            return [common, (
-                "As an urgent pre-service claim you must respond within the "
-                "timeline required for my medical situation (up to a maximum "
-                "of four days). This also serves as notice of concurrent "
-                "request of external review."
-            )]
+            return [
+                common,
+                (
+                    "As an urgent pre-service claim you must respond within the "
+                    "timeline required for my medical situation (up to a maximum "
+                    "of four days). This also serves as notice of concurrent "
+                    "request of external review."
+                ),
+            ]
         elif "pre_service" in self.cleaned_data and self.cleaned_data["pre_service"]:
             return [
                 common,

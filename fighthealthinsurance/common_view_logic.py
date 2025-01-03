@@ -23,7 +23,10 @@ from fighthealthinsurance.form_utils import *
 from fighthealthinsurance.generate_appeal import *
 from fighthealthinsurance.models import *
 from fighthealthinsurance.forms import questions as question_forms
-from fighthealthinsurance.utils import async_to_sync_iterator, interleave_iterator_for_keep_alive
+from fighthealthinsurance.utils import (
+    async_to_sync_iterator,
+    interleave_iterator_for_keep_alive,
+)
 import ray
 from .pubmed_tools import PubMedTools
 
@@ -365,14 +368,14 @@ class FindNextStepsHelper:
         plan_id,
         claim_id,
         denial_type,
-        denial_date: Optional[datetime.date]=None,
-        semi_sekret: str="",
-        your_state: Optional[str]=None,
+        denial_date: Optional[datetime.date] = None,
+        semi_sekret: str = "",
+        your_state: Optional[str] = None,
         captcha=None,
-        denial_type_text: Optional[str]=None,
+        denial_type_text: Optional[str] = None,
         plan_source=None,
-        employer_name: Optional[str]=None,
-        appeal_fax_number: Optional[str]=None,
+        employer_name: Optional[str] = None,
+        appeal_fax_number: Optional[str] = None,
     ) -> NextStepInfo:
         hashed_email = Denial.get_hashed_email(email)
         # Update the denial
@@ -777,7 +780,9 @@ class AppealsBackendHelper:
                             if pc is not None:
                                 plan_context.add(pc)
                         except Exception as e:
-                            logger.debug(f"Error {e} processing form {form} for plan context")
+                            logger.debug(
+                                f"Error {e} processing form {form} for plan context"
+                            )
                     # See if we have a provided medical reason
                     if (
                         "medical_reason" in parsed.cleaned_data
@@ -854,7 +859,7 @@ class AppealsBackendHelper:
         subbed_appeals: AsyncIterator[str] = a.map(sub_in_appeals, saved_appeals)
         subbed_appeals_json: AsyncIterator[str] = a.map(format_response, subbed_appeals)
         # StreamignHttpResponse needs a synchronous iterator otherwise it blocks.
-        interleaved: AsyncIterator[str] =  interleave_iterator_for_keep_alive(
+        interleaved: AsyncIterator[str] = interleave_iterator_for_keep_alive(
             subbed_appeals_json
         )
         synced = async_to_sync_iterator(interleaved)

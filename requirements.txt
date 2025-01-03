@@ -68,3 +68,4 @@ urllib3
 uszipcode
 uvicorn[standard]
 werkzeug
+nest_asyncio

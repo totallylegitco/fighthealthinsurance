@@ -79,7 +79,7 @@ class TestCommonViewLogic(TestCase):
 
         async def test():
             mock_appeal_generator.generate_appeals.return_value = async_generator(["test"])
-            response = async_to_sync(AppealsBackendHelper.generate_appeals)({
+            response = await AppealsBackendHelper.generate_appeals({
                 'denial_id': 1,
                 'email': email,
                 "semi_sekret": denial.semi_sekret,

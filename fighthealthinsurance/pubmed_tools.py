@@ -56,7 +56,9 @@ class PubMedTools(object):
                     articles.append(result)
                 t = t - 1
             except Exception as e:
-                logger.debug(f"Skipping appending article from {f} due to {e} of {type(e)}")
+                logger.debug(
+                    f"Skipping appending article from {f} due to {e} of {type(e)}"
+                )
 
         if len(articles) > 0:
             return "\n".join(map(format_article_short, articles))
@@ -200,7 +202,9 @@ class PubMedTools(object):
             if result.returncode == 0:
                 return f"{my_data.name}.pdf"
             else:
-                logger.debug(f"Error processing {command} trying again with different engine")
+                logger.debug(
+                    f"Error processing {command} trying again with different engine"
+                )
                 command = [
                     "pandoc",
                     "--wrap=auto",

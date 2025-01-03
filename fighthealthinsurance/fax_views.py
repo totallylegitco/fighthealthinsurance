@@ -63,7 +63,7 @@ class StageFaxView(generic.FormView):
         # Get all of the articles the user wants to send
         logger.debug(f"Items {list(self.request.POST.items())}")
         pubmed_checkboxes = [
-            key[len("pubmed_"):]
+            key[len("pubmed_") :]
             for key, value in self.request.POST.items()
             if key.startswith("pubmed_") and value == "on"
         ]

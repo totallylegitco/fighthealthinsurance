@@ -296,7 +296,6 @@ class Dev(Base):
     load_loguru(globals())
 
 
-
 class Test(Dev):
     # This is a hack since the actors start up without the django test interface around them
     dt = str(int(time.time()))
@@ -401,10 +400,11 @@ class Prod(Base):
     def EXTERNAL_STORAGE_B(self):
         try:
             if (
-                    self.MINIO_STORAGE_ENDPOINT is not None and
-                    self.MINIO_STORAGE_ACCESS_KEY is not None and
-                    self.MINIO_STORAGE_SECRET_KEY is not None and
-                    self.MINIO_STORAGE_MEDIA_BUCKET_NAME is not None):
+                self.MINIO_STORAGE_ENDPOINT is not None
+                and self.MINIO_STORAGE_ACCESS_KEY is not None
+                and self.MINIO_STORAGE_SECRET_KEY is not None
+                and self.MINIO_STORAGE_MEDIA_BUCKET_NAME is not None
+            ):
                 minio_client = m.Minio(
                     self.MINIO_STORAGE_ENDPOINT,
                     access_key=self.MINIO_STORAGE_ACCESS_KEY,
