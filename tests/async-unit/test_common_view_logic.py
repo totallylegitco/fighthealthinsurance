@@ -1,7 +1,9 @@
+import asyncio
 import json
 import io
 from asgiref.sync import async_to_sync
 from unittest.mock import Mock, patch
+from typing import AsyncIterator
 from fighthealthinsurance.common_view_logic import (
     RemoveDataHelper,
     SendFaxHelper,
@@ -68,24 +70,36 @@ class TestCommonViewLogic(TestCase):
             denial_id=1,
             semi_sekret="sekret",
             hashed_email=Denial.get_hashed_email(email))
-        mock_appeal_generator.generate_appeals.return_value = 'appeal text'
-        response = async_to_sync(AppealsBackendHelper.generate_appeals)({
-            'denial_id': 1,
-            'email': email,
-            "semi_sekret": denial.semi_sekret,
-        })
-        # Create a BytesIO to capture the response  
-        buf = io.BytesIO()  
+
+        async def async_generator(items) -> AsyncIterator[str]:
+            """Test helper: Async generator yielding items with delay."""
+            for item in items:
+                await asyncio.sleep(0.1)
+                yield item
+
+        async def test():
+            mock_appeal_generator.generate_appeals.return_value = async_generator(["test"])
+            response = async_to_sync(AppealsBackendHelper.generate_appeals)({
+                'denial_id': 1,
+                'email': email,
+                "semi_sekret": denial.semi_sekret,
+            })
+            # Create a BytesIO to capture the response  
+            buf = io.BytesIO()  
       
-        # Write each chunk to the BytesIO  
-        for chunk in response.streaming_content:  
-            buf.write(chunk)  
+            # Write each chunk to the BytesIO  
+            for chunk in response.streaming_content:  
+                buf.write(chunk)  
       
-        # Go back to the beginning of the BytesIO  
-        buf.seek(0)  
+            # Go back to the beginning of the BytesIO  
+            buf.seek(0)
+            string_data = buf.getvalue().decode('utf-8')
+            raise Exception(f"My contents: {string_data}")
       
-        # Load the JSON from the BytesIO  
-        content = json.load(buf)  
+            # Load the JSON from the BytesIO  
+            content = json.loads(string_data)  
       
-        # Assert that the content equals 'appeal text'  
-        self.assertEqual(content, 'appeal text')
+            # Assert that the content equals 'appeal text'  
+            self.assertEqual(content, 'appeal text')
+
+        async_to_sync(test)()
