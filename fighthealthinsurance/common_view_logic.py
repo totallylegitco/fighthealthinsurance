@@ -23,7 +23,7 @@ from fighthealthinsurance.form_utils import *
 from fighthealthinsurance.generate_appeal import *
 from fighthealthinsurance.models import *
 from fighthealthinsurance.forms import questions as question_forms
-from fighthealthinsurance.utils import interleave_iterator_for_keep_alive
+from fighthealthinsurance.utils import async_to_sync_iterator, interleave_iterator_for_keep_alive
 import ray
 from .pubmed_tools import PubMedTools
 
@@ -365,14 +365,14 @@ class FindNextStepsHelper:
         plan_id,
         claim_id,
         denial_type,
-        denial_date,
-        semi_sekret,
-        your_state=None,
+        denial_date: Optional[datetime.date]=None,
+        semi_sekret: str="",
+        your_state: Optional[str]=None,
         captcha=None,
-        denial_type_text=None,
+        denial_type_text: Optional[str]=None,
         plan_source=None,
-        employer_name=None,
-        appeal_fax_number=None,
+        employer_name: Optional[str]=None,
+        appeal_fax_number: Optional[str]=None,
     ) -> NextStepInfo:
         hashed_email = Denial.get_hashed_email(email)
         # Update the denial
@@ -382,7 +382,8 @@ class FindNextStepsHelper:
             hashed_email=hashed_email,
             semi_sekret=semi_sekret,
         ).get()
-        denial.denial_date = denial_date
+        if denial_date:
+            denial.denial_date = denial_date
 
         if procedure is not None and len(procedure) < 200:
             denial.procedure = procedure
@@ -436,8 +437,10 @@ class FindNextStepsHelper:
         denial.claim_id = claim_id
         if denial_type_text is not None:
             denial.denial_type_text = denial_type_text
-        denial.denial_type.set(denial_type)
-        denial.state = your_state
+        if denial_type:
+            denial.denial_type.set(denial_type)
+        if your_state:
+            denial.state = your_state
         denial.save()
         question_forms = []
         for dt in denial.denial_type.all():
@@ -592,9 +595,11 @@ class DenialCreatorHelper:
             return "\n"
 
         formatted: AsyncIterator[str] = a.map(waitAndReturnNewline, asyncs)
-        interleaved = interleave_iterator_for_keep_alive(formatted)
+        # StreamignHttpResponse needs a synchronous iterator otherwise it blocks.
+        interleaved: AsyncIterator[str] = interleave_iterator_for_keep_alive(formatted)
+        synced = async_to_sync_iterator(interleaved)
         return StreamingHttpResponse(
-            interleaved,
+            synced,
             content_type="application/json",
         )
 
@@ -848,10 +853,12 @@ class AppealsBackendHelper:
         saved_appeals: AsyncIterator[str] = a.map(save_appeal, filtered_appeals)
         subbed_appeals: AsyncIterator[str] = a.map(sub_in_appeals, saved_appeals)
         subbed_appeals_json: AsyncIterator[str] = a.map(format_response, subbed_appeals)
-        interleaved: AsyncIterator[str] = interleave_iterator_for_keep_alive(
+        # StreamignHttpResponse needs a synchronous iterator otherwise it blocks.
+        interleaved: AsyncIterator[str] =  interleave_iterator_for_keep_alive(
             subbed_appeals_json
         )
+        synced = async_to_sync_iterator(interleaved)
         return StreamingHttpResponse(
-            interleaved,
+            synced,
             content_type="application/json",
         )

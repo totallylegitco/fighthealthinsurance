@@ -1,5 +1,6 @@
 import asyncstdlib
 import asyncio
+from asgiref.sync import sync_to_async, async_to_sync
 from inspect import isabstract, isawaitable
 import concurrent
 import os
@@ -121,6 +122,7 @@ def all_subclasses(cls: type[U]) -> set[type[U]]:
 def all_concrete_subclasses(cls: type[U]):
     return [c for c in all_subclasses(cls) if not isabstract(c)]
 
+# I'm lazy and we only work with strings right now.
 
 def interleave_iterator_for_keep_alive(iterator: AsyncIterator[str]) -> AsyncIterator[str]:
     return asyncstdlib.iter(_interleave_iterator_for_keep_alive(iterator))
@@ -136,3 +138,31 @@ async def _interleave_iterator_for_keep_alive(iterator: AsyncIterator[str]) -> A
         yield item
         await asyncio.sleep(0)
         yield ""
+
+
+def async_to_sync_iterator(async_gen: AsyncIterator[str]) -> Iterator[str]:
+    """
+    Converts an asynchronous generator into a synchronous iterator
+    suitable for use with StreamingHttpResponse.
+
+    Parameters:
+        async_gen (AsyncIterator[str]): The asynchronous generator to convert.
+
+    Returns:
+        Iterator[str]: A synchronous iterator yielding the same items.
+    """
+
+    _loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(_loop)
+
+    def generator() -> Iterator[str]:
+        """Synchronous generator wrapping the asynchronous generator."""
+        while True:
+            try:
+                item: str = _loop.run_until_complete(async_gen.__anext__())
+                yield item
+            except StopAsyncIteration:
+                break
+        _loop.close()
+
+    return generator()

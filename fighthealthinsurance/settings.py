@@ -292,6 +292,10 @@ class Dev(Base):
         },
     }
 
+    # Configure logging
+    load_loguru(globals())
+
+
 
 class Test(Dev):
     # This is a hack since the actors start up without the django test interface around them
@@ -422,7 +426,3 @@ class Prod(Base):
             )
             print(traceback.format_exc())
             return None
-
-
-# Configure logging
-load_loguru(globals())
