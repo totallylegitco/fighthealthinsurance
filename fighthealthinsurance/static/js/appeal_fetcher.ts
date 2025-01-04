@@ -16,18 +16,18 @@ let maxRetries = 4;
 // Helper Functions
 function showLoading(): void {
     if (loadingSpinner && loadingText) {
-        loadingSpinner.style.display = 'block';
-        loadingText.style.display = 'block';
+	loadingSpinner.style.display = 'block';
+	loadingText.style.display = 'block';
     }
 }
 
 function hideLoading(): void {
     if (loadingSpinner && loadingText && loadingMore) {
-        setTimeout(() => {
-            loadingSpinner.style.display = 'none';
-            loadingText.style.display = 'none';
-            loadingMore.style.display = 'none';
-        }, 1000);
+	setTimeout(() => {
+	    loadingSpinner.style.display = 'none';
+	    loadingText.style.display = 'none';
+	    loadingMore.style.display = 'none';
+	}, 1000);
     }
 }
 
@@ -40,9 +40,9 @@ function done(): void {
     if (appealsSoFar.length < 3 && retries < maxRetries) {
 	console.error('Did not have expected number of appeals, retrying.');
 	retries = retries + 1;
-        doQuery(my_backend_url, my_data);
+	doQuery(my_backend_url, my_data);
     } else {
-        hideLoading();
+	hideLoading();
     }
 }
 
@@ -50,49 +50,49 @@ function processResponseChunk(chunk: string): void {
     console.log(`Processing chunk ${chunk}`)
     respBuffer += chunk;
     if (respBuffer.includes('\n')) {
-        const lastIndex = respBuffer.lastIndexOf('\n');
-        const current = respBuffer.substring(0, lastIndex);
-        respBuffer = respBuffer.substring(lastIndex + 1);
+	const lastIndex = respBuffer.lastIndexOf('\n');
+	const current = respBuffer.substring(0, lastIndex);
+	respBuffer = respBuffer.substring(lastIndex + 1);
 
-        const lines = current.split('\n');
-        lines.forEach((line) => {
+	const lines = current.split('\n');
+	lines.forEach((line) => {
 	    // Skip the keep alive lines.
-            if (line.trim() === '') return;
+	    if (line.trim() === '') return;
 
-            try {
-                const parsedLine = JSON.parse(line);
+	    try {
+		const parsedLine = JSON.parse(line);
 
-                if (appealsSoFar.some((appeal) => JSON.stringify(appeal) === JSON.stringify(parsedLine))) {
-                    console.log('Duplicate appeal found. Skipping.');
-                    return;
-                }
+		if (appealsSoFar.some((appeal) => JSON.stringify(appeal) === JSON.stringify(parsedLine))) {
+		    console.log('Duplicate appeal found. Skipping.');
+		    return;
+		}
 
-                appealsSoFar.push(parsedLine);
-                appealId++;
+		appealsSoFar.push(parsedLine);
+		appealId++;
 
-                // Clone and configure the form
-                const clonedForm = $('#base-form').clone().prop('id', `magic${appealId}`);
-                clonedForm.removeAttr('style');
+		// Clone and configure the form
+		const clonedForm = $('#base-form').clone().prop('id', `magic${appealId}`);
+		clonedForm.removeAttr('style');
 
-                const formElement = clonedForm.find('form');
-                formElement.prop('id', `form_${appealId}`);
+		const formElement = clonedForm.find('form');
+		formElement.prop('id', `form_${appealId}`);
 
-                const submitButton = clonedForm.find('button');
-                submitButton.prop('id', `submit${appealId}`);
+		const submitButton = clonedForm.find('button');
+		submitButton.prop('id', `submit${appealId}`);
 
-                const appealTextElem = clonedForm.find('textarea');
-                appealTextElem.text(parsedLine);
-                appealTextElem.val(parsedLine);
-                appealTextElem.prop('form', `form_${appealId}`);
-                appealTextElem[0].setAttribute('form', `form_${appealId}`);
+		const appealTextElem = clonedForm.find('textarea');
+		appealTextElem.text(parsedLine);
+		appealTextElem.val(parsedLine);
+		appealTextElem.prop('form', `form_${appealId}`);
+		appealTextElem[0].setAttribute('form', `form_${appealId}`);
 
-                outputContainer.append(clonedForm);
-            } catch (error) {
-                console.error('Error parsing line:', error);
-            }
-        });
+		outputContainer.append(clonedForm);
+	    } catch (error) {
+		console.error('Error parsing line:', error);
+	    }
+	});
     } else {
-        console.log('Waiting for more data.');
+	console.log('Waiting for more data.');
 	console.log(`So far:${respBuffer}`);
     }
 }
@@ -107,37 +107,37 @@ function connectWebSocket(
     let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
 
     const resetTimeout = () => {
-        if (timeoutHandle) clearTimeout(timeoutHandle);
-        timeoutHandle = setTimeout(() => {
-            console.error('No messages received in 60 seconds. Reconnecting...');
-            if (retries < maxRetries) {
-                retries++;
-                setTimeout(() => connectWebSocket(websocketUrl, data, processResponseChunk, done), 1000);
-            } else {
-                console.error('Max retries reached. Closing connection.');
-                done();
-            }
-        }, 60000); // 60 seconds timeout
+	if (timeoutHandle) clearTimeout(timeoutHandle);
+	timeoutHandle = setTimeout(() => {
+	    console.error('No messages received in 60 seconds. Reconnecting...');
+	    if (retries < maxRetries) {
+		retries++;
+		setTimeout(() => connectWebSocket(websocketUrl, data, processResponseChunk, done), 1000);
+	    } else {
+		console.error('Max retries reached. Closing connection.');
+		done();
+	    }
+	}, 60000); // 60 seconds timeout
     };
 
     const startWebSocket = () => {
 	// Open the connection and send data
 	const ws = new WebSocket(websocketUrl);
 	ws.onopen = () => {
-            console.log('WebSocket connection opened');
-            ws.send(JSON.stringify(data));
+	    console.log('WebSocket connection opened');
+	    ws.send(JSON.stringify(data));
 	};
-	
+
 	// Handle incoming messages
 	ws.onmessage = (event) => {
 	    resetTimeout();
-            const chunk = event.data;
-            processResponseChunk(chunk);
+	    const chunk = event.data;
+	    processResponseChunk(chunk);
 	};
 
 	// Handle connection closure
 	ws.onclose = (event) => {
-            console.log('WebSocket connection closed:', event.reason);
+	    console.log('WebSocket connection closed:', event.reason);
 	    done();
 	};
 
@@ -148,10 +148,10 @@ function connectWebSocket(
 		console.log(`Retrying WebSocket connection (${retries + 1}/${maxRetries})...`);
 		retries = retries + 1;
 		setTimeout(() => connectWebSocket(websocketUrl, data, processResponseChunk, done), 1000);
-            } else {
+	    } else {
 		console.error('Max retries reached. Closing connection.');
 		done();
-            }
+	    }
 	};
     };
     startWebSocket();
@@ -159,8 +159,8 @@ function connectWebSocket(
 
 
 export function doQuery(
-  backend_url: string, 
-  data: Map<string, string>, 
+  backend_url: string,
+  data: Map<string, string>,
 ): void {
     showLoading();
     my_backend_url = backend_url;
