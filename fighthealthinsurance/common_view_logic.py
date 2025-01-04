@@ -590,8 +590,8 @@ class DenialCreatorHelper:
         asyncio.create_task(cls.extract_set_fax_number(denial_id))
         asyncs: list[Awaitable[Any]] = [
             # Denial type depends on denial and diagnosis
-#            cls.extract_set_denial_and_diagnosis(denial_id),
-#            cls.extract_set_denialtype(denial_id),
+            cls.extract_set_denial_and_diagnosis(denial_id),
+            cls.extract_set_denialtype(denial_id),
             asyncio.sleep(0, result=""),
         ]
 
