@@ -18,6 +18,7 @@ from fighthealthinsurance import models
 from fighthealthinsurance.forms import questions as question_forms
 from fighthealthinsurance import utils
 
+
 def render_ocr_error(request, text):
     return render(
         request,

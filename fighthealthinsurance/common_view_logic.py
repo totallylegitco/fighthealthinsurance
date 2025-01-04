@@ -631,8 +631,8 @@ class DenialCreatorHelper:
                 await DenialTypesRelation.objects.acreate(
                     denial=denial, denial_type=dt, src=await cls.regex_src()
                 )
-            except Exception as e:
-                logger.debug(f"Failed setting denial type with {e}")
+            except:
+                logger.opts(exception=True).debug(f"Failed setting denial type")
         logger.debug(f"Done setting denial types")
 
     @classmethod
@@ -832,7 +832,9 @@ class AppealsBackendHelper:
                 pa = ProposedAppeal(appeal_text=appeal_text, for_denial=denial)
                 await pa.asave()
             except Exception as e:
-                logger.opt(exception=True).warning("Failed to save proposed appeal: {e}")
+                logger.opt(exception=True).warning(
+                    "Failed to save proposed appeal: {e}"
+                )
                 pass
             return appeal_text
 
