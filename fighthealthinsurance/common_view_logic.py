@@ -632,7 +632,7 @@ class DenialCreatorHelper:
                     denial=denial, denial_type=dt, src=await cls.regex_src()
                 )
             except:
-                logger.opts(exception=True).debug(f"Failed setting denial type")
+                logger.opt(exception=True).debug(f"Failed setting denial type")
         logger.debug(f"Done setting denial types")
 
     @classmethod
