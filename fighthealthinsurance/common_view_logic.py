@@ -11,7 +11,6 @@ from loguru import logger
 from django.core.files import File
 from django.core.validators import validate_email
 from django.forms import Form
-from django.http import StreamingHttpResponse
 from django.template.loader import render_to_string
 from django.db.models import QuerySet
 from django.db import connections
@@ -585,7 +584,7 @@ class DenialCreatorHelper:
         async_to_sync(cls._start_background(denial_id))
 
     @classmethod
-    async def extract_entity(cls, denial_id: int) -> StreamingHttpResponse:
+    async def extract_entity(cls, denial_id: int) -> AsyncIterator[str]:
         # Fax extraction is fire and forget and can run in parallel to the other tass
         asyncio.create_task(cls.extract_set_fax_number(denial_id))
         asyncs: list[Awaitable[Any]] = [
@@ -607,11 +606,7 @@ class DenialCreatorHelper:
         formatted: AsyncIterator[str] = a.map(waitAndReturnNewline, asyncs)
         # StreamignHttpResponse needs a synchronous iterator otherwise it blocks.
         interleaved: AsyncIterator[str] = interleave_iterator_for_keep_alive(formatted)
-        synced = async_to_sync_iterator(interleaved)
-        return StreamingHttpResponse(
-            synced,
-            content_type="application/json",
-        )
+        return interleaved
 
     @classmethod
     async def _start_background(cls, denial_id):
@@ -876,8 +871,4 @@ class AppealsBackendHelper:
         interleaved: AsyncIterator[str] = interleave_iterator_for_keep_alive(
             subbed_appeals_json
         )
-        synced = async_to_sync_iterator(interleaved)
-        return StreamingHttpResponse(
-            synced,
-            content_type="application/json",
-            )
+        return interleaved

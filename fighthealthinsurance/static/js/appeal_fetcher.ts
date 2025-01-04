@@ -1,6 +1,3 @@
-// TypeScript Version
-
-// Import necessary modules if using a framework like jQuery or update as needed.
 declare const $: any;
 
 // DOM Elements
@@ -12,8 +9,9 @@ const loadingMore = document.getElementById('loading-more');
 // Variables
 let respBuffer = '';
 let appealId = 0;
-let max_retries = 2;
 const appealsSoFar: any[] = [];
+let retries = 0;
+let maxRetries = 4;
 
 // Helper Functions
 function showLoading(): void {
@@ -33,7 +31,23 @@ function hideLoading(): void {
     }
 }
 
+// Hacky, TODO: Fix this.
+let my_data: Map<string, string> = new Map<string, string>;
+let my_backend_url = ""
+
+function done(): void {
+    // If we've reached stream end but also less than maxRetries appeals retry
+    if (appealsSoFar.length < 3 && retries < maxRetries) {
+	console.error('Did not have expected number of appeals, retrying.');
+	retries = retries + 1;
+        doQuery(my_backend_url, my_data);
+    } else {
+        hideLoading();
+    }
+}
+
 function processResponseChunk(chunk: string): void {
+    console.log(`Processing chunk ${chunk}`)
     respBuffer += chunk;
     if (respBuffer.includes('\n')) {
         const lastIndex = respBuffer.lastIndexOf('\n');
@@ -42,6 +56,7 @@ function processResponseChunk(chunk: string): void {
 
         const lines = current.split('\n');
         lines.forEach((line) => {
+	    // Skip the keep alive lines.
             if (line.trim() === '') return;
 
             try {
@@ -78,67 +93,83 @@ function processResponseChunk(chunk: string): void {
         });
     } else {
         console.log('Waiting for more data.');
+	console.log(`So far:${respBuffer}`);
     }
 }
+
+// Different than entity fetcher version in that we use more globals so we can check state in done more easily.
+function connectWebSocket(
+    websocketUrl: string,
+    data: object,
+    processResponseChunk: (chunk: string) => void,
+    done: () => void,
+) {
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
+    const resetTimeout = () => {
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+        timeoutHandle = setTimeout(() => {
+            console.error('No messages received in 60 seconds. Reconnecting...');
+            if (retries < maxRetries) {
+                retries++;
+                setTimeout(() => connectWebSocket(websocketUrl, data, processResponseChunk, done), 1000);
+            } else {
+                console.error('Max retries reached. Closing connection.');
+                done();
+            }
+        }, 60000); // 60 seconds timeout
+    };
+
+    const startWebSocket = () => {
+	// Open the connection and send data
+	const ws = new WebSocket(websocketUrl);
+	ws.onopen = () => {
+            console.log('WebSocket connection opened');
+            ws.send(JSON.stringify(data));
+	};
+	
+	// Handle incoming messages
+	ws.onmessage = (event) => {
+	    resetTimeout();
+            const chunk = event.data;
+            processResponseChunk(chunk);
+	};
+
+	// Handle connection closure
+	ws.onclose = (event) => {
+            console.log('WebSocket connection closed:', event.reason);
+	    done();
+	};
+
+	// Handle errors
+	ws.onerror = (error) => {
+	    console.error('WebSocket error:', error);
+	    if (retries < maxRetries) {
+		console.log(`Retrying WebSocket connection (${retries + 1}/${maxRetries})...`);
+		retries = retries + 1;
+		setTimeout(() => connectWebSocket(websocketUrl, data, processResponseChunk, done), 1000);
+            } else {
+		console.error('Max retries reached. Closing connection.');
+		done();
+            }
+	};
+    };
+    startWebSocket();
+}
+
 
 export function doQuery(
   backend_url: string, 
   data: Map<string, string>, 
-  retries: number
 ): void {
-    if (retries > max_retries) {
-	console.log("Error requesting backend");
-	return;
-    }
     showLoading();
-
-    try {
-	$.ajax({
-            url: backend_url,
-            type: 'POST',
-            data: data,
-            contentType: 'application/x-www-form-urlencoded',
-            dataType: 'text',
-            processData: true,
-            xhr: function () {
-		const xhr = new XMLHttpRequest();
-		xhr.addEventListener('progress', (event) => {
-                    const chunk = (event.currentTarget as XMLHttpRequest).responseText;
-                    processResponseChunk(chunk);
-		});
-		return xhr;
-            },
-            success: (response: string) => {
-		console.log('AJAX success:', response);
-		processResponseChunk(response);
-
-		// If we've reached stream end but also less than max_retries appeals retry
-		if (appealsSoFar.length < 3 && retries < max_retries) {
-		    console.error('Did not have expected number of appeals, retrying.');
-                    doQuery(backend_url, data, retries + 1);
-		} else {
-                    hideLoading();
-		}
-            },
-            error: (error: any) => {
-		console.error('AJAX error:', error);
-		if (retries < max_retries) {
-                    doQuery(backend_url, data, retries + 1);
-		} else {
-                    hideLoading();
-		}
-            }
-	});
-    } catch (error) {
-        console.error('Client-side error:', error);
-
-        if (retries < max_retries) {
-            console.log(`Retrying after client-side error... (${retries + 1}/${max_retries})`);
-            doQuery(backend_url, data, retries + 1);
-        } else {
-            hideLoading();
-        }
-    }
+    my_backend_url = backend_url;
+    my_data = data;
+    return connectWebSocket(
+	backend_url,
+	data,
+	processResponseChunk,
+	done)
 }
 
 // Make it available
