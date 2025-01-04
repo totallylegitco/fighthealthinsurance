@@ -24,10 +24,7 @@ from fighthealthinsurance.form_utils import *
 from fighthealthinsurance.generate_appeal import *
 from fighthealthinsurance.models import *
 from fighthealthinsurance.forms import questions as question_forms
-from fighthealthinsurance.utils import (
-    async_to_sync_iterator,
-    interleave_iterator_for_keep_alive,
-)
+from fighthealthinsurance.utils import interleave_iterator_for_keep_alive
 import ray
 from .pubmed_tools import PubMedTools
 

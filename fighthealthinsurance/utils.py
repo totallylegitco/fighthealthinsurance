@@ -130,20 +130,39 @@ def all_concrete_subclasses(cls: type[U]):
 
 
 def interleave_iterator_for_keep_alive(
-    iterator: AsyncIterator[str],
+    iterator: AsyncIterator[str], timeout: int = 45
 ) -> AsyncIterator[str]:
-    return asyncstdlib.iter(_interleave_iterator_for_keep_alive(iterator))
+    return asyncstdlib.iter(
+        _interleave_iterator_for_keep_alive(iterator, timeout=timeout)
+    )
 
 
 async def _interleave_iterator_for_keep_alive(
-    iterator: AsyncIterator[str],
+    iterator: AsyncIterator[str], timeout: int = 45
 ) -> AsyncIterator[str]:
+    """Interliave executor with some "" for keep alive.
+    We add a "" ahead and behind along with every 45 seconds"""
     yield ""
     await asyncio.sleep(0)
-    async for item in iterator:
-        await asyncio.sleep(0)
-        yield ""
-        await asyncio.sleep(0)
-        yield item
-        await asyncio.sleep(0)
-        yield ""
+    # Keep track of the next elem pointer
+    c = None
+    while True:
+        try:
+            if c is None:
+                # Keep wait_for from cancelling it
+                c = asyncio.shield(iterator.__anext__())
+            await asyncio.sleep(0)
+            yield ""
+            # Use asyncio.wait_for to handle timeout for fetching record
+            record = await asyncio.wait_for(c, timeout)
+            # Success, we can clear the next elem pointer
+            c = None
+            yield record
+            await asyncio.sleep(0)
+            yield ""
+        except asyncio.TimeoutError:
+            yield ""
+            continue
+        except StopAsyncIteration:
+            # Break the loop if iteration is complete
+            break

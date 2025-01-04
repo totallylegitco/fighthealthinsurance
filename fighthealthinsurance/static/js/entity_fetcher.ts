@@ -9,6 +9,7 @@ function processResponseChunk(chunk: string): void {
 }
 
 function done(): void {
+    console.log("Moving to the next step :)");
     submitButton.click();
 }
 
