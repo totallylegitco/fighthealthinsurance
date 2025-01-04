@@ -147,32 +147,3 @@ async def _interleave_iterator_for_keep_alive(
         yield item
         await asyncio.sleep(0)
         yield ""
-
-
-def async_to_sync_iterator(async_gen: AsyncIterator[str]) -> Iterator[str]:
-    """
-    Converts an asynchronous generator into a synchronous iterator
-    suitable for use with StreamingHttpResponse.
-
-    Parameters:
-        async_gen (AsyncIterator[str]): The asynchronous generator to convert.
-
-    Returns:
-        Iterator[str]: A synchronous iterator yielding the same items.
-    """
-
-    async def get_next():
-        return await async_gen.__anext__()
-
-    def generator() -> Iterator[str]:
-        """Synchronous generator wrapping the asynchronous generator."""
-        nest_asyncio.apply()
-        while True:
-            try:
-                # Use asyncio.run with to_thread to fetch the next item
-                item: str = asyncio.run(get_next())
-                yield item
-            except StopAsyncIteration:
-                break
-
-    return generator()
