@@ -322,7 +322,7 @@ class TestSync(Dev):
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
-            "TIMEOUT": 2,
+            "TIMEOUT": 4,
             "NAME": dbname,
         },
     }

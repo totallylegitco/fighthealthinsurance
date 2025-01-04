@@ -595,8 +595,11 @@ class DenialCreatorHelper:
             asyncio.sleep(0, result=""),
         ]
 
-        async def waitAndReturnNewline(e: Awaitable) -> str:
-            await e
+        async def waitAndReturnNewline(a: Awaitable) -> str:
+            try:
+                await a
+            except:
+                logger.opt(exception=True).warning("Failed to process {a}")
             return "\n"
 
         # I don't live this but in SQLLite we end up with locking issues
