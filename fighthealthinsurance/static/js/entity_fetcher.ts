@@ -37,6 +37,7 @@ function connectWebSocket(
     // Handle connection closure
     ws.onclose = (event) => {
         console.log('WebSocket connection closed:', event.reason);
+	done();
     };
 
     // Handle errors
