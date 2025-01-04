@@ -146,12 +146,13 @@ class Base(Configuration):
     WSGI_APPLICATION = "fighthealthinsurance.wsgi.application"
 
     # Database
-    # https://docs.djangoproject.com/en/4.0/ref/settings/#databases
+    # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": BASE_DIR / "db.sqlite3",
+            "ATOMIC_REQUESTS": False,
         }
     }
 
@@ -297,16 +298,32 @@ class Dev(Base):
 
 
 class Test(Dev):
-    # This is a hack since the actors start up without the django test interface around them
+    # For async tests we do in memory for increased isolation
     dt = str(int(time.time()))
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": BASE_DIR / f"test{dt}.db.sqlite3",
-            "TIMEOUT": 10,
+            "TIMEOUT": 1,
+            "CONN_MAX_AGE": 0,
+            "NAME": "memory",
             "TEST": {
                 "NAME": BASE_DIR / f"test{dt}.db.sqlite3",
             },
+        },
+    }
+
+
+class TestSync(Dev):
+    # We use "real" files for sync tests since we have seperate processes for actors.
+    dt = str(int(time.time()))
+    dbname = os.getenv("DBNAME", f"{BASE_DIR}/test{dt}.db.sqlite3")
+    os.environ["DBNAME"] = dbname
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "TIMEOUT": 2,
+            "NAME": dbname,
         },
     }
 

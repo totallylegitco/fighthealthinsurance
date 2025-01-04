@@ -18,7 +18,7 @@ from stopit import ThreadingTimeout as Timeout
 
 
 class SerializerMixin:
-    serializer_class: typing.Optional[Serializer] = None
+    serializer_class: typing.Optional[typing.Type[Serializer]] = None
 
     def get_serializer(self, data=None):
         if self.serializer_class is None:

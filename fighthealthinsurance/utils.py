@@ -1,3 +1,4 @@
+from django.db import connections
 import nest_asyncio
 import asyncstdlib
 import asyncio
@@ -173,5 +174,4 @@ def async_to_sync_iterator(async_gen: AsyncIterator[str]) -> Iterator[str]:
                 yield item
             except StopAsyncIteration:
                 break
-
     return generator()

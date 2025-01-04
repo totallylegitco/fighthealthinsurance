@@ -14,6 +14,8 @@ from django.forms import Form
 from django.http import StreamingHttpResponse
 from django.template.loader import render_to_string
 from django.db.models import QuerySet
+from django.db import connections
+
 
 import uszipcode
 from fighthealthinsurance import forms as core_forms
@@ -588,8 +590,8 @@ class DenialCreatorHelper:
         asyncio.create_task(cls.extract_set_fax_number(denial_id))
         asyncs: list[Awaitable[Any]] = [
             # Denial type depends on denial and diagnosis
-            cls.extract_set_denial_and_diagnosis(denial_id),
-            cls.extract_set_denialtype(denial_id),
+#            cls.extract_set_denial_and_diagnosis(denial_id),
+#            cls.extract_set_denialtype(denial_id),
             asyncio.sleep(0, result=""),
         ]
 
@@ -597,6 +599,8 @@ class DenialCreatorHelper:
             await e
             return "\n"
 
+        # I don't live this but in SQLLite we end up with locking issues
+        # TODO: Fix this.
         formatted: AsyncIterator[str] = a.map(waitAndReturnNewline, asyncs)
         # StreamignHttpResponse needs a synchronous iterator otherwise it blocks.
         interleaved: AsyncIterator[str] = interleave_iterator_for_keep_alive(formatted)
@@ -658,9 +662,9 @@ class DenialCreatorHelper:
             await denial.asave()
 
     @classmethod
-    async def extract_set_denial_and_diagnosis(cls, denial_id):
+    async def extract_set_denial_and_diagnosis(cls, denial_id: int):
+        denial = await Denial.objects.filter(denial_id=denial_id).aget()
         try:
-            denial = await Denial.objects.filter(denial_id=denial_id).aget()
             (procedure, diagnosis) = await appealGenerator.get_procedure_and_diagnosis(
                 denial_text=denial.denial_text, use_external=denial.use_external
             )
@@ -824,8 +828,14 @@ class AppealsBackendHelper:
             # Save all of the proposed appeals, so we can use RL later.
             t = time.time()
             logger.debug(f"{t}: Saving {appeal_text}")
-            pa = ProposedAppeal(appeal_text=appeal_text, for_denial=denial)
-            await pa.asave()
+            await asyncio.sleep(0)
+            # YOLO on saving appeals, sqllite gets sad.
+            try:
+                pa = ProposedAppeal(appeal_text=appeal_text, for_denial=denial)
+                await pa.asave()
+            except Exception as e:
+                logger.opt(exception=True).warning("Failed to save proposed appeal: {e}")
+                pass
             return appeal_text
 
         async def sub_in_appeals(appeal: str) -> str:
@@ -854,6 +864,7 @@ class AppealsBackendHelper:
             return json.dumps(response) + "\n"
 
         filtered_appeals: Iterator[str] = filter(lambda x: x != None, appeals)
+
         # We convert to async here.
         saved_appeals: AsyncIterator[str] = a.map(save_appeal, filtered_appeals)
         subbed_appeals: AsyncIterator[str] = a.map(sub_in_appeals, saved_appeals)
@@ -866,4 +877,4 @@ class AppealsBackendHelper:
         return StreamingHttpResponse(
             synced,
             content_type="application/json",
-        )
+            )

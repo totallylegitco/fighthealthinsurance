@@ -34,11 +34,11 @@ class TestInterleaveIterator(unittest.TestCase):
         """Test conversion of async iterator to sync iterator."""
         async def async_test_case():
             items = ["item1", "item2", "item3"]
-            gen = async_generator(items)
+            async_iter = async_generator(items)
             sync_iter = async_to_sync_iterator(async_iter)
             return sync_iter
 
-        async_iter = self.loop.run_until_complete(async_test_case())
+        sync_iter = self.loop.run_until_complete(async_test_case())
 
         # Collect sync iterator output
         result = list(sync_iter)
