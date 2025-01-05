@@ -109,7 +109,7 @@ function connectWebSocket(
     const resetTimeout = () => {
 	if (timeoutHandle) clearTimeout(timeoutHandle);
 	timeoutHandle = setTimeout(() => {
-	    console.error('No messages received in 60 seconds. Reconnecting...');
+	    console.error('No messages received in 95 seconds. Reconnecting...');
 	    if (retries < maxRetries) {
 		retries++;
 		setTimeout(() => connectWebSocket(websocketUrl, data, processResponseChunk, done), 1000);
@@ -117,7 +117,7 @@ function connectWebSocket(
 		console.error('Max retries reached. Closing connection.');
 		done();
 	    }
-	}, 60000); // 60 seconds timeout
+	}, 95000); // 95 seconds timeout
     };
 
     const startWebSocket = () => {
