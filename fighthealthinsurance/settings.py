@@ -41,6 +41,9 @@ class Base(Configuration):
     # Quick-start development settings - unsuitable for production
     # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
 
+    DEFF_SALT = os.getenv("DEFF_SALT", "test-salt")
+    DEFF_PASSWORD = os.getenv("DEFF_PASSWORD", "test-password")
+
     # SECURITY WARNING: keep the secret key used in production secret!
     SECRET_KEY = "django-insecure-4b6t3cnic_(g*0cexqe8w)=1&vyb#(erhad#7@y4sv)jzb2kaf"
 
