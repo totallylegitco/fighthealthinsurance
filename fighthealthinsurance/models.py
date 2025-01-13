@@ -288,10 +288,11 @@ class FaxesToSend(ExportModelOperationsMixin("FaxesToSend"), models.Model):  # t
     should_send = models.BooleanField(default=False)
 
     def get_temporary_document_path(self):
+        combined_document = self.combined_document or self.combined_document_enc
         with tempfile.NamedTemporaryFile(
-            suffix=self.combined_document.name, mode="w+b", delete=False
+            suffix=combined_document.name, mode="w+b", delete=False
         ) as f:
-            f.write(self.combined_document.read())
+            f.write(combined_document.read())
             f.flush()
             f.close()
             os.sync()
