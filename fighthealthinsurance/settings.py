@@ -385,7 +385,7 @@ class Prod(Base):
                 "OPTIONS": {
                     "use_unicode": True,
                 },
-            }
+            },
             "legacy": {
                 "ENGINE": mysql_engine,
                 "NAME": os.getenv("DBNAME"),
