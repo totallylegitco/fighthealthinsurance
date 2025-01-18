@@ -383,7 +383,6 @@ class Prod(Base):
                 "HOST": os.getenv("PDBHOST"),
                 "ATOMIC_REQUESTS": False,
                 "OPTIONS": {
-                    "charset": "utf8mb4",
                     "use_unicode": True,
                 },
             }
