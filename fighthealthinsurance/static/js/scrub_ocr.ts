@@ -23,14 +23,9 @@ async function getTesseractWorkerRaw(): Promise<Tesseract.Worker> {
     return worker;
 }
 
-const memoizeOne = require('async-memoize-one');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const memoizeOne = require('async-memoize-one'); 
 const getTesseractWorker = memoizeOne(getTesseractWorkerRaw);
-
-
-function addText(text: string): void {
-    const input = document.getElementById("denial_text") as HTMLTextAreaElement;
-    input.value += text;
-}
 
 
 function isPDF(file: File): boolean {
@@ -57,8 +52,7 @@ async function getFileAsArrayBuffer(file: File): Promise<Uint8Array> {
   });
 }
 
-const recognizePDF = async function(file: File) {
-    const reader = new FileReader();
+const recognizePDF = async function(file: File, addText: (str: string) => void) {
     const typedarray = await getFileAsArrayBuffer(file); 
     console.log("Data?")
     console.log(typedarray)
@@ -89,7 +83,7 @@ const recognizePDF = async function(file: File) {
     }
 }
 
-const recognizeImage = async function(file: File) {
+const recognizeImage = async function(file: File, addText: (str: string) => void) {
     const worker = await getTesseractWorker()
     const ret = await worker.recognize(file);
     console.log("Recognize done!")
@@ -97,30 +91,25 @@ const recognizeImage = async function(file: File) {
     addText(ret.data.text);
 }
 
-export const recognize = async function(evt: Event) {
-    const input = evt.target as HTMLInputElement;
-    const files = input.files;
-    const filesArray = Array.from(files)
-
-    for (const file of filesArray) {
-	if (isPDF(file)) {
-	    console.log("probably pdf")
-	    try {
-		await recognizePDF(file)
-	    } catch {
-		await recognizeImage(file)
-	    }
-	} else {
-	    console.log("Assuming image...")
-	    try {
-		await recognizeImage(file)
-	    } catch {
-		await recognizePDF(file)
-	    }
+export const recognize = async function(file: File, addText: (str: string) => void) {
+    if (isPDF(file)) {
+	console.log("probably pdf")
+	try {
+	    await recognizePDF(file, addText)
+	} catch {
+	    await recognizeImage(file, addText)
+	}
+    } else {
+	console.log("Assuming image...")
+	try {
+	    await recognizeImage(file, addText)
+	} catch {
+	    await recognizePDF(file, addText)
 	}
     }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function getPDFPageText (pdf: any, pageNo: number): Promise<string> {
     const page = await pdf.getPage(pageNo);
     const tokenizedText: TextContent = await page.getTextContent();
@@ -136,6 +125,7 @@ async function getPDFPageText (pdf: any, pageNo: number): Promise<string> {
     return pageText;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function getPDFText(pdf: any): Promise<string> {
     console.log("Getting text from PDF:")
     console.log(pdf)

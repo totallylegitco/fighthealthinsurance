@@ -4,7 +4,18 @@ import { recognize } from "./scrub_ocr";
 
 import { clean } from "./scrub_scrub";
 
-import {hideErrorMessages, validateScrubForm} from "./scrub_client_side_form" ;
+import {addText, hideErrorMessages, validateScrubForm} from "./scrub_client_side_form" ;
+
+const recognizeEvent = async function(evt: Event) {
+    const input = evt.target as HTMLInputElement;
+    const files = input.files;
+    const filesArray = Array.from(files)
+
+    for (const file of filesArray) {
+	await recognize(file, addText);
+    }
+}
+
 
 function setupScrub(): void {
     // Restore previous local values
@@ -25,7 +36,7 @@ function setupScrub(): void {
     nodes.forEach(handleStorage);
     const elm = document.getElementById('uploader');
     if (elm != null) {
-	elm.addEventListener('change', recognize);
+	elm.addEventListener('change', recognizeEvent);
     }
     const scrub = document.getElementById('scrub');
     if (scrub != null) {

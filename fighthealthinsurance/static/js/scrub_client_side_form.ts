@@ -1,4 +1,10 @@
-// Main
+// Add text
+export function addText(text: string): void {
+    const input = document.getElementById("denial_text") as HTMLTextAreaElement;
+    input.value += text;
+}
+
+// Error messages
 function rehideHiddenMessage(name: string): void {
     document.getElementById(name).classList.remove('visible');
 }
