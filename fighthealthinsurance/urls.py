@@ -38,12 +38,7 @@ def trigger_error(request):
     division_by_zero = 1 / 0
 
 
-url_patterns = []
-
-brb_urlpatterns = [
-    re_path(r"^(?P<resource>.*)$", views.BRB.as_view(), name="catch_all"),
-]
-normal_urlpatterns = [
+urlpatterns = [
     # Internal-ish-views
     path("ziggy/rest/", include("fighthealthinsurance.rest_urls")),
     path("timbit/sentry-debug/", trigger_error),
@@ -104,11 +99,6 @@ normal_urlpatterns = [
         name="stagefaxview",
     ),
     path(
-        "scan",
-        sensitive_post_parameters("email")(views.InitialProcessView.as_view()),
-        name="scan",
-    ),
-    path(
         "process",
         sensitive_post_parameters("email")(views.InitialProcessView.as_view()),
         name="process",
@@ -124,11 +114,6 @@ normal_urlpatterns = [
         "server_side_ocr",
         sensitive_post_parameters("email")(views.OCRView.as_view()),
         name="server_side_ocr",
-    ),
-    path(
-        "",
-        cache_control(public=True)(cache_page(60 * 60 * 2)(views.IndexView.as_view())),
-        name="root",
     ),
     path(
         "about-us",
@@ -185,9 +170,26 @@ normal_urlpatterns = [
     ),
 ]
 
-normal_urlpatterns += staticfiles_urlpatterns()
-
+# Don't break people already in the flow but "drain" the people by replacing scan & index w/ BRB view.
 if os.getenv("BRB") == "BRB":
-    urlpatterns = brb_urlpatterns
+    urlpatterns += [
+        path(r"", views.BRB.as_view(), name="brb"),
+    ]
 else:
-    urlpatterns = normal_urlpatterns
+    urlpatterns += [
+        path(
+            "",
+            cache_control(public=True)(
+                cache_page(60 * 60 * 2)(views.IndexView.as_view())
+            ),
+            name="root",
+        ),
+        path(
+            "scan",
+            sensitive_post_parameters("email")(views.InitialProcessView.as_view()),
+            name="scan",
+        ),
+    ]
+
+
+urlpatterns += staticfiles_urlpatterns()
