@@ -56,9 +56,6 @@ spec:
         app: fight-health-insurance
         group: fight-health-insurance-webbackend-staging
     spec:
-      requests:
-        memory: "64gb"
-        cpu: "2"
       topologySpreadConstraints:
       - maxSkew: 2
         topologyKey: kubernetes.io/hostname
@@ -69,6 +66,10 @@ spec:
       containers:
         - image: holdenk/fight-health-insurance:${FHI_VERSION}
           name: totallylegitco
+          resources:
+            requests:
+              memory: 64G
+              cpu: 4
           envFrom:
           - secretRef:
               name: fight-health-insurance-secret
