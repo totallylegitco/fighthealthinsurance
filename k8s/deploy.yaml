@@ -73,7 +73,7 @@ metadata:
   labels:
     app: fight-health-insurance
 spec:
-  replicas: 8
+  replicas: 6
   selector:
     matchLabels:
       app: fight-health-insurance
@@ -83,6 +83,9 @@ spec:
         app: fight-health-insurance
         group: fight-health-insurance-webbackend
     spec:
+      requests:
+        memory: "16gb"
+        cpu: "2"
       topologySpreadConstraints:
       - maxSkew: 2
         topologyKey: kubernetes.io/hostname

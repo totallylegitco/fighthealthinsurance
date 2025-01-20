@@ -32,7 +32,7 @@ class PubMedTools(object):
             query = f"{denial.procedure} {denial.diagnosis}"
             pmids = pubmed_fetcher.pmids_for_query(query)
             # Sometimes we get nulls...
-            articles_json = json.dumps(pmids).replace('\x00', '')
+            articles_json = json.dumps(pmids).replace("\x00", "")
             PubMedQueryData.objects.create(
                 query=query,
                 articles=articles_json,
@@ -82,9 +82,9 @@ class PubMedTools(object):
                         article = PubMedArticleSummarized.objects.create(
                             pmid=pmid,
                             doi=fetched.doi,
-                            title=fetched.title.replace('\x00', ''),
-                            abstract=fetched.abstract.replace('\x00', ''),
-                            text=fetched.content.text.replace('\x00', ''),
+                            title=fetched.title.replace("\x00", ""),
+                            abstract=fetched.abstract.replace("\x00", ""),
+                            text=fetched.content.text.replace("\x00", ""),
                         )
                         pubmed_docs.append(article)
                 except:

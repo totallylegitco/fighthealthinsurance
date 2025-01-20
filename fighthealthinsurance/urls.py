@@ -17,7 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
-from django.urls import include, path
+from django.urls import include, path, re_path
 from django.conf.urls.static import static
 from django.views.decorators.cache import cache_control, cache_page
 from django.conf import settings
@@ -31,13 +31,17 @@ from fighthealthinsurance.followup_emails import (
     ScheduleFollowUps,
 )
 from django.views.decorators.debug import sensitive_post_parameters
-
+import os
 
 def trigger_error(request):
     division_by_zero = 1 / 0
 
+url_patterns = []
 
-urlpatterns = [
+brb_urlpatterns = [
+    re_path(r'^(?P<resource>.*)$', views.BRB.as_view(), name='catch_all'),
+]
+normal_urlpatterns = [
     # Internal-ish-views
     path("ziggy/rest/", include("fighthealthinsurance.rest_urls")),
     path("timbit/sentry-debug/", trigger_error),
@@ -179,4 +183,9 @@ urlpatterns = [
     ),
 ]
 
-urlpatterns += staticfiles_urlpatterns()
+normal_urlpatterns += staticfiles_urlpatterns()
+
+if os.getenv("BRB") == "BRB":
+    urlpatterns = brb_urlpatterns
+else:
+    urlpatterns = normal_urlpatterns

@@ -56,6 +56,9 @@ spec:
         app: fight-health-insurance
         group: fight-health-insurance-webbackend-staging
     spec:
+      requests:
+        memory: "64gb"
+        cpu: "2"
       topologySpreadConstraints:
       - maxSkew: 2
         topologyKey: kubernetes.io/hostname
