@@ -382,9 +382,6 @@ class Prod(Base):
                 "PASSWORD": os.getenv("PDBPASSWORD"),
                 "HOST": os.getenv("PDBHOST"),
                 "ATOMIC_REQUESTS": False,
-                "OPTIONS": {
-                    "use_unicode": True,
-                },
             },
             "legacy": {
                 "ENGINE": mysql_engine,
