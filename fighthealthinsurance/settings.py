@@ -394,7 +394,7 @@ class Prod(Base):
                     "charset": "utf8mb4",
                     "use_unicode": True,
                 },
-            }
+            },
         }
 
     EXTERNAL_STORAGE_LOCATION = "/external_data"

@@ -232,7 +232,9 @@ class PlanDocuments(models.Model):
 class FollowUpDocuments(models.Model):
     document_id = models.AutoField(primary_key=True)
     follow_up_document = models.FileField(null=True, storage=settings.COMBINED_STORAGE)
-    follow_up_document_enc = EncryptedFileField(null=True, storage=settings.COMBINED_STORAGE)
+    follow_up_document_enc = EncryptedFileField(
+        null=True, storage=settings.COMBINED_STORAGE
+    )
     # If the denial is deleted it's either SPAM or a removal request in either case
     # we cascade the delete
     denial = models.ForeignKey("Denial", on_delete=models.CASCADE)
@@ -274,7 +276,9 @@ class FaxesToSend(ExportModelOperationsMixin("FaxesToSend"), models.Model):  # t
     pmids = models.CharField(max_length=300, blank=True)
     health_history = models.TextField(null=True, blank=True)
     combined_document = models.FileField(null=True, storage=settings.COMBINED_STORAGE)
-    combined_document_enc = EncryptedFileField(null=True, storage=settings.COMBINED_STORAGE)
+    combined_document_enc = EncryptedFileField(
+        null=True, storage=settings.COMBINED_STORAGE
+    )
     uuid = models.CharField(
         max_length=300, primary_key=False, default=uuid.uuid4, editable=False
     )
