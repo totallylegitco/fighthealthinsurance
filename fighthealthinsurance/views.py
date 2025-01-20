@@ -51,6 +51,7 @@ class FollowUpView(generic.FormView):
 class ProVersionThankYouView(generic.TemplateView):
     template_name = "professional_thankyou.html"
 
+
 class BRB(generic.TemplateView):
     template_name = "brb.html"
 
@@ -58,6 +59,7 @@ class BRB(generic.TemplateView):
         response = super().get(request, *args, **kwargs)
         response.status_code = 503  # Set HTTP status to 503
         return response
+
 
 class ProVersionView(generic.FormView):
     template_name = "professional.html"

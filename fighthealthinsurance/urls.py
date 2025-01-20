@@ -33,13 +33,15 @@ from fighthealthinsurance.followup_emails import (
 from django.views.decorators.debug import sensitive_post_parameters
 import os
 
+
 def trigger_error(request):
     division_by_zero = 1 / 0
+
 
 url_patterns = []
 
 brb_urlpatterns = [
-    re_path(r'^(?P<resource>.*)$', views.BRB.as_view(), name='catch_all'),
+    re_path(r"^(?P<resource>.*)$", views.BRB.as_view(), name="catch_all"),
 ]
 normal_urlpatterns = [
     # Internal-ish-views
