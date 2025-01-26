@@ -375,7 +375,7 @@ class Prod(Base):
         mysql_engine = "django_prometheus.db.backends.mysql"
         postgres_engine = "django_prometheus.db.backends.postgresql"
         return {
-            "new": {
+            "default": {
                 "ENGINE": postgres_engine,
                 "NAME": os.getenv("PDBNAME"),
                 "USER": os.getenv("PDBUSER"),
@@ -383,7 +383,7 @@ class Prod(Base):
                 "HOST": os.getenv("PDBHOST"),
                 "ATOMIC_REQUESTS": False,
             },
-            "default": {
+            "mysql": {
                 "ENGINE": mysql_engine,
                 "NAME": os.getenv("DBNAME"),
                 "USER": os.getenv("DBUSER"),
