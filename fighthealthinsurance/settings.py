@@ -382,6 +382,7 @@ class Prod(Base):
                 "PASSWORD": os.getenv("PDBPASSWORD"),
                 "HOST": os.getenv("PDBHOST"),
                 "ATOMIC_REQUESTS": False,
+                "pool": True,
             },
             "mysql": {
                 "ENGINE": mysql_engine,
