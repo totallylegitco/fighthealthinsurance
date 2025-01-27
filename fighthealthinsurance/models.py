@@ -325,6 +325,7 @@ class FaxesToSend(ExportModelOperationsMixin("FaxesToSend"), models.Model):  # t
 
 class Denial(ExportModelOperationsMixin("Denial"), models.Model):  # type: ignore
     denial_id = models.AutoField(primary_key=True, null=False)
+    professional = models.BooleanField(default=False)
     uuid = models.CharField(
         max_length=300, primary_key=False, default=uuid.uuid4, editable=False
     )
