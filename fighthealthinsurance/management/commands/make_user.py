@@ -9,6 +9,7 @@ from django.db import models
 from fighthealthinsurance.auth_utils import combine_domain_and_username
 from django.contrib.auth import get_user_model
 
+
 class Command(BaseCommand):
     help = "Make a user"
 

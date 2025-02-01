@@ -176,7 +176,7 @@ class Base(Configuration):
         "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
         "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
         "django.contrib.auth.hashers.ScryptPasswordHasher",
-        'mfa.recovery.Hash',
+        "mfa.recovery.Hash",
     ]
 
     # Password validation
@@ -204,16 +204,19 @@ class Base(Configuration):
     ]
 
     # Auth https://github.com/mkalioby/django-mfa2
-    FIDO_SERVER_ID=u"localhost"      # Server rp id for FIDO2, it is the full domain of your project
-    FIDO_SERVER_NAME=u"fightpaperwork"
-    MFA_REDIRECT_AFTER_REGISTRATION="root"
+    FIDO_SERVER_ID = (
+        "localhost"  # Server rp id for FIDO2, it is the full domain of your project
+    )
+    FIDO_SERVER_NAME = "fightpaperwork"
+    MFA_REDIRECT_AFTER_REGISTRATION = "root"
     # Force TOTP tokens on
     # MFA_ENFORCE_EMAIL_TOKEN = True
     EMAIL_FROM = "support@fightpaperwork.com"
 
-    TOKEN_ISSUER_NAME="FIGHT"      #TOTP Issuer name
-    MFA_OTP_EMAIL_SUBJECT= "One time password: Fight Paperwork"       # The subject of the email after the token
-
+    TOKEN_ISSUER_NAME = "FIGHT"  # TOTP Issuer name
+    MFA_OTP_EMAIL_SUBJECT = (
+        "One time password: Fight Paperwork"  # The subject of the email after the token
+    )
 
     # Internationalization
     # https://docs.djangoproject.com/en/4.0/topics/i18n/
@@ -377,7 +380,7 @@ class Prod(Base):
     DEBUG = False
 
     # Different fido server for production
-    FIDO_SERVER_ID=u"fighthealthinsurance.com"      # Server rp id for FIDO2, it is the full domain of your project
+    FIDO_SERVER_ID = "fighthealthinsurance.com"  # Server rp id for FIDO2, it is the full domain of your project
 
     @property
     def SECRET_KEY(self):
