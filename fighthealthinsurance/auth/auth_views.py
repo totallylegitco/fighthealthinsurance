@@ -7,6 +7,7 @@ from django.contrib.auth.models import User
 from .auth_utils import validate_username, combine_domain_and_username
 from .auth_forms import DomainAuthenticationForm
 
+
 class LoginView(generic.FormView):
     template_name = "login.html"
     form_class = DomainAuthenticationForm
