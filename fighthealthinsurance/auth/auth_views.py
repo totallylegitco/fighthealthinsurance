@@ -6,6 +6,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from .auth_utils import validate_username, combine_domain_and_username
 from .auth_forms import DomainAuthenticationForm
+import fhi_users
 
 
 class LoginView(generic.FormView):
@@ -17,7 +18,11 @@ class LoginView(generic.FormView):
         raw_username = form.cleaned_data["username"]
         request = self.request
         domain = form.cleaned_data["domain"]
-        username = combine_domain_and_username(raw_username, domain)
+        try:
+            username = combine_domain_and_username(raw_username, domain)
+        except fhi_users.models.UserDomain.DoesNotExist:
+            context["domain_invalid"] = True
+            return render(request, "login.html", context)
         password = form.cleaned_data["password"]
         print(f"Performing auth for {username} w/ {password}")
         user = authenticate(username=username, password=password)

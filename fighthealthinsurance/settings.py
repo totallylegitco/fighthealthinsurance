@@ -32,11 +32,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 class Base(Configuration):
+    SENTRY_ENDPOINT = os.getenv("SENTRY_ENDPOINT")
     COOKIE_CONSENT_ENABLED = True
     COOKIE_CONSENT_LOG_ENABLED = True
     LOGIN_URL = "login"
     LOGIN_REDIRECT_URL = "/"
     THUMBNAIL_DEBUG = True
+    AUTH_USER_MODEL = "fhi_users.User"
 
     # Quick-start development settings - unsuitable for production
     # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
@@ -61,8 +63,6 @@ class Base(Configuration):
 
     ALLOWED_HOSTS: list[str] = ["*"]
 
-    sentry_endpoint = os.getenv("SENTRY_ENDPOINT")
-
     # Application definition
 
     SITE_ID = 1
@@ -83,6 +83,7 @@ class Base(Configuration):
         "django.contrib.staticfiles",
         "django.contrib.sites",
         "fighthealthinsurance",
+        "fhi_users",
         "sorl.thumbnail",
         "easy_thumbnails",
         "cookie_consent",
@@ -379,27 +380,6 @@ class Prod(Base):
     sentry_endpoint = os.getenv("SENTRY_ENDPOINT")
 
     DEBUG = False
-
-    if sentry_endpoint and not DEBUG:
-
-        import sentry_sdk
-        from sentry_sdk.integrations.django import DjangoIntegration
-
-        sentry_sdk.init(
-            dsn=sentry_endpoint,
-            # Set traces_sample_rate to 1.0 to capture 100%
-            # of transactions for tracing.
-            traces_sample_rate=1.0,
-            integrations=[DjangoIntegration()],
-            environment="production",  # Set this to your desired environment name
-            release=os.getenv("RELEASE", "unset"),
-            _experiments={
-                # Set continuous_profiling_auto_start to True
-                # to automatically start the profiler on when
-                # possible.
-                "continuous_profiling_auto_start": True,
-            },
-        )
 
     # Different fido server for production
     FIDO_SERVER_ID = "fighthealthinsurance.com"  # Server rp id for FIDO2, it is the full domain of your project

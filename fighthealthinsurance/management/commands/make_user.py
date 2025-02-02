@@ -6,8 +6,9 @@ from typing import Any
 from fighthealthinsurance.models import PubMedArticleSummarized
 from django.core.management.base import BaseCommand, CommandParser
 from django.db import models
-from fighthealthinsurance.auth_utils import combine_domain_and_username
+from fighthealthinsurance.auth.auth_utils import combine_domain_and_username
 from django.contrib.auth import get_user_model
+from fhi_users.models import UserDomain
 
 
 class Command(BaseCommand):
@@ -26,6 +27,8 @@ class Command(BaseCommand):
         email = options["email"]
         password = options["password"]
         domain = options["domain"]
+        if not UserDomain.objects.filter(name=domain).exists():
+            UserDomain.objects.create(name=domain, active=True)
         username = combine_domain_and_username(raw_user, domain)
         if not User.objects.filter(username=username).exists():
             User.objects.create_user(
