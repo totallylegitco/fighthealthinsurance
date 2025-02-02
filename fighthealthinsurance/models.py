@@ -15,6 +15,12 @@ from django.contrib.auth.models import User
 from fighthealthinsurance.utils import sekret_gen
 from regex_field.fields import RegexField
 
+from django.contrib.auth.models import AbstractBaseUser
+
+
+class User(AbstractBaseUser):
+    domain = models.CharField(max_length=300, primary_key=False, default="", blank=True)
+    pass
 
 # Auth-ish-related models
 class Domain(models.Model):
