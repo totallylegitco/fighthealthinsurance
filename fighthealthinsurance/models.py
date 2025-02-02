@@ -19,7 +19,7 @@ from regex_field.fields import RegexField
 # Auth-ish-related models
 class Domain(models.Model):
     id = models.AutoField(primary_key=True)
-    name = models.CharField(primary_key=False, blank=False, null=False)
+    name = models.CharField(primary_key=False, blank=False, null=False, max_length=300)
     active = models.BooleanField()
 
 
@@ -32,7 +32,7 @@ class ConsumerUser(models.Model):
 class ProfessionalUser(models.Model):
     id = models.AutoField(primary_key=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    npi_number = models.CharField(blank=True, null=True)
+    npi_number = models.CharField(blank=True, null=True, max_length=20)
     active = models.BooleanField()
 
 
