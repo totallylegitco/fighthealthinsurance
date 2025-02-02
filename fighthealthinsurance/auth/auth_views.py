@@ -3,11 +3,12 @@ from django.http import HttpResponseRedirect
 from django.urls import reverse
 from django.views import generic
 from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from .auth_utils import validate_username, combine_domain_and_username
 from .auth_forms import DomainAuthenticationForm
 import fhi_users
 
+User = get_user_model()
 
 class LoginView(generic.FormView):
     template_name = "login.html"
@@ -45,6 +46,6 @@ def create_session(request, username):
     return HttpResponseRedirect(reverse("root"))
 
 
-def logoutView(request):
+def LogoutView(request):
     logout(request)
     return render(request, "logout.html", {})
