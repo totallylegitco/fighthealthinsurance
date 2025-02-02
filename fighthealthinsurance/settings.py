@@ -40,6 +40,12 @@ class Base(Configuration):
     THUMBNAIL_DEBUG = True
     AUTH_USER_MODEL = "fhi_users.User"
 
+    REST_FRAMEWORK = {
+        "DEFAULT_AUTHENTICATION_CLASSES": [
+            "rest_framework.authentication.SessionAuthentication",
+        ]
+    }
+
     # Quick-start development settings - unsuitable for production
     # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
 

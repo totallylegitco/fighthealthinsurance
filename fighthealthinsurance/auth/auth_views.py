@@ -10,6 +10,7 @@ import fhi_users
 
 User = get_user_model()
 
+
 class LoginView(generic.FormView):
     template_name = "login.html"
     form_class = DomainAuthenticationForm
