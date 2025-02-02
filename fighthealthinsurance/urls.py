@@ -59,7 +59,7 @@ urlpatterns = [
     ),
     # Auth related views
     path("v0/auth/login", auth_views.LoginView.as_view(), name="login"),  # Login
-    path("v0/auth/logout", auth_views.logoutView, name="logout"),  # Logout
+    path("v0/auth/logout", auth_views.LogoutView, name="logout"),  # Logout
     path(
         "v0/auth/mfa/", include("mfa.urls")
     ),  # Include MFA URLs for handling MFA processes.
