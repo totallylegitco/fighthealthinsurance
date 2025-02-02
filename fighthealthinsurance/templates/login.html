@@ -12,8 +12,11 @@ Login
       {% if invalid %}
       <div class="alert alert-danger">Invalid Username or password</div>
       {% endif %}
+      {% if domain_invalid %}
+      <div class="alert alert-danger">Domain not found</div>
+      {% endif %}
       <form action="{% url 'login' %}" method="post" id="loginForm">
-        {% csrf_token %}
+	{% csrf_token %}
         <div class="form-group">
           <div class="form-label-group">
 	    <label for="inputUsername">Username</label>

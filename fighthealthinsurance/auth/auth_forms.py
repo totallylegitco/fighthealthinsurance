@@ -1,6 +1,7 @@
-from django.contrib.auth.forms import AuthenticationForm
 from django import forms
 
 
-class DomainAuthenticationForm(AuthenticationForm):
+class DomainAuthenticationForm(forms.Form):
+    username = forms.CharField(required=True)
+    password = forms.CharField(required=True)
     domain = forms.CharField(required=True)

@@ -32,12 +32,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 class Base(Configuration):
+    SENTRY_ENDPOINT = os.getenv("SENTRY_ENDPOINT")
     COOKIE_CONSENT_ENABLED = True
     COOKIE_CONSENT_LOG_ENABLED = True
     LOGIN_URL = "login"
     LOGIN_REDIRECT_URL = "/"
     THUMBNAIL_DEBUG = True
     DEFF_FETCH_URL_NAME = "fake_fetch_url"
+    AUTH_USER_MODEL = "fhi_users.User"
 
     # Quick-start development settings - unsuitable for production
     # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
@@ -63,7 +65,6 @@ class Base(Configuration):
     ALLOWED_HOSTS: list[str] = ["*"]
 
     SENTRY_ENDPOINT = os.getenv("SENTRY_ENDPOINT")
-
     # Application definition
 
     SITE_ID = 1
@@ -84,6 +85,7 @@ class Base(Configuration):
         "django.contrib.staticfiles",
         "django.contrib.sites",
         "fighthealthinsurance",
+        "fhi_users",
         "sorl.thumbnail",
         "easy_thumbnails",
         "cookie_consent",
