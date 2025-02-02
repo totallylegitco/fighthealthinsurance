@@ -36,7 +36,6 @@ class LoginView(generic.FormView):
 
 def create_session(request, username):
     user = User.objects.get(username=username)
-    user.backend = "django.contrib.auth.backends.ModelBackend"
     login(request, user)
     return HttpResponseRedirect(reverse("root"))
 
