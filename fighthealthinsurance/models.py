@@ -395,7 +395,7 @@ class Denial(ExportModelOperationsMixin("Denial"), models.Model):  # type: ignor
     claim_id = models.CharField(
         max_length=300, primary_key=False, null=True, blank=True
     )
-    user = models.OneToOneField(User, on_delete=models.SET_NULL)
+    user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True)
     procedure = models.CharField(max_length=300, primary_key=False, null=True)
     diagnosis = models.CharField(max_length=300, primary_key=False, null=True)
     # Keep track of if the async thread finished extracting procedure and diagnosis
