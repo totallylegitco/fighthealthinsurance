@@ -37,7 +37,7 @@ if settings.SENTRY_ENDPOINT and not settings.DEBUG:
         # of transactions for tracing.
         traces_sample_rate=1.0,
         integrations=[DjangoIntegration()],
-        environment="production",  # Set this to your desired environment name
+        environment=os.getenv("DJANGO_CONFIGURATION", "production-ish"),
         release=os.getenv("RELEASE", "unset"),
         _experiments={
             # Set continuous_profiling_auto_start to True
