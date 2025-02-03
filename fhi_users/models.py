@@ -31,11 +31,16 @@ class UserDomain(models.Model):
 # however (for now) the usernames & domains are scoped so that we can
 # allow admin to reset passwords within the domain. But we can later
 # add "global" users that aggregate multiple sub-users. Maybe. idk
-class GlobalUserRelation(models.model):
+class GlobalUserRelation(models.Model):
     id = models.AutoField(primary_key=True)
-    parent = models.OneToOneField(User, on_delete=models.CASCADE)
-    child = models.OneToOneField(User, on_delete=models.CASCADE)
-
+    parent_user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='%(class)s_parent_user')
+    child_user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='%(class)s_child_user')
 
 class ConsumerUser(models.Model):
     id = models.AutoField(primary_key=True)
@@ -52,7 +57,7 @@ class ProfessionalUser(models.Model):
 
 class ProfessionalDomainRelation(models.Model):
     professional = models.ForeignKey("ProfessionalUser", on_delete=models.CASCADE)
-    domain = models.ForeignKey("Domain", on_delete=models.CASCADE)
+    domain = models.ForeignKey(UserDomain, on_delete=models.CASCADE)
     active = models.BooleanField()
     admin = models.BooleanField()
     read_only = models.BooleanField(default=False)
@@ -61,5 +66,5 @@ class ProfessionalDomainRelation(models.Model):
 
 class ConsumerDomainRelation(models.Model):
     consumer = models.ForeignKey("ConsumerUser", on_delete=models.CASCADE)
-    domain = models.ForeignKey("Domain", on_delete=models.CASCADE)
+    domain = models.ForeignKey(UserDomain, on_delete=models.CASCADE)
     active = models.BooleanField()
