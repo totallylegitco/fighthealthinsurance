@@ -23,3 +23,26 @@ application = ProtocolTypeRouter(
         "websocket": AuthMiddlewareStack(URLRouter(websocket_urlpatterns)),
     }
 )
+
+from django.conf import settings
+
+if settings.SENTRY_ENDPOINT and not settings.DEBUG:
+
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+
+    sentry_sdk.init(
+        dsn=sentry_endpoint,
+        # Set traces_sample_rate to 1.0 to capture 100%
+        # of transactions for tracing.
+        traces_sample_rate=1.0,
+        integrations=[DjangoIntegration()],
+        environment="production",  # Set this to your desired environment name
+        release=os.getenv("RELEASE", "unset"),
+        _experiments={
+            # Set continuous_profiling_auto_start to True
+            # to automatically start the profiler on when
+            # possible.
+            "continuous_profiling_auto_start": True,
+        },
+    )
