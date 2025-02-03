@@ -39,7 +39,11 @@ class Base(Configuration):
     LOGIN_REDIRECT_URL = "/"
     THUMBNAIL_DEBUG = True
     DEFF_FETCH_URL_NAME = "fake_fetch_url"
-    AUTH_USER_MODEL = "fhi_users.User"
+    try:
+        import fhi_pro_backend
+        AUTH_USER_MODEL = "fhi_pro_backend.User"
+    except Exception as e:
+        print(f"No pro backend present, running without custom users.")
 
     REST_FRAMEWORK = {
         "DEFAULT_AUTHENTICATION_CLASSES": [
