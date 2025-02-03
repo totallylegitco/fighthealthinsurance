@@ -41,6 +41,7 @@ class Base(Configuration):
     DEFF_FETCH_URL_NAME = "fake_fetch_url"
     try:
         import fhi_pro_backend
+
         AUTH_USER_MODEL = "fhi_pro_backend.User"
     except Exception as e:
         print(f"No pro backend present, running without custom users.")

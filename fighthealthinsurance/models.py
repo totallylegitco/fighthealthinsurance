@@ -18,6 +18,7 @@ from regex_field.fields import RegexField
 
 User = get_user_model()
 
+
 # Money related :p
 class InterestedProfessional(ExportModelOperationsMixin("InterestedProfessional"), models.Model):  # type: ignore
     id = models.AutoField(primary_key=True)
