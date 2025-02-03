@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
+
 class User(AbstractUser):
     username = models.CharField(max_length=40, unique=True)
     email = models.EmailField()
@@ -8,11 +9,32 @@ class User(AbstractUser):
     EMAIL_FIELD = "email"
     pass
 
+
 # Auth-ish-related models
 class UserDomain(models.Model):
     id = models.AutoField(primary_key=True)
-    name = models.CharField(primary_key=False, blank=False, null=False, max_length=300, unique=True)
+    name = models.CharField(
+        primary_key=False, blank=False, null=False, max_length=300, unique=True
+    )
     active = models.BooleanField()
+    # Some extra defaults
+    default_procedure = models.CharField(
+        primary_key=False, blank=False, null=True, max_length=300, unique=False
+    )
+    # Maybe include:
+    # List of common procedures
+    # Common appeal templates
+    # Extra model prompt
+
+
+# As its set up a user can be in multiple domains & pro & consumer
+# however (for now) the usernames & domains are scoped so that we can
+# allow admin to reset passwords within the domain. But we can later
+# add "global" users that aggregate multiple sub-users. Maybe. idk
+class GlobalUserRelation(models.model):
+    id = models.AutoField(primary_key=True)
+    parent = models.OneToOneField(User, on_delete=models.CASCADE)
+    child = models.OneToOneField(User, on_delete=models.CASCADE)
 
 
 class ConsumerUser(models.Model):
@@ -25,4 +47,19 @@ class ProfessionalUser(models.Model):
     id = models.AutoField(primary_key=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     npi_number = models.CharField(blank=True, null=True, max_length=20)
+    active = models.BooleanField()
+
+
+class ProfessionalDomainRelation(models.Model):
+    professional = models.ForeignKey("ProfessionalUser", on_delete=models.CASCADE)
+    domain = models.ForeignKey("Domain", on_delete=models.CASCADE)
+    active = models.BooleanField()
+    admin = models.BooleanField()
+    read_only = models.BooleanField(default=False)
+    approval_required = models.BooleanField(default=True)
+
+
+class ConsumerDomainRelation(models.Model):
+    consumer = models.ForeignKey("ConsumerUser", on_delete=models.CASCADE)
+    domain = models.ForeignKey("Domain", on_delete=models.CASCADE)
     active = models.BooleanField()

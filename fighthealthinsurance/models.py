@@ -19,6 +19,21 @@ from regex_field.fields import RegexField
 User = get_user_model()
 
 
+class DenialDomainRelation(models.Model):
+    denial = models.ForeignKey("Denial", on_delete=models.CASCADE)
+    domain = models.ForeignKey("Domain", on_delete=models.CASCADE)
+
+
+class DenialProfessionalRelation(models.Model):
+    denial = models.ForeignKey("Denial", on_delete=models.CASCADE)
+    professional = models.ForeignKey("ProfessionalUser", on_delete=models.CASCADE)
+
+
+class DenialConsumerRelation(models.Model):
+    denial = models.ForeignKey("Denial", on_delete=models.CASCADE)
+    consumer = models.ForeignKey("ConsumerUser", on_delete=models.CASCADE)
+
+
 # Money related :p
 class InterestedProfessional(ExportModelOperationsMixin("InterestedProfessional"), models.Model):  # type: ignore
     id = models.AutoField(primary_key=True)
