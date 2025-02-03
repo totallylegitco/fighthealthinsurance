@@ -666,20 +666,40 @@ class FlexibleFaxMagic(object):
         )
         for backend in backends_by_cost:
             print(f"Entering timeout ctx")
-            with Timeout(900.0) as _timeout_ctx:
+            with Timeout(1300.0) as _timeout_ctx:
                 try:
                     print(f"Calling backend {backend}")
                     r = await asyncio.wait_for(
                         backend.send_fax(
                             destination=destination, path=path, blocking=blocking
                         ),
-                        timeout=300,
+                        timeout=600,
                     )
                     if r == True:
                         print(f"Sent fax to {destination} using {backend}")
                         return True
+                    else:
+                        print(f"Failed sending to {destination} using {backend}")
                 except Exception as e:
-                    print(f"Error {e} sending fax on {backend}")
+                    print(f"Error {e} sending fax on {backend}, retrying once")
+                try:
+                    print(f"Retrying backend {backend}")
+                    r = await asyncio.wait_for(
+                        backend.send_fax(
+                            destination=destination, path=path, blocking=blocking
+                        ),
+                        timeout=600,
+                    )
+                    if r == True:
+                        print(f"Sent fax to {destination} using {backend}")
+                        return True
+                    else:
+                        print(f"Failed sending to {destination} using {backend}")
+                except Exception as e:
+                    print(
+                        f"Error {e} sending fax on {backend}, moving on to next backend"
+                    )
+
         print(f"Unable to send fax to {destination} using {self.backends}")
         return False
 
