@@ -4,6 +4,7 @@ from drf_braces.serializers.form_serializer import (
     FormSerializer,
 )
 from .auth_forms import DomainAuthenticationForm, TOTPForm, PasswordResetForm
+from rest_framework import serializers
 
 
 class DomainAuthenticationFormSerializer(FormSerializer):
