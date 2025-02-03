@@ -2,14 +2,6 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 
 
-class User(AbstractUser):
-    username = models.CharField(max_length=40, unique=True)
-    email = models.EmailField()
-    USERNAME_FIELD = "username"
-    EMAIL_FIELD = "email"
-    pass
-
-
 # Auth-ish-related models
 class UserDomain(models.Model):
     id = models.AutoField(primary_key=True)
