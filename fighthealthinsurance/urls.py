@@ -47,6 +47,7 @@ urlpatterns = [
     path("timbit/sentry-debug/", trigger_error),
     re_path("timbit/sentry-debug/(?P<path>.+)", trigger_error, name="fake_fetch_url"),
     path("timbit/admin/", admin.site.urls),
+    path("timbit/admin/charts", include("charts.urls")),
     path("", include("django_prometheus.urls")),
     path("timbit/help/followup_sched", ScheduleFollowUps.as_view()),
     path(

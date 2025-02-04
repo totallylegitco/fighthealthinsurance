@@ -91,6 +91,7 @@ class Base(Configuration):
         "django.contrib.sites",
         "fighthealthinsurance",
         "fhi_users",
+        "charts",
         "sorl.thumbnail",
         "easy_thumbnails",
         "cookie_consent",
