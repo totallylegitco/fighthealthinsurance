@@ -4,6 +4,8 @@ asyncstdlib
 argon2-cffi
 beautifulsoup4==4.12.3
 black
+bokeh
+numpy
 channels
 django>=5.0.0
 django-cms
