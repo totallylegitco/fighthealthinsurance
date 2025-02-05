@@ -5,6 +5,10 @@ from drf_braces.serializers.form_serializer import (
 )
 from .auth_forms import DomainAuthenticationForm, TOTPForm, PasswordResetForm
 from rest_framework import serializers
+from django.contrib.auth import get_user_model
+from fhi_users.models import *
+User = get_user_model()
+
 
 
 class DomainAuthenticationFormSerializer(FormSerializer):
@@ -26,9 +30,31 @@ class DomainAuthResponse(serializers.Serializer):
     success = serializers.BooleanField()
     error_description = serializers.CharField()
     totp_info = serializers.CharField()
+    user_type = serializers.ChoiceField(
+        choices=["provider", "admin", "patient"])
 
 
 class TOTPResponse(serializers.Serializer):
     success = serializers.BooleanField()
     error_description = serializers.CharField()
     totp_info = serializers.CharField()
+
+class UserSignupSerializer(serializers.ModelSerializer):
+    domain_name = serializers.CharField()
+
+    class Meta(object):
+        model = User
+        exclude = ("id")
+
+class UserDomainSerializer(serializers.ModelSerializer):
+    class Meta(object):
+        model = UserDomain
+        exclude = ("id")
+
+class ProfessionalSignupSerializer(serializers.ModelSerializer):
+    user_signup_info = UserSignupSerializer()
+    make_new_domain = serializers.BooleanField()
+
+    class Meta(object):
+        model = ProfessionalUser
+        fields = ["npi_number"]
