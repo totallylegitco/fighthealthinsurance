@@ -48,7 +48,7 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
     serializer_class = serializers.DenialFormSerializer
 
     def perform_create(self, request, serializer):
-        serializer = self.deserialize(data=request.data)
+        serializer = self.deserializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         denial = common_view_logic.DenialCreatorHelper.create_denial(

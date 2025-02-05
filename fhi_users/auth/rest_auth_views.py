@@ -25,5 +25,5 @@ class CreateProfessionalUser(viewsets.ViewSet, CreateMixin):
     def create(self, request, serializer):
         data = serializer.validated_data
         if not data["make_new_domain"]:
-            domain = UserDomains.objects.filter(domain=data["domain"]).get()
+            domain = UserDomain.objects.filter(domain=data["domain"]).get()
         return None
