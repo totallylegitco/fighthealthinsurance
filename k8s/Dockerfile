@@ -15,10 +15,11 @@ RUN ln -sf /dev/stdout /var/log/nginx/access.log \
 # copy source and install dependencies
 RUN mkdir -p /opt/fighthealthinsurance
 RUN chown -R www-data:www-data /opt/fighthealthinsurance
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 # We hope requirements has not changed so we can use the cache
 COPY *requirements.txt /opt/fighthealthinsurance/
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
-    export PATH=/root/.local/bin:$PATH && \
+RUN export PATH=/root/.local/bin:$PATH && \
     uv pip install --system -r /opt/fighthealthinsurance/requirements.txt && \
     uv pip install --system -r /opt/fighthealthinsurance/deploy-requirements.txt
 RUN mkdir -p /external_data

@@ -27,6 +27,7 @@ django-regex-field
 djangorestframework
 django-stubs
 django-stubs-ext
+django-tables2
 django-treebeard
 django-types
 django_user_agents
