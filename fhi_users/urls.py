@@ -20,7 +20,8 @@ router = RouterClass()
 router.register(
     r"create_professional_user",
     rest_auth_views.CreateProfessionalUser,
-    basename="create_pro_user")
+    basename="create_pro_user",
+)
 
 urlpatterns = [
     # Auth related views
@@ -31,5 +32,4 @@ urlpatterns = [
         "v0/auth/mfa/", include("mfa.urls")
     ),  # Include MFA URLs for handling MFA processes.
     #    path('v0/auth/device_add', mfa.TrustedDevice.add,name="mfa_add_new_trusted_device"),  # Add device
-
 ]

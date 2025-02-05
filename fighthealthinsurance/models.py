@@ -411,6 +411,7 @@ class ProposedAppeal(ExportModelOperationsMixin("ProposedAppeal"), models.Model)
         else:
             return f"{self.appeal_text}"
 
+
 class Appeal(ExportModelOperationsMixin("Appeal"), models.Model):  # type: ignore
     appeal_text = models.TextField(max_length=3000000000, primary_key=False, null=True)
     for_denial = models.ForeignKey(
@@ -422,6 +423,7 @@ class Appeal(ExportModelOperationsMixin("Appeal"), models.Model):  # type: ignor
             return f"{self.appeal_text[0:100]}"
         else:
             return f"{self.appeal_text}"
+
 
 # Denial Relations
 

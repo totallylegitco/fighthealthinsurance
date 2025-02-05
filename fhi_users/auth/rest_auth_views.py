@@ -11,7 +11,12 @@ from rest_framework.views import APIView
 
 from fhi_users.models import UserDomain, ProfessionalUser
 from fhi_users.auth import rest_serializers as serializers
-from fighthealthinsurance.rest_mixins import SerializerMixin, CreateMixin, DeleteMixin, DeleteOnlyMixin
+from fighthealthinsurance.rest_mixins import (
+    SerializerMixin,
+    CreateMixin,
+    DeleteMixin,
+    DeleteOnlyMixin,
+)
 
 
 class CreateProfessionalUser(viewsets.ViewSet, CreateMixin):
@@ -22,4 +27,3 @@ class CreateProfessionalUser(viewsets.ViewSet, CreateMixin):
         if not data["make_new_domain"]:
             domain = UserDomains.objects.filter(domain=data["domain"]).get()
         return None
-

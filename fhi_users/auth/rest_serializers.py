@@ -7,8 +7,8 @@ from .auth_forms import DomainAuthenticationForm, TOTPForm, PasswordResetForm
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from fhi_users.models import *
-User = get_user_model()
 
+User = get_user_model()
 
 
 class DomainAuthenticationFormSerializer(FormSerializer):
@@ -30,8 +30,7 @@ class DomainAuthResponse(serializers.Serializer):
     success = serializers.BooleanField()
     error_description = serializers.CharField()
     totp_info = serializers.CharField()
-    user_type = serializers.ChoiceField(
-        choices=["provider", "admin", "patient"])
+    user_type = serializers.ChoiceField(choices=["provider", "admin", "patient"])
 
 
 class TOTPResponse(serializers.Serializer):
@@ -39,18 +38,27 @@ class TOTPResponse(serializers.Serializer):
     error_description = serializers.CharField()
     totp_info = serializers.CharField()
 
+
 class UserSignupSerializer(serializers.ModelSerializer):
     domain_name = serializers.CharField()
 
     class Meta(object):
         model = User
-        fields = ["username", "first_name", "last_name", "password", "email",
-                  "domain_name"]
+        fields = [
+            "username",
+            "first_name",
+            "last_name",
+            "password",
+            "email",
+            "domain_name",
+        ]
+
 
 class UserDomainSerializer(serializers.ModelSerializer):
     class Meta(object):
         model = UserDomain
-        exclude = ("id", )
+        exclude = ("id",)
+
 
 class ProfessionalSignupSerializer(serializers.ModelSerializer):
     user_signup_info = UserSignupSerializer()
@@ -59,6 +67,4 @@ class ProfessionalSignupSerializer(serializers.ModelSerializer):
 
     class Meta(object):
         model = ProfessionalUser
-        fields = [
-            "npi_number", "make_new_domain", "user_signup_info",
-            "user_domain"]
+        fields = ["npi_number", "make_new_domain", "user_signup_info", "user_domain"]

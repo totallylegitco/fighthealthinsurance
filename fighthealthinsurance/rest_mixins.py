@@ -13,6 +13,7 @@ class SerializerMixin:
         else:
             return self.serializer_class(data)
 
+
 class CreateMixin(SerializerMixin):
     def perform_create(self, request, serializer):
         pass
