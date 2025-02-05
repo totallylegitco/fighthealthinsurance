@@ -1,4 +1,5 @@
 import typing
+from rest_framework import status
 from rest_framework.serializers import Serializer
 from rest_framework.response import Response
 
@@ -6,19 +7,18 @@ from rest_framework.response import Response
 class SerializerMixin:
     serializer_class: typing.Optional[typing.Type[Serializer]] = None
 
-    def get_serializer(self, data=None):
+    def deserializer(self, data=None):
         if self.serializer_class is None:
             raise ValueError("serializer_class must be defined and not None")
-
-        return self.serializer_class(data=data)
-
+        else:
+            return self.serializer_class(data)
 
 class CreateMixin(SerializerMixin):
     def perform_create(self, request, serializer):
         pass
 
     def create(self, request):
-        request_serializer = self.get_serializer(data=request.data)
+        request_serializer = self.deserialize(data=request.data)
         request_serializer.is_valid(raise_exception=True)
         response_serializer = self.perform_create(request, request_serializer)
 
@@ -26,7 +26,6 @@ class CreateMixin(SerializerMixin):
             result = response_serializer.data
         else:
             result = None
-
         return Response(result, status=status.HTTP_201_CREATED)
 
 
@@ -36,7 +35,7 @@ class DeleteMixin(SerializerMixin):
 
     def delete(self, request, *args, **kwargs):
         """For some reason"""
-        serializer = self.get_serializer(data=request.data)
+        serializer = self.deserialize(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_delete(request, serializer, *args, **kwargs)
         return Response(status=status.HTTP_204_NO_CONTENT)

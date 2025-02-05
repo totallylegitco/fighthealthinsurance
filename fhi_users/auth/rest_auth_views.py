@@ -15,13 +15,11 @@ from fighthealthinsurance.rest_mixins import SerializerMixin, CreateMixin, Delet
 
 
 class CreateProfessionalUser(viewsets.ViewSet, CreateMixin):
-    serializer_class = serializers.TOTPResponse
+    serializer_class = serializers.ProfessionalSignupSerializer
 
-    def perform_create(self, request, serializer):
+    def create(self, request, serializer):
         data = serializer.validated_data
         if not data["make_new_domain"]:
             domain = UserDomains.objects.filter(domain=data["domain"]).get()
+        return None
 
-        return serializers.NextStepInfoSerizableSerializer(
-            next_step_info.convert_to_serializable(),
-        )

@@ -44,17 +44,21 @@ class UserSignupSerializer(serializers.ModelSerializer):
 
     class Meta(object):
         model = User
-        exclude = ("id")
+        fields = ["username", "first_name", "last_name", "password", "email",
+                  "domain_name"]
 
 class UserDomainSerializer(serializers.ModelSerializer):
     class Meta(object):
         model = UserDomain
-        exclude = ("id")
+        exclude = ("id", )
 
 class ProfessionalSignupSerializer(serializers.ModelSerializer):
     user_signup_info = UserSignupSerializer()
     make_new_domain = serializers.BooleanField()
+    user_domain = UserDomainSerializer()
 
     class Meta(object):
         model = ProfessionalUser
-        fields = ["npi_number"]
+        fields = [
+            "npi_number", "make_new_domain", "user_signup_info",
+            "user_domain"]

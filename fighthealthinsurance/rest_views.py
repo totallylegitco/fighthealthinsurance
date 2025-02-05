@@ -13,7 +13,7 @@ from rest_framework.views import APIView
 from fighthealthinsurance import common_view_logic
 from fighthealthinsurance.ml.ml_router import ml_router
 from fighthealthinsurance import rest_serializers as serializers
-from .rest_mixins import SerializerMixin, CreateMixin, DeleteMixin, DeleteOnlyMixin
+from fighthealthinsurance.rest_mixins import SerializerMixin, CreateMixin, DeleteMixin, DeleteOnlyMixin
 
 from stopit import ThreadingTimeout as Timeout
 
