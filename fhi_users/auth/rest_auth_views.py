@@ -121,22 +121,24 @@ class AdminProfessionalUser(viewsets.ViewSet, SerializerMixin):
     serializer_class = serializers.AcceptProfessionalUserSerializer
 
     @action(detail=False, methods=["post"])
-    def reject(self, request: HttpRequest) -> Response:
+    def reject(self, request) -> Response:
         serializer = self.deserialize(data=request.data)
         serializer.is_valid(raise_exception=True)
         professional_user_id: int = serializer.validated_data["professional_user_id"]
         domain_id: int = serializer.validated_data["domain_id"]
+        # TODO: Check auth here
         relation = ProfessionalDomainRelation.objects.get(
-            profesional__id=professional_user_id, pending=True, domain__id=domain_id
+            professional_id=professional_user_id, pending=True, domain_id=domain_id
         )
         relation.pending = False
         # TODO: Add to model
         # relation.rejected = True
         relation.active = False
         relation.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=["post"])
-    def accept(self, request: HttpRequest) -> Response:
+    def accept(self, request) -> Response:
         serializer = self.deserialize(data=request.data)
         serializer.is_valid(raise_exception=True)
         professional_user_id: int = serializer.validated_data["professional_user_id"]
