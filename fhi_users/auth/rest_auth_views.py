@@ -1,3 +1,5 @@
+from loguru import logger
+
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.views import APIView
@@ -11,7 +13,7 @@ from django.urls import reverse  # Add this import
 from fhi_users.models import UserDomain, ProfessionalUser, ProfessionalDomainRelation
 from fhi_users.auth import rest_serializers as serializers
 from fhi_users.auth.auth_utils import create_user
-from fighthealthinsurance.rest_mixins import CreateMixin
+from fighthealthinsurance.rest_mixins import CreateMixin, SerializerMixin
 from rest_framework.serializers import Serializer
 
 
@@ -91,6 +93,7 @@ class CreateProfessionalUser(viewsets.ViewSet, CreateMixin):
         stripe.api_key = settings.STRIPE_API_SECRET_KEY
         # TODO: Reuse product if present
         product = stripe.Product.create(name="Basic Professional Subscription")
+        # TODO: Reuse the price if present
         price = stripe.Price.create(
             unit_amount=2500,
             currency="usd",
@@ -105,20 +108,21 @@ class CreateProfessionalUser(viewsets.ViewSet, CreateMixin):
             cancel_url=user_signup_info["continue_url"],
             customer_email=email,
         )
-
+        subscription_id = checkout_session.subscription
+        # TODO: Setup webhook to get subscription status and store ID
         return serializers.ProfessionalSignupResponseSerializer(
             {"next_url": checkout_session.url}
         )
 
 
-class AdminProfessionalUser(viewsets.ViewSet):
+class AdminProfessionalUser(viewsets.ViewSet, SerializerMixin):
     """Accept OR reject pending professional user"""
 
     serializer_class = serializers.AcceptProfessionalUserSerializer
 
     @action(detail=False, methods=["post"])
     def reject(self, request: HttpRequest) -> Response:
-        serializer = self.get_serializer(instance, data=request.data)
+        serializer = self.deserialize(data=request.data)
         serializer.is_valid(raise_exception=True)
         professional_user_id: int = serializer.validated_data["professional_user_id"]
         domain_id: int = serializer.validated_data["domain_id"]
@@ -133,31 +137,35 @@ class AdminProfessionalUser(viewsets.ViewSet):
 
     @action(detail=False, methods=["post"])
     def accept(self, request: HttpRequest) -> Response:
-        serializer = self.get_serializer(instance, data=request.data)
+        serializer = self.deserialize(data=request.data)
         serializer.is_valid(raise_exception=True)
         professional_user_id: int = serializer.validated_data["professional_user_id"]
         domain_id: int = serializer.validated_data["domain_id"]
+        # TODO: Here check and see if the user is an admin user for this domain
         try:
             relation = ProfessionalDomainRelation.objects.get(
-                profesional__id=professional_user_id, pending=True, domain__id=domain_id
+                professional_id=professional_user_id, pending=True, domain_id=domain_id
             )
             relation.pending = False
             relation.active = True
             relation.save()
 
             stripe.api_key = settings.STRIPE_API_SECRET_KEY
-            subscription = stripe.Subscription.retrieve(
-                relation.domain.stripe_subscription_id
-            )
-            stripe.Subscription.modify(
-                subscription.id,
-                items=[
-                    {
-                        "id": subscription["items"]["data"][0].id,
-                        "quantity": subscription["items"]["data"][0].quantity + 1,
-                    }
-                ],
-            )
+            if relation.domain.stripe_subscription_id:
+                subscription = stripe.Subscription.retrieve(
+                    relation.domain.stripe_subscription_id
+                )
+                stripe.Subscription.modify(
+                    subscription.id,
+                    items=[
+                        {
+                            "id": subscription["items"]["data"][0].id,
+                            "quantity": subscription["items"]["data"][0].quantity + 1,
+                        }
+                    ],
+                )
+            else:
+                logger.debug("Skipping no subscription present.")
 
             return Response({"status": "accepted"}, status=status.HTTP_200_OK)
         except ProfessionalDomainRelation.DoesNotExist:
