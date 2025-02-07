@@ -10,16 +10,13 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django.views import View, generic
+from django.http import HttpRequest, HttpResponseBase
 
 from fighthealthinsurance import common_view_logic
 from fighthealthinsurance import forms as core_forms
-from fighthealthinsurance import generate_appeal
 from fighthealthinsurance import models
-from fighthealthinsurance.forms import questions as question_forms
-from fighthealthinsurance import utils
 
-
-def render_ocr_error(request, text):
+def render_ocr_error(request: HttpRequest, text: str) -> HttpResponseBase:
     return render(
         request,
         "server_side_ocr_error.html",

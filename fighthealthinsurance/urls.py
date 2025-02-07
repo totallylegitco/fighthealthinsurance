@@ -14,13 +14,15 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
+from typing import List, Union
+
+from django.urls import URLPattern, URLResolver
 from django.contrib import admin
+from django.http import HttpRequest, HttpResponseBase
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.urls import include, path, re_path
-from django.conf.urls.static import static
 from django.views.decorators.cache import cache_control, cache_page
-from django.conf import settings
 from django.views.generic.base import RedirectView
 from django.contrib.staticfiles.storage import staticfiles_storage
 
@@ -34,11 +36,10 @@ from django.views.decorators.debug import sensitive_post_parameters
 import os
 
 
-def trigger_error(request):
-    division_by_zero = 1 / 0
+def trigger_error(request: HttpRequest) -> HttpResponseBase:
+    raise Exception("Test error")
 
-
-urlpatterns = [
+urlpatterns: List[Union[URLPattern, URLResolver]] = [
     # Internal-ish-views
     path("ziggy/rest/", include("fighthealthinsurance.rest_urls")),
     path("timbit/sentry-debug/", trigger_error),
