@@ -4,7 +4,7 @@ from django.urls import reverse
 from django.views import generic
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth import get_user_model
-from .auth_utils import validate_username, combine_domain_and_username
+from .auth_utils import combine_domain_and_username
 from .auth_forms import DomainAuthenticationForm
 import fhi_users
 
@@ -47,6 +47,10 @@ def create_session(request, username):
     return HttpResponseRedirect(reverse("root"))
 
 
-def LogoutView(request):
-    logout(request)
-    return render(request, "logout.html", {})
+class LogoutView(generic.TemplateView):
+    template_name = "logout.html"
+
+    def get(self, request, *args, **kwargs):
+        logout(request)
+        response = super().get(request, *args, **kwargs)
+        return response

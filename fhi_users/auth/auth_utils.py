@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model
 
 # See https://github.com/typeddjango/django-stubs/issues/599
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from django.contrib.auth.models import User
 else:

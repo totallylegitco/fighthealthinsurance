@@ -7,21 +7,29 @@ User = get_user_model()
 # Auth-ish-related models
 class UserDomain(models.Model):
     id = models.AutoField(primary_key=True)
+    # Money
+    stripe_subscription_id = models.CharField(max_length=300, null=True)
+    # Info
     name = models.CharField(
         primary_key=False, blank=False, null=False, max_length=300, unique=True
     )
     active = models.BooleanField()
-    display_name = models.CharField(max_length=300, null=True)
-    visible_phone_number = models.CharField(max_length=150, null=True)
-    internal_phone_number = models.CharField(max_length=150, null=True)
+    display_name = models.CharField(max_length=300, null=False)
+    # The visible phone number should be unique... ish? Maybe?
+    # We _could_ allow users to log in with visible phone number IFF
+    # it's unique among active domains. We're going to TRY and have it
+    # be unique and hope we don't have to remove this. The real world is
+    # tricky.
+    visible_phone_number = models.CharField(max_length=150, null=False, unique=True)
+    internal_phone_number = models.CharField(max_length=150, null=False)
     office_fax = models.CharField(max_length=150, null=True)
     country = models.CharField(max_length=150, default="USA")
-    state = models.CharField(max_length=50, null=True)
-    city = models.CharField(max_length=150, null=True)
-    address1 = models.CharField(max_length=200, null=True)
+    state = models.CharField(max_length=50, null=False)
+    city = models.CharField(max_length=150, null=False)
+    address1 = models.CharField(max_length=200, null=False)
     address2 = models.CharField(max_length=200, null=True)
-    zipcode = models.CharField(max_length=20, null=True)
-    # Some extra defaults
+    zipcode = models.CharField(max_length=20, null=False)
+    # Customize the defaults
     default_procedure = models.CharField(
         primary_key=False, blank=False, null=True, max_length=300, unique=False
     )
@@ -72,7 +80,7 @@ class ProfessionalUser(models.Model):
 
 
 class ProfessionalDomainRelation(models.Model):
-    professional = models.ForeignKey("ProfessionalUser", on_delete=models.CASCADE)
+    professional = models.ForeignKey("ProfessionalUser", on_delete=models.CASCADE)  # type: ignore
     domain = models.ForeignKey(UserDomain, on_delete=models.CASCADE)
     active = models.BooleanField()
     admin = models.BooleanField()
@@ -80,12 +88,9 @@ class ProfessionalDomainRelation(models.Model):
     approval_required = models.BooleanField(default=True)
     display_name = models.CharField(max_length=400, null=True)
     professional_type = models.CharField(max_length=400, null=True)
-    pending = models.BooleanField(
-        default=True
-    )  # Has an admin accepted the request to join the domain?
+    pending = models.BooleanField(default=True)
 
 
 class PatientDomainRelation(models.Model):
-    patient = models.ForeignKey("PatientUser", on_delete=models.CASCADE)
+    patient = models.ForeignKey("PatientUser", on_delete=models.CASCADE)  # type: ignore
     domain = models.ForeignKey(UserDomain, on_delete=models.CASCADE)
-    active = models.BooleanField(default=True)
