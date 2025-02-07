@@ -71,7 +71,6 @@ class StageFaxView(generic.FormView):
         logger.debug(f"Staging fax with {form_data}")
         staged = common_view_logic.SendFaxHelper.stage_appeal_fax(**form_data)
         stripe.api_key = settings.STRIPE_API_SECRET_KEY
-        stripe.publishable_key = settings.STRIPE_API_PUBLISHABLE_KEY
         product = stripe.Product.create(name="Fax")
         product_price = stripe.Price.create(
             unit_amount=500, currency="usd", product=product["id"]
@@ -83,7 +82,7 @@ class StageFaxView(generic.FormView):
             }
         ]
         checkout = stripe.checkout.Session.create(
-            line_items=items,
+            line_items=items, #type: ignore
             mode="payment",  # No subscriptions
             success_url=self.request.build_absolute_uri(
                 reverse(
@@ -98,4 +97,7 @@ class StageFaxView(generic.FormView):
             customer_email=form.cleaned_data["email"],
         )
         checkout_url = checkout.url
-        return redirect(checkout_url)
+        if checkout_url is None:
+            raise Exception("Could not create checkout url")
+        else:
+            return redirect(checkout_url)

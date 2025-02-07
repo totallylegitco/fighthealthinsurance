@@ -75,7 +75,6 @@ class ProVersionView(generic.FormView):
             return render(self.request, "professional_thankyou.html")
 
         stripe.api_key = settings.STRIPE_API_SECRET_KEY
-        stripe.publishable_key = settings.STRIPE_API_PUBLISHABLE_KEY
 
         product = stripe.Product.create(name="Pre-Signup")
         product_price = stripe.Price.create(
@@ -88,7 +87,7 @@ class ProVersionView(generic.FormView):
             }
         ]
         checkout = stripe.checkout.Session.create(
-            line_items=items,
+            line_items=items, #type: ignore
             mode="payment",  # No subscriptions
             success_url=self.request.build_absolute_uri(
                 reverse("pro_version_thankyou")
@@ -97,7 +96,10 @@ class ProVersionView(generic.FormView):
             customer_email=form.cleaned_data["email"],
         )
         checkout_url = checkout.url
-        return redirect(checkout_url)
+        if checkout_url is None:
+            raise Exception("Could not create checkout url")
+        else:
+            return redirect(checkout_url)
 
 
 class IndexView(generic.TemplateView):
