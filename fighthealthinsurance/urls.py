@@ -55,7 +55,9 @@ urlpatterns = [
         "timbit/help/followup_fax_test",
         staff_member_required(fax_views.FollowUpFaxSenderView.as_view()),
     ),
+    # Authentication
     path("v0/auth/", include("fhi_users.urls")),
+    # stripe integration (TODO webhooks go here)
     # These are links we e-mail people so might have some extra junk.
     # So if there's an extra / or . at the end we ignore it.
     path(
