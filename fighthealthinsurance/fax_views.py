@@ -81,7 +81,7 @@ class StageFaxView(generic.FormView):
             }
         ]
         checkout = stripe.checkout.Session.create(
-            line_items=items, #type: ignore
+            line_items=items,  # type: ignore
             mode="payment",  # No subscriptions
             success_url=self.request.build_absolute_uri(
                 reverse(

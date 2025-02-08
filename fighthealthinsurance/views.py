@@ -16,6 +16,7 @@ from fighthealthinsurance import common_view_logic
 from fighthealthinsurance import forms as core_forms
 from fighthealthinsurance import models
 
+
 def render_ocr_error(request: HttpRequest, text: str) -> HttpResponseBase:
     return render(
         request,
@@ -84,7 +85,7 @@ class ProVersionView(generic.FormView):
             }
         ]
         checkout = stripe.checkout.Session.create(
-            line_items=items, #type: ignore
+            line_items=items,  # type: ignore
             mode="payment",  # No subscriptions
             success_url=self.request.build_absolute_uri(
                 reverse("pro_version_thankyou")

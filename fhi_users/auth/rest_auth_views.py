@@ -1,20 +1,28 @@
 from loguru import logger
+from typing import Optional
 
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework import permissions
+
+
 from django.http import HttpRequest
-import stripe
 from django.conf import settings
-from django.urls import reverse  # Add this import
+from django.urls import reverse
+from django.contrib.auth import get_user_model
+
+import stripe
 
 from fhi_users.models import UserDomain, ProfessionalUser, ProfessionalDomainRelation
 from fhi_users.auth import rest_serializers as serializers
 from fhi_users.auth.auth_utils import create_user
 from fighthealthinsurance.rest_mixins import CreateMixin, SerializerMixin
 from rest_framework.serializers import Serializer
+
+User = get_user_model()
 
 
 class CreateProfessionalUser(viewsets.ViewSet, CreateMixin):
@@ -26,10 +34,9 @@ class CreateProfessionalUser(viewsets.ViewSet, CreateMixin):
         self, request: HttpRequest, serializer: Serializer
     ) -> Response | serializers.ProfessionalSignupResponseSerializer:
         data: dict[str, str | dict[str, str]] = serializer.validated_data  # type: ignore
-        print(data)
         user_signup_info: dict[str, str] = data["user_signup_info"]  # type: ignore
         domain_name: str = user_signup_info["domain_name"]  # type: ignore
-        new_domain = data["make_new_domain"]  # type: ignore
+        new_domain: bool = bool(data["make_new_domain"])  # type: ignore
 
         if not new_domain:
             try:
@@ -59,8 +66,7 @@ class CreateProfessionalUser(viewsets.ViewSet, CreateMixin):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             UserDomain.objects.create(
-                # TODO: Get that bag first girl (for now just get users and reconcile post if needed.)
-                active=True,
+                active=False,
                 **user_domain_info,
             )
 
@@ -86,8 +92,8 @@ class CreateProfessionalUser(viewsets.ViewSet, CreateMixin):
             professional=professional_user,
             domain=user_domain,
             active=False,
-            admin=bool(new_domain),
-            pending=not new_domain,
+            admin=new_domain,
+            pending=True,
         )
 
         stripe.api_key = settings.STRIPE_API_SECRET_KEY
@@ -119,6 +125,7 @@ class AdminProfessionalUser(viewsets.ViewSet, SerializerMixin):
     """Accept OR reject pending professional user"""
 
     serializer_class = serializers.AcceptProfessionalUserSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
     @action(detail=False, methods=["post"])
     def reject(self, request) -> Response:
@@ -132,7 +139,7 @@ class AdminProfessionalUser(viewsets.ViewSet, SerializerMixin):
         )
         relation.pending = False
         # TODO: Add to model
-        # relation.rejected = True
+        relation.rejected = True
         relation.active = False
         relation.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -145,11 +152,32 @@ class AdminProfessionalUser(viewsets.ViewSet, SerializerMixin):
         domain_id: int = serializer.validated_data["domain_id"]
         # TODO: Here check and see if the user is an admin user for this domain
         try:
+            current_user: User = request.user  # type: ignore
+            current_user_admin_in_domain = (
+                ProfessionalDomainRelation.objects.filter(
+                    professional__user=current_user,
+                    domain_id=domain_id,
+                    admin=True,
+                    pending=False,
+                    active=True,
+                ).count()
+                > 0
+            )
+            if not current_user_admin_in_domain:
+                # Credentials are valid but does not have permissions
+                return Response(status=status.HTTP_403_FORBIDDEN)
+        except Exception as e:
+            # Unexecpted generic error, fail closed
+            logger.opt(exception=e).error("Error in accepting professional user")
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+        try:
             relation = ProfessionalDomainRelation.objects.get(
                 professional_id=professional_user_id, pending=True, domain_id=domain_id
             )
+            professional_user = ProfessionalUser.objects.get(id=professional_user_id)
+            professional_user.active = True
+            professional_user.save()
             relation.pending = False
-            relation.active = True
             relation.save()
 
             stripe.api_key = settings.STRIPE_API_SECRET_KEY

@@ -39,6 +39,7 @@ import os
 def trigger_error(request: HttpRequest) -> HttpResponseBase:
     raise Exception("Test error")
 
+
 urlpatterns: List[Union[URLPattern, URLResolver]] = [
     # Internal-ish-views
     path("ziggy/rest/", include("fighthealthinsurance.rest_urls")),

@@ -1,6 +1,10 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 
+from django.db.models.signals import pre_save
+from django.dispatch import receiver
+
+
 User = get_user_model()
 
 
@@ -80,15 +84,27 @@ class ProfessionalUser(models.Model):
 
 
 class ProfessionalDomainRelation(models.Model):
-    professional = models.ForeignKey("ProfessionalUser", on_delete=models.CASCADE)  # type: ignore
+    professional = models.ForeignKey("ProfessionalUser", on_delete=models.CASCADE)
     domain = models.ForeignKey(UserDomain, on_delete=models.CASCADE)
+    # Is the relation "active" (note: we should move this to a function)
     active = models.BooleanField()
     admin = models.BooleanField()
     read_only = models.BooleanField(default=False)
-    approval_required = models.BooleanField(default=True)
     display_name = models.CharField(max_length=400, null=True)
     professional_type = models.CharField(max_length=400, null=True)
     pending = models.BooleanField(default=True)
+    suspended = models.BooleanField(default=False)
+    rejected = models.BooleanField(default=False)
+
+
+# Dynamically update active based on pending/suspended -- we do this instead of property so we can filter on active
+@receiver(pre_save, sender=ProfessionalDomainRelation)
+def your_pre_save_function(
+    sender: type, instance: ProfessionalDomainRelation, **kwargs: dict
+) -> None:
+    instance.active = (
+        not instance.pending and not instance.suspended and not instance.rejected
+    )
 
 
 class PatientDomainRelation(models.Model):
