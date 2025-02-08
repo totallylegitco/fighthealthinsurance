@@ -74,10 +74,32 @@ class ProVersionView(generic.FormView):
 
         stripe.api_key = settings.STRIPE_API_SECRET_KEY
 
-        product = stripe.Product.create(name="Pre-Signup")
-        product_price = stripe.Price.create(
-            unit_amount=1000, currency="usd", product=product["id"]
+        # Check if the product already exists
+        products = stripe.Product.list(limit=100)
+        product = next(
+            (p for p in products.data if p.name == "Pre-Signup -- New"), None
         )
+
+        if product is None:
+            product = stripe.Product.create(name="Pre-Signup -- New")
+
+        # Check if the price already exists for the product
+        prices = stripe.Price.list(product=product["id"], limit=100)
+        product_price = next(
+            (
+                p
+                for p in prices.data
+                if p.unit_amount == 1000
+                and p.currency == "usd"
+                and p.id == product["id"]
+            ),
+            None,
+        )
+
+        if product_price is None:
+            product_price = stripe.Price.create(
+                unit_amount=1000, currency="usd", product=product["id"]
+            )
         items = [
             {
                 "price": product_price["id"],
