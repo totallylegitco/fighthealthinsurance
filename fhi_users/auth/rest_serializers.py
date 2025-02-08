@@ -80,4 +80,4 @@ class ProfessionalSignupResponseSerializer(serializers.Serializer):
 
 class AcceptProfessionalUserSerializer(serializers.Serializer):
     professional_user_id = serializers.IntegerField()
-    domain_id = serializers.IntegerField()
+    domain_id = serializers.CharField()

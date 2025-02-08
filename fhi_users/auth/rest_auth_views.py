@@ -166,7 +166,7 @@ class AdminProfessionalUser(viewsets.ViewSet, SerializerMixin):
         serializer = self.deserialize(data=request.data)
         serializer.is_valid(raise_exception=True)
         professional_user_id: int = serializer.validated_data["professional_user_id"]
-        domain_id: int = serializer.validated_data["domain_id"]
+        domain_id  = serializer.validated_data["domain_id"]
         # TODO: Check auth here
         relation = ProfessionalDomainRelation.objects.get(
             professional_id=professional_user_id, pending=True, domain_id=domain_id
@@ -183,7 +183,7 @@ class AdminProfessionalUser(viewsets.ViewSet, SerializerMixin):
         serializer = self.deserialize(data=request.data)
         serializer.is_valid(raise_exception=True)
         professional_user_id: int = serializer.validated_data["professional_user_id"]
-        domain_id: int = serializer.validated_data["domain_id"]
+        domain_id = serializer.validated_data["domain_id"]
         # TODO: Here check and see if the user is an admin user for this domain
         try:
             current_user: User = request.user  # type: ignore

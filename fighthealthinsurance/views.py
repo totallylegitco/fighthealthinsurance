@@ -1,9 +1,11 @@
 import json
 import stripe
+from stripe import error as stripe_error
 import typing
 from loguru import logger
-
 from PIL import Image
+
+
 from django import forms
 from django.conf import settings
 from django.shortcuts import redirect, render
@@ -11,7 +13,7 @@ from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django.views import View, generic
 from django.http import HttpRequest, HttpResponseBase, HttpResponse
-from stripe import error as stripe_error
+
 
 from fighthealthinsurance import common_view_logic
 from fighthealthinsurance import forms as core_forms
@@ -535,7 +537,6 @@ class DenialCollectedView(generic.FormView):
             },
         )
 
-
 class StripeWebhookView(View):
     def post(self, request):
         payload = request.body
@@ -565,7 +566,7 @@ class StripeWebhookView(View):
                 subscription_id = session.get("subscription")
                 if subscription_id:
                     models.UserDomain.objects.filter(
-                        id=session.metadata.get("domain_id")
+                        id=session.metadata.get("id")
                     ).update(stripe_subscription_id=subscription_id, active=True)
                     models.ProfessionalUser.objects.filter(
                         id=session.metadata.get("professional_id")
@@ -575,7 +576,7 @@ class StripeWebhookView(View):
 
             elif payment_type == "fax":
                 models.FaxesToSend.objects.filter(
-                    fax_id=session.metadata.get("fax_request_id")
+                    uuid=session.metadata.get("uuid")
                 ).update(paid=True, should_send=True)
             else:
                 logger.error(f"Unknown payment type: {payment_type}")

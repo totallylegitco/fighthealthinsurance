@@ -117,7 +117,7 @@ class StageFaxView(generic.FormView):
             customer_email=form.cleaned_data["email"],
             metadata={
                 "payment_type": "fax",
-                "fax_request_id": staged.fax_id,  # Update to use fax_id instead of id
+                "fax_request_uuid": staged.uuid,
             },
         )
         checkout_url = checkout.url

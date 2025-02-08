@@ -23,6 +23,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.urls import include, path, re_path
 from django.views.decorators.cache import cache_control, cache_page
+from django.views.decorators.csrf import csrf_exempt
 from django.views.generic.base import RedirectView
 from django.contrib.staticfiles.storage import staticfiles_storage
 
@@ -45,7 +46,7 @@ urlpatterns: List[Union[URLPattern, URLResolver]] = [
     path("ziggy/rest/", include("fighthealthinsurance.rest_urls")),
     path("timbit/sentry-debug/", trigger_error),
     # Add webhook handler
-    path("webhook/stripe/", views.StripeWebhookView.as_view(), name="stripe-webhook"),
+    path("webhook/stripe/", csrf_exempt(views.StripeWebhookView.as_view()), name="stripe-webhook"),
     re_path("timbit/sentry-debug/(?P<path>.+)", trigger_error, name="fake_fetch_url"),
     path("timbit/charts/", include(("charts.urls", "charts"), namespace="charts")),
     path("timbit/admin/", admin.site.urls),

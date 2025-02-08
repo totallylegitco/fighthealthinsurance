@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.contrib.auth import get_user_model
 
@@ -7,10 +9,11 @@ from django.dispatch import receiver
 
 User = get_user_model()
 
-
 # Auth-ish-related models
 class UserDomain(models.Model):
-    id = models.AutoField(primary_key=True)
+    id = models.CharField(
+        max_length=300, primary_key=True, default=uuid.uuid4, editable=False, unique=True,
+    )
     # Money
     stripe_subscription_id = models.CharField(max_length=300, null=True)
     # Info
@@ -111,3 +114,4 @@ def your_pre_save_function(
 class PatientDomainRelation(models.Model):
     patient = models.ForeignKey("PatientUser", on_delete=models.CASCADE)  # type: ignore
     domain = models.ForeignKey(UserDomain, on_delete=models.CASCADE)
+
