@@ -80,6 +80,7 @@ class ProfessionalUser(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     npi_number = models.CharField(blank=True, null=True, max_length=20)
     active = models.BooleanField()
+    provider_type = models.CharField(blank=True, null=True, max_length=300)
     most_common_denial = models.CharField(blank=True, null=True, max_length=300)
 
 
