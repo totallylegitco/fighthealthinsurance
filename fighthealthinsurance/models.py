@@ -436,3 +436,20 @@ class DenialDomainRelation(models.Model):
 class DenialProfessionalRelation(models.Model):
     denial = models.ForeignKey(Denial, on_delete=models.CASCADE)
     professional = models.ForeignKey(ProfessionalUser, on_delete=models.CASCADE)
+
+# Stripe
+
+class StripeProduct(models.Model):
+    id = models.AutoField(primary_key=True)
+    name = models.CharField(max_length=300)
+    stripe_id = models.CharField(max_length=300)
+    active = models.BooleanField(default=True)
+
+
+class StripePrice(models.Model):
+    id = models.AutoField(primary_key=True)
+    product = models.ForeignKey(StripeProduct, on_delete=models.CASCADE)
+    stripe_id = models.CharField(max_length=300)
+    amount = models.IntegerField()
+    currency = models.CharField(max_length=3)
+    active = models.BooleanField(default=True)

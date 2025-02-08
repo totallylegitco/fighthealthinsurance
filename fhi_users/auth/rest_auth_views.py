@@ -21,6 +21,7 @@ from fhi_users.auth import rest_serializers as serializers
 from fhi_users.auth.auth_utils import create_user
 from fighthealthinsurance.rest_mixins import CreateMixin, SerializerMixin
 from rest_framework.serializers import Serializer
+from fighthealthinsurance import stripe_utils
 
 User = get_user_model()
 
@@ -100,7 +101,8 @@ class CreateProfessionalUser(viewsets.ViewSet, CreateMixin):
         # Check if the product already exists
         products = stripe.Product.list(limit=100)
         product = next(
-            (p for p in products.data if p.name == "Basic Professional Subscription"), None
+            (p for p in products.data if p.name == "Basic Professional Subscription"),
+            None,
         )
 
         if product is None:
@@ -130,16 +132,24 @@ class CreateProfessionalUser(viewsets.ViewSet, CreateMixin):
             }
         ]
 
+        product_id, price_id = stripe_utils.get_or_create_price(
+            "Basic Professional Subscription", 2500, recurring=True
+        )
+
         checkout_session = stripe.checkout.Session.create(
             payment_method_types=["card"],
-            line_items=[{"price": price.id, "quantity": 1}],
+            line_items=[{"price": price_id, "quantity": 1}],
             mode="subscription",
             success_url=user_signup_info["continue_url"],
             cancel_url=user_signup_info["continue_url"],
             customer_email=email,
+            metadata={
+                "payment_type": "professional_domain_subscription",
+                "professional_id": str(professional_user.id),
+                "domain_id": str(user_domain.id),
+            },
         )
         subscription_id = checkout_session.subscription
-        # TODO: Setup webhook to get subscription status and store ID
         return serializers.ProfessionalSignupResponseSerializer(
             {"next_url": checkout_session.url}
         )

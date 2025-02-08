@@ -10,7 +10,8 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django.views import View, generic
-from django.http import HttpRequest, HttpResponseBase
+from django.http import HttpRequest, HttpResponseBase, HttpResponse
+from stripe import error as stripe_error
 
 from fighthealthinsurance import common_view_logic
 from fighthealthinsurance import forms as core_forms
@@ -64,7 +65,7 @@ class ProVersionView(generic.FormView):
     form_class = core_forms.InterestedProfessionalForm
 
     def form_valid(self, form):
-        form.save()
+        interested_professional = form.save()
 
         if not (
             "clicked_for_paid" in form.cleaned_data
@@ -100,21 +101,26 @@ class ProVersionView(generic.FormView):
             product_price = stripe.Price.create(
                 unit_amount=1000, currency="usd", product=product["id"]
             )
-        items = [
-            {
-                "price": product_price["id"],
-                "quantity": 1,
-            }
-        ]
+
         checkout = stripe.checkout.Session.create(
-            line_items=items,  # type: ignore
-            mode="payment",  # No subscriptions
+            line_items=[
+                {
+                    "price": product_price["id"],
+                    "quantity": 1,
+                }
+            ],
+            mode="payment",
             success_url=self.request.build_absolute_uri(
                 reverse("pro_version_thankyou")
             ),
             cancel_url=self.request.build_absolute_uri(reverse("pro_version_thankyou")),
             customer_email=form.cleaned_data["email"],
+            metadata={
+                "payment_type": "interested_professional_signup",
+                "interested_professional_id": interested_professional.id,
+            },
         )
+
         checkout_url = checkout.url
         if checkout_url is None:
             raise Exception("Could not create checkout url")
@@ -528,3 +534,50 @@ class DenialCollectedView(generic.FormView):
                 },
             },
         )
+
+
+class StripeWebhookView(View):
+    def post(self, request):
+        payload = request.body
+        sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
+
+        try:
+            event = stripe.Webhook.construct_event(
+                payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
+            )
+        except ValueError as e:
+            logger.error(f"Invalid payload: {e}")
+            return HttpResponse(status=400)
+        except stripe_error.SignatureVerificationError as e: # type: ignore
+            logger.error(f"Invalid signature: {e}")
+            return HttpResponse(status=400)
+
+        if event.type == "checkout.session.completed":
+            session = event.data.object
+            payment_type = session.metadata.get("payment_type")
+
+            if payment_type == "interested_professional_signup":
+                models.InterestedProfessional.objects.filter(
+                    id=session.metadata.get("interested_professional_id")
+                ).update(paid=True)
+
+            elif payment_type == "professional_domain_subscription":
+                subscription_id = session.get("subscription")
+                if subscription_id:
+                    models.UserDomain.objects.filter(
+                        id=session.metadata.get("domain_id")
+                    ).update(stripe_subscription_id=subscription_id, active=True)
+                    models.ProfessionalUser.objects.filter(
+                        id=session.metadata.get("professional_id")
+                    ).update(active=True)
+                else:
+                    logger.error("No subscription ID in completed checkout session")
+
+            elif payment_type == "fax":
+                models.FaxesToSend.objects.filter(
+                    fax_id=session.metadata.get("fax_request_id")
+                ).update(paid=True, should_send=True)
+            else:
+                logger.error(f"Unknown payment type: {payment_type}")
+
+        return HttpResponse(status=200)

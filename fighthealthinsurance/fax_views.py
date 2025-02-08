@@ -115,6 +115,10 @@ class StageFaxView(generic.FormView):
             ),
             cancel_url=self.request.build_absolute_uri(reverse("root")),
             customer_email=form.cleaned_data["email"],
+            metadata={
+                "payment_type": "fax",
+                "fax_request_id": staged.fax_id,  # Update to use fax_id instead of id
+            },
         )
         checkout_url = checkout.url
         if checkout_url is None:

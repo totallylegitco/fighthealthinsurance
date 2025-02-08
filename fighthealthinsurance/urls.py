@@ -44,6 +44,8 @@ urlpatterns: List[Union[URLPattern, URLResolver]] = [
     # Internal-ish-views
     path("ziggy/rest/", include("fighthealthinsurance.rest_urls")),
     path("timbit/sentry-debug/", trigger_error),
+    # Add webhook handler
+    path("webhook/stripe/", views.StripeWebhookView.as_view(), name="stripe-webhook"),
     re_path("timbit/sentry-debug/(?P<path>.+)", trigger_error, name="fake_fetch_url"),
     path("timbit/charts/", include(("charts.urls", "charts"), namespace="charts")),
     path("timbit/admin/", admin.site.urls),
