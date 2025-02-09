@@ -14,6 +14,7 @@ from fighthealthinsurance import common_view_logic
 from fighthealthinsurance.generate_appeal import *
 from fighthealthinsurance.models import *
 from fighthealthinsurance.utils import *
+from fighthealthinsurance.stripe_utils import get_or_create_price
 
 
 class FollowUpFaxSenderView(generic.FormView):
@@ -80,7 +81,7 @@ class StageFaxView(generic.FormView):
         )
         items = [
             {
-                "price": product_price["id"],
+                "price": price_id,
                 "quantity": 1,
             }
         ]
