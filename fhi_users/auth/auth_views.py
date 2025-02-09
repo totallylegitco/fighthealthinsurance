@@ -30,46 +30,29 @@ class LoginView(generic.FormView):
     form_class = LoginForm
 
     def form_valid(self, form):
-        context: dict[str, Any] = {}
+        context: dict[str, bool] = {}
         raw_username = form.cleaned_data["username"]
         request = self.request
         domain = form.cleaned_data["domain"]
-        phone = form.cleaned_data["phone"]
+        phonenumber = form.cleaned_data["phone"]
+        password = form.cleaned_data["password"]
         try:
-            if domain:
-                username = combine_domain_and_username(raw_username, domain)
-            elif phone:
-                user_domain = UserDomain.objects.get(visible_phone_number=phone)
-                username = combine_domain_and_username(raw_username, user_domain.name)
-            else:
+            if not domain and not phonenumber:
                 context["invalid"] = True
-                context["error_message"] = (
-                    "One of domain or phone is required."  # TODO: Expose in template
-                )
-                return render(request, "login.html", context)
+                context["need_phone_or_domain"] = True
+            else:
+                username = combine_domain_and_username(raw_username, domain_name=domain, phonenumber=phonenumber)
+                user = authenticate(username=username, password=password)
+                if user is None:
+                    context["invalid"] = True
+                    context["bad_credentials"] = True
+                    return render(request, "login.html", context)
+                else:
+                    login(request, user)
+                    return HttpResponseRedirect(reverse("root"))
         except UserDomain.DoesNotExist:
             context["domain_invalid"] = True
             return render(request, "login.html", context)
-        password = form.cleaned_data["password"]
-        user = authenticate(username=username, password=password)
-        if user:
-            from mfa.helpers import has_mfa
-
-            res = has_mfa(
-                username=username, request=request
-            )  # has_mfa returns false or HttpResponseRedirect
-            if res:
-                return res
-            return create_session(request, user.username)
-        context["invalid"] = True
-        return render(request, "login.html", context)
-
-
-def create_session(request, username):
-    user = User.objects.get(username=username)
-    login(request, user)
-    return HttpResponseRedirect(reverse("root"))
-
 
 class LogoutView(generic.TemplateView):
     template_name = "logout.html"

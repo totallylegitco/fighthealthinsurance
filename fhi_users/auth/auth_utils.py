@@ -7,9 +7,9 @@ from django.contrib.auth.models import AbstractUser  # Add this import
 from django.contrib.auth import get_user_model
 
 # See https://github.com/typeddjango/django-stubs/issues/599
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
-from fhi_users.models import ProfessionalDomainRelation
+from fhi_users.models import ProfessionalDomainRelation, UserDomain
 
 if TYPE_CHECKING:
     from django.contrib.auth.models import User
@@ -25,7 +25,14 @@ def is_valid_domain(domain_name: str) -> bool:
     return UserDomain.objects.filter(name=domain_name).exists()
 
 
-def user_is_admin_in_domain(user: User, domain_id: str) -> bool:
+def user_is_admin_in_domain(user: User,
+                            domain_id: Optional[str] = None,
+                            domain_name: Optional[str] = None,
+                            phonenumber: Optional[str] = None) -> bool:
+    try:
+        domain_id = resolve_domain_id(domain_id, domain_name, phonenumber)
+    except Exception as e:
+        return False
     return (
         ProfessionalDomainRelation.objects.filter(
             professional__user=user,
@@ -37,9 +44,32 @@ def user_is_admin_in_domain(user: User, domain_id: str) -> bool:
         > 0
     )
 
+def resolve_domain_id(
+        domain_id: Optional[str] = None,
+        domain_name: Optional[str] = None,
+        phonenumber: Optional[str] = None) -> str:
+    if domain_id:
+        return domain_id
+    elif domain_name and len(domain_name) > 0:
+        # Try and resolve with domain name then fall back to phone number if it fails
+        try:
+            return UserDomain.objects.get(name=domain_name).id
+        except UserDomain.DoesNotExist as e:
+            if phonenumber:
+                return UserDomain.objects.get(visible_phone_number=phonenumber).id
+            else:
+                raise e
+    elif phonenumber and len(phonenumber) > 0:
+        return UserDomain.objects.get(visible_phone_number=phonenumber).id
+    else:
+        raise Exception("No domain id, name or phone number provided.")
 
-def combine_domain_and_username(username: str, domain_name: str) -> str:
-    domain_id = UserDomain.objects.get(name=domain_name).id
+def combine_domain_and_username(username: str,
+                                domain_id: Optional[str] = None,
+                                domain_name: Optional[str] = None,
+                                phonenumber: Optional[str] = None
+                                ) -> str:
+    domain_id = resolve_domain_id(domain_id, domain_name, phonenumber)
     return f"{username}🐼{domain_id}"
 
 
