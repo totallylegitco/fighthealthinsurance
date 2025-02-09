@@ -20,6 +20,8 @@ import json
 from fhi_users.models import UserDomain
 from fhi_users.emails import send_verification_email
 
+from typing import Any
+
 User = get_user_model()
 
 
@@ -28,7 +30,7 @@ class LoginView(generic.FormView):
     form_class = LoginForm
 
     def form_valid(self, form):
-        context = {}
+        context: dict[str, Any] = {}
         raw_username = form.cleaned_data["username"]
         request = self.request
         domain = form.cleaned_data["domain"]
@@ -36,9 +38,13 @@ class LoginView(generic.FormView):
         try:
             if domain:
                 username = combine_domain_and_username(raw_username, domain)
-            else:
-                user_domain = UserDomain.objects.get(visible_phone_number=phone)  # Corrected field name
+            elif phone:
+                user_domain = UserDomain.objects.get(visible_phone_number=phone)
                 username = combine_domain_and_username(raw_username, user_domain.name)
+            else:
+                context["invalid"] = True
+                context["error_message"] = "One of domain or phone is required." # TODO: Expose in template
+                return render(request, "login.html", context)
         except UserDomain.DoesNotExist:
             context["domain_invalid"] = True
             return render(request, "login.html", context)
@@ -70,32 +76,6 @@ class LogoutView(generic.TemplateView):
         logout(request)
         response = super().get(request, *args, **kwargs)
         return response
-
-
-@csrf_exempt
-def rest_login_view(request):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        username = data.get('username')
-        password = data.get('password')
-        user = authenticate(username=username, password=password)
-        if user:
-            login(request, user)
-            return JsonResponse({'status': 'success'})
-        return JsonResponse({'status': 'failure'}, status=400)
-
-@csrf_exempt
-def create_user_view(request):
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        username = data.get('username')
-        password = data.get('password')
-        email = data.get('email')
-        user = User.objects.create_user(username=username, password=password, email=email)
-        user.is_active = False
-        user.save()
-        send_verification_email(request, user)
-        return JsonResponse({'status': 'pending'})
 
 class VerifyEmailView(View):
     def get(self, request, uidb64, token):

@@ -28,7 +28,7 @@ import stripe
 
 from fhi_users.models import UserDomain, ProfessionalUser, ProfessionalDomainRelation, VerificationToken, ExtraUserProperties
 from fhi_users.auth import rest_serializers as serializers
-from fhi_users.auth.auth_utils import create_user, combine_domain_and_username
+from fhi_users.auth.auth_utils import create_user, combine_domain_and_username, user_is_admin_in_domain
 from fighthealthinsurance.rest_mixins import CreateMixin, SerializerMixin
 from rest_framework.serializers import Serializer
 from fighthealthinsurance import stripe_utils
@@ -181,7 +181,11 @@ class AdminProfessionalUser(viewsets.ViewSet, SerializerMixin):
         serializer.is_valid(raise_exception=True)
         professional_user_id: int = serializer.validated_data["professional_user_id"]
         domain_id  = serializer.validated_data["domain_id"]
-        # TODO: Check auth here
+        current_user: User = request.user
+        current_user_admin_in_domain = user_is_admin_in_domain(current_user, domain_id)
+        if not current_user_admin_in_domain:
+            # Credentials are valid but does not have permissions
+            return Response(status=status.HTTP_403_FORBIDDEN)
         relation = ProfessionalDomainRelation.objects.get(
             professional_id=professional_user_id, pending=True, domain_id=domain_id
         )
@@ -198,19 +202,9 @@ class AdminProfessionalUser(viewsets.ViewSet, SerializerMixin):
         serializer.is_valid(raise_exception=True)
         professional_user_id: int = serializer.validated_data["professional_user_id"]
         domain_id = serializer.validated_data["domain_id"]
-        # TODO: Here check and see if the user is an admin user for this domain
         try:
             current_user: User = request.user  # type: ignore
-            current_user_admin_in_domain = (
-                ProfessionalDomainRelation.objects.filter(
-                    professional__user=current_user,
-                    domain_id=domain_id,
-                    admin=True,
-                    pending=False,
-                    active=True,
-                ).count()
-                > 0
-            )
+            current_user_admin_in_domain = user_is_admin_in_domain(current_user, domain_id)
             if not current_user_admin_in_domain:
                 # Credentials are valid but does not have permissions
                 return Response(status=status.HTTP_403_FORBIDDEN)

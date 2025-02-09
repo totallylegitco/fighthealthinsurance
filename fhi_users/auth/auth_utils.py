@@ -9,6 +9,8 @@ from django.contrib.auth import get_user_model
 # See https://github.com/typeddjango/django-stubs/issues/599
 from typing import TYPE_CHECKING
 
+from fhi_users.models import ProfessionalDomainRelation
+
 if TYPE_CHECKING:
     from django.contrib.auth.models import User
 else:
@@ -22,6 +24,14 @@ def validate_username(username: str) -> bool:
 def is_valid_domain(domain_name: str) -> bool:
     return UserDomain.objects.filter(name=domain_name).exists()
 
+def user_is_admin_in_domain(user: User, domain_id: str) -> bool:
+    return ProfessionalDomainRelation.objects.filter(
+                    professional__user=user,
+                    domain_id=domain_id,
+                    admin=True,
+                    pending=False,
+                    active=True,
+                ).count() > 0
 
 def combine_domain_and_username(username: str, domain_name: str) -> str:
     domain_id = UserDomain.objects.get(name=domain_name).id
