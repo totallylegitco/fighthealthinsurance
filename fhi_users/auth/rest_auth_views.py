@@ -5,23 +5,34 @@ from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.views import APIView
 from rest_framework.decorators import action
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework import permissions
-
+from rest_framework.viewsets import ViewSet
+from rest_framework.mixins import CreateModelMixin, ListModelMixin
+from rest_framework.viewsets import GenericViewSet
+from rest_framework.request import Request  # Added import
 
 from django.http import HttpRequest
 from django.conf import settings
 from django.urls import reverse
 from django.contrib.auth import get_user_model
+from django.contrib.auth import authenticate, login
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.template.loader import render_to_string
+from django.contrib.sites.shortcuts import get_current_site
+from django.contrib.auth.tokens import default_token_generator
 
 import stripe
 
 from fhi_users.models import UserDomain, ProfessionalUser, ProfessionalDomainRelation
 from fhi_users.auth import rest_serializers as serializers
-from fhi_users.auth.auth_utils import create_user
+from fhi_users.auth.auth_utils import create_user, combine_domain_and_username
 from fighthealthinsurance.rest_mixins import CreateMixin, SerializerMixin
 from rest_framework.serializers import Serializer
 from fighthealthinsurance import stripe_utils
+from fhi_users.emails import send_verification_email
 
 User = get_user_model()
 
@@ -237,3 +248,56 @@ class AdminProfessionalUser(viewsets.ViewSet, SerializerMixin):
                 {"error": "Relation not found or already accepted"},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+
+class RestLoginView(ListModelMixin, GenericViewSet):
+    serializer_class = serializers.LoginSerializer
+
+    def list(self, request: Request) -> Response:
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        username: str = data.get('username')
+        password: str = data.get('password')
+        domain: str = data.get('domain')
+        phone: str = data.get('phone')
+        try:
+            if domain:
+                username = combine_domain_and_username(username, domain)
+            else:
+                user_domain = UserDomain.objects.get(visible_phone_number=phone)
+                username = combine_domain_and_username(username, user_domain.name)
+        except UserDomain.DoesNotExist:
+            return Response({'status': 'failure', 'message': 'Domain or phone number not found'}, status=status.HTTP_400_BAD_REQUEST)
+        user = authenticate(username=username, password=password)
+        if user:
+            login(request, user)
+            return Response({'status': 'success'})
+        return Response({'status': 'failure', 'message': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CreatePatientUserView(CreateModelMixin, GenericViewSet):
+    serializer_class = serializers.CreatePatientUserSerializer
+
+    def create(self, request: Request) -> Response:
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        send_verification_email(request, user)
+        return Response({'status': 'pending'})
+
+
+class VerifyEmailView(ViewSet):
+    def retrieve(self, request: Request, uidb64: str, token: str) -> Response:
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            user = None
+        if user is not None and default_token_generator.check_token(user, token):
+            user.is_active = True
+            user.userextraproperties.email_verified = True
+            user.save()
+            return Response({'status': 'success'})
+        else:
+            return Response({'status': 'failure', 'message': 'Activation link is invalid'}, status=status.HTTP_400_BAD_REQUEST)

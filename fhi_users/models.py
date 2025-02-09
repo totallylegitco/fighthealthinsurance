@@ -101,17 +101,13 @@ class ProfessionalDomainRelation(models.Model):
     rejected = models.BooleanField(default=False)
 
 
-# Dynamically update active based on pending/suspended -- we do this instead of property so we can filter on active
-@receiver(pre_save, sender=ProfessionalDomainRelation)
-def your_pre_save_function(
-    sender: type, instance: ProfessionalDomainRelation, **kwargs: dict
-) -> None:
-    instance.active = (
-        not instance.pending and not instance.suspended and not instance.rejected
-    )
-
-
 class PatientDomainRelation(models.Model):
     patient = models.ForeignKey("PatientUser", on_delete=models.CASCADE)  # type: ignore
     domain = models.ForeignKey(UserDomain, on_delete=models.CASCADE)
+
+
+class UserExtraProperties(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    email_verified = models.BooleanField(default=False)
+    # Add any other extra properties here
 
