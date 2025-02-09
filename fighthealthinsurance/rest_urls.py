@@ -26,8 +26,10 @@ router.register(
     basename="dataremoval",
 )
 
-router.register(r'appeals', AppealViewSet, basename='appeals')
-router.register(r'mailinglist_subscribe', MailingListSubscriberViewSet, basename='subscribe')
+router.register(r"appeals", AppealViewSet, basename="appeals")
+router.register(
+    r"mailinglist_subscribe", MailingListSubscriberViewSet, basename="subscribe"
+)
 
 urlpatterns = [
     # Non-viewset but still rest API endpoints.
@@ -37,5 +39,5 @@ urlpatterns = [
         "check_ml_backend", rest_views.CheckMlBackend.as_view(), name="check_ml_backend"
     ),
     # Router
-    path('', include(router.urls)),
+    path("", include(router.urls)),
 ]

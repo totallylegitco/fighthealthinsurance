@@ -131,12 +131,15 @@ class AppealSubmissionResponseSerializer(serializers.Serializer):
     status = serializers.CharField()
     message = serializers.CharField()
 
+
 class EmailVerifierSerializer(serializers.Serializer):
     email = serializers.EmailField()
     token = serializers.CharField()
     user_id = serializers.IntegerField()
 
+
 # Mailing list
+
 
 class MailingListSubscriberSerializer(serializers.ModelSerializer):
     class Meta:

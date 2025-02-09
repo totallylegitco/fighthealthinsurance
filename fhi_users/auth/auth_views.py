@@ -43,7 +43,9 @@ class LoginView(generic.FormView):
                 username = combine_domain_and_username(raw_username, user_domain.name)
             else:
                 context["invalid"] = True
-                context["error_message"] = "One of domain or phone is required." # TODO: Expose in template
+                context["error_message"] = (
+                    "One of domain or phone is required."  # TODO: Expose in template
+                )
                 return render(request, "login.html", context)
         except UserDomain.DoesNotExist:
             context["domain_invalid"] = True
@@ -77,17 +79,18 @@ class LogoutView(generic.TemplateView):
         response = super().get(request, *args, **kwargs)
         return response
 
+
 class VerifyEmailView(View):
     def get(self, request, uidb64, token):
         try:
             uid = force_str(urlsafe_base64_decode(uidb64))
             user = User.objects.get(pk=uid)
-        except(TypeError, ValueError, OverflowError, User.DoesNotExist):
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
             user = None
         if user is not None and default_token_generator.check_token(user, token):
             user.is_active = True
             user.extrauserproperties.email_verified = True
             user.save()
-            return HttpResponseRedirect(reverse_lazy('login'))
+            return HttpResponseRedirect(reverse_lazy("login"))
         else:
-            return HttpResponse('Activation link is invalid!')
+            return HttpResponse("Activation link is invalid!")

@@ -26,9 +26,19 @@ from django.contrib.auth.tokens import default_token_generator
 
 import stripe
 
-from fhi_users.models import UserDomain, ProfessionalUser, ProfessionalDomainRelation, VerificationToken, ExtraUserProperties
+from fhi_users.models import (
+    UserDomain,
+    ProfessionalUser,
+    ProfessionalDomainRelation,
+    VerificationToken,
+    ExtraUserProperties,
+)
 from fhi_users.auth import rest_serializers as serializers
-from fhi_users.auth.auth_utils import create_user, combine_domain_and_username, user_is_admin_in_domain
+from fhi_users.auth.auth_utils import (
+    create_user,
+    combine_domain_and_username,
+    user_is_admin_in_domain,
+)
 from fighthealthinsurance.rest_mixins import CreateMixin, SerializerMixin
 from rest_framework.serializers import Serializer
 from fighthealthinsurance import stripe_utils
@@ -38,6 +48,7 @@ if TYPE_CHECKING:
     from django.contrib.auth.models import User
 else:
     User = get_user_model()
+
 
 class CreateProfessionalUser(viewsets.ViewSet, CreateMixin):
     """Create a professional user"""
@@ -162,7 +173,9 @@ class CreateProfessionalUser(viewsets.ViewSet, CreateMixin):
                 "domain_id": str(user_domain.id),
             },
         )
-        extra_user_properties = ExtraUserProperties.objects.create(user=user, email_verified=False)
+        extra_user_properties = ExtraUserProperties.objects.create(
+            user=user, email_verified=False
+        )
         subscription_id = checkout_session.subscription
         return serializers.ProfessionalSignupResponseSerializer(
             {"next_url": checkout_session.url}
@@ -180,7 +193,7 @@ class AdminProfessionalUser(viewsets.ViewSet, SerializerMixin):
         serializer = self.deserialize(data=request.data)
         serializer.is_valid(raise_exception=True)
         professional_user_id: int = serializer.validated_data["professional_user_id"]
-        domain_id  = serializer.validated_data["domain_id"]
+        domain_id = serializer.validated_data["domain_id"]
         current_user: User = request.user
         current_user_admin_in_domain = user_is_admin_in_domain(current_user, domain_id)
         if not current_user_admin_in_domain:
@@ -204,7 +217,9 @@ class AdminProfessionalUser(viewsets.ViewSet, SerializerMixin):
         domain_id = serializer.validated_data["domain_id"]
         try:
             current_user: User = request.user  # type: ignore
-            current_user_admin_in_domain = user_is_admin_in_domain(current_user, domain_id)
+            current_user_admin_in_domain = user_is_admin_in_domain(
+                current_user, domain_id
+            )
             if not current_user_admin_in_domain:
                 # Credentials are valid but does not have permissions
                 return Response(status=status.HTTP_403_FORBIDDEN)
@@ -253,10 +268,10 @@ class RestLoginView(ViewSet, CreateMixin):
     def perform_create(self, request: Request, serializer) -> Response:
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        username: str = data.get('username')
-        password: str = data.get('password')
-        domain: str = data.get('domain')
-        phone: str = data.get('phone')
+        username: str = data.get("username")
+        password: str = data.get("password")
+        domain: str = data.get("domain")
+        phone: str = data.get("phone")
         try:
             if domain:
                 username = combine_domain_and_username(username, domain)
@@ -264,12 +279,18 @@ class RestLoginView(ViewSet, CreateMixin):
                 user_domain = UserDomain.objects.get(visible_phone_number=phone)
                 username = combine_domain_and_username(username, user_domain.name)
         except UserDomain.DoesNotExist:
-            return Response({'status': 'failure', 'message': 'Domain or phone number not found'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"status": "failure", "message": "Domain or phone number not found"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         user = authenticate(username=username, password=password)
         if user:
             login(request, user)
-            return Response({'status': 'success'})
-        return Response({'status': 'failure', 'message': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"status": "success"})
+        return Response(
+            {"status": "failure", "message": "Invalid credentials"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
 
 class CreatePatientUserView(ViewSet, CreateMixin):
@@ -279,29 +300,32 @@ class CreatePatientUserView(ViewSet, CreateMixin):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         send_verification_email(request, user)
-        return Response({'status': 'pending'})
+        return Response({"status": "pending"})
 
 
 class VerifyEmailView(ViewSet, SerializerMixin):
     serializer_class = serializers.VerificationTokenSerializer
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=["post"])
     def verify(self, request: Request) -> Response:
         serializer = self.deserialize(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
-            uid = force_str(urlsafe_base64_decode(serializer.validated_data['user_id']))
+            uid = force_str(urlsafe_base64_decode(serializer.validated_data["user_id"]))
             user = User.objects.get(pk=uid)
         except (TypeError, ValueError, OverflowError, User.DoesNotExist):
             user = None
         if user is not None:
-            token = serializer.validated_data['token']
+            token = serializer.validated_data["token"]
             try:
-                verification_token = VerificationToken.objects.get(user=user, token=token)
+                verification_token = VerificationToken.objects.get(
+                    user=user, token=token
+                )
                 if verification_token.expires_at < timezone.now():
                     return Response(
-                        {'status': 'failure', 'message': 'Activation link has expired'},
-                        status=status.HTTP_400_BAD_REQUEST)
+                        {"status": "failure", "message": "Activation link has expired"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
                 user.is_active = True
                 try:
                     extraproperties = ExtraUserProperties.objects.get(user=user)
@@ -310,17 +334,24 @@ class VerifyEmailView(ViewSet, SerializerMixin):
                 extraproperties.email_verified = True
                 extraproperties.save()
                 verification_token.delete()
-                return Response({'status': 'success'})
+                return Response({"status": "success"})
             except VerificationToken.DoesNotExist:
-                return Response({'status': 'failure', 'message': 'Invalid activation link'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"status": "failure", "message": "Invalid activation link"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         else:
-            return Response({'status': 'failure', 'message': 'Activation link is invalid'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"status": "failure", "message": "Activation link is invalid"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
 
 class ResendVerificationEmailView(ViewSet, CreateMixin):
     serializer_class = serializers.VerificationTokenSerializer
 
     def perform_create(self, request: Request, serializer) -> Response:
         serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data['user']
+        user = serializer.validated_data["user"]
         send_verification_email(request, user)
-        return Response({'status': 'verification email resent'})
+        return Response({"status": "verification email resent"})

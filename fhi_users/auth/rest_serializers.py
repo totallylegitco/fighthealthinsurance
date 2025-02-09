@@ -58,9 +58,9 @@ class UserSignupSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
-        domain_name = validated_data.pop('domain_name')
-        username = combine_domain_and_username(validated_data['username'], domain_name)
-        validated_data['username'] = username
+        domain_name = validated_data.pop("domain_name")
+        username = combine_domain_and_username(validated_data["username"], domain_name)
+        validated_data["username"] = username
         return super().create(validated_data)
 
 
@@ -94,9 +94,10 @@ class VerificationTokenSerializer(serializers.Serializer):
     token = serializers.CharField()
     user_id = serializers.IntegerField()
 
+
 class CreatePatientUserSerializer(serializers.ModelSerializer):
     phone_number = serializers.CharField()
-    country = serializers.CharField(default='USA')
+    country = serializers.CharField(default="USA")
     state = serializers.CharField()
     city = serializers.CharField()
     address1 = serializers.CharField()
@@ -106,36 +107,48 @@ class CreatePatientUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'password', 'email', 'phone_number', 'country', 'state', 'city', 'address1', 'address2', 'zipcode', 'domain_name']
-        extra_kwargs = {
-            'password': {'write_only': True}
-        }
+        fields = [
+            "username",
+            "password",
+            "email",
+            "phone_number",
+            "country",
+            "state",
+            "city",
+            "address1",
+            "address2",
+            "zipcode",
+            "domain_name",
+        ]
+        extra_kwargs = {"password": {"write_only": True}}
 
     def create(self, validated_data):
-        domain_name = validated_data.pop('domain_name')
-        username = combine_domain_and_username(validated_data['username'], domain_name)
-        validated_data['username'] = username
+        domain_name = validated_data.pop("domain_name")
+        username = combine_domain_and_username(validated_data["username"], domain_name)
+        validated_data["username"] = username
         user = User.objects.create_user(
-            username=validated_data['username'],
-            password=validated_data['password'],
-            email=validated_data['email']
+            username=validated_data["username"],
+            password=validated_data["password"],
+            email=validated_data["email"],
         )
         user.is_active = False
         user.save()
 
         UserContactInfo.objects.create(
             user=user,
-            phone_number=validated_data['phone_number'],
-            country=validated_data['country'],
-            state=validated_data['state'],
-            city=validated_data['city'],
-            address1=validated_data['address1'],
-            address2=validated_data.get('address2', ''),
-            zipcode=validated_data['zipcode']
+            phone_number=validated_data["phone_number"],
+            country=validated_data["country"],
+            state=validated_data["state"],
+            city=validated_data["city"],
+            address1=validated_data["address1"],
+            address2=validated_data.get("address2", ""),
+            zipcode=validated_data["zipcode"],
         )
 
         PatientUser.objects.create(user=user, active=False)
 
-        extra_user_properties = ExtraUserProperties.objects.create(user=user, email_verified=False)
+        extra_user_properties = ExtraUserProperties.objects.create(
+            user=user, email_verified=False
+        )
 
         return user

@@ -537,6 +537,7 @@ class DenialCollectedView(generic.FormView):
             },
         )
 
+
 class StripeWebhookView(View):
     def post(self, request):
         payload = request.body
@@ -549,7 +550,7 @@ class StripeWebhookView(View):
         except ValueError as e:
             logger.error(f"Invalid payload: {e}")
             return HttpResponse(status=400)
-        except stripe_error.SignatureVerificationError as e: # type: ignore
+        except stripe_error.SignatureVerificationError as e:  # type: ignore
             logger.error(f"Invalid signature: {e}")
             return HttpResponse(status=400)
 

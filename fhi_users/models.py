@@ -11,10 +11,15 @@ from django.dispatch import receiver
 
 User = get_user_model()
 
+
 # Auth-ish-related models
 class UserDomain(models.Model):
     id = models.CharField(
-        max_length=300, primary_key=True, default=uuid.uuid4, editable=False, unique=True,
+        max_length=300,
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        unique=True,
     )
     # Money
     stripe_subscription_id = models.CharField(max_length=300, null=True)
@@ -127,4 +132,3 @@ class VerificationToken(models.Model):
             else:
                 self.expires_at = datetime.datetime.now() + datetime.timedelta(hours=24)
         super().save(*args, **kwargs)
-

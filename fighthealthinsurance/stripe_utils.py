@@ -11,8 +11,8 @@ def get_or_create_price(
 ) -> Tuple[str, str]:
     """Get or create Stripe product and price, returns (product_id, price_id)"""
     stripe.api_key = settings.STRIPE_API_SECRET_KEY
-    
-        # Try to get from DB first
+
+    # Try to get from DB first
     try:
         product = StripeProduct.objects.get(name=product_name, active=True)
         price = StripePrice.objects.get(

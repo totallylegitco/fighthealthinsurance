@@ -29,6 +29,7 @@ from django.views.decorators.csrf import csrf_exempt
 from fighthealthinsurance.models import Appeal, User
 from django.shortcuts import get_object_or_404
 
+
 class DataRemovalViewSet(viewsets.ViewSet, DeleteMixin, DeleteOnlyMixin):
     serializer_class = serializers.DeleteDataFormSerializer
 
@@ -114,7 +115,7 @@ class MailingListSubscriberViewSet(viewsets.ViewSet, CreateMixin, DeleteMixin):
 
     def perform_create(self, request: Request, serializer):
         serializer.save()
-        return Response({'status': 'subscribed'}, status=status.HTTP_201_CREATED)
+        return Response({"status": "subscribed"}, status=status.HTTP_201_CREATED)
 
     def perform_delete(self, request: Request, serializer):
         email = serializer.validated_data["email"]
