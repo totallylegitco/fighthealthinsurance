@@ -5,7 +5,7 @@ from django.views import generic, View
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth import get_user_model
 from .auth_utils import combine_domain_and_username
-from .auth_forms import DomainAuthenticationForm
+from .auth_forms import LoginForm
 import fhi_users
 from django.views.decorators.csrf import csrf_exempt
 from django.core.mail import send_mail
@@ -18,13 +18,14 @@ from django.shortcuts import get_object_or_404
 from django.conf import settings
 import json
 from fhi_users.models import UserDomain
+from fhi_users.emails import send_verification_email
 
 User = get_user_model()
 
 
 class LoginView(generic.FormView):
     template_name = "login.html"
-    form_class = DomainAuthenticationForm
+    form_class = LoginForm
 
     def form_valid(self, form):
         context = {}
@@ -96,18 +97,6 @@ def create_user_view(request):
         send_verification_email(request, user)
         return JsonResponse({'status': 'pending'})
 
-def send_verification_email(request, user):
-    current_site = get_current_site(request)
-    mail_subject = 'Activate your account.'
-    message = render_to_string('acc_active_email.html', {
-        'user': user,
-        'domain': current_site.domain,
-        'uid': urlsafe_base64_encode(force_bytes(user.pk)),
-        'token': default_token_generator.make_token(user),
-    })
-    to_email = user.email
-    send_mail(mail_subject, message, settings.EMAIL_HOST_USER, [to_email])
-
 class VerifyEmailView(View):
     def get(self, request, uidb64, token):
         try:
@@ -117,7 +106,7 @@ class VerifyEmailView(View):
             user = None
         if user is not None and default_token_generator.check_token(user, token):
             user.is_active = True
-            user.userextraproperties.email_verified = True  # Corrected attribute name
+            user.extrauserproperties.email_verified = True
             user.save()
             return HttpResponseRedirect(reverse_lazy('login'))
         else:

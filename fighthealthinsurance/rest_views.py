@@ -6,11 +6,13 @@ from django.conf import settings
 
 from rest_framework import status
 from rest_framework import viewsets
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.serializers import Serializer
 from rest_framework.views import APIView
 
 from fighthealthinsurance import common_view_logic
+from fighthealthinsurance.models import MailingListSubscriber
 from fighthealthinsurance.ml.ml_router import ml_router
 from fighthealthinsurance import rest_serializers as serializers
 from fighthealthinsurance.rest_mixins import (
@@ -22,11 +24,15 @@ from fighthealthinsurance.rest_mixins import (
 
 from stopit import ThreadingTimeout as Timeout
 
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from fighthealthinsurance.models import Appeal, User
+from django.shortcuts import get_object_or_404
 
 class DataRemovalViewSet(viewsets.ViewSet, DeleteMixin, DeleteOnlyMixin):
     serializer_class = serializers.DeleteDataFormSerializer
 
-    def perform_delete(self, request, serializer):
+    def perform_delete(self, request: Request, serializer):
         email = serializer.validated_data["email"]
         common_view_logic.RemoveDataHelper.remove_data_for_email(email)
 
@@ -34,7 +40,7 @@ class DataRemovalViewSet(viewsets.ViewSet, DeleteMixin, DeleteOnlyMixin):
 class NextStepsViewSet(viewsets.ViewSet, CreateMixin):
     serializer_class = serializers.PostInferedFormSerializer
 
-    def perform_create(self, request, serializer):
+    def perform_create(self, request: Request, serializer):
         next_step_info = common_view_logic.FindNextStepsHelper.find_next_steps(
             **serializer.validated_data
         )
@@ -47,7 +53,7 @@ class NextStepsViewSet(viewsets.ViewSet, CreateMixin):
 class DenialViewSet(viewsets.ViewSet, CreateMixin):
     serializer_class = serializers.DenialFormSerializer
 
-    def perform_create(self, request, serializer):
+    def perform_create(self, request: Request, serializer):
         serializer = self.deserialize(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -61,7 +67,7 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
 class FollowUpViewSet(viewsets.ViewSet, CreateMixin):
     serializer_class = serializers.FollowUpFormSerializer
 
-    def perform_create(self, request, serializer):
+    def perform_create(self, request: Request, serializer):
         common_view_logic.FollowUpHelper.store_follow_up_result(
             **serializer.validated_data
         )
@@ -70,12 +76,12 @@ class FollowUpViewSet(viewsets.ViewSet, CreateMixin):
 
 
 class Ping(APIView):
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class CheckStorage(APIView):
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         es = settings.EXTERNAL_STORAGE
         with Timeout(2.0):
             es.listdir("./")
@@ -84,8 +90,32 @@ class CheckStorage(APIView):
 
 
 class CheckMlBackend(APIView):
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         if ml_router.working():
             return Response(status=status.HTTP_204_NO_CONTENT)
 
         return Response(status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+
+class AppealViewSet(viewsets.ViewSet):
+    def list(self, request: Request) -> Response:
+        appeals = Appeal.objects.all()
+        serializer = serializers.AppealSerializer(appeals, many=True)
+        return Response(serializer.data)
+
+    def retrieve(self, request: Request, pk: int) -> Response:
+        appeal = get_object_or_404(Appeal, pk=pk)
+        serializer = serializers.AppealSerializer(appeal)
+        return Response(serializer.data)
+
+
+class MailingListSubscriberViewSet(viewsets.ViewSet, CreateMixin, DeleteMixin):
+    serializer_class = serializers.MailingListSubscriberSerializer
+
+    def perform_create(self, request: Request, serializer):
+        serializer.save()
+        return Response({'status': 'subscribed'}, status=status.HTTP_201_CREATED)
+
+    def perform_delete(self, request: Request, serializer):
+        email = serializer.validated_data["email"]
+        MailingListSubscriber.objects.filter(email=email).delete()

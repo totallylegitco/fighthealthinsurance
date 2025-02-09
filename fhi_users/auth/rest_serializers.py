@@ -1,22 +1,29 @@
-from drf_braces.serializers.form_serializer import FormSerializer
-from .auth_forms import DomainAuthenticationForm, TOTPForm, PasswordResetForm
+from drf_braces.serializers.form_serializer import (
+    FormSerializer,
+)
+from .auth_forms import LoginForm, TOTPForm, PasswordResetForm
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from fhi_users.models import UserContactInfo, PatientUser, UserDomain, ProfessionalUser
+from fhi_users.models import *
+from fhi_users.auth.auth_utils import combine_domain_and_username
 
 User = get_user_model()
 
-class DomainAuthenticationFormSerializer(FormSerializer):
+
+class LoginFormSerializer(FormSerializer):
     class Meta(object):
-        form = DomainAuthenticationForm
+        form = LoginForm
+
 
 class TOTPFormSerializer(FormSerializer):
     class Meta(object):
         form = TOTPForm
 
+
 class PasswordResetFormSerializer(FormSerializer):
     class Meta(object):
         form = PasswordResetForm
+
 
 class DomainAuthResponse(serializers.Serializer):
     success = serializers.BooleanField()
@@ -24,10 +31,12 @@ class DomainAuthResponse(serializers.Serializer):
     totp_info = serializers.CharField()
     user_type = serializers.ChoiceField(choices=["provider", "admin", "patient"])
 
+
 class TOTPResponse(serializers.Serializer):
     success = serializers.BooleanField()
     error_description = serializers.CharField()
     totp_info = serializers.CharField()
+
 
 class UserSignupSerializer(serializers.ModelSerializer):
     domain_name = serializers.CharField()
@@ -48,10 +57,18 @@ class UserSignupSerializer(serializers.ModelSerializer):
             "continue_url",
         ]
 
+    def create(self, validated_data):
+        domain_name = validated_data.pop('domain_name')
+        username = combine_domain_and_username(validated_data['username'], domain_name)
+        validated_data['username'] = username
+        return super().create(validated_data)
+
+
 class UserDomainSerializer(serializers.ModelSerializer):
     class Meta(object):
         model = UserDomain
         exclude = ("id", "stripe_subscription_id", "active")
+
 
 class ProfessionalSignupSerializer(serializers.ModelSerializer):
     user_signup_info = UserSignupSerializer()
@@ -63,18 +80,19 @@ class ProfessionalSignupSerializer(serializers.ModelSerializer):
         model = ProfessionalUser
         fields = ["npi_number", "make_new_domain", "user_signup_info", "user_domain"]
 
+
 class ProfessionalSignupResponseSerializer(serializers.Serializer):
     next_url = serializers.URLField()
+
 
 class AcceptProfessionalUserSerializer(serializers.Serializer):
     professional_user_id = serializers.IntegerField()
     domain_id = serializers.CharField()
 
-class LoginSerializer(serializers.Serializer):
-    username = serializers.CharField()
-    password = serializers.CharField()
-    domain = serializers.CharField(required=False, allow_blank=True)
-    phone = serializers.CharField(required=False, allow_blank=True)
+
+class VerificationTokenSerializer(serializers.Serializer):
+    token = serializers.CharField()
+    user_id = serializers.IntegerField()
 
 class CreatePatientUserSerializer(serializers.ModelSerializer):
     phone_number = serializers.CharField()
@@ -84,15 +102,19 @@ class CreatePatientUserSerializer(serializers.ModelSerializer):
     address1 = serializers.CharField()
     address2 = serializers.CharField(required=False, allow_blank=True)
     zipcode = serializers.CharField()
+    domain_name = serializers.CharField()
 
     class Meta:
         model = User
-        fields = ['username', 'password', 'email', 'phone_number', 'country', 'state', 'city', 'address1', 'address2', 'zipcode']
+        fields = ['username', 'password', 'email', 'phone_number', 'country', 'state', 'city', 'address1', 'address2', 'zipcode', 'domain_name']
         extra_kwargs = {
             'password': {'write_only': True}
         }
 
     def create(self, validated_data):
+        domain_name = validated_data.pop('domain_name')
+        username = combine_domain_and_username(validated_data['username'], domain_name)
+        validated_data['username'] = username
         user = User.objects.create_user(
             username=validated_data['username'],
             password=validated_data['password'],
@@ -113,5 +135,7 @@ class CreatePatientUserSerializer(serializers.ModelSerializer):
         )
 
         PatientUser.objects.create(user=user, active=False)
+
+        extra_user_properties = ExtraUserProperties.objects.create(user=user, email_verified=False)
 
         return user

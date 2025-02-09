@@ -1,4 +1,6 @@
 import uuid
+import time
+import datetime
 
 from django.db import models
 from django.contrib.auth import get_user_model
@@ -106,8 +108,23 @@ class PatientDomainRelation(models.Model):
     domain = models.ForeignKey(UserDomain, on_delete=models.CASCADE)
 
 
-class UserExtraProperties(models.Model):
+class ExtraUserProperties(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     email_verified = models.BooleanField(default=False)
     # Add any other extra properties here
+
+
+class VerificationToken(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    token = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+
+    def save(self, *args, **kwargs):
+        if not self.expires_at:
+            if self.created_at:
+                self.expires_at = self.created_at + datetime.timedelta(hours=24)
+            else:
+                self.expires_at = datetime.datetime.now() + datetime.timedelta(hours=24)
+        super().save(*args, **kwargs)
 

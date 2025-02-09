@@ -6,6 +6,7 @@ from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
 from django.contrib.sites.shortcuts import get_current_site
 from typing import TYPE_CHECKING
+from fhi_users.models import VerificationToken
 
 if TYPE_CHECKING:
     from django.contrib.auth.models import User
@@ -32,11 +33,13 @@ def send_error_submitting_appeal_email(user_email, context):
 def send_verification_email(request, user: 'User') -> None:
     current_site = get_current_site(request)
     mail_subject = 'Activate your account.'
-    message = render_to_string('acc_active_email.html', {
+    verification_token = default_token_generator.make_token(user)
+    VerificationToken.objects.create(user=user, token=verification_token)
+    message = render_to_string('emails/acc_active_email.html', {
         'user': user,
         'domain': current_site.domain,
         'uid': urlsafe_base64_encode(force_bytes(user.pk)),
-        'token': default_token_generator.make_token(user),
+        'token': verification_token,
     })
     to_email = user.email
     send_mail(mail_subject, message, settings.EMAIL_HOST_USER, [to_email])
