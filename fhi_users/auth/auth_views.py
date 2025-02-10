@@ -34,15 +34,15 @@ class LoginView(generic.FormView):
         raw_username = form.cleaned_data["username"]
         request = self.request
         domain = form.cleaned_data["domain"]
-        phonenumber = form.cleaned_data["phone"]
+        phone_number = form.cleaned_data["phone"]
         password = form.cleaned_data["password"]
         try:
-            if not domain and not phonenumber:
+            if not domain and not phone_number:
                 context["invalid"] = True
                 context["need_phone_or_domain"] = True
             else:
                 username = combine_domain_and_username(
-                    raw_username, domain_name=domain, phonenumber=phonenumber
+                    raw_username, domain_name=domain, phone_number=phone_number
                 )
                 user = authenticate(username=username, password=password)
                 if user is None:

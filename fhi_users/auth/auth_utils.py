@@ -29,10 +29,10 @@ def user_is_admin_in_domain(
     user: User,
     domain_id: Optional[str] = None,
     domain_name: Optional[str] = None,
-    phonenumber: Optional[str] = None,
+    phone_number: Optional[str] = None,
 ) -> bool:
     try:
-        domain_id = resolve_domain_id(domain_id, domain_name, phonenumber)
+        domain_id = resolve_domain_id(domain_id, domain_name, phone_number)
     except Exception as e:
         return False
     return (
@@ -50,7 +50,7 @@ def user_is_admin_in_domain(
 def resolve_domain_id(
     domain_id: Optional[str] = None,
     domain_name: Optional[str] = None,
-    phonenumber: Optional[str] = None,
+    phone_number: Optional[str] = None,
 ) -> str:
     if domain_id:
         return domain_id
@@ -59,12 +59,12 @@ def resolve_domain_id(
         try:
             return UserDomain.objects.get(name=domain_name).id
         except UserDomain.DoesNotExist as e:
-            if phonenumber:
-                return UserDomain.objects.get(visible_phone_number=phonenumber).id
+            if phone_number:
+                return UserDomain.objects.get(visible_phone_number=phone_number).id
             else:
                 raise e
-    elif phonenumber and len(phonenumber) > 0:
-        return UserDomain.objects.get(visible_phone_number=phonenumber).id
+    elif phone_number and len(phone_number) > 0:
+        return UserDomain.objects.get(visible_phone_number=phone_number).id
     else:
         raise Exception("No domain id, name or phone number provided.")
 
@@ -73,16 +73,17 @@ def combine_domain_and_username(
     username: str,
     domain_id: Optional[str] = None,
     domain_name: Optional[str] = None,
-    phonenumber: Optional[str] = None,
+    phone_number: Optional[str] = None,
 ) -> str:
-    domain_id = resolve_domain_id(domain_id, domain_name, phonenumber)
+    domain_id = resolve_domain_id(domain_id, domain_name, phone_number)
     return f"{username}🐼{domain_id}"
 
 
 def create_user(
     email: str,
     raw_username: str,
-    domain_name: str,
+    domain_name: Optional[str],
+    phone_number: Optional[str],
     password: str,
     first_name: str,
     last_name: str,
@@ -99,7 +100,9 @@ def create_user(
         The newly created User object
     """
 
-    username = combine_domain_and_username(raw_username, domain_name)
+    username = combine_domain_and_username(
+        raw_username, domain_name=domain_name, phone_number=phone_number
+    )
     user = User.objects.create_user(
         username=username,
         email=email,

@@ -60,21 +60,35 @@ class CreateProfessionalUser(viewsets.ViewSet, CreateMixin):
     ) -> Response | serializers.ProfessionalSignupResponseSerializer:
         data: dict[str, str | dict[str, str]] = serializer.validated_data  # type: ignore
         user_signup_info: dict[str, str] = data["user_signup_info"]  # type: ignore
-        domain_name: str = user_signup_info["domain_name"]  # type: ignore
+        domain_name: Optional[str] = user_signup_info["domain_name"]  # type: ignore
+        visible_phone_number: Optional[str] = user_signup_info["visible_phone_number"]  # type: ignore
         new_domain: bool = bool(data["make_new_domain"])  # type: ignore
 
         if not new_domain:
             try:
                 UserDomain.objects.filter(name=domain_name).get()
             except UserDomain.DoesNotExist:
-                return Response(
-                    {"error": "Domain does not exist"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                try:
+                    UserDomain.objects.get(visible_phone_number=visible_phone_number)
+                except:
+                    return Response(
+                        {"error": "Domain does not exist"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
         else:
             if UserDomain.objects.filter(name=domain_name).count() != 0:
                 return Response(
                     {"error": "Domain already exists"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if (
+                UserDomain.objects.filter(
+                    visible_phone_number=visible_phone_number
+                ).count()
+                != 0
+            ):
+                return Response(
+                    {"error": "Visible phone number already exists"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             if "user_domain" not in data:
@@ -86,10 +100,23 @@ class CreateProfessionalUser(viewsets.ViewSet, CreateMixin):
                 )
             user_domain_info: dict[str, str] = data["user_domain"]  # type: ignore
             if domain_name != user_domain_info["name"]:
-                return Response(
-                    {"error": "Domain name and user domain name must match"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+                if user_domain_info["name"] is None:
+                    user_domain_info["name"] = domain_name
+                else:
+                    return Response(
+                        {"error": "Domain name and user domain name must match"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            if visible_phone_number != user_domain_info["visible_phone_number"]:
+                if user_domain_info["visible_phone_number"] is None:
+                    user_domain_info["visible_phone_number"] = visible_phone_number
+                else:
+                    return Response(
+                        {
+                            "error": "Visible phone number and user domain visible phone number must match"
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
             UserDomain.objects.create(
                 active=False,
                 **user_domain_info,
@@ -104,6 +131,7 @@ class CreateProfessionalUser(viewsets.ViewSet, CreateMixin):
         user = create_user(
             raw_username=raw_username,
             domain_name=domain_name,
+            phone_number=visible_phone_number,
             email=email,
             password=password,
             first_name=first_name,
@@ -276,12 +304,15 @@ class RestLoginView(ViewSet, SerializerMixin):
         phone: str = data.get("phone")
         try:
             username = combine_domain_and_username(
-                username, phonenumber=phone, domain_name=domain
+                username, phone_number=phone, domain_name=domain
             )
         except Exception as e:
             print(f"Bloop! {e}")
             return Response(
-                {"status": "failure", "message": f"Domain or phone number not found -- {e}"},
+                {
+                    "status": "failure",
+                    "message": f"Domain or phone number not found -- {e}",
+                },
                 status=status.HTTP_400_BAD_REQUEST,
             )
         print("Mok?")

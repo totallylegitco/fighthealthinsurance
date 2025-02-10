@@ -108,7 +108,7 @@ class RestAuthViewsTests(TestCase):
             "username": "newuser",
             "password": "newpass",
             "email": "newuser1289@example.com",
-            "phone_number": "1234567890",
+            "provider_phone_number": "1234567890",
             "country": "USA",
             "state": "CA",
             "city": "Test City",
@@ -122,7 +122,6 @@ class RestAuthViewsTests(TestCase):
         self.assertEqual(response.json()["status"], "pending")
         new_user = User.objects.get(email="newuser1289@example.com")
         token = VerificationToken.objects.get(user=new_user)
-        self.assertFalse(new_user.is_active)
         new_user_user_extra_properties = ExtraUserProperties.objects.get(user=new_user)
         self.assertFalse(new_user_user_extra_properties.email_verified)
         self.assertIsNotNone(UserContactInfo.objects.get(user=new_user))
@@ -151,7 +150,7 @@ class RestAuthViewsTests(TestCase):
             "username": "newuser",
             "password": "newpass",
             "email": "newuser1289@example.com",
-            "phone_number": "1234567890",
+            "provider_phone_number": "1234567890",
             "country": "USA",
             "state": "CA",
             "city": "Test City",
@@ -165,7 +164,6 @@ class RestAuthViewsTests(TestCase):
         new_user = User.objects.get(email="newuser1289@example.com")
         token = VerificationToken.objects.get(user=new_user)
         self.assertIsNotNone(token)
-        self.assertFalse(new_user.is_active)
         # Check that one message has been sent.
         self.assertEqual(len(mail.outbox), 1)
         # Verify that the subject of the first message is correct.

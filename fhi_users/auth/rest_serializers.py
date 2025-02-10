@@ -5,7 +5,12 @@ from .auth_forms import LoginForm, TOTPForm, PasswordResetForm
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from fhi_users.models import *
-from fhi_users.auth.auth_utils import combine_domain_and_username
+from fhi_users.auth.auth_utils import (
+    combine_domain_and_username,
+    create_user,
+    resolve_domain_id,
+)
+from typing import Optional
 
 User = get_user_model()
 
@@ -38,28 +43,28 @@ class TOTPResponse(serializers.Serializer):
 
 class UserSignupSerializer(serializers.ModelSerializer):
     domain_name = serializers.CharField()
+    phone_number = serializers.CharField()
     continue_url = serializers.CharField()  # URL to send user to post signup / payment
 
     class Meta(object):
         model = User
         fields = [
-            # Ones from our model
+            # Ones from the django model
             "username",
             "first_name",
             "last_name",
             "password",
             "email",
-            "domain_name",
             # Our own internal fields
             "domain_name",
+            "phone_number",
             "continue_url",
         ]
 
     def create(self, validated_data):
-        domain_name = validated_data.pop("domain_name")
-        username = combine_domain_and_username(validated_data["username"], domain_name)
-        validated_data["username"] = username
-        return super().create(validated_data)
+        raise Exception(
+            "This serializer should not be used directly -- use Patient or Professional version"
+        )
 
 
 class UserDomainSerializer(serializers.ModelSerializer):
@@ -94,22 +99,26 @@ class VerificationTokenSerializer(serializers.Serializer):
 
 
 class CreatePatientUserSerializer(serializers.ModelSerializer):
-    phone_number = serializers.CharField()
     country = serializers.CharField(default="USA")
     state = serializers.CharField()
     city = serializers.CharField()
     address1 = serializers.CharField()
     address2 = serializers.CharField(required=False, allow_blank=True)
     zipcode = serializers.CharField()
-    domain_name = serializers.CharField()
+    domain_name = serializers.CharField(required=False, allow_blank=True)
+    provider_phone_number = serializers.CharField(required=False, allow_blank=True)
+    patient_phone_number = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = User
         fields = [
+            "first_name",
+            "last_name",
             "username",
             "password",
             "email",
-            "phone_number",
+            "provider_phone_number",
+            "patient_phone_number",
             "country",
             "state",
             "city",
@@ -121,20 +130,28 @@ class CreatePatientUserSerializer(serializers.ModelSerializer):
         extra_kwargs = {"password": {"write_only": True}}
 
     def create(self, validated_data):
-        domain_name = validated_data.pop("domain_name")
-        username = combine_domain_and_username(validated_data["username"], domain_name)
-        validated_data["username"] = username
-        user = User.objects.create_user(
-            username=validated_data["username"],
-            password=validated_data["password"],
+        domain_name: Optional[str] = None
+        provider_phone_number: Optional[str] = None
+        patient_phone_number: Optional[str] = None
+        if "domain_name" in validated_data:
+            domain_name = validated_data.pop("domain_name")
+        if "provider_phone_number" in validated_data:
+            provider_phone_number = validated_data.pop("provider_phone_number")
+        if "patient_phone_number" in validated_data:
+            patient_phone_number = validated_data.pop("patient_phone_number")
+        user = create_user(
             email=validated_data["email"],
+            raw_username=validated_data["username"],
+            first_name=validated_data.get("firstname", ""),
+            last_name=validated_data.get("lastname", ""),
+            domain_name=domain_name,
+            phone_number=provider_phone_number,
+            password=validated_data["password"],
         )
-        user.is_active = False
-        user.save()
 
         UserContactInfo.objects.create(
             user=user,
-            phone_number=validated_data["phone_number"],
+            phone_number=patient_phone_number,
             country=validated_data["country"],
             state=validated_data["state"],
             city=validated_data["city"],
