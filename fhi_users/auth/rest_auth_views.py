@@ -273,11 +273,7 @@ class RestLoginView(ViewSet, CreateMixin):
         domain: str = data.get("domain")
         phone: str = data.get("phone")
         try:
-            if domain:
-                username = combine_domain_and_username(username, domain)
-            else:
-                user_domain = UserDomain.objects.get(visible_phone_number=phone)
-                username = combine_domain_and_username(username, user_domain.name)
+            username = combine_domain_and_username(username, phonenumber=phone, domain_name=domain)
         except UserDomain.DoesNotExist:
             return Response(
                 {"status": "failure", "message": "Domain or phone number not found"},
@@ -311,9 +307,9 @@ class VerifyEmailView(ViewSet, SerializerMixin):
         serializer = self.deserialize(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
-            uid = force_str(urlsafe_base64_decode(serializer.validated_data["user_id"]))
+            uid = serializer.validated_data["user_id"]
             user = User.objects.get(pk=uid)
-        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist) as e:
             user = None
         if user is not None:
             token = serializer.validated_data["token"]
@@ -321,10 +317,10 @@ class VerifyEmailView(ViewSet, SerializerMixin):
                 verification_token = VerificationToken.objects.get(
                     user=user, token=token
                 )
-                if verification_token.expires_at < timezone.now():
+                if  timezone.now() > verification_token.expires_at:
                     return Response(
                         {"status": "failure", "message": "Activation link has expired"},
-                        status=status.HTTP_400_BAD_REQUEST,
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     )
                 user.is_active = True
                 try:
@@ -335,7 +331,7 @@ class VerifyEmailView(ViewSet, SerializerMixin):
                 extraproperties.save()
                 verification_token.delete()
                 return Response({"status": "success"})
-            except VerificationToken.DoesNotExist:
+            except VerificationToken.DoesNotExist as e:
                 return Response(
                     {"status": "failure", "message": "Invalid activation link"},
                     status=status.HTTP_400_BAD_REQUEST,

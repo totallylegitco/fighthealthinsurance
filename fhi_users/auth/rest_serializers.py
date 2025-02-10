@@ -26,8 +26,6 @@ class PasswordResetFormSerializer(FormSerializer):
 
 
 class DomainAuthResponse(serializers.Serializer):
-    success = serializers.BooleanField()
-    error_description = serializers.CharField()
     totp_info = serializers.CharField()
     user_type = serializers.ChoiceField(choices=["provider", "admin", "patient"])
 
