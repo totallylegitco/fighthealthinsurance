@@ -41,7 +41,9 @@ class LoginView(generic.FormView):
                 context["invalid"] = True
                 context["need_phone_or_domain"] = True
             else:
-                username = combine_domain_and_username(raw_username, domain_name=domain, phonenumber=phonenumber)
+                username = combine_domain_and_username(
+                    raw_username, domain_name=domain, phonenumber=phonenumber
+                )
                 user = authenticate(username=username, password=password)
                 if user is None:
                     context["invalid"] = True
@@ -53,6 +55,7 @@ class LoginView(generic.FormView):
         except UserDomain.DoesNotExist:
             context["domain_invalid"] = True
             return render(request, "login.html", context)
+
 
 class LogoutView(generic.TemplateView):
     template_name = "logout.html"

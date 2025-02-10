@@ -25,10 +25,12 @@ def is_valid_domain(domain_name: str) -> bool:
     return UserDomain.objects.filter(name=domain_name).exists()
 
 
-def user_is_admin_in_domain(user: User,
-                            domain_id: Optional[str] = None,
-                            domain_name: Optional[str] = None,
-                            phonenumber: Optional[str] = None) -> bool:
+def user_is_admin_in_domain(
+    user: User,
+    domain_id: Optional[str] = None,
+    domain_name: Optional[str] = None,
+    phonenumber: Optional[str] = None,
+) -> bool:
     try:
         domain_id = resolve_domain_id(domain_id, domain_name, phonenumber)
     except Exception as e:
@@ -44,10 +46,12 @@ def user_is_admin_in_domain(user: User,
         > 0
     )
 
+
 def resolve_domain_id(
-        domain_id: Optional[str] = None,
-        domain_name: Optional[str] = None,
-        phonenumber: Optional[str] = None) -> str:
+    domain_id: Optional[str] = None,
+    domain_name: Optional[str] = None,
+    phonenumber: Optional[str] = None,
+) -> str:
     if domain_id:
         return domain_id
     elif domain_name and len(domain_name) > 0:
@@ -64,11 +68,13 @@ def resolve_domain_id(
     else:
         raise Exception("No domain id, name or phone number provided.")
 
-def combine_domain_and_username(username: str,
-                                domain_id: Optional[str] = None,
-                                domain_name: Optional[str] = None,
-                                phonenumber: Optional[str] = None
-                                ) -> str:
+
+def combine_domain_and_username(
+    username: str,
+    domain_id: Optional[str] = None,
+    domain_name: Optional[str] = None,
+    phonenumber: Optional[str] = None,
+) -> str:
     domain_id = resolve_domain_id(domain_id, domain_name, phonenumber)
     return f"{username}🐼{domain_id}"
 

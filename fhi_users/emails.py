@@ -36,6 +36,7 @@ def send_email(subject, template_name, context, to_email):
     msg.attach_alternative(html_content, "text/html")
     msg.send()
 
+
 def send_provider_started_appeal_email(patient_email, context):
     send_email(
         "Provider Started Appeal",
@@ -50,9 +51,7 @@ def send_password_reset_email(user_email, context):
 
 
 def send_email_confirmation(user_email, context):
-    send_email(
-        "Email Confirmation", "emails/email_confirmation", context, user_email
-    )
+    send_email("Email Confirmation", "emails/email_confirmation", context, user_email)
 
 
 def send_appeal_submitted_successfully_email(user_email, context):
