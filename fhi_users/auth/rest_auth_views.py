@@ -262,10 +262,12 @@ class AdminProfessionalUser(viewsets.ViewSet, SerializerMixin):
             )
 
 
-class RestLoginView(ViewSet, CreateMixin):
+class RestLoginView(ViewSet, SerializerMixin):
     serializer_class = serializers.LoginFormSerializer
 
-    def perform_create(self, request: Request, serializer) -> Response:
+    @action(detail=False, methods=["post"])
+    def login(self, request: Request) -> Response:
+        serializer = self.deserialize(request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
         username: str = data.get("username")
@@ -276,18 +278,20 @@ class RestLoginView(ViewSet, CreateMixin):
             username = combine_domain_and_username(
                 username, phonenumber=phone, domain_name=domain
             )
-        except UserDomain.DoesNotExist:
+        except Exception as e:
+            print(f"Bloop! {e}")
             return Response(
-                {"status": "failure", "message": "Domain or phone number not found"},
+                {"status": "failure", "message": f"Domain or phone number not found -- {e}"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        print("Mok?")
         user = authenticate(username=username, password=password)
         if user:
             login(request, user)
             return Response({"status": "success"})
         return Response(
             {"status": "failure", "message": "Invalid credentials"},
-            status=status.HTTP_400_BAD_REQUEST,
+            status=status.HTTP_401_UNAUTHORIZED,
         )
 
 
