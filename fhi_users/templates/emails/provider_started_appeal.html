@@ -1,7 +1,10 @@
-{% extends "emails/base_email.html" %}
-{% block title %}Provider Started Appeal{% endblock %}
+{% extends "base.html" %}
+
 {% block content %}
-<p>Dear {{ patient_name }},</p>
-<p>Your provider has started an appeal on your behalf. Please log in to your account to view the details.</p>
-<p>Thank you!</p>
+Dear {{ user.first_name }},
+
+We wanted to inform you that your provider has started an appeal on your behalf.
+
+Best regards,
+Fight Health Insurance Team
 {% endblock %}

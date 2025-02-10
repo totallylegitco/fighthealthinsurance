@@ -1,12 +1,16 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Activate your account</title>
-</head>
-<body>
-    <p>Hi {{ user.username }},</p>
-    <p>Please click on the link below to verify your email address and complete the registration of your account:</p>
-    <p><a href="http://{{ domain }}{% url 'verify_email_legacy' uidb64=uid token=token %}">Verify Email</a></p>
-    <p>Thank you!</p>
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}Activate your account{% endblock %}
+{% block content %}
+<p>
+Dear {{ user.first_name }},
+</p>
+<p>
+Please activate your account by <a href="{{ activation_link }}">clicking the link below:
+</p>
+<p>
+{{ activation_link }}
+</p>
+</a>
+Best regards,<br/>
+Fight Health Insurance Team<br/>
+{% endblock %}
