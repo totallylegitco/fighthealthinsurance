@@ -24,7 +24,11 @@ from minio_storage.storage import MinioStorage
 import time
 from dj_easy_log import load_loguru
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "fighthealthinsurance.settings")
+os.environ.setdefault(
+    "DJANGO_SETTINGS_MODULE",
+    "fighthealthinsurance.settings",
+)
+
 os.environ.setdefault("DJANGO_CONFIGURATION", os.getenv("ENVIRONMENT", "Dev"))
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -83,6 +87,7 @@ class Base(Configuration):
     ]
 
     INSTALLED_APPS = [
+        "daphne",
         "django.contrib.admin",
         "django.contrib.auth",
         "django.contrib.contenttypes",
@@ -167,6 +172,7 @@ class Base(Configuration):
     ]
 
     WSGI_APPLICATION = "fighthealthinsurance.wsgi.application"
+    ASGI_APPLICATION = "fighthealthinsurance.asgi.application"
 
     # Database
     # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
@@ -261,14 +267,9 @@ class Base(Configuration):
     DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
     # CORS settings
-    CORS_URLS_REGEX = r"^/ziggy/.*$"
-    # CORS_ALLOWED_ORIGINS_REGEXES = [
-    #    "https://fhi-react.vercel.app",
-    #    "http://localhost:\d+",
-    #    "https://localhost:\d+",
-    #    "http://127.0.0.1:\d+",
-    # ]
-    CORS_ALLOW_ALL_ORIGINS = True
+    CORS_URLS_REGEX = r"^/ziggy/rest/.*$"
+    CORS_ALLOWED_ORIGINS_REGEXES = []
+    CORS_ALLOW_ALL_ORIGINS = False
     CORS_ALLOW_PRIVATE_NETWORK = True
     CORS_ALLOW_CREDENTIALS = True
 
@@ -310,7 +311,9 @@ class Base(Configuration):
     @cached_property
     def COMBINED_STORAGE(self) -> Storage:
         return CombinedStorage(
-            self.LOCALISH_STORAGE, self.EXTERNAL_STORAGE, self.EXTERNAL_STORAGE_B
+            self.LOCALISH_STORAGE,
+            self.EXTERNAL_STORAGE,
+            self.EXTERNAL_STORAGE_B,
         )
 
     # Ignore some 404 errors
@@ -324,9 +327,15 @@ class Base(Configuration):
 
 
 class Dev(Base):
+    DEBUG = True
+
+    CORS_ALLOWED_ORIGINS_REGEXES = [
+        r"http://127.0.0.1:\d+",
+        r"http(s)?://localhost:\d+",
+    ]
+
     DEFF_SALT = os.getenv("DEFF_SALT", "dev-salt")
     DEFF_PASSWORD = os.getenv("DEFF_PASSWORD", "dev-password")
-    DEBUG = True
     RECAPTCHA_TESTING = True
     os.environ["RECAPTCHA_TESTING"] = "True"
     # RECAPTCHA_PUBLIC_KEY = os.getenv("RECAPTCHA_PUBLIC_KEY", "")
@@ -398,8 +407,14 @@ class TestActor(Dev):
 class Prod(Base):
     DEBUG = False
 
+    CORS_ALLOWED_ORIGINS_REGEXES = [
+        "https://fhi-react.vercel.app"
+        "https://fighthealthinsurance.com/",
+    ]
+
     # Different fido server for production
-    FIDO_SERVER_ID = "fighthealthinsurance.com"  # Server rp id for FIDO2, it is the full domain of your project
+    # Server rp id for FIDO2, it is the full domain of your project
+    FIDO_SERVER_ID = "fighthealthinsurance.com"
 
     @property
     def SECRET_KEY(self):
