@@ -273,7 +273,9 @@ class RestLoginView(ViewSet, CreateMixin):
         domain: str = data.get("domain")
         phone: str = data.get("phone")
         try:
-            username = combine_domain_and_username(username, phonenumber=phone, domain_name=domain)
+            username = combine_domain_and_username(
+                username, phonenumber=phone, domain_name=domain
+            )
         except UserDomain.DoesNotExist:
             return Response(
                 {"status": "failure", "message": "Domain or phone number not found"},
@@ -317,7 +319,7 @@ class VerifyEmailView(ViewSet, SerializerMixin):
                 verification_token = VerificationToken.objects.get(
                     user=user, token=token
                 )
-                if  timezone.now() > verification_token.expires_at:
+                if timezone.now() > verification_token.expires_at:
                     return Response(
                         {"status": "failure", "message": "Activation link has expired"},
                         status=status.HTTP_500_INTERNAL_SERVER_ERROR,
