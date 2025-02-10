@@ -107,6 +107,7 @@ class ProfessionalDomainRelation(models.Model):
     suspended = models.BooleanField(default=False)
     rejected = models.BooleanField(default=False)
 
+
 @receiver(pre_save, sender=ProfessionalDomainRelation)
 def professional_domain_relation_presave(
     sender: type, instance: ProfessionalDomainRelation, **kwargs: dict
@@ -115,6 +116,7 @@ def professional_domain_relation_presave(
     instance.active = (
         not instance.pending and not instance.suspended and not instance.rejected
     )
+
 
 class PatientDomainRelation(models.Model):
     patient = models.ForeignKey("PatientUser", on_delete=models.CASCADE)  # type: ignore

@@ -12,17 +12,23 @@ from fhi_users.emails import (
 from django.contrib.auth.models import User
 from django.test import RequestFactory
 
+
 @pytest.fixture
 def context():
     return {"example_key": "example_value"}
 
+
 @pytest.fixture
 def test_user():
-    return User.objects.create_user(username='testuser', email='testuser@example.com', password='testpassword')
+    return User.objects.create_user(
+        username="testuser", email="testuser@example.com", password="testpassword"
+    )
+
 
 @pytest.fixture
 def test_request():
-    return RequestFactory().get('/')
+    return RequestFactory().get("/")
+
 
 @pytest.mark.django_db
 class TestEmails:
