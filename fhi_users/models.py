@@ -98,8 +98,8 @@ class ProfessionalDomainRelation(models.Model):
     professional = models.ForeignKey("ProfessionalUser", on_delete=models.CASCADE)
     domain = models.ForeignKey(UserDomain, on_delete=models.CASCADE)
     # Is the relation "active" (note: we should move this to a function)
-    active = models.BooleanField()
-    admin = models.BooleanField()
+    active = models.BooleanField(default=False)
+    admin = models.BooleanField(default=False)
     read_only = models.BooleanField(default=False)
     display_name = models.CharField(max_length=400, null=True)
     professional_type = models.CharField(max_length=400, null=True)
@@ -107,6 +107,14 @@ class ProfessionalDomainRelation(models.Model):
     suspended = models.BooleanField(default=False)
     rejected = models.BooleanField(default=False)
 
+@receiver(pre_save, sender=ProfessionalDomainRelation)
+def professional_domain_relation_presave(
+    sender: type, instance: ProfessionalDomainRelation, **kwargs: dict
+) -> None:
+    """Dynamically set the active field based on pending/suspended/rejected."""
+    instance.active = (
+        not instance.pending and not instance.suspended and not instance.rejected
+    )
 
 class PatientDomainRelation(models.Model):
     patient = models.ForeignKey("PatientUser", on_delete=models.CASCADE)  # type: ignore
