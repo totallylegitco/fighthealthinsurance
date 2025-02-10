@@ -1,4 +1,5 @@
 from django.core.mail import send_mail
+from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.conf import settings
 from django.utils.http import urlsafe_base64_encode
@@ -12,7 +13,7 @@ if TYPE_CHECKING:
     from django.contrib.auth.models import User
 
 
-def send_email(subject, template_name, context, to_email):
+def send_fallback_email(subject, template_name, context, to_email):
     # First, render the plain text content if present
     text_content = render_to_string(
         f"emails/{template_name}.txt",
@@ -38,35 +39,35 @@ def send_email(subject, template_name, context, to_email):
 
 
 def send_provider_started_appeal_email(patient_email, context):
-    send_email(
+    send_fallback_email(
         "Provider Started Appeal",
-        "emails/provider_started_appeal",
+        "provider_started_appeal",
         context,
         patient_email,
     )
 
 
 def send_password_reset_email(user_email, context):
-    send_email("Password Reset", "emails/password_reset", context, user_email)
+    send_fallback_email("Password Reset", "password_reset", context, user_email)
 
 
 def send_email_confirmation(user_email, context):
-    send_email("Email Confirmation", "emails/email_confirmation", context, user_email)
+    send_fallback_email("Email Confirmation", "email_confirmation", context, user_email)
 
 
 def send_appeal_submitted_successfully_email(user_email, context):
-    send_email(
+    send_fallback_email(
         "Appeal Submitted Successfully",
-        "emails/appeal_submitted_successfully",
+        "appeal_submitted_successfully",
         context,
         user_email,
     )
 
 
 def send_error_submitting_appeal_email(user_email, context):
-    send_email(
+    send_fallback_email(
         "Error Submitting Appeal",
-        "emails/error_submitting_appeal",
+        "error_submitting_appeal",
         context,
         user_email,
     )
@@ -77,14 +78,14 @@ def send_verification_email(request, user: "User") -> None:
     mail_subject = "Activate your account."
     verification_token = default_token_generator.make_token(user)
     VerificationToken.objects.create(user=user, token=verification_token)
-    message = render_to_string(
-        "emails/acc_active_email",
+    send_fallback_email(
+        mail_subject,
+        "acc_active_email",
         {
             "user": user,
             "domain": current_site.domain,
             "uid": urlsafe_base64_encode(force_bytes(user.pk)),
             "token": verification_token,
         },
+        user.email,
     )
-    to_email = user.email
-    send_mail(mail_subject, message, settings.EMAIL_HOST_USER, [to_email])
