@@ -7,7 +7,7 @@ User = get_user_model()
 class ProfessionalDomainRelationSignalTests(TestCase):
     def setUp(self) -> None:
         self.user = User.objects.create_user(username='testuser', password='testpass')
-        self.professional_user = ProfessionalUser.objects.create(user=self.user)
+        self.professional_user = ProfessionalUser.objects.create(user=self.user, active=True)
         self.domain = UserDomain.objects.create(
             name='testdomain',
             visible_phone_number='1234567890',
