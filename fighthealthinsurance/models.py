@@ -392,6 +392,9 @@ class Denial(ExportModelOperationsMixin("Denial"), models.Model):  # type: ignor
     reference_summary = models.TextField(primary_key=False, null=True, blank=True)
     appeal_fax_number = models.CharField(max_length=40, null=True, blank=True)
     your_state = models.CharField(max_length=40, null=True)
+    primary_professional = models.ForeignKey(ProfessionalUser, null=True, on_delete=models.SET_NULL)
+    patient_user = models.ForeignKey(PatientUser, null=True, on_delete=models.SET_NULL)
+    domain = models.ForeignKey(UserDomain, null=True, on_delete=models.SET_NULL)
 
     def follow_up(self):
         return self.raw_email is not None and "@" in self.raw_email
@@ -428,6 +431,9 @@ class Appeal(ExportModelOperationsMixin("Appeal"), models.Model):  # type: ignor
     for_denial = models.ForeignKey(
         Denial, on_delete=models.CASCADE, null=True, blank=True
     )
+    primary_professional = models.ForeignKey(ProfessionalUser, null=True, on_delete=models.SET_NULL)
+    patient_user = models.ForeignKey(PatientUser, null=True, on_delete=models.SET_NULL)
+    domain = models.ForeignKey(UserDomain, null=True, on_delete=models.SET_NULL)
 
     def __str__(self):
         if self.appeal_text is not None:
@@ -435,16 +441,14 @@ class Appeal(ExportModelOperationsMixin("Appeal"), models.Model):  # type: ignor
         else:
             return f"{self.appeal_text}"
 
+# Secondary relations for denials and appeals
+# Secondary Appeal Relations
+class SecondaryAppealProfessionalRelation(models.Model):
+    appeal = models.ForeignKey(Appeal, on_delete=models.CASCADE)
+    professional = models.ForeignKey(ProfessionalUser, on_delete=models.CASCADE)
 
-# Denial Relations
-
-
-class DenialDomainRelation(models.Model):
-    denial = models.ForeignKey(Denial, on_delete=models.CASCADE)
-    domain = models.ForeignKey(UserDomain, on_delete=models.CASCADE)
-
-
-class DenialProfessionalRelation(models.Model):
+# Seconday Denial Relations
+class SecondaryDenialProfessionalRelation(models.Model):
     denial = models.ForeignKey(Denial, on_delete=models.CASCADE)
     professional = models.ForeignKey(ProfessionalUser, on_delete=models.CASCADE)
 
