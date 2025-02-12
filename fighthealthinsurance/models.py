@@ -401,6 +401,48 @@ class Denial(ExportModelOperationsMixin("Denial"), models.Model):  # type: ignor
     )
     patient_user = models.ForeignKey(PatientUser, null=True, on_delete=models.SET_NULL)
     domain = models.ForeignKey(UserDomain, null=True, on_delete=models.SET_NULL)
+    patient_visible = models.BooleanField(default=True)
+
+    @classmethod
+    def filter_to_allowed_denials(cls, current_user: User):
+        if current_user.is_superuser or current_user.is_staff:
+            return Denial.objects.all()
+
+        query_set = Denial.objects.none()
+
+        # Patients can view their own appeals
+        try:
+            patient_user = PatientUser.objects.get(user=current_user)
+            query_set |= Denial.objects.filter(
+                patient_user=patient_user,
+                patient_visible=True,
+            )
+        except PatientUser.DoesNotExist:
+            pass
+
+        # Providers can view appeals they created or were added to as a provider
+        # or are a domain admin in.
+        try:
+            # Appeals they created
+            professional_user = ProfessionalUser.objects.get(user=current_user)
+            query_set |= Denial.objects.filter(primary_professional=professional_user)
+            # Appeals they were add to.
+            additional = SecondaryDenialProfessionalRelation.objects.filter(
+                professional=professional_user
+            )
+            query_set |= Denial.objects.filter(id__in=[a.denial.id for a in additional])
+            # Practice/UserDomain admins can view all appeals in their practice
+            try:
+                user_admin_domains = UserDomain.objects.filter(
+                    professionaldomainrelation__professional__user=current_user,
+                    professionaldomainrelation__admin=True,
+                )
+                query_set |= Denial.objects.filter(domain__in=user_admin_domains)
+            except ProfessionalDomainRelation.DoesNotExist:
+                pass
+        except ProfessionalUser.DoesNotExist:
+            pass
+        return query_set
 
     def follow_up(self):
         return self.raw_email is not None and "@" in self.raw_email
@@ -454,7 +496,9 @@ class Appeal(ExportModelOperationsMixin("Appeal"), models.Model):  # type: ignor
     combined_document_enc = EncryptedFileField(
         null=True, storage=settings.COMBINED_STORAGE
     )
+    patient_visible = models.BooleanField(default=True)
 
+    # Similar to the method on denial -- TODO refactor to a mixin / DRY
     @classmethod
     def filter_to_allowed_appeals(cls, current_user: User):
         if current_user.is_superuser or current_user.is_staff:
@@ -467,6 +511,7 @@ class Appeal(ExportModelOperationsMixin("Appeal"), models.Model):  # type: ignor
             patient_user = PatientUser.objects.get(user=current_user)
             query_set |= Appeal.objects.filter(
                 patient_user=patient_user,
+                patient_visible=True,
             )
         except PatientUser.DoesNotExist:
             pass
@@ -495,9 +540,6 @@ class Appeal(ExportModelOperationsMixin("Appeal"), models.Model):  # type: ignor
                 pass
         except ProfessionalUser.DoesNotExist:
             pass
-        print("********************HI************************")
-        print(query_set)
-        print(query_set.query)
         return query_set
 
     def __str__(self):
