@@ -45,8 +45,8 @@ class TOTPResponse(serializers.Serializer):
 
 
 class UserSignupSerializer(serializers.ModelSerializer):
-    domain_name = serializers.CharField()
-    phone_number = serializers.CharField()
+    domain_name = serializers.CharField(required=False)
+    visible_phone_number = serializers.CharField(required=True)
     continue_url = serializers.CharField()  # URL to send user to post signup / payment
 
     class Meta(object):
@@ -60,11 +60,11 @@ class UserSignupSerializer(serializers.ModelSerializer):
             "email",
             # Our own internal fields
             "domain_name",
-            "phone_number",
+            "visible_phone_number",
             "continue_url",
         ]
 
-    def create(self, validated_data):
+    def save(self):
         raise Exception(
             "This serializer should not be used directly -- use Patient or Professional version"
         )
@@ -79,7 +79,7 @@ class UserDomainSerializer(serializers.ModelSerializer):
 class ProfessionalSignupSerializer(serializers.ModelSerializer):
     user_signup_info = UserSignupSerializer()
     make_new_domain = serializers.BooleanField()
-    # If they're joining an existing domain
+    # If they're joining an existing domain user_domain *MUST NOT BE POPULATED*
     user_domain = UserDomainSerializer(required=False)
 
     class Meta(object):
