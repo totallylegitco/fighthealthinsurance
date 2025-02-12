@@ -1,6 +1,7 @@
 import uuid
 import time
 import datetime
+import typing
 
 from django.db import models
 from django.contrib.auth import get_user_model
@@ -9,7 +10,10 @@ from django.db.models.signals import pre_save
 from django.dispatch import receiver
 
 
-User = get_user_model()
+if typing.TYPE_CHECKING:
+    from django.contrib.auth.models import User
+else:
+    User = get_user_model()
 
 
 # Auth-ish-related models

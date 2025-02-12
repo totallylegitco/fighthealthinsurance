@@ -4,6 +4,7 @@ import re
 import sys
 import tempfile
 import uuid
+import typing
 
 from django.conf import settings
 from django.db import models
@@ -16,7 +17,10 @@ from fighthealthinsurance.utils import sekret_gen
 from fhi_users.models import *
 from regex_field.fields import RegexField
 
-User = get_user_model()
+if typing.TYPE_CHECKING:
+    from django.contrib.auth.models import User
+else:
+    User = get_user_model()
 
 
 # Money related :p
@@ -429,6 +433,13 @@ class ProposedAppeal(ExportModelOperationsMixin("ProposedAppeal"), models.Model)
 
 
 class Appeal(ExportModelOperationsMixin("Appeal"), models.Model):  # type: ignore
+    uuid = models.UUIDField(
+        default=uuid.uuid4,
+        editable=False,
+        primary_key=False,
+        unique=True,
+        max_length=100,
+    )
     appeal_text = models.TextField(max_length=3000000000, primary_key=False, null=True)
     for_denial = models.ForeignKey(
         Denial, on_delete=models.CASCADE, null=True, blank=True
@@ -438,6 +449,56 @@ class Appeal(ExportModelOperationsMixin("Appeal"), models.Model):  # type: ignor
     )
     patient_user = models.ForeignKey(PatientUser, null=True, on_delete=models.SET_NULL)
     domain = models.ForeignKey(UserDomain, null=True, on_delete=models.SET_NULL)
+    document_enc = EncryptedFileField(null=True, storage=settings.COMBINED_STORAGE)
+    pending = models.BooleanField(default=True)
+    combined_document_enc = EncryptedFileField(
+        null=True, storage=settings.COMBINED_STORAGE
+    )
+
+    @classmethod
+    def filter_to_allowed_appeals(cls, current_user: User):
+        if current_user.is_superuser or current_user.is_staff:
+            return Appeal.objects.all()
+
+        query_set = Appeal.objects.none()
+
+        # Patients can view their own appeals
+        try:
+            patient_user = PatientUser.objects.get(user=current_user)
+            query_set |= Appeal.objects.filter(
+                patient_user=patient_user,
+            )
+        except PatientUser.DoesNotExist:
+            pass
+
+        # Providers can view appeals they created or were added to as a provider
+        # or are a domain admin in.
+        try:
+            # Appeals they created
+            professional_user = ProfessionalUser.objects.get(user=current_user)
+            query_set |= Appeal.objects.filter(primary_professional=professional_user)
+            # Appeals they were add to.
+            additional_appeals = SecondaryAppealProfessionalRelation.objects.filter(
+                professional=professional_user
+            )
+            query_set |= Appeal.objects.filter(
+                id__in=[a.appeal.id for a in additional_appeals]
+            )
+            # Practice/UserDomain admins can view all appeals in their practice
+            try:
+                user_admin_domains = UserDomain.objects.filter(
+                    professionaldomainrelation__professional__user=current_user,
+                    professionaldomainrelation__admin=True,
+                )
+                query_set |= Appeal.objects.filter(domain__in=user_admin_domains)
+            except ProfessionalDomainRelation.DoesNotExist:
+                pass
+        except ProfessionalUser.DoesNotExist:
+            pass
+        print("********************HI************************")
+        print(query_set)
+        print(query_set.query)
+        return query_set
 
     def __str__(self):
         if self.appeal_text is not None:

@@ -12,7 +12,10 @@ from fhi_users.auth.auth_utils import (
 )
 from typing import Optional
 
-User = get_user_model()
+if typing.TYPE_CHECKING:
+    from django.contrib.auth.models import User
+else:
+    User = get_user_model()
 
 
 class LoginFormSerializer(FormSerializer):
