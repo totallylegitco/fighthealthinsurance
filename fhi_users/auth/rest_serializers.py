@@ -64,7 +64,7 @@ class UserSignupSerializer(serializers.ModelSerializer):
             "continue_url",
         ]
 
-    def save(self):
+    def save(self, **kwargs: Any):
         raise Exception(
             "This serializer should not be used directly -- use Patient or Professional version"
         )

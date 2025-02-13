@@ -11,6 +11,7 @@ from rest_framework import permissions
 from rest_framework.viewsets import ViewSet
 from rest_framework.mixins import CreateModelMixin, ListModelMixin
 from rest_framework.viewsets import GenericViewSet
+from rest_framework.permissions import IsAuthenticated
 
 from django.http import HttpRequest
 from django.conf import settings
