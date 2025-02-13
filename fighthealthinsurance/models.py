@@ -321,7 +321,6 @@ class FaxesToSend(ExportModelOperationsMixin("FaxesToSend"), models.Model):  # t
             f.flush()
             f.close()
             os.sync()
-            print(f"Constructed temp path {f.name}")
             return f.name
 
     def __str__(self):
@@ -413,10 +412,11 @@ class Denial(ExportModelOperationsMixin("Denial"), models.Model):  # type: ignor
         # Patients can view their own appeals
         try:
             patient_user = PatientUser.objects.get(user=current_user)
-            query_set |= Denial.objects.filter(
-                patient_user=patient_user,
-                patient_visible=True,
-            )
+            if patient_user and patient_user.active:
+                query_set |= Denial.objects.filter(
+                    patient_user=patient_user,
+                    patient_visible=True,
+                )
         except PatientUser.DoesNotExist:
             pass
 
@@ -433,10 +433,7 @@ class Denial(ExportModelOperationsMixin("Denial"), models.Model):  # type: ignor
             query_set |= Denial.objects.filter(id__in=[a.denial.id for a in additional])
             # Practice/UserDomain admins can view all appeals in their practice
             try:
-                user_admin_domains = UserDomain.objects.filter(
-                    professionaldomainrelation__professional__user=current_user,
-                    professionaldomainrelation__admin=True,
-                )
+                user_admin_domains = professional_user.admin_domains()
                 query_set |= Denial.objects.filter(domain__in=user_admin_domains)
             except ProfessionalDomainRelation.DoesNotExist:
                 pass
@@ -509,10 +506,11 @@ class Appeal(ExportModelOperationsMixin("Appeal"), models.Model):  # type: ignor
         # Patients can view their own appeals
         try:
             patient_user = PatientUser.objects.get(user=current_user)
-            query_set |= Appeal.objects.filter(
-                patient_user=patient_user,
-                patient_visible=True,
-            )
+            if patient_user and patient_user.active:
+                query_set |= Appeal.objects.filter(
+                    patient_user=patient_user,
+                    patient_visible=True,
+                )
         except PatientUser.DoesNotExist:
             pass
 
@@ -531,10 +529,7 @@ class Appeal(ExportModelOperationsMixin("Appeal"), models.Model):  # type: ignor
             )
             # Practice/UserDomain admins can view all appeals in their practice
             try:
-                user_admin_domains = UserDomain.objects.filter(
-                    professionaldomainrelation__professional__user=current_user,
-                    professionaldomainrelation__admin=True,
-                )
+                user_admin_domains = professional_user.admin_domains()
                 query_set |= Appeal.objects.filter(domain__in=user_admin_domains)
             except ProfessionalDomainRelation.DoesNotExist:
                 pass

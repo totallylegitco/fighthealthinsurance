@@ -64,7 +64,7 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
         """
         permission_classes = []
         if self.action == "list":
-            permission_classes = [IsAuthenticated]
+            permission_classes = []
         elif self.action == "accept" or self.action == "reject":
             permission_classes = [IsAuthenticated]
         else:
@@ -153,8 +153,6 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
         visible_phone_number: Optional[str] = user_signup_info["visible_phone_number"]  # type: ignore
         new_domain: bool = bool(data["make_new_domain"])  # type: ignore
 
-        print(f"Performing create for {data}")
-
         if not new_domain:
             # In practice the serializer may enforce these for us
             try:
@@ -241,6 +239,7 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
             pending=True,
         )
 
+        # TODO: Update to use stripe utils
         stripe.api_key = settings.STRIPE_API_SECRET_KEY
         # Check if the product already exists
         products = stripe.Product.list(limit=100)

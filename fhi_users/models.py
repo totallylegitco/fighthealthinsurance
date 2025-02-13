@@ -86,7 +86,7 @@ class UserContactInfo(models.Model):
 class PatientUser(models.Model):
     id = models.AutoField(primary_key=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    active = models.BooleanField()
+    active = models.BooleanField(default=False)
 
 
 class ProfessionalUser(models.Model):
@@ -96,6 +96,13 @@ class ProfessionalUser(models.Model):
     active = models.BooleanField()
     provider_type = models.CharField(blank=True, null=True, max_length=300)
     most_common_denial = models.CharField(blank=True, null=True, max_length=300)
+
+    def admin_domains(self):
+        return UserDomain.objects.filter(
+            professionaldomainrelation__professional=self,
+            professionaldomainrelation__admin=True,
+            professionaldomainrelation__active=True,
+        )
 
 
 class ProfessionalDomainRelation(models.Model):
