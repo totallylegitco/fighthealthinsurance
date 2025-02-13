@@ -430,7 +430,7 @@ class Denial(ExportModelOperationsMixin("Denial"), models.Model):  # type: ignor
             additional = SecondaryDenialProfessionalRelation.objects.filter(
                 professional=professional_user
             )
-            query_set |= Denial.objects.filter(id__in=[a.denial.id for a in additional])
+            query_set |= Denial.objects.filter(pk__in=[a.denial.pk for a in additional])
             # Practice/UserDomain admins can view all appeals in their practice
             try:
                 user_admin_domains = professional_user.admin_domains()

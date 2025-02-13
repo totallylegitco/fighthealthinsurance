@@ -10,7 +10,7 @@ from fhi_users.auth.auth_utils import (
     create_user,
     resolve_domain_id,
 )
-from typing import Optional
+from typing import Any, Optional
 
 if typing.TYPE_CHECKING:
     from django.contrib.auth.models import User

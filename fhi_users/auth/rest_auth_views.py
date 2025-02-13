@@ -1,5 +1,5 @@
 from loguru import logger
-from typing import Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 from rest_framework import status
 from rest_framework import viewsets
@@ -63,7 +63,7 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
         """
         Different permissions for different actions
         """
-        permission_classes = []
+        permission_classes = [] # type: ignore
         if self.action == "list":
             permission_classes = []
         elif self.action == "accept" or self.action == "reject":
