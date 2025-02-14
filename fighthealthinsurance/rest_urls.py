@@ -6,6 +6,7 @@ from django.conf import settings
 
 from fighthealthinsurance import rest_views
 from fighthealthinsurance.rest_views import AppealViewSet, MailingListSubscriberViewSet
+from .rest_views import AssembleAppealPDFView
 
 from rest_framework import routers
 
@@ -38,6 +39,7 @@ urlpatterns = [
     path(
         "check_ml_backend", rest_views.CheckMlBackend.as_view(), name="check_ml_backend"
     ),
+    path("api/assemble_appeal_pdf/", AssembleAppealPDFView.as_view(), name="assemble_appeal_pdf"),
     # Router
     path("", include(router.urls)),
 ]

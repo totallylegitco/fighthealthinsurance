@@ -8,6 +8,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
+from django.views import View
 
 from rest_framework import status
 from rest_framework import viewsets
@@ -15,6 +16,8 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.serializers import Serializer
 from rest_framework.views import APIView
+from rest_framework.decorators import action
+
 
 from fighthealthinsurance import common_view_logic
 from fighthealthinsurance.models import (
@@ -39,12 +42,15 @@ from fhi_users.models import (
 )
 
 from stopit import ThreadingTimeout as Timeout
+from .common_view_logic import AppealAssemblyHelper
 
 
 if typing.TYPE_CHECKING:
     from django.contrib.auth.models import User
 else:
     User = get_user_model()
+
+appeal_assembly_helper = AppealAssemblyHelper()
 
 
 class DataRemovalViewSet(viewsets.ViewSet, DeleteMixin, DeleteOnlyMixin):
@@ -66,7 +72,6 @@ class NextStepsViewSet(viewsets.ViewSet, CreateMixin):
         return serializers.NextStepInfoSerizableSerializer(
             next_step_info.convert_to_serializable(),
         )
-
 
 class DenialViewSet(viewsets.ViewSet, CreateMixin):
     serializer_class = serializers.DenialFormSerializer
@@ -172,6 +177,32 @@ class AppealViewSet(viewsets.ViewSet):
         serializer = serializers.AppealDetailSerializer(appeal)
         return Response(serializer.data)
 
+    @action(detail=False, methods=["post"])
+    def send_fax(self, request) -> Response:
+        current_user: User = request.user  # type: ignore
+        serializer = serializers.SendFax(request.data)
+        serializer.is_valid(raise_exception=True)
+        appeal = get_object_or_404(
+            Appeal.filter_to_allowed_appeals(current_user),
+            pk=appeal_id)
+        patient_user = None
+        try:
+            patient_user = PatientUser.objects.get(user=current_user)
+        except:
+            pass
+        if appeal.patient_user == patient_user and appeal.for_denial.professional_to_finish:
+            raise Exception("Provider wants to finish appeal")
+        else:
+            SendFaxHelper.send_appeal(appeal)
+
+    @action(detail=False, methods=["post"])
+    def assemble_appeal(self, request) -> Response:
+        current_user: User = request.user  # type: ignore
+        appeal = get_object_or_404(
+            Appeal.filter_to_allowed_appeals(current_user),
+            pk=appeal_id)
+
+
 
 class MailingListSubscriberViewSet(viewsets.ViewSet, CreateMixin, DeleteMixin):
     serializer_class = serializers.MailingListSubscriberSerializer
@@ -183,3 +214,14 @@ class MailingListSubscriberViewSet(viewsets.ViewSet, CreateMixin, DeleteMixin):
     def perform_delete(self, request: Request, serializer):
         email = serializer.validated_data["email"]
         MailingListSubscriber.objects.filter(email=email).delete()
+
+class SendToUserViewSet(viewsets.ViewSet, SerializerMixin):
+    """Send a draft appeal to a user to fill in."""
+    serializer_class = serializers.SendToUser
+
+    def post(self, request):
+        current_user: User = request.user  # type: ignore
+        serializer = self.deserialize(request.data)
+        serializer.is_valid(raise_exception=True)
+        # TODO: Send an e-mail to the patient
+        appeal = Appeals.objects.get(id=serializer.validated_data["appeal_id"])

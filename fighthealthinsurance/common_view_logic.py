@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from string import Template
 from typing import AsyncIterator, Awaitable, Any, Optional, Tuple, Iterable
 from loguru import logger
+from PyPDF2 import PdfMerger, PdfReader, PdfWriter
+import ray
 
 from django.core.files import File
 from django.core.validators import validate_email
@@ -25,8 +27,8 @@ from fighthealthinsurance.generate_appeal import *
 from fighthealthinsurance.models import *
 from fighthealthinsurance.forms import questions as question_forms
 from fighthealthinsurance.utils import interleave_iterator_for_keep_alive
-import ray
 from .pubmed_tools import PubMedTools
+from .utils import check_call
 
 appealGenerator = AppealGenerator()
 
@@ -117,6 +119,131 @@ class NextStepInfo:
             r["choices"] = field.choices
         return r
 
+class AppealAssemblyHelper:
+    async def _convert_input(self, input_path: str) -> Optional[str]:
+        if input_path.endswith(".pdf"):
+            return input_path
+        else:
+            await asyncio.sleep(0)
+            base_convert_command = [
+                "pandoc",
+                "--wrap=auto",
+                input_path,
+                f"-o{input_path}.pdf",
+            ]
+            try:
+                await check_call(base_convert_command)
+                return f"{input_path}.pdf"
+            # pandoc failures are often character encoding issues
+            except Exception as e:
+                # try to convert if we've got txt input
+                new_input_path = input_path
+                if input_path.endswith(".txt"):
+                    try:
+                        command = [
+                            "iconv",
+                            "-c",
+                            "-t utf8",
+                            f"-o{input_path}.u8.txt",
+                            input_path,
+                        ]
+                        await check_call(command)
+                        new_input_path = f"{input_path}.u8.txt"
+                    except:
+                        pass
+                # Try a different engine
+                for engine in ["lualatex", "xelatex"]:
+                    convert_command = base_convert_command
+                    convert_command.extend([f"--pdf-engine={engine}"])
+                    try:
+                        await check_call(base_convert_command)
+                        return f"{input_path}.pdf"
+                    except:
+                        pass
+                return None
+
+    async def assemble_single_output(
+        self, user_header: str, extra: str, input_paths: list[str], target: str
+    ) -> str:
+        """Assembles all the inputs into one output. Will need to be chunked."""
+        merger = PdfMerger()
+        converted_paths = await asyncio.gather(
+            *(self._convert_input(path) for path in input_paths)
+        )
+
+        for pdf_path in filter(None, converted_paths):
+            merger.append(pdf_path)
+
+
+        merger.write(target)
+        merger.close()
+        return target
+
+
+    # TODO: Asyncify
+    def assemble_appeal_pdf(
+        self,
+        insurance_company: str,
+        fax_phone: str,
+        completed_appeal_text: str,
+        health_history: Optional[str],
+        pubmed_articles_to_include: str,
+        company_name: str,
+        cover_template: str,
+        company_phone_number: str,
+        company_fax_number: str,
+        provider_fax_number: str,
+        target: str
+    ) -> str:
+        # Build our cover page
+        cover_context = {
+            "receiver_name": insurance_company or "",
+            "receiver_fax_number": fax_phone,
+            "company_name": company_name,
+            "company_fax_number": company_fax_number,
+            "company_phone_number": company_phone_number,
+            "fax_sent_datetime": str(datetime.datetime.now()),
+        }
+        html_content = render_to_string(
+            "faxes/cover.html",
+            context=cover_context,
+        )
+        # TODO: Move these all inside one thing
+        files_for_fax: list[str] = []
+        cover_letter_file = tempfile.NamedTemporaryFile(suffix=".html", prefix="info_cover", mode="w+t")
+        cover_letter_file.write(html_content)
+        files_for_fax.append(cover_letter_file.name)
+
+        # Appeal text
+        appeal_text_file = tempfile.NamedTemporaryFile(suffix=".txt", prefix="appealtxt", mode="w+t")
+        appeal_text_file.write(completed_appeal_text)
+        appeal_text_file.flush()
+        files_for_fax.append(appeal_text_file.name)
+
+        # Health history
+        # Make the file scope up here so it lasts until after we've got the single output
+        health_history_file = None
+        if health_history and len(health_history) > 2:
+            health_history_file =  tempfile.NamedTemporaryFile(suffix=".txt", prefix="healthhist", mode="w+t")
+            health_history_file.write("Health History:\n")
+            health_history_file.write(health_history)
+            files_for_fax.append(health_history_file.name)
+            health_history_file.flush()
+
+        # PubMed articles
+        pubmed_ids_parsed = pubmed_articles_to_include.split(",")
+        pmt = PubMedTools()
+        pubmed_docs: list[PubMedArticleSummarized] = pmt.get_articles(pubmed_ids_parsed)
+        pubmed_docs_paths = [x for x in map(pmt.article_as_pdf, pubmed_docs) if x is not None]
+        files_for_fax.extend(pubmed_docs_paths)
+        # TODO: Add more generic DOI handler.
+
+        # Combine and return path
+        target = async_to_sync(self.assemble_single_output)(
+            input_paths=files_for_fax, extra="", user_header=str(uuid.uuid4()), target=target
+        )
+        return target
+
 
 @dataclass
 class FaxHelperResults:
@@ -125,6 +252,30 @@ class FaxHelperResults:
 
 
 class SendFaxHelper:
+    appeal_assembly_helper = AppealAssemblyHelper()
+
+    @classmethod
+    def send_appeal(
+        cls,
+        appeal: Appeal,
+        fax_number: str
+    ):
+        fts = FaxesToSend.objects.create(
+            hashed_email=hashed_email,
+            paid=True,
+            pmids=json.dumps(pubmed_ids_parsed),
+            appeal_text=completed_appeal_text,
+            health_history=denial.health_history,
+            email=email,
+            denial_id=denial,
+            name=name,
+            # This should work but idk why it does not
+            combined_document_enc=appeal.,
+            destination=fax_phone,
+            professional = True,
+        )
+        
+
     @classmethod
     def stage_appeal_fax(
         cls,
@@ -138,6 +289,12 @@ class SendFaxHelper:
         insurance_company: str,
         pubmed_articles_to_include: str = "",
         pubmed_ids_parsed: Optional[List[str]] = None,
+        company_name: str = "Fight Health Insurance -- A service of Totally Legit Co.",
+        cover_template: str = "faxes/cover.html",
+        company_phone_number: str = "202-938-3266",
+        company_fax_number: str = "415-840-7591",
+        provider_fax_number: str = "",
+        professional: bool = False,
     ):
         hashed_email = Denial.get_hashed_email(email)
         # Get the current info
@@ -145,75 +302,45 @@ class SendFaxHelper:
             denial_id=denial_id, hashed_email=hashed_email
         ).get()
         denial.insurance_company = insurance_company
-        files_for_fax: list[str] = []
-        # Cover page
-        cover_context: dict[str, str] = {
-            "receiver_name": insurance_company or "",
-            "receiver_fax_number": fax_phone,
-            "company_name": "Fight Health Insurance -- A service of Totally Legit Co.",
-            "company_fax_number": "415-840-7591",
-            "company_phone_number": "202-938-3266",
-            "fax_sent_datetime": str(datetime.datetime.now()),
-        }
-        html_content = render_to_string(
-            "faxes/cover.html",
-            context=cover_context,
-        )
+        health_history: Optional[str] = None
+        if include_provided_health_history:
+            health_history = denial.health_history
         with tempfile.NamedTemporaryFile(
-            suffix=".html", prefix="info_cover", mode="w+t", delete=False
-        ) as f:
-            f.write(html_content)
-            files_for_fax.append(f.name)
-        # Actual appeal
-        with tempfile.NamedTemporaryFile(
-            suffix=".txt", prefix="appealtxt", mode="w+t", delete=False
-        ) as f:
-            f.write(completed_appeal_text)
-            f.flush()
-            files_for_fax.append(f.name)
-        # Health history (if enabled)
-        if (
-            include_provided_health_history
-            and denial.health_history is not None
-            and len(denial.health_history) > 2
-        ):
-            with tempfile.NamedTemporaryFile(
-                suffix=".txt", prefix="healthhist", mode="w+t", delete=False
-            ) as f:
-                f.write("Health History:\n")
-                f.write(denial.health_history)
-                files_for_fax.append(f.name)
-                f.flush()
-
-        if pubmed_ids_parsed is None:
-            pubmed_ids_parsed = pubmed_articles_to_include.split(",")
-        pmt = PubMedTools()
-        pubmed_docs: list[PubMedArticleSummarized] = pmt.get_articles(pubmed_ids_parsed)
-        # Try and include the pubmed ids that we have but also fetch if not present
-        pubmed_docs_paths = [
-            x for x in map(pmt.article_as_pdf, pubmed_docs) if x is not None
-        ]
-        files_for_fax.extend(pubmed_docs_paths)
-        doc_path = async_to_sync(flexible_fax_magic.assemble_single_output)(
-            input_paths=files_for_fax, extra="", user_header=str(uuid.uuid4())
-        )
-        doc_fname = os.path.basename(doc_path)
-        doc = open(doc_path, "rb")
-        fts = FaxesToSend.objects.create(
-            hashed_email=hashed_email,
-            paid=False,
-            pmids=json.dumps(pubmed_ids_parsed),
-            appeal_text=completed_appeal_text,
-            health_history=denial.health_history,
-            email=email,
-            denial_id=denial,
-            name=name,
-            # This should work but idk why it does not
-            combined_document_enc=File(file=doc, name=doc_fname),
-            destination=fax_phone,
-        )
-        return FaxHelperResults(uuid=fts.uuid, hashed_email=hashed_email)
-
+            suffix=".pdf", prefix="alltogether", mode="w+t", delete=True) as t:
+            cls.appeal_assembly_helper.assemble_appeal_pdf(
+                insurance_company = insurance_company,
+                fax_phone = fax_phone,
+                completed_appeal_text = completed_appeal_text,
+                health_history = health_history,
+                pubmed_articles_to_include = pubmed_articles_to_include,
+                company_name = "Fight Health Insurance -- A service of Totally Legit Co.",
+                cover_template = cover_template,
+                company_phone_number = company_phone_number,
+                company_fax_number = company_fax_number,
+                provider_fax_number = provider_fax_number,
+                target = t.name
+            )
+            # Can we re-use t instead of re-opening it?
+            t.flush()
+            doc_fname = os.path.basename(t.name)
+            doc = open(t.name, "rb")
+            fts = FaxesToSend.objects.create(
+                hashed_email=hashed_email,
+                paid=False,
+                pmids=json.dumps(pubmed_ids_parsed),
+                appeal_text=completed_appeal_text,
+                health_history=denial.health_history,
+                email=email,
+                denial_id=denial,
+                name=name,
+                # This should work but idk why it does not
+                combined_document_enc=File(file=doc, name=doc_fname),
+                destination=fax_phone,
+                professional = professional,
+            )
+            fax_actor_ref.get.do_send_fax.remote(fts.hashed_email, fts.uuid)
+            return FaxHelperResults(uuid=fts.uuid, hashed_email=hashed_email)
+    
     @classmethod
     def blocking_dosend_target(cls, email) -> int:
         faxes = FaxesToSend.objects.filter(email=email, sent=False)

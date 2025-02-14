@@ -44,7 +44,6 @@ class DenialResponseInfoSerializer(serializers.Serializer):
     diagnosis = serializers.CharField()
     semi_sekret = serializers.CharField()
 
-
 # Signup options
 
 
@@ -90,13 +89,11 @@ class FollowUpFormSerializer(FormSerializer):
         field_mapping = {forms.UUIDField: serializers.CharField}
 
 
-class AppealRequestSerializer(serializers.Serializer):
-    provider_id = serializers.IntegerField()
-    patient_id = serializers.IntegerField()
-    denial_letter = serializers.FileField(required=False)
-    denial_reason = serializers.CharField()
-    send_to_patient = serializers.BooleanField(default=False)
+# Model serializers
 
+class ProposedAppealSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProposedAppeal
 
 class AppealSummarySerializer(serializers.ModelSerializer):
     class Meta:
@@ -133,6 +130,12 @@ class AppealSubmissionResponseSerializer(serializers.Serializer):
     message = serializers.CharField()
 
 
+class AppealSubmissionResponseSerializer(serializers.Serializer):
+    appeal_id = serializers.IntegerField()
+    status = serializers.CharField()
+    message = serializers.CharField()
+
+
 class EmailVerifierSerializer(serializers.Serializer):
     email = serializers.EmailField()
     token = serializers.CharField()
@@ -146,3 +149,12 @@ class MailingListSubscriberSerializer(serializers.ModelSerializer):
     class Meta:
         model = MailingListSubscriber
         fields = ["email", "name"]
+
+class SendToUserSerializer(serializers.Serializer):
+        appeal_id = serializers.IntegerField()
+        professional_final_review = serializers.BooleanField()
+
+
+class SendFax(serializers.Serializer):
+        appeal_id = serializers.IntegerField()
+        fax_number = serializers.CharField()

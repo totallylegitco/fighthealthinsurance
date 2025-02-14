@@ -312,6 +312,8 @@ class FaxesToSend(ExportModelOperationsMixin("FaxesToSend"), models.Model):  # t
     denial_id = models.ForeignKey("Denial", on_delete=models.CASCADE, null=True)
     destination = models.CharField(max_length=20, null=True)
     should_send = models.BooleanField(default=False)
+    # Professional we may use different backends.
+    professional = models.BooleanField(default=False)
 
     def get_temporary_document_path(self):
         combined_document = self.combined_document or self.combined_document_enc
@@ -402,6 +404,7 @@ class Denial(ExportModelOperationsMixin("Denial"), models.Model):  # type: ignor
     patient_user = models.ForeignKey(PatientUser, null=True, on_delete=models.SET_NULL)
     domain = models.ForeignKey(UserDomain, null=True, on_delete=models.SET_NULL)
     patient_visible = models.BooleanField(default=True)
+    professional_to_finish = models.BooleanField(default=False)
 
     @classmethod
     def filter_to_allowed_denials(cls, current_user: User):
