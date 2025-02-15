@@ -5,7 +5,7 @@ from drf_braces.serializers.form_serializer import (
     FormSerializer,
 )
 from fighthealthinsurance import forms as core_forms
-from fighthealthinsurance.models import Appeal, DenialTypes, MailingListSubscriber
+from fighthealthinsurance.models import Appeal, DenialTypes, MailingListSubscriber, ProposedAppeal
 from rest_framework import serializers
 
 
@@ -122,12 +122,6 @@ class AppealDetailSerializer(serializers.ModelSerializer):
             # TODO: Use reverse here rather than hardcoding
             return reverse("appeal_file_view", kwargs={"appeal_uuid": obj.uuid})
         return None
-
-
-class AppealSubmissionResponseSerializer(serializers.Serializer):
-    appeal_id = serializers.IntegerField()
-    status = serializers.CharField()
-    message = serializers.CharField()
 
 
 class AppealSubmissionResponseSerializer(serializers.Serializer):

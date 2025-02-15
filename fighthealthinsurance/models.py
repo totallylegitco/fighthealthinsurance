@@ -295,7 +295,7 @@ class FaxesToSend(ExportModelOperationsMixin("FaxesToSend"), models.Model):  # t
     email = models.CharField(max_length=300)
     name = models.CharField(max_length=300, null=True)
     appeal_text = models.TextField()
-    pmids = models.CharField(max_length=300, blank=True)
+    pmids = models.CharField(max_length=600, blank=True)
     health_history = models.TextField(null=True, blank=True)
     combined_document = models.FileField(null=True, storage=settings.COMBINED_STORAGE)
     combined_document_enc = EncryptedFileField(
@@ -489,6 +489,7 @@ class Appeal(ExportModelOperationsMixin("Appeal"), models.Model):  # type: ignor
     for_denial = models.ForeignKey(
         Denial, on_delete=models.CASCADE, null=True, blank=True
     )
+    hashed_email = models.CharField(max_length=300, primary_key=False)
     primary_professional = models.ForeignKey(
         ProfessionalUser, null=True, on_delete=models.SET_NULL
     )
@@ -500,6 +501,7 @@ class Appeal(ExportModelOperationsMixin("Appeal"), models.Model):  # type: ignor
         null=True, storage=settings.COMBINED_STORAGE
     )
     patient_visible = models.BooleanField(default=True)
+    pubmed_ids_json = models.CharField(max_length=600, blank=True)
 
     # Similar to the method on denial -- TODO refactor to a mixin / DRY
     @classmethod

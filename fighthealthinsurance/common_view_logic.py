@@ -27,6 +27,7 @@ from fighthealthinsurance.generate_appeal import *
 from fighthealthinsurance.models import *
 from fighthealthinsurance.forms import questions as question_forms
 from fighthealthinsurance.utils import interleave_iterator_for_keep_alive
+from fhi_users.models import ProfessionalUser, UserDomain
 from .pubmed_tools import PubMedTools
 from .utils import check_call
 
@@ -179,6 +180,95 @@ class AppealAssemblyHelper:
         merger.close()
         return target
 
+    def create_appeal(self,
+        insurance_company: str,
+        fax_phone: str,
+        completed_appeal_text: str,
+        pubmed_articles_to_include: str,
+        company_name: str,
+        email: str,
+        denial_id: str,
+        include_provided_health_history: bool,
+        professional: Optional[ProfessionalUser] = None,
+        domain: Optional[UserDomain] = None,
+        patient_address: Optional[str] = None,
+        patient_fax: Optional[str] = None,
+        cover_template_path: str = "faxes/cover.html",
+        cover_template_string: Optional[str] = None,
+        company_phone_number: str = "202-938-3266",
+        company_fax_number: str  = "415-840-7591"
+    ) -> Appeal:
+        # Build our cover page
+        professional_name: Optional[str] = None
+        if professional:
+            professional_name = f"{professional.user.first_name} {professional.user.last_name}"
+        # Get the reply fax number
+        professional_fax_number: Optional[str] = None
+        if professional and professional.fax_number is not None and len(professional.fax_number) > 5:
+            professional_fax_number = professional.fax_number
+        elif domain and domain.office_fax:
+            professional_fax_number = domain.office_fax
+        cover_context = {
+            "receiver_name": insurance_company or "",
+            "receiver_fax_number": fax_phone,
+            "company_name": company_name,
+            "company_fax_number": company_fax_number,
+            "company_phone_number": company_phone_number,
+            "fax_sent_datetime": str(datetime.datetime.now()),
+            "provider_fax_number": professional_fax_number,
+            "provider_name": professional_name,
+            "patient_fax": patient_fax
+        }
+        conver_content: str = ""
+        # Render the cover content
+        if cover_template_string:
+            conver_content = Template(cover_template_string).substitute(cover_context)
+        else:
+            cover_content = render_to_string(
+                cover_template_path,
+                context=cover_context,
+            )
+        hashed_email = Denial.get_hashed_email(email)
+        # Get the current info
+        denial = Denial.objects.filter(
+            denial_id=denial_id, hashed_email=hashed_email
+        ).get()
+        denial.insurance_company = insurance_company
+        health_history: Optional[str] = None
+        if include_provided_health_history:
+            health_history = denial.health_history
+        with tempfile.NamedTemporaryFile(
+            suffix=".pdf", prefix="alltogether", mode="w+t", delete=True) as t:
+            self.assemble_appeal_pdf(
+                insurance_company = insurance_company,
+                fax_phone = fax_phone,
+                completed_appeal_text = completed_appeal_text,
+                health_history = health_history,
+                pubmed_articles_to_include = pubmed_articles_to_include,
+                company_name = company_name,
+                cover_template_path = cover_template_path,
+                cover_template_string = cover_template_string,
+                company_phone_number = company_phone_number,
+                company_fax_number = company_fax_number,
+                provider_fax_number = provider_fax_number,
+                target = t.name
+            )
+            # Can we re-use t instead of re-opening it?
+            t.flush()
+            doc_fname = os.path.basename(t.name)
+            doc = open(t.name, "rb")
+            appeal = Appeal.objects.create(
+                for_denial=denial,
+                completed_appeal_text=completed_appeal_text,
+                health_history=health_history,
+                hashed_email=hashed_email,
+                document_enc=File(doc, name=doc_fname),
+                primary_professional=professional,
+                )
+            appeal.save()
+            return appeal
+
+ 
 
     # TODO: Asyncify
     def assemble_appeal_pdf(
@@ -258,88 +348,28 @@ class SendFaxHelper:
     def send_appeal(
         cls,
         appeal: Appeal,
-        fax_number: str
+        professional: bool = False,
     ):
+        denial = appeal.for_denial
+        email = appeal.email
+        patient_name = appeal.patient_user.get_full_name()
+        appeal_fax_number = denial.appeal_fax_number
         fts = FaxesToSend.objects.create(
-            hashed_email=hashed_email,
+            hashed_email=Denial.get_hashed_email(email),
             paid=True,
-            pmids=json.dumps(pubmed_ids_parsed),
-            appeal_text=completed_appeal_text,
+            pmids=appeal.pubmed_ids_json,
+            appeal_text=appeal.completed_appeal_text,
             health_history=denial.health_history,
             email=email,
             denial_id=denial,
-            name=name,
+            patient_name=patient_name,
             # This should work but idk why it does not
-            combined_document_enc=appeal.,
-            destination=fax_phone,
-            professional = True,
+            combined_document_enc=appeal.document_enc,
+            destination=appeal_fax_phone,
+            professional = professional,
         )
-        
-
-    @classmethod
-    def stage_appeal_fax(
-        cls,
-        denial_id: str,
-        fax_phone: str,
-        email: str,
-        semi_sekret: str,
-        completed_appeal_text: str,
-        include_provided_health_history: bool,
-        name: str,
-        insurance_company: str,
-        pubmed_articles_to_include: str = "",
-        pubmed_ids_parsed: Optional[List[str]] = None,
-        company_name: str = "Fight Health Insurance -- A service of Totally Legit Co.",
-        cover_template: str = "faxes/cover.html",
-        company_phone_number: str = "202-938-3266",
-        company_fax_number: str = "415-840-7591",
-        provider_fax_number: str = "",
-        professional: bool = False,
-    ):
-        hashed_email = Denial.get_hashed_email(email)
-        # Get the current info
-        denial = Denial.objects.filter(
-            denial_id=denial_id, hashed_email=hashed_email
-        ).get()
-        denial.insurance_company = insurance_company
-        health_history: Optional[str] = None
-        if include_provided_health_history:
-            health_history = denial.health_history
-        with tempfile.NamedTemporaryFile(
-            suffix=".pdf", prefix="alltogether", mode="w+t", delete=True) as t:
-            cls.appeal_assembly_helper.assemble_appeal_pdf(
-                insurance_company = insurance_company,
-                fax_phone = fax_phone,
-                completed_appeal_text = completed_appeal_text,
-                health_history = health_history,
-                pubmed_articles_to_include = pubmed_articles_to_include,
-                company_name = "Fight Health Insurance -- A service of Totally Legit Co.",
-                cover_template = cover_template,
-                company_phone_number = company_phone_number,
-                company_fax_number = company_fax_number,
-                provider_fax_number = provider_fax_number,
-                target = t.name
-            )
-            # Can we re-use t instead of re-opening it?
-            t.flush()
-            doc_fname = os.path.basename(t.name)
-            doc = open(t.name, "rb")
-            fts = FaxesToSend.objects.create(
-                hashed_email=hashed_email,
-                paid=False,
-                pmids=json.dumps(pubmed_ids_parsed),
-                appeal_text=completed_appeal_text,
-                health_history=denial.health_history,
-                email=email,
-                denial_id=denial,
-                name=name,
-                # This should work but idk why it does not
-                combined_document_enc=File(file=doc, name=doc_fname),
-                destination=fax_phone,
-                professional = professional,
-            )
-            fax_actor_ref.get.do_send_fax.remote(fts.hashed_email, fts.uuid)
-            return FaxHelperResults(uuid=fts.uuid, hashed_email=hashed_email)
+        fax_actor_ref.get.do_send_fax.remote(fts.hashed_email, fts.uuid)
+        return FaxHelperResults(uuid=fts.uuid, hashed_email=hashed_email)
     
     @classmethod
     def blocking_dosend_target(cls, email) -> int:

@@ -96,6 +96,8 @@ class ProfessionalUser(models.Model):
     active = models.BooleanField()
     provider_type = models.CharField(blank=True, null=True, max_length=300)
     most_common_denial = models.CharField(blank=True, null=True, max_length=300)
+    # Override the professional domain fax number
+    fax_number = models.CharField(blank=True, null=True, max_length=40)
 
     def admin_domains(self):
         return UserDomain.objects.filter(

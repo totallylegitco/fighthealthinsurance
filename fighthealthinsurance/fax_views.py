@@ -69,7 +69,14 @@ class StageFaxView(generic.FormView):
         ]
         form_data["pubmed_ids_parsed"] = pubmed_checkboxes
         logger.debug(f"Staging fax with {form_data}")
-        staged = common_view_logic.SendFaxHelper.stage_appeal_fax(**form_data)
+        # Make sure the denial secret is present
+        denial = Denial.objects.filter(semi_sekret=form_data["semi_sekret"]).get(
+            denial_id = form_data["denial_id"])
+        appeal = common_view_logic.AppealAssemblyHelper.assemble_appeal_pdf(
+            professional=False,
+            **form_data)
+        staged = common_view_logic.SendFaxHelper.stage_appeal_fax(
+            appeal=appeal)
         stripe.api_key = settings.STRIPE_API_SECRET_KEY
 
         # Check if the product already exists
