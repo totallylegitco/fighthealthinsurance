@@ -183,7 +183,7 @@ class AppealAssemblyHelper:
     def create_appeal(self,
         insurance_company: str,
         fax_phone: str,
-        completed_appeal_text: str,
+        appeal_text: str,
         pubmed_articles_to_include: str,
         company_name: str,
         email: str,
@@ -208,26 +208,6 @@ class AppealAssemblyHelper:
             professional_fax_number = professional.fax_number
         elif domain and domain.office_fax:
             professional_fax_number = domain.office_fax
-        cover_context = {
-            "receiver_name": insurance_company or "",
-            "receiver_fax_number": fax_phone,
-            "company_name": company_name,
-            "company_fax_number": company_fax_number,
-            "company_phone_number": company_phone_number,
-            "fax_sent_datetime": str(datetime.datetime.now()),
-            "provider_fax_number": professional_fax_number,
-            "provider_name": professional_name,
-            "patient_fax": patient_fax
-        }
-        conver_content: str = ""
-        # Render the cover content
-        if cover_template_string:
-            conver_content = Template(cover_template_string).substitute(cover_context)
-        else:
-            cover_content = render_to_string(
-                cover_template_path,
-                context=cover_context,
-            )
         hashed_email = Denial.get_hashed_email(email)
         # Get the current info
         denial = Denial.objects.filter(
@@ -242,7 +222,7 @@ class AppealAssemblyHelper:
             self.assemble_appeal_pdf(
                 insurance_company = insurance_company,
                 fax_phone = fax_phone,
-                completed_appeal_text = completed_appeal_text,
+                appeal_text = appeal_text,
                 health_history = health_history,
                 pubmed_articles_to_include = pubmed_articles_to_include,
                 company_name = company_name,
@@ -250,7 +230,8 @@ class AppealAssemblyHelper:
                 cover_template_string = cover_template_string,
                 company_phone_number = company_phone_number,
                 company_fax_number = company_fax_number,
-                provider_fax_number = provider_fax_number,
+                professional_fax_number = professional_fax_number,
+                professional_name=professional_name,
                 target = t.name
             )
             # Can we re-use t instead of re-opening it?
@@ -259,8 +240,7 @@ class AppealAssemblyHelper:
             doc = open(t.name, "rb")
             appeal = Appeal.objects.create(
                 for_denial=denial,
-                completed_appeal_text=completed_appeal_text,
-                health_history=health_history,
+                appeal_text=appeal_text,
                 hashed_email=hashed_email,
                 document_enc=File(doc, name=doc_fname),
                 primary_professional=professional,
@@ -275,16 +255,22 @@ class AppealAssemblyHelper:
         self,
         insurance_company: str,
         fax_phone: str,
-        completed_appeal_text: str,
-        health_history: Optional[str],
+        appeal_text: str,
         pubmed_articles_to_include: str,
         company_name: str,
-        cover_template: str,
-        company_phone_number: str,
-        company_fax_number: str,
-        provider_fax_number: str,
-        target: str
-    ) -> str:
+        health_history: Optional[str] = None,
+        patient_address: Optional[str] = None,
+        patient_fax: Optional[str] = None,
+        cover_template_path: str = "faxes/cover.html",
+        cover_template_string: Optional[str] = None,
+        company_phone_number: str = "202-938-3266",
+        company_fax_number: str  = "415-840-7591",
+        professional_fax_number: Optional[str] = None,
+        professional_name: Optional[str] = None,
+        target: str = ""
+    ):
+        if len(target) < 2:
+            return
         # Build our cover page
         cover_context = {
             "receiver_name": insurance_company or "",
@@ -293,20 +279,27 @@ class AppealAssemblyHelper:
             "company_fax_number": company_fax_number,
             "company_phone_number": company_phone_number,
             "fax_sent_datetime": str(datetime.datetime.now()),
+            "provider_fax_number": professional_fax_number,
+            "provider_name": professional_name,
+            "professional_fax_number": professional_fax_number
         }
-        html_content = render_to_string(
-            "faxes/cover.html",
-            context=cover_context,
-        )
-        # TODO: Move these all inside one thing
+        conver_content: str = ""
+        # Render the cover content
+        if cover_template_string:
+            conver_content = Template(cover_template_string).substitute(cover_context)
+        else:
+            cover_content = render_to_string(
+                cover_template_path,
+                context=cover_context,
+            )
         files_for_fax: list[str] = []
         cover_letter_file = tempfile.NamedTemporaryFile(suffix=".html", prefix="info_cover", mode="w+t")
-        cover_letter_file.write(html_content)
+        cover_letter_file.write(conver_content)
         files_for_fax.append(cover_letter_file.name)
 
         # Appeal text
         appeal_text_file = tempfile.NamedTemporaryFile(suffix=".txt", prefix="appealtxt", mode="w+t")
-        appeal_text_file.write(completed_appeal_text)
+        appeal_text_file.write(appeal_text)
         appeal_text_file.flush()
         files_for_fax.append(appeal_text_file.name)
 
