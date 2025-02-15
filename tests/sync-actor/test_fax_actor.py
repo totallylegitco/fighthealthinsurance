@@ -11,6 +11,7 @@ from django.db import connection
 from fighthealthinsurance.fax_actor import FaxActor
 from fighthealthinsurance.models import Denial, FaxesToSend
 
+runtime_env = dict(os.environ)
 
 class TestFaxActor(TestCase):
     fixtures = ["fighthealthinsurance/fixtures/initial.yaml"]
@@ -22,6 +23,7 @@ class TestFaxActor(TestCase):
                 ignore_reinit_error=True,
                 # We need this to point to the same testing DB but then no async
                 # local_mode=True,
+                runtime_env=runtime_env
             )
         self.fax_actor = FaxActor.remote()
         self.maxDiff = None
