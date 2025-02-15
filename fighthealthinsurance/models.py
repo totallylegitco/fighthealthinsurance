@@ -497,9 +497,6 @@ class Appeal(ExportModelOperationsMixin("Appeal"), models.Model):  # type: ignor
     domain = models.ForeignKey(UserDomain, null=True, on_delete=models.SET_NULL)
     document_enc = EncryptedFileField(null=True, storage=settings.COMBINED_STORAGE)
     pending = models.BooleanField(default=True)
-    combined_document_enc = EncryptedFileField(
-        null=True, storage=settings.COMBINED_STORAGE
-    )
     patient_visible = models.BooleanField(default=True)
     pubmed_ids_json = models.CharField(max_length=600, blank=True)
 
@@ -547,9 +544,9 @@ class Appeal(ExportModelOperationsMixin("Appeal"), models.Model):  # type: ignor
 
     def __str__(self):
         if self.appeal_text is not None:
-            return f"{self.appeal_text[0:100]}"
+            return f"{self.uuid} -- {self.appeal_text[0:100]}"
         else:
-            return f"{self.appeal_text}"
+            return f"{self.uuid} -- {self.appeal_text}"
 
 
 # Secondary relations for denials and appeals

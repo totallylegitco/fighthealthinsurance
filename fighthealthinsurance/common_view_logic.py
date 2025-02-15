@@ -181,14 +181,16 @@ class AppealAssemblyHelper:
         return target
 
     def create_appeal(self,
-        insurance_company: str,
         fax_phone: str,
-        appeal_text: str,
-        pubmed_articles_to_include: str,
+        completed_appeal_text: str,
         company_name: str,
         email: str,
-        denial_id: str,
         include_provided_health_history: bool,
+        name: str,
+        insurance_company: Optional[str] = None,
+        denial: Optional[Denial] = None,
+        denial_id: Optional[str] = None,
+        semi_sekret: Optional[str] = None,
         professional: Optional[ProfessionalUser] = None,
         domain: Optional[UserDomain] = None,
         patient_address: Optional[str] = None,
@@ -196,8 +198,17 @@ class AppealAssemblyHelper:
         cover_template_path: str = "faxes/cover.html",
         cover_template_string: Optional[str] = None,
         company_phone_number: str = "202-938-3266",
-        company_fax_number: str  = "415-840-7591"
+        company_fax_number: str  = "415-840-7591",
+        pubmed_ids_parsed: Optional[List[str]] = None,
     ) -> Appeal:
+        if denial is None:
+            if denial_id is not None:
+                denial = Denial.objects.filter(denial_id=denial_id).filter(
+                    hashed_email=Denial.get_hashed_email(email),
+                    semi_sekret=semi_sekret
+                ).get()
+        if denial is None:
+            raise Exception("No denial ID or denial provided.")
         # Build our cover page
         professional_name: Optional[str] = None
         if professional:
@@ -210,21 +221,24 @@ class AppealAssemblyHelper:
             professional_fax_number = domain.office_fax
         hashed_email = Denial.get_hashed_email(email)
         # Get the current info
-        denial = Denial.objects.filter(
-            denial_id=denial_id, hashed_email=hashed_email
-        ).get()
-        denial.insurance_company = insurance_company
+        if insurance_company:
+            denial.insurance_company = insurance_company
+        else:
+            insurance_company = denial.insurance_company
+        claim_id = denial.claim_id
         health_history: Optional[str] = None
         if include_provided_health_history:
             health_history = denial.health_history
         with tempfile.NamedTemporaryFile(
-            suffix=".pdf", prefix="alltogether", mode="w+t", delete=True) as t:
-            self.assemble_appeal_pdf(
+            suffix=".pdf", prefix="alltogether", mode="w+b", delete=False) as t:
+            self._assemble_appeal_pdf(
                 insurance_company = insurance_company,
+                patient_name=name,
+                claim_id=claim_id,
                 fax_phone = fax_phone,
-                appeal_text = appeal_text,
+                completed_appeal_text = completed_appeal_text,
                 health_history = health_history,
-                pubmed_articles_to_include = pubmed_articles_to_include,
+                pubmed_ids_parsed = pubmed_ids_parsed,
                 company_name = company_name,
                 cover_template_path = cover_template_path,
                 cover_template_string = cover_template_string,
@@ -234,15 +248,14 @@ class AppealAssemblyHelper:
                 professional_name=professional_name,
                 target = t.name
             )
-            # Can we re-use t instead of re-opening it?
             t.flush()
+            t.seek(0)
             doc_fname = os.path.basename(t.name)
-            doc = open(t.name, "rb")
             appeal = Appeal.objects.create(
                 for_denial=denial,
-                appeal_text=appeal_text,
+                appeal_text=completed_appeal_text,
                 hashed_email=hashed_email,
-                document_enc=File(doc, name=doc_fname),
+                document_enc=File(t, name=doc_fname),
                 primary_professional=professional,
                 )
             appeal.save()
@@ -251,13 +264,14 @@ class AppealAssemblyHelper:
  
 
     # TODO: Asyncify
-    def assemble_appeal_pdf(
+    def _assemble_appeal_pdf(
         self,
-        insurance_company: str,
+        insurance_company: Optional[str],
         fax_phone: str,
-        appeal_text: str,
-        pubmed_articles_to_include: str,
+        completed_appeal_text: str,
         company_name: str,
+        patient_name: str,
+        claim_id: Optional[str],
         health_history: Optional[str] = None,
         patient_address: Optional[str] = None,
         patient_fax: Optional[str] = None,
@@ -267,6 +281,7 @@ class AppealAssemblyHelper:
         company_fax_number: str  = "415-840-7591",
         professional_fax_number: Optional[str] = None,
         professional_name: Optional[str] = None,
+        pubmed_ids_parsed: Optional[List[str]] = None,
         target: str = ""
     ):
         if len(target) < 2:
@@ -281,25 +296,30 @@ class AppealAssemblyHelper:
             "fax_sent_datetime": str(datetime.datetime.now()),
             "provider_fax_number": professional_fax_number,
             "provider_name": professional_name,
-            "professional_fax_number": professional_fax_number
+            "professional_fax_number": professional_fax_number,
+            "patient_name": patient_name,
+            "claim_id": claim_id
         }
-        conver_content: str = ""
+        cover_content: str = ""
         # Render the cover content
-        if cover_template_string:
-            conver_content = Template(cover_template_string).substitute(cover_context)
+        if cover_template_string and len(cover_template_string) > 0:
+            cover_content = Template(cover_template_string).substitute(cover_context)
+            print(f"Rendering cover letter from string {cover_template_string} and got {cover_content}")
         else:
             cover_content = render_to_string(
                 cover_template_path,
                 context=cover_context,
             )
+            print(f"Rendering cover letter from path {cover_template_path} and got {cover_content}")
         files_for_fax: list[str] = []
-        cover_letter_file = tempfile.NamedTemporaryFile(suffix=".html", prefix="info_cover", mode="w+t")
-        cover_letter_file.write(conver_content)
+        cover_letter_file = tempfile.NamedTemporaryFile(suffix=".html", prefix="info_cover", mode="w+t", delete=True)
+        cover_letter_file.write(cover_content)
+        cover_letter_file.flush()
         files_for_fax.append(cover_letter_file.name)
 
         # Appeal text
-        appeal_text_file = tempfile.NamedTemporaryFile(suffix=".txt", prefix="appealtxt", mode="w+t")
-        appeal_text_file.write(appeal_text)
+        appeal_text_file = tempfile.NamedTemporaryFile(suffix=".txt", prefix="appealtxt", mode="w+t", delete=True)
+        appeal_text_file.write(completed_appeal_text)
         appeal_text_file.flush()
         files_for_fax.append(appeal_text_file.name)
 
@@ -307,18 +327,18 @@ class AppealAssemblyHelper:
         # Make the file scope up here so it lasts until after we've got the single output
         health_history_file = None
         if health_history and len(health_history) > 2:
-            health_history_file =  tempfile.NamedTemporaryFile(suffix=".txt", prefix="healthhist", mode="w+t")
+            health_history_file =  tempfile.NamedTemporaryFile(suffix=".txt", prefix="healthhist", mode="w+t", delete=True)
             health_history_file.write("Health History:\n")
             health_history_file.write(health_history)
             files_for_fax.append(health_history_file.name)
             health_history_file.flush()
 
         # PubMed articles
-        pubmed_ids_parsed = pubmed_articles_to_include.split(",")
-        pmt = PubMedTools()
-        pubmed_docs: list[PubMedArticleSummarized] = pmt.get_articles(pubmed_ids_parsed)
-        pubmed_docs_paths = [x for x in map(pmt.article_as_pdf, pubmed_docs) if x is not None]
-        files_for_fax.extend(pubmed_docs_paths)
+        if pubmed_ids_parsed is not None and len(pubmed_ids_parsed) > 0:
+            pmt = PubMedTools()
+            pubmed_docs: list[PubMedArticleSummarized] = pmt.get_articles(pubmed_ids_parsed)
+            pubmed_docs_paths = [x for x in map(pmt.article_as_pdf, pubmed_docs) if x is not None]
+            files_for_fax.extend(pubmed_docs_paths)
         # TODO: Add more generic DOI handler.
 
         # Combine and return path
@@ -338,27 +358,30 @@ class SendFaxHelper:
     appeal_assembly_helper = AppealAssemblyHelper()
 
     @classmethod
-    def send_appeal(
+    def stage_appeal_as_fax(
         cls,
         appeal: Appeal,
+        email: str,
         professional: bool = False,
     ):
         denial = appeal.for_denial
-        email = appeal.email
-        patient_name = appeal.patient_user.get_full_name()
+        if denial is None:
+            raise Exception("No denial")
         appeal_fax_number = denial.appeal_fax_number
+        hashed_email = Denial.get_hashed_email(email)
+        appeal_text = appeal.appeal_text
+        if not appeal_text:
+            raise Exception("No appeal text")
         fts = FaxesToSend.objects.create(
-            hashed_email=Denial.get_hashed_email(email),
             paid=True,
             pmids=appeal.pubmed_ids_json,
-            appeal_text=appeal.completed_appeal_text,
-            health_history=denial.health_history,
+            hashed_email=hashed_email,
+            appeal_text=appeal_text,
             email=email,
             denial_id=denial,
-            patient_name=patient_name,
             # This should work but idk why it does not
             combined_document_enc=appeal.document_enc,
-            destination=appeal_fax_phone,
+            destination=appeal_fax_number,
             professional = professional,
         )
         fax_actor_ref.get.do_send_fax.remote(fts.hashed_email, fts.uuid)

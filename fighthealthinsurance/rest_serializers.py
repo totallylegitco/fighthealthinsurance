@@ -123,11 +123,19 @@ class AppealDetailSerializer(serializers.ModelSerializer):
             return reverse("appeal_file_view", kwargs={"appeal_uuid": obj.uuid})
         return None
 
+class AssembleAppealRequestSerializer(serializers.Serializer):
+    denial_uuid = serializers.CharField(required=True)
+    completed_appeal_text = serializers.CharField(required=True)
+    insurance_company = serializers.CharField(required=False)
+    fax_phone = serializers.CharField(required=False)
+    pubmed_articles_to_include = serializers.ListField(child=serializers.CharField(), required=False)
+    include_provided_health_history = serializers.BooleanField(required=False)
 
-class AppealSubmissionResponseSerializer(serializers.Serializer):
-    appeal_id = serializers.IntegerField()
-    status = serializers.CharField()
-    message = serializers.CharField()
+
+class AssembleAppealResponseSerializer(serializers.Serializer):
+    appeal_id = serializers.CharField(required=True)
+    status = serializers.CharField(required=False)
+    message = serializers.CharField(required=False)
 
 
 class EmailVerifierSerializer(serializers.Serializer):
@@ -137,7 +145,6 @@ class EmailVerifierSerializer(serializers.Serializer):
 
 
 # Mailing list
-
 
 class MailingListSubscriberSerializer(serializers.ModelSerializer):
     class Meta:
@@ -150,5 +157,5 @@ class SendToUserSerializer(serializers.Serializer):
 
 
 class SendFax(serializers.Serializer):
-        appeal_id = serializers.IntegerField()
-        fax_number = serializers.CharField()
+        appeal_id = serializers.IntegerField(required=True)
+        fax_number = serializers.CharField(required=False)
