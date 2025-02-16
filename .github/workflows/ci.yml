@@ -116,6 +116,16 @@ jobs:
           GOOGLE_CLIENT_SECRETS_TEXT: ${{ secrets.GOOGLE_CLIENT_SECRETS_TEXT }}
           STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
 
+  tests-sync-actor:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10']
+        django: ['50']
+        include:
+          - python: '3.10'
+            django: '50'
     name: Run the sync actor test suite (Python ${{ matrix.python }}, Django ${{ matrix.django }})
     steps:
       - uses: actions/checkout@v4
