@@ -48,33 +48,35 @@ class TestFaxActor(TransactionTestCase):
         delayed_time = timezone.now() - timedelta(hours=4)
         fax = None
         try:
-            fax = FaxesToSend.objects.create(
-                hashed_email="test_hash",
-                email="test@example.com",
-                destination="1234567890",
-                name="Test",
-                should_send=True,
-                sent=False,
-                paid=False,
-                date=delayed_time,
+            ray.get(self.fax_actor.test_migrate.remote())
+            fax = ray.get(
+                self.fax_actor.test_create_fax_object.remote(
+                    hashed_email="test_hash",
+                    email="test@example.com",
+                    destination="1234567890",
+                    name="Test",
+                    should_send=True,
+                    sent=False,
+                    paid=False,
+                    date=delayed_time,
+                )
             )
+
             # Call the method and verify results
             (t, f) = ray.get(self.fax_actor.send_delayed_faxes.remote())
             self.assertEqual(f, 0)
             self.assertEqual(t, 1)
         finally:
             if fax is not None:
-                fax.delete()
+                ray.get(self.fax_actor.test_delete.remote(fax))
 
     def test_send_delayed_faxes_no_delayed_faxes(self):
         """Test behavior when there are no delayed faxes to send."""
         # Create a recent fax that should not be sent yet
+        ray.get(self.fax_actor.test_migrate.remote())
         recent_time = datetime.now() - timedelta(hours=0)
-                # Create a delayed fax that should be sent
-        delayed_time = timezone.now() - timedelta(hours=4)
-        fax = None
-        try:
-            fax = FaxesToSend.objects.create(
+        fax = ray.get(
+            self.fax_actor.test_create_fax_object.remote(
                 hashed_email="test_hash",
                 email="test@example.com",
                 destination="1234567890",
@@ -83,9 +85,8 @@ class TestFaxActor(TransactionTestCase):
                 sent=False,
                 paid=False,
             )
-            # Call the method and verify results
-            (t, f) = ray.get(self.fax_actor.send_delayed_faxes.remote())
-            self.assertEqual(t, 0)
-        finally:
-            if fax is not None:
-                fax.delete()
+        )
+
+        # Call the method and verify results
+        (t, f) = ray.get(self.fax_actor.send_delayed_faxes.remote())
+        self.assertEqual(t, 0)
