@@ -116,7 +116,7 @@ jobs:
           GOOGLE_CLIENT_SECRETS_TEXT: ${{ secrets.GOOGLE_CLIENT_SECRETS_TEXT }}
           STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
 
-    name: Run the sync test suite (Python ${{ matrix.python }}, Django ${{ matrix.django }})
+    name: Run the sync actor test suite (Python ${{ matrix.python }}, Django ${{ matrix.django }})
     steps:
       - uses: actions/checkout@v4
 
@@ -151,6 +151,7 @@ jobs:
           FARTS: "farts"
           GOOGLE_CLIENT_SECRETS_TEXT: ${{ secrets.GOOGLE_CLIENT_SECRETS_TEXT }}
           STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+
 
   build-docker-ray-container:
     runs-on: ubuntu-latest
