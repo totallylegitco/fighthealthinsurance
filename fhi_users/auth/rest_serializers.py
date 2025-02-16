@@ -19,6 +19,9 @@ else:
 
 
 class LoginFormSerializer(FormSerializer):
+    """
+    Handles login form data for user authentication.
+    """
     class Meta(object):
         form = LoginForm
 
@@ -29,17 +32,26 @@ class TOTPFormSerializer(FormSerializer):
 
 
 class PasswordResetFormSerializer(FormSerializer):
+    """
+    Processes password reset requests, validating email or username.
+    """
     class Meta(object):
         form = PasswordResetForm
 
 
 class TOTPResponse(serializers.Serializer):
+    """
+    Used to return TOTP login success status and errors to the client.
+    """
     success = serializers.BooleanField()
     error_description = serializers.CharField()
     totp_info = serializers.CharField()
 
 
 class UserSignupSerializer(serializers.ModelSerializer):
+    """
+    Base serializer for user sign-up fields, intended to be extended.
+    """
     domain_name = serializers.CharField(required=False)
     visible_phone_number = serializers.CharField(required=True)
     continue_url = serializers.CharField()  # URL to send user to post signup / payment
@@ -66,12 +78,18 @@ class UserSignupSerializer(serializers.ModelSerializer):
 
 
 class UserDomainSerializer(serializers.ModelSerializer):
+    """
+    Serializer for domain information, excluding sensitive fields.
+    """
     class Meta(object):
         model = UserDomain
         exclude = ("id", "stripe_subscription_id", "active")
 
 
 class ProfessionalSignupSerializer(serializers.ModelSerializer):
+    """
+    Collects professional user and optional domain creation data on sign-up.
+    """
     user_signup_info = UserSignupSerializer()
     make_new_domain = serializers.BooleanField()
     # If they're joining an existing domain user_domain *MUST NOT BE POPULATED*
@@ -83,20 +101,32 @@ class ProfessionalSignupSerializer(serializers.ModelSerializer):
 
 
 class ProfessionalSignupResponseSerializer(serializers.Serializer):
+    """
+    Returns a 'next_url' guiding the user to checkout or follow-up steps.
+    """
     next_url = serializers.URLField()
 
 
 class AcceptProfessionalUserSerializer(serializers.Serializer):
+    """
+    Needed for accepting professional users into a domain.
+    """
     professional_user_id = serializers.IntegerField()
     domain_id = serializers.CharField()
 
 
 class VerificationTokenSerializer(serializers.Serializer):
+    """
+    Verifies email activation or password reset tokens for a specific user.
+    """
     token = serializers.CharField()
     user_id = serializers.IntegerField()
 
 
 class CreatePatientUserSerializer(serializers.ModelSerializer):
+    """
+    Handles patient user creation, including address/contact details.
+    """
     country = serializers.CharField(default="USA")
     state = serializers.CharField()
     city = serializers.CharField()
