@@ -53,6 +53,9 @@ else:
 
 
 class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
+    """
+    Handles professional user sign-up and domain acceptance or rejection.
+    """
 
     def get_serializer_class(self):
         if self.action == "accept":
@@ -75,6 +78,9 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
 
     @action(detail=False, methods=["post"])
     def reject(self, request) -> Response:
+        """
+        Rejects a professional user from a domain.
+        """
         serializer = self.deserialize(data=request.data)
         serializer.is_valid(raise_exception=True)
         professional_user_id: int = serializer.validated_data["professional_user_id"]
@@ -82,6 +88,7 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
         current_user: User = request.user
         current_user_admin_in_domain = user_is_admin_in_domain(current_user, domain_id)
         if not current_user_admin_in_domain:
+            logger.warning("Reject action attempted without admin rights.")
             # Credentials are valid but does not have permissions
             return Response(status=status.HTTP_403_FORBIDDEN)
         relation = ProfessionalDomainRelation.objects.get(
@@ -96,6 +103,9 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
 
     @action(detail=False, methods=["post"])
     def accept(self, request) -> Response:
+        """
+        Accepts a professional user into a domain, optionally updating subscriptions.
+        """
         serializer = self.deserialize(data=request.data)
         serializer.is_valid(raise_exception=True)
         professional_user_id: int = serializer.validated_data["professional_user_id"]
@@ -141,6 +151,7 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
 
             return Response({"status": "accepted"}, status=status.HTTP_200_OK)
         except ProfessionalDomainRelation.DoesNotExist:
+            logger.error("Accept action failed; relation not found.")
             return Response(
                 {"error": "Relation not found or already accepted"},
                 status=status.HTTP_404_NOT_FOUND,
@@ -340,6 +351,10 @@ class RestLoginView(ViewSet, SerializerMixin):
 
 
 class CreatePatientUserViewSet(ViewSet, CreateMixin):
+    """
+    Handles creation of new patient users and sends verification emails.
+    """
+
     serializer_class = serializers.CreatePatientUserSerializer
 
     def perform_create(self, request: Request, serializer) -> Response:
@@ -350,6 +365,10 @@ class CreatePatientUserViewSet(ViewSet, CreateMixin):
 
 
 class VerifyEmailViewSet(ViewSet, SerializerMixin):
+    """
+    Verifies an email address based on a token, activating the user account.
+    """
+
     serializer_class = serializers.VerificationTokenSerializer
 
     @action(detail=False, methods=["post"])
@@ -394,6 +413,10 @@ class VerifyEmailViewSet(ViewSet, SerializerMixin):
 
 
 class ResendVerificationEmailView(ViewSet, CreateMixin):
+    """
+    Resends email verification links for users who haven't completed registration.
+    """
+
     serializer_class = serializers.VerificationTokenSerializer
 
     def perform_create(self, request: Request, serializer) -> Response:
