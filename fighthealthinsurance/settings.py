@@ -399,7 +399,7 @@ class TestActor(Dev):
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
-            "TIMEOUT": 4,
+            "TIMEOUT": 10,
             "NAME": dbname,
             "TEST": {
                 "NAME": dbname,

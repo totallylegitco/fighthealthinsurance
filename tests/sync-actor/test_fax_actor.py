@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import ray
-from django.test import TestCase
+from django.test import TransactionTestCase
 from django.utils import timezone
 from django.db import connection
 
@@ -13,7 +13,7 @@ from fighthealthinsurance.models import Denial, FaxesToSend
 
 runtime_env = dict(os.environ)
 
-class TestFaxActor(TestCase):
+class TestFaxActor(TransactionTestCase):
     fixtures = ["fighthealthinsurance/fixtures/initial.yaml"]
 
     def setUp(self):
