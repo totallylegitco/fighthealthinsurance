@@ -42,7 +42,8 @@ class LoginView(generic.FormView):
                 context["need_phone_or_domain"] = True
             else:
                 domain_id = resolve_domain_id(
-                    domain_name=domain, phone_number=phone_number)
+                    domain_name=domain, phone_number=phone_number
+                )
                 username = combine_domain_and_username(
                     raw_username, domain_id=domain_id
                 )

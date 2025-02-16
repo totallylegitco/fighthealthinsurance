@@ -120,6 +120,7 @@ class NextStepInfo:
             r["choices"] = field.choices
         return r
 
+
 class AppealAssemblyHelper:
     async def _convert_input(self, input_path: str) -> Optional[str]:
         if input_path.endswith(".pdf"):
@@ -175,12 +176,12 @@ class AppealAssemblyHelper:
         for pdf_path in filter(None, converted_paths):
             merger.append(pdf_path)
 
-
         merger.write(target)
         merger.close()
         return target
 
-    def create_appeal(self,
+    def create_appeal(
+        self,
         fax_phone: str,
         completed_appeal_text: str,
         company_name: str,
@@ -198,24 +199,34 @@ class AppealAssemblyHelper:
         cover_template_path: str = "faxes/cover.html",
         cover_template_string: Optional[str] = None,
         company_phone_number: str = "202-938-3266",
-        company_fax_number: str  = "415-840-7591",
+        company_fax_number: str = "415-840-7591",
         pubmed_ids_parsed: Optional[List[str]] = None,
     ) -> Appeal:
         if denial is None:
             if denial_id is not None:
-                denial = Denial.objects.filter(denial_id=denial_id).filter(
-                    hashed_email=Denial.get_hashed_email(email),
-                    semi_sekret=semi_sekret
-                ).get()
+                denial = (
+                    Denial.objects.filter(denial_id=denial_id)
+                    .filter(
+                        hashed_email=Denial.get_hashed_email(email),
+                        semi_sekret=semi_sekret,
+                    )
+                    .get()
+                )
         if denial is None:
             raise Exception("No denial ID or denial provided.")
         # Build our cover page
         professional_name: Optional[str] = None
         if professional:
-            professional_name = f"{professional.user.first_name} {professional.user.last_name}"
+            professional_name = (
+                f"{professional.user.first_name} {professional.user.last_name}"
+            )
         # Get the reply fax number
         professional_fax_number: Optional[str] = None
-        if professional and professional.fax_number is not None and len(professional.fax_number) > 5:
+        if (
+            professional
+            and professional.fax_number is not None
+            and len(professional.fax_number) > 5
+        ):
             professional_fax_number = professional.fax_number
         elif domain and domain.office_fax:
             professional_fax_number = domain.office_fax
@@ -230,23 +241,24 @@ class AppealAssemblyHelper:
         if include_provided_health_history:
             health_history = denial.health_history
         with tempfile.NamedTemporaryFile(
-            suffix=".pdf", prefix="alltogether", mode="w+b", delete=False) as t:
+            suffix=".pdf", prefix="alltogether", mode="w+b", delete=False
+        ) as t:
             self._assemble_appeal_pdf(
-                insurance_company = insurance_company,
+                insurance_company=insurance_company,
                 patient_name=name,
                 claim_id=claim_id,
-                fax_phone = fax_phone,
-                completed_appeal_text = completed_appeal_text,
-                health_history = health_history,
-                pubmed_ids_parsed = pubmed_ids_parsed,
-                company_name = company_name,
-                cover_template_path = cover_template_path,
-                cover_template_string = cover_template_string,
-                company_phone_number = company_phone_number,
-                company_fax_number = company_fax_number,
-                professional_fax_number = professional_fax_number,
+                fax_phone=fax_phone,
+                completed_appeal_text=completed_appeal_text,
+                health_history=health_history,
+                pubmed_ids_parsed=pubmed_ids_parsed,
+                company_name=company_name,
+                cover_template_path=cover_template_path,
+                cover_template_string=cover_template_string,
+                company_phone_number=company_phone_number,
+                company_fax_number=company_fax_number,
+                professional_fax_number=professional_fax_number,
                 professional_name=professional_name,
-                target = t.name
+                target=t.name,
             )
             t.flush()
             t.seek(0)
@@ -257,11 +269,9 @@ class AppealAssemblyHelper:
                 hashed_email=hashed_email,
                 document_enc=File(t, name=doc_fname),
                 primary_professional=professional,
-                )
+            )
             appeal.save()
             return appeal
-
- 
 
     # TODO: Asyncify
     def _assemble_appeal_pdf(
@@ -278,11 +288,11 @@ class AppealAssemblyHelper:
         cover_template_path: str = "faxes/cover.html",
         cover_template_string: Optional[str] = None,
         company_phone_number: str = "202-938-3266",
-        company_fax_number: str  = "415-840-7591",
+        company_fax_number: str = "415-840-7591",
         professional_fax_number: Optional[str] = None,
         professional_name: Optional[str] = None,
         pubmed_ids_parsed: Optional[List[str]] = None,
-        target: str = ""
+        target: str = "",
     ):
         if len(target) < 2:
             return
@@ -298,27 +308,35 @@ class AppealAssemblyHelper:
             "provider_name": professional_name,
             "professional_fax_number": professional_fax_number,
             "patient_name": patient_name,
-            "claim_id": claim_id
+            "claim_id": claim_id,
         }
         cover_content: str = ""
         # Render the cover content
         if cover_template_string and len(cover_template_string) > 0:
             cover_content = Template(cover_template_string).substitute(cover_context)
-            print(f"Rendering cover letter from string {cover_template_string} and got {cover_content}")
+            print(
+                f"Rendering cover letter from string {cover_template_string} and got {cover_content}"
+            )
         else:
             cover_content = render_to_string(
                 cover_template_path,
                 context=cover_context,
             )
-            print(f"Rendering cover letter from path {cover_template_path} and got {cover_content}")
+            print(
+                f"Rendering cover letter from path {cover_template_path} and got {cover_content}"
+            )
         files_for_fax: list[str] = []
-        cover_letter_file = tempfile.NamedTemporaryFile(suffix=".html", prefix="info_cover", mode="w+t", delete=True)
+        cover_letter_file = tempfile.NamedTemporaryFile(
+            suffix=".html", prefix="info_cover", mode="w+t", delete=True
+        )
         cover_letter_file.write(cover_content)
         cover_letter_file.flush()
         files_for_fax.append(cover_letter_file.name)
 
         # Appeal text
-        appeal_text_file = tempfile.NamedTemporaryFile(suffix=".txt", prefix="appealtxt", mode="w+t", delete=True)
+        appeal_text_file = tempfile.NamedTemporaryFile(
+            suffix=".txt", prefix="appealtxt", mode="w+t", delete=True
+        )
         appeal_text_file.write(completed_appeal_text)
         appeal_text_file.flush()
         files_for_fax.append(appeal_text_file.name)
@@ -327,7 +345,9 @@ class AppealAssemblyHelper:
         # Make the file scope up here so it lasts until after we've got the single output
         health_history_file = None
         if health_history and len(health_history) > 2:
-            health_history_file =  tempfile.NamedTemporaryFile(suffix=".txt", prefix="healthhist", mode="w+t", delete=True)
+            health_history_file = tempfile.NamedTemporaryFile(
+                suffix=".txt", prefix="healthhist", mode="w+t", delete=True
+            )
             health_history_file.write("Health History:\n")
             health_history_file.write(health_history)
             files_for_fax.append(health_history_file.name)
@@ -336,14 +356,21 @@ class AppealAssemblyHelper:
         # PubMed articles
         if pubmed_ids_parsed is not None and len(pubmed_ids_parsed) > 0:
             pmt = PubMedTools()
-            pubmed_docs: list[PubMedArticleSummarized] = pmt.get_articles(pubmed_ids_parsed)
-            pubmed_docs_paths = [x for x in map(pmt.article_as_pdf, pubmed_docs) if x is not None]
+            pubmed_docs: list[PubMedArticleSummarized] = pmt.get_articles(
+                pubmed_ids_parsed
+            )
+            pubmed_docs_paths = [
+                x for x in map(pmt.article_as_pdf, pubmed_docs) if x is not None
+            ]
             files_for_fax.extend(pubmed_docs_paths)
         # TODO: Add more generic DOI handler.
 
         # Combine and return path
         target = async_to_sync(self.assemble_single_output)(
-            input_paths=files_for_fax, extra="", user_header=str(uuid.uuid4()), target=target
+            input_paths=files_for_fax,
+            extra="",
+            user_header=str(uuid.uuid4()),
+            target=target,
         )
         return target
 
@@ -382,11 +409,11 @@ class SendFaxHelper:
             # This should work but idk why it does not
             combined_document_enc=appeal.document_enc,
             destination=appeal_fax_number,
-            professional = professional,
+            professional=professional,
         )
         fax_actor_ref.get.do_send_fax.remote(fts.hashed_email, fts.uuid)
         return FaxHelperResults(uuid=fts.uuid, hashed_email=hashed_email)
-    
+
     @classmethod
     def blocking_dosend_target(cls, email) -> int:
         faxes = FaxesToSend.objects.filter(email=email, sent=False)

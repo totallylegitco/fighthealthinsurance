@@ -71,12 +71,15 @@ class StageFaxView(generic.FormView):
         logger.debug(f"Staging fax with {form_data}")
         # Make sure the denial secret is present
         denial = Denial.objects.filter(semi_sekret=form_data["semi_sekret"]).get(
-            denial_id = form_data["denial_id"])
-        form_data["company_name"] = "Fight Health Insurance -- a service of Totally Legit Co"
-        appeal = common_view_logic.AppealAssemblyHelper().create_appeal(
-            **form_data)
+            denial_id=form_data["denial_id"]
+        )
+        form_data["company_name"] = (
+            "Fight Health Insurance -- a service of Totally Legit Co"
+        )
+        appeal = common_view_logic.AppealAssemblyHelper().create_appeal(**form_data)
         staged = common_view_logic.SendFaxHelper.stage_appeal_as_fax(
-            appeal=appeal, email=form_data["email"])
+            appeal=appeal, email=form_data["email"]
+        )
         stripe.api_key = settings.STRIPE_API_SECRET_KEY
 
         # Check if the product already exists

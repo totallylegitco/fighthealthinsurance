@@ -13,6 +13,7 @@ from fighthealthinsurance.models import Denial, FaxesToSend
 
 runtime_env = dict(os.environ)
 
+
 # We can unify the DB stuff and remove the test remote creation if and only if
 # we switch from sqlite since otherwise the transaction test wraps each one
 # and the regular testcase leaves the db locked.
@@ -26,7 +27,7 @@ class TestFaxActor(TransactionTestCase):
                 ignore_reinit_error=True,
                 # We need this to point to the same testing DB but then no async
                 # local_mode=True,
-                runtime_env=runtime_env
+                runtime_env=runtime_env,
             )
         self.fax_actor = FaxActor.remote()
         self.maxDiff = None

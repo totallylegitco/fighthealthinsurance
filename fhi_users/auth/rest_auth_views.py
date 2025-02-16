@@ -39,7 +39,7 @@ from fhi_users.auth.auth_utils import (
     create_user,
     combine_domain_and_username,
     user_is_admin_in_domain,
-    resolve_domain_id
+    resolve_domain_id,
 )
 from fighthealthinsurance.rest_mixins import CreateMixin, SerializerMixin
 from rest_framework.serializers import Serializer

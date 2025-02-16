@@ -558,8 +558,7 @@ class AppealFileView(View):
         )
         file = appeal.document_enc.open()
         content = Cryptographer.decrypted(file.read())
-        return HttpResponse(
-            content, content_type="application/pdf")
+        return HttpResponse(content, content_type="application/pdf")
 
 
 class StripeWebhookView(View):
