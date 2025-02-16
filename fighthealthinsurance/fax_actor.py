@@ -34,32 +34,6 @@ class FaxActor:
         """Bump this to restart the fax actor."""
         return 1
 
-    def test_create_fax_object(self, **kwargs):
-        from fighthealthinsurance.models import FaxesToSend
-
-        fax = FaxesToSend.objects.create(**kwargs)
-        # reset the date to the specified old date for testing.
-        if "date" in kwargs:
-            fax.date = kwargs["date"]
-            fax.save()
-        return fax
-
-    def test_delete(self, fax):
-        return fax.delete()
-
-    def test_migrate(self):
-        from fighthealthinsurance.models import FaxesToSend
-        from django.core.management import call_command
-
-        env = os.getenv("DJANGO_CONFIGURATION")
-        if env != "Test" and env != "TestActor" and env != "TestSync":
-            raise Exception(f"Tried to call test migrate in non-test env -- {env}")
-        try:
-            FaxesToSend.objects.all().delete()
-        except Exception as e:
-            print(f"Couldn't delete faxes {e}")
-            call_command("migrate")
-
     def send_delayed_faxes(self) -> Tuple[int, int]:
         from fighthealthinsurance.models import FaxesToSend
 
