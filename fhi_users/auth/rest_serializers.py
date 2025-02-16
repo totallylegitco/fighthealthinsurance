@@ -11,6 +11,7 @@ from fhi_users.auth.auth_utils import (
     resolve_domain_id,
 )
 from typing import Any, Optional
+import re
 
 if typing.TYPE_CHECKING:
     from django.contrib.auth.models import User
@@ -94,10 +95,17 @@ class ProfessionalSignupSerializer(serializers.ModelSerializer):
     make_new_domain = serializers.BooleanField()
     # If they're joining an existing domain user_domain *MUST NOT BE POPULATED*
     user_domain = UserDomainSerializer(required=False)
+    npi_number = serializers.CharField(required=False, allow_blank=True)
 
     class Meta(object):
         model = ProfessionalUser
         fields = ["npi_number", "make_new_domain", "user_signup_info", "user_domain"]
+
+    def validate_npi_number(self, value):
+        # Only validate if a value is provided
+        if value and not re.match(r"^\d{10}$", str(value)):
+            raise serializers.ValidationError("Invalid NPI number format.")
+        return value
 
 
 class ProfessionalSignupResponseSerializer(serializers.Serializer):
