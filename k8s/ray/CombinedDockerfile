@@ -19,11 +19,10 @@ RUN $HOME/anaconda3/bin/pip install -r deploy-requirements.txt
 RUN mkdir -p ./fhi
 
 COPY fighthealthinsurance ./fhi/fighthealthinsurance
-ADD  static ./fhi/static
-ADD fhi_users ./fhi/fhi_users
-ADD  charts ./fhi/charts
+COPY fhi_users ./fhi/fhi_users
+COPY  charts ./fhi/charts
 COPY  *.py ./fhi/
-ADD  conf ./fhi/conf
+COPY  static ./fhi/static
 
 
 COPY setup.py ./fhi/setup.py
