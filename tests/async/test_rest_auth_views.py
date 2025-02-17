@@ -1,8 +1,17 @@
+
+import uuid
+
 from django.test import TestCase
 from django.urls import reverse
+from django.contrib.auth import get_user_model
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
+from django.contrib.auth.tokens import default_token_generator
+from django.core import mail
+from django.utils import timezone
+
 from rest_framework.test import APIClient
 from rest_framework import status
-from django.contrib.auth import get_user_model
 from fhi_users.models import (
     UserDomain,
     ExtraUserProperties,
@@ -11,12 +20,8 @@ from fhi_users.models import (
     VerificationToken,
     ProfessionalUser,
     ProfessionalDomainRelation,
+    ResetToken,
 )
-from django.utils.http import urlsafe_base64_encode
-from django.utils.encoding import force_bytes
-from django.contrib.auth.tokens import default_token_generator
-from django.core import mail
-from django.utils import timezone
 
 
 User = get_user_model()
@@ -317,3 +322,67 @@ class RestAuthViewsTests(TestCase):
         }
         response = self.client.post(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_request_password_reset(self) -> None:
+        url = reverse("password_reset-request_reset")
+        data = {
+            "username": "testuser",
+            "domain": "testdomain",
+            "phone": "",
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertIn(response.status_code, range(200, 300))
+        self.assertEqual(response.json()["status"], "reset_requested")
+        self.assertTrue(ResetToken.objects.filter(user=self.user).exists())
+
+    def test_request_password_reset_with_phone(self) -> None:
+        url = reverse("password_reset-request_reset")
+        data = {
+            "username": "testuser",
+            "domain": "",
+            "phone": "1234567890",
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertIn(response.status_code, range(200, 300))
+        self.assertEqual(response.json()["status"], "reset_requested")
+        self.assertTrue(ResetToken.objects.filter(user=self.user).exists())
+
+    def test_finish_password_reset(self) -> None:
+        reset_token = ResetToken.objects.create(user=self.user, token=uuid.uuid4().hex)
+        url = reverse("password_reset-finish_reset")
+        data = {
+            "token": reset_token.token,
+            "new_password": "newtestpass",
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertIn(response.status_code, range(200, 300))
+        self.assertEqual(response.json()["status"], "password_reset_complete")
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("newtestpass"))
+
+    def test_finish_password_reset_with_invalid_token(self) -> None:
+        url = reverse("password_reset-finish_reset")
+        data = {
+            "token": "invalidtoken",
+            "new_password": "newtestpass",
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.json()["status"], "failure")
+        self.assertEqual(response.json()["message"], "Invalid token")
+
+    def test_finish_password_reset_with_expired_token(self) -> None:
+        reset_token = ResetToken.objects.create(
+            user=self.user,
+            token=uuid.uuid4().hex,
+            expires_at=timezone.now() - timezone.timedelta(hours=1),
+        )
+        url = reverse("password_reset-finish_reset")
+        data = {
+            "token": reset_token.token,
+            "new_password": "newtestpass",
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.json()["status"], "failure")
+        self.assertEqual(response.json()["message"], "Token expired")

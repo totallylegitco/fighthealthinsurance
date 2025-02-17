@@ -1,7 +1,12 @@
 from drf_braces.serializers.form_serializer import (
     FormSerializer,
 )
-from .auth_forms import LoginForm, TOTPForm, PasswordResetForm
+from .auth_forms import (
+    LoginForm,
+    TOTPForm,
+    FinishPasswordResetForm,
+    RequestPasswordResetForm,
+)
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from fhi_users.models import *
@@ -23,6 +28,7 @@ class LoginFormSerializer(FormSerializer):
     """
     Handles login form data for user authentication.
     """
+
     class Meta(object):
         form = LoginForm
 
@@ -32,18 +38,29 @@ class TOTPFormSerializer(FormSerializer):
         form = TOTPForm
 
 
-class PasswordResetFormSerializer(FormSerializer):
+class RequestPasswordResetFormSerializer(FormSerializer):
     """
-    Processes password reset requests, validating email or username.
+    Password reset requests.
     """
+
     class Meta(object):
-        form = PasswordResetForm
+        form = RequestPasswordResetForm
+
+
+class FinishPasswordResetFormSerializer(FormSerializer):
+    """
+    Finishes reset requests.
+    """
+
+    class Meta(object):
+        form = FinishPasswordResetForm
 
 
 class TOTPResponse(serializers.Serializer):
     """
     Used to return TOTP login success status and errors to the client.
     """
+
     success = serializers.BooleanField()
     error_description = serializers.CharField()
     totp_info = serializers.CharField()
@@ -53,6 +70,7 @@ class UserSignupSerializer(serializers.ModelSerializer):
     """
     Base serializer for user sign-up fields, intended to be extended.
     """
+
     domain_name = serializers.CharField(required=False)
     visible_phone_number = serializers.CharField(required=True)
     continue_url = serializers.CharField()  # URL to send user to post signup / payment
@@ -72,6 +90,11 @@ class UserSignupSerializer(serializers.ModelSerializer):
             "continue_url",
         ]
 
+    def validate_password(self, value):
+        if len(value) < 8:
+            raise serializers.ValidationError("Password must be at least 8 characters.")
+        return value
+
     def save(self, **kwargs: Any):
         raise Exception(
             "This serializer should not be used directly -- use Patient or Professional version"
@@ -82,6 +105,7 @@ class UserDomainSerializer(serializers.ModelSerializer):
     """
     Serializer for domain information, excluding sensitive fields.
     """
+
     class Meta(object):
         model = UserDomain
         exclude = ("id", "stripe_subscription_id", "active")
@@ -91,6 +115,7 @@ class ProfessionalSignupSerializer(serializers.ModelSerializer):
     """
     Collects professional user and optional domain creation data on sign-up.
     """
+
     user_signup_info = UserSignupSerializer()
     make_new_domain = serializers.BooleanField()
     # If they're joining an existing domain user_domain *MUST NOT BE POPULATED*
@@ -112,6 +137,7 @@ class ProfessionalSignupResponseSerializer(serializers.Serializer):
     """
     Returns a 'next_url' guiding the user to checkout or follow-up steps.
     """
+
     next_url = serializers.URLField()
 
 
@@ -119,6 +145,7 @@ class AcceptProfessionalUserSerializer(serializers.Serializer):
     """
     Needed for accepting professional users into a domain.
     """
+
     professional_user_id = serializers.IntegerField()
     domain_id = serializers.CharField()
 
@@ -127,6 +154,7 @@ class VerificationTokenSerializer(serializers.Serializer):
     """
     Verifies email activation or password reset tokens for a specific user.
     """
+
     token = serializers.CharField()
     user_id = serializers.IntegerField()
 
@@ -135,6 +163,7 @@ class CreatePatientUserSerializer(serializers.ModelSerializer):
     """
     Handles patient user creation, including address/contact details.
     """
+
     country = serializers.CharField(default="USA")
     state = serializers.CharField()
     city = serializers.CharField()

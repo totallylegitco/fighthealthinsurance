@@ -33,6 +33,7 @@ from fhi_users.models import (
     ProfessionalDomainRelation,
     VerificationToken,
     ExtraUserProperties,
+    ResetToken,
 )
 from fhi_users.auth import rest_serializers as serializers
 from fhi_users.auth.auth_utils import (
@@ -44,7 +45,7 @@ from fhi_users.auth.auth_utils import (
 from fighthealthinsurance.rest_mixins import CreateMixin, SerializerMixin
 from rest_framework.serializers import Serializer
 from fighthealthinsurance import stripe_utils
-from fhi_users.emails import send_verification_email
+from fhi_users.emails import send_verification_email, send_password_reset_email
 
 if TYPE_CHECKING:
     from django.contrib.auth.models import User
@@ -88,7 +89,6 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
         current_user: User = request.user
         current_user_admin_in_domain = user_is_admin_in_domain(current_user, domain_id)
         if not current_user_admin_in_domain:
-            logger.warning("Reject action attempted without admin rights.")
             # Credentials are valid but does not have permissions
             return Response(status=status.HTTP_403_FORBIDDEN)
         relation = ProfessionalDomainRelation.objects.get(
@@ -151,7 +151,6 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
 
             return Response({"status": "accepted"}, status=status.HTTP_200_OK)
         except ProfessionalDomainRelation.DoesNotExist:
-            logger.error("Accept action failed; relation not found.")
             return Response(
                 {"error": "Relation not found or already accepted"},
                 status=status.HTTP_404_NOT_FOUND,
@@ -351,10 +350,7 @@ class RestLoginView(ViewSet, SerializerMixin):
 
 
 class CreatePatientUserViewSet(ViewSet, CreateMixin):
-    """
-    Handles creation of new patient users and sends verification emails.
-    """
-
+    """Create a new patient user."""
     serializer_class = serializers.CreatePatientUserSerializer
 
     def perform_create(self, request: Request, serializer) -> Response:
@@ -366,7 +362,7 @@ class CreatePatientUserViewSet(ViewSet, CreateMixin):
 
 class VerifyEmailViewSet(ViewSet, SerializerMixin):
     """
-    Verifies an email address based on a token, activating the user account.
+    Handles email verification and resending verification emails.
     """
 
     serializer_class = serializers.VerificationTokenSerializer
@@ -411,16 +407,93 @@ class VerifyEmailViewSet(ViewSet, SerializerMixin):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-
-class ResendVerificationEmailView(ViewSet, CreateMixin):
-    """
-    Resends email verification links for users who haven't completed registration.
-    """
-
-    serializer_class = serializers.VerificationTokenSerializer
-
-    def perform_create(self, request: Request, serializer) -> Response:
+    @action(detail=False, methods=["post"])
+    def resend(self, request: Request) -> Response:
+        """
+        Resends verification email for unverified users.
+        """
+        serializer = self.deserialize(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data["user"]
         send_verification_email(request, user)
         return Response({"status": "verification email resent"})
+
+
+class PasswordResetViewSet(ViewSet, SerializerMixin):
+    """
+    Handles password reset requests and completion.
+    """
+
+    def get_serializer_class(self):
+        if self.action == "finish_reset":
+            return serializers.FinishPasswordResetFormSerializer
+        return serializers.RequestPasswordResetFormSerializer
+
+    @action(detail=False, methods=["post"])
+    def request_reset(self, request: Request) -> Response:
+        """Request a password reset."""
+        serializer = self.deserialize(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        try:
+            # Find user by domain/phone
+            domain_id = resolve_domain_id(
+                domain_name=data.get("domain"), phone_number=data.get("phone")
+            )
+            username = combine_domain_and_username(
+                data["username"], phone_number=data.get("phone"), domain_id=domain_id
+            )
+            user = User.objects.get(username=username)
+
+            # Delete any existing reset tokens
+            ResetToken.objects.filter(user=user).delete()
+
+            # Create new reset token
+            reset_token = ResetToken.objects.create(user=user)
+
+            # Send reset email
+            send_password_reset_email(user.email, reset_token.token)
+
+            return Response({"status": "reset_requested"})
+
+        except Exception as e:
+            logger.error(f"Password reset request failed: {e}")
+            return Response(
+                {"status": "failure", "message": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+    @action(detail=False, methods=["post"])
+    def finish_reset(self, request: Request) -> Response:
+        """Complete a password reset."""
+        serializer = self.deserialize(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        try:
+            reset_token = ResetToken.objects.get(token=data["token"])
+
+            # Check if token has expired
+            if timezone.now() > reset_token.expires_at:
+                reset_token.delete()
+                return Response(
+                    {"status": "failure", "message": "Reset token has expired"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Update password
+            user = reset_token.user
+            user.set_password(data["new_password"])
+            user.save()
+
+            # Clean up token
+            reset_token.delete()
+
+            return Response({"status": "password_reset_complete"})
+
+        except ResetToken.DoesNotExist:
+            return Response(
+                {"status": "failure", "message": "Invalid reset token"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
