@@ -21,8 +21,5 @@ RUN mkdir -p ./fhi
 COPY fighthealthinsurance ./fhi/fighthealthinsurance
 COPY fhi_users ./fhi/fhi_users
 COPY  charts ./fhi/charts
-COPY  *.py ./fhi/
-
-
 COPY setup.py ./fhi/setup.py
 RUN $HOME/anaconda3/bin/pip install -e ./fhi/
