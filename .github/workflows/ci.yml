@@ -165,8 +165,6 @@ jobs:
 
   build-docker-ray-container:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
     name: Build the docker ray containers
     strategy:
       fail-fast: false
