@@ -48,25 +48,19 @@ def send_provider_started_appeal_email(patient_email, context):
     )
 
 
-def send_password_reset_email(to_email: str, token: str) -> None:
+def send_password_reset_email(user_email: str, token: str) -> None:
     """
     Send password reset email with reset token.
     """
     subject = "Reset your password"
-    html_content = render_to_string(
-        "password_reset_email.html",
+    send_fallback_email(
+        subject,
+        "password_reset",
         {
-            "reset_url": f"https://www.fightpaperwork.com/reset-password/finish?token={token}",
-            "token": token,
+            "reset_url": f"https://www.fightpaperwork.com/reset-password/finish?token={token}"
         },
+        user_email,
     )
-    text_content = strip_tags(html_content)
-
-    msg = EmailMultiAlternatives(
-        subject, text_content, settings.DEFAULT_FROM_EMAIL, [to_email]
-    )
-    msg.attach_alternative(html_content, "text/html")
-    msg.send()
 
 
 def send_email_confirmation(user_email, context):

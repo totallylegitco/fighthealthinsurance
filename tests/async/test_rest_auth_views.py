@@ -1,4 +1,3 @@
-
 import uuid
 
 from django.test import TestCase
@@ -324,7 +323,7 @@ class RestAuthViewsTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_request_password_reset(self) -> None:
-        url = reverse("password_reset-request_reset")
+        url = reverse("password_reset-request-reset")
         data = {
             "username": "testuser",
             "domain": "testdomain",
@@ -336,7 +335,7 @@ class RestAuthViewsTests(TestCase):
         self.assertTrue(ResetToken.objects.filter(user=self.user).exists())
 
     def test_request_password_reset_with_phone(self) -> None:
-        url = reverse("password_reset-request_reset")
+        url = reverse("password_reset-request-reset")
         data = {
             "username": "testuser",
             "domain": "",
@@ -349,7 +348,7 @@ class RestAuthViewsTests(TestCase):
 
     def test_finish_password_reset(self) -> None:
         reset_token = ResetToken.objects.create(user=self.user, token=uuid.uuid4().hex)
-        url = reverse("password_reset-finish_reset")
+        url = reverse("password_reset-finish-reset")
         data = {
             "token": reset_token.token,
             "new_password": "newtestpass",
@@ -361,7 +360,7 @@ class RestAuthViewsTests(TestCase):
         self.assertTrue(self.user.check_password("newtestpass"))
 
     def test_finish_password_reset_with_invalid_token(self) -> None:
-        url = reverse("password_reset-finish_reset")
+        url = reverse("password_reset-finish-reset")
         data = {
             "token": "invalidtoken",
             "new_password": "newtestpass",

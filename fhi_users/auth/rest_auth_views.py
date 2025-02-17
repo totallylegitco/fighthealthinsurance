@@ -351,6 +351,7 @@ class RestLoginView(ViewSet, SerializerMixin):
 
 class CreatePatientUserViewSet(ViewSet, CreateMixin):
     """Create a new patient user."""
+
     serializer_class = serializers.CreatePatientUserSerializer
 
     def perform_create(self, request: Request, serializer) -> Response:
