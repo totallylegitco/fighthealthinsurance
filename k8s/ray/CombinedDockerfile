@@ -22,7 +22,6 @@ COPY fighthealthinsurance ./fhi/fighthealthinsurance
 COPY fhi_users ./fhi/fhi_users
 COPY  charts ./fhi/charts
 COPY  *.py ./fhi/
-COPY  static ./fhi/static
 
 
 COPY setup.py ./fhi/setup.py
