@@ -168,6 +168,14 @@ jobs:
     strategy:
       fail-fast: false
     name: Build the docker ray containers
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10']
+        django: ['50']
+        include:
+          - python: '3.10'
+            django: '50'
     steps:
       -
         name: Checkout
@@ -177,6 +185,10 @@ jobs:
         # https://github.com/docker/setup-qemu-action
         name: Set up QEMU
         uses: docker/setup-qemu-action@v3
+      # We need python for collect static
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
       -
         name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
