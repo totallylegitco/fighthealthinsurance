@@ -112,7 +112,7 @@ class RestAuthViewsTests(TestCase):
         url = reverse("create_patient_user-list")
         data = {
             "username": "newuser",
-            "password": "newpass",
+            "password": "newLongerPasswordMagicCheetoCheeto123",
             "email": "newuser1289@example.com",
             "provider_phone_number": "1234567890",
             "country": "USA",
@@ -154,7 +154,7 @@ class RestAuthViewsTests(TestCase):
         url = reverse("create_patient_user-list")
         data = {
             "username": "newuser",
-            "password": "newpass",
+            "password": "newLongerPasswordMagicCheetoCheeto123",
             "email": "newuser1289@example.com",
             "provider_phone_number": "1234567890",
             "country": "USA",
@@ -217,7 +217,7 @@ class RestAuthViewsTests(TestCase):
         data = {
             "user_signup_info": {
                 "username": "newprouser",
-                "password": "newpass",
+                "password": "newLongerPasswordMagicCheetoCheeto123",
                 "email": "newprouser@example.com",
                 "first_name": "New",
                 "last_name": "User",
@@ -249,7 +249,7 @@ class RestAuthViewsTests(TestCase):
         data = {
             "user_signup_info": {
                 "username": "newprouser2",
-                "password": "newpass",
+                "password": "newLongerPasswordMagicCheetoCheeto123",
                 "email": "newprouser2@example.com",
                 "first_name": "New",
                 "last_name": "User",
@@ -280,7 +280,7 @@ class RestAuthViewsTests(TestCase):
         data = {
             "user_signup_info": {
                 "username": "newprouser2",
-                "password": "newpass",
+                "password": "newLongerPasswordMagicCheetoCheeto123",
                 "email": "newprouser2@example.com",
                 "first_name": "New",
                 "last_name": "User",
@@ -298,7 +298,7 @@ class RestAuthViewsTests(TestCase):
         data = {
             "user_signup_info": {
                 "username": "newprouser3",
-                "password": "newpass",
+                "password": "newLongerPasswordMagicCheetoCheeto123",
                 "email": "newprouser3@example.com",
                 "first_name": "New",
                 "last_name": "User",
@@ -368,7 +368,7 @@ class RestAuthViewsTests(TestCase):
         response = self.client.post(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.json()["status"], "failure")
-        self.assertEqual(response.json()["message"], "Invalid token")
+        self.assertEqual(response.json()["message"], "Invalid reset token")
 
     def test_finish_password_reset_with_expired_token(self) -> None:
         reset_token = ResetToken.objects.create(
@@ -376,7 +376,7 @@ class RestAuthViewsTests(TestCase):
             token=uuid.uuid4().hex,
             expires_at=timezone.now() - timezone.timedelta(hours=1),
         )
-        url = reverse("password_reset-finish_reset")
+        url = reverse("password_reset-finish-reset")
         data = {
             "token": reset_token.token,
             "new_password": "newtestpass",
@@ -384,4 +384,4 @@ class RestAuthViewsTests(TestCase):
         response = self.client.post(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.json()["status"], "failure")
-        self.assertEqual(response.json()["message"], "Token expired")
+        self.assertEqual(response.json()["message"], "Reset token has expired")
