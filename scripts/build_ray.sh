@@ -20,6 +20,10 @@ check_or_build_image() {
 }
 export RAY_VERSION
 
+if [ ! -d "static" ]; then
+	./scripts/build_static.sh
+fi
+
 check_or_build_image "${RAY_IMAGE}" "${RAY_VERSION}" "k8s/ray/RayDockerfile"
 
 # Using the amd64/arm64 ray container as a base put together a container with the FHI code and libs in it.
