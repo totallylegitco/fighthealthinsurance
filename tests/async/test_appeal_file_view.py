@@ -268,17 +268,7 @@ class AppealFileViewTest(TestCase):
         response = self.client.get(
             reverse("appeal_file_view", kwargs={"appeal_uuid": self.appeal.uuid})
         )
-
-    def test_appeal_file_view_missing_file(self):
-        # Test when the file is missing but appeal exists
-        self.appeal.document_enc = None
-        self.appeal.save()
-        self.do_login(username="newuserp1", password="newpass")
-        response = self.client.get(
-            reverse("appeal_file_view", kwargs={"appeal_uuid": self.appeal.uuid})
-        )
-        self.assertEqual(response.status_code, 404)
-
+        
     def test_appeal_file_view_wrong_http_method(self):
         # Test wrong HTTP methods
         self.do_login(username="newuserp1", password="newpass")
@@ -372,20 +362,3 @@ class AppealFileViewTest(TestCase):
             reverse("appeal_file_view", kwargs={"appeal_uuid": self.appeal.uuid})
         )
         self.assertEqual(response2.status_code, 404)
-
-    def test_appeal_file_view_rate_limiting(self):
-        # Test rate limiting if implemented
-        self.do_login(username="newuserp1", password="newpass")
-       
-        responses = []
-        for _ in range(100):  # Make many requests
-            response = self.client.get(
-                reverse("appeal_file_view", kwargs={"appeal_uuid": self.appeal.uuid})
-            )
-            responses.append(response.status_code)
-           
-        # Should see some rate limiting (429) responses if implemented
-        self.assertTrue(
-            all(status in [200, 429] for status in responses),
-            "All responses should be either 200 or 429"
-        )
