@@ -82,10 +82,11 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
         creating_professional = ProfessionalUser.objects.get(user=current_user)
         serializer = self.deserialize(data=request.data)
         serializer.is_valid(raise_exception=True)
-        primary_professional = ProfessionalUser.objects.get(
-            id=serializer.validated_data["primary_professional"]
-        )
-        serializer.validated_data["primary_professional"] = primary_professional
+        if "primary_professional" in serializer.validated_data and serializer.validated_data["primary_professional"] is not None:
+            primary_professional = ProfessionalUser.objects.get(
+                id=serializer.validated_data["primary_professional"]
+            )
+            serializer.validated_data["primary_professional"] = primary_professional
         denial = common_view_logic.DenialCreatorHelper.create_denial(
             creating_professional=creating_professional, **serializer.validated_data
         )
