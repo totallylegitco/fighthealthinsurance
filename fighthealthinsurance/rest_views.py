@@ -101,9 +101,7 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
             creating_professional=denial.creating_professional,
             pending=True,
         )
-        return serializers.DenialResponseInfoSerializer(
-            instance=denial_response_info
-        )
+        return serializers.DenialResponseInfoSerializer(instance=denial_response_info)
 
 
 class FollowUpViewSet(viewsets.ViewSet, CreateMixin):

@@ -50,17 +50,6 @@ class DenialResponseInfoSerializer(serializers.Serializer):
     semi_sekret = serializers.CharField()
 
 
-# Signup options
-
-
-class ProviderSingupSerializer(serializers.Serializer):
-    first_name = serializers.CharField()
-    middle_name = serializers.CharField()
-    last_name = serializers.CharField()
-    npi_number = serializers.CharField()
-    domain_name = serializers.CharField()
-
-
 # Forms
 class DeleteDataFormSerializer(FormSerializer):
     class Meta(object):
@@ -78,6 +67,9 @@ class ChooseAppealFormSerializer(FormSerializer):
 
 
 class DenialFormSerializer(FormSerializer):
+    primary_professional = serializers.IntegerField(required=False)
+    user_id = forms.IntegerField(required=True)
+
     class Meta(object):
         form = core_forms.DenialForm
         exclude = ("plan_documents",)

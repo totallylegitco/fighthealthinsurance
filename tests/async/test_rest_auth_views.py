@@ -109,7 +109,7 @@ class RestAuthViewsTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_create_patient_user_view(self) -> None:
-        url = reverse("create_patient_user-list")
+        url = reverse("patient_user-list")
         data = {
             "username": "newuser",
             "password": "newLongerPasswordMagicCheetoCheeto123",
@@ -151,7 +151,7 @@ class RestAuthViewsTests(TestCase):
         self.assertTrue(new_user_user_extra_properties.email_verified)
 
     def test_send_verification_email_after_user_creation(self) -> None:
-        url = reverse("create_patient_user-list")
+        url = reverse("patient_user-list")
         data = {
             "username": "newuser",
             "password": "newLongerPasswordMagicCheetoCheeto123",

@@ -386,16 +386,28 @@ class RestLoginView(ViewSet, SerializerMixin):
         )
 
 
-class CreatePatientUserViewSet(ViewSet, CreateMixin):
+class PatientUserViewSet(ViewSet, CreateMixin):
     """Create a new patient user."""
 
-    serializer_class = serializers.CreatePatientUserSerializer
+    def get_serializer_class(self):
+        if self.action == "create":
+            return serializers.CreatePatientUserSerializer
+        else:
+            return serializers.GetOrCreatePendingPatientSerializer
 
     def perform_create(self, request: Request, serializer) -> Response:
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         send_verification_email(request, user)
         return Response({"status": "pending"})
+
+    @action(detail=False, methods=["post"])
+    def get_or_create_pending(self, request: Request) -> Response:
+        serializer = self.deserialize(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        response_serializer = serializers.PatientReferenceSerializer(user)
+        return Response(response_serializer.data)
 
 
 class VerifyEmailViewSet(ViewSet, SerializerMixin):

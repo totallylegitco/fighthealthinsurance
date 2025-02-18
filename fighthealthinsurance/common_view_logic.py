@@ -672,6 +672,7 @@ class DenialResponseInfo:
     selected_denial_type: list[DenialTypes]
     all_denial_types: list[DenialTypes]
     denial_id: int
+    uuid: str
     your_state: Optional[str]
     procedure: Optional[str]
     diagnosis: Optional[str]
@@ -930,6 +931,7 @@ class DenialCreatorHelper:
         return DenialResponseInfo(
             selected_denial_type=denial.denial_type.all(),
             all_denial_types=cls.all_denial_types(),
+            uuid=denial.uuid,
             denial_id=denial.denial_id,
             your_state=denial.your_state,
             procedure=denial.procedure,

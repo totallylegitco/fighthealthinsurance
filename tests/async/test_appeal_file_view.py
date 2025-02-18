@@ -79,7 +79,7 @@ class AppealFileViewTest(TestCase):
         response = self.client.post(professional_create_url, data, format="json")
         self.assertIn(response.status_code, range(200, 300))
         # Create the initial patient user in same domainm (should have access)
-        create_patient_url = reverse("create_patient_user-list")
+        create_patient_url = reverse("patient_user-list")
         initial_patient_data = {
             "username": "newuserp1",
             "password": "newLongerPasswordMagicCheetoCheeto123",

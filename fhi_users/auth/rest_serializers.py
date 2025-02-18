@@ -178,6 +178,22 @@ class VerificationTokenSerializer(serializers.Serializer):
     user_id = serializers.IntegerField()
 
 
+class GetOrCreatePendingPatientSerializer(serializers.ModelSerializer):
+    """
+    Handles pending patient user creation
+    """
+
+    username = serializers.CharField()
+
+
+class PatientReferenceSerializer(serializers.ModelSerializer):
+    """
+    Return the patient uuid
+    """
+
+    id = serializers.IntegerField()
+
+
 class CreatePatientUserSerializer(serializers.ModelSerializer):
     """
     Handles patient user creation, including address/contact details.

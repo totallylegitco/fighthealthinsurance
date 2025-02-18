@@ -32,7 +32,10 @@ def user_is_admin_in_domain(
     phone_number: Optional[str] = None,
 ) -> bool:
     try:
-        domain_id = resolve_domain_id(domain_id, domain_name, phone_number)
+        domain_id = resolve_domain_id(
+            domain_id=domain_id,
+            domain_name=domain_name,
+            phone_number=phone_number)
     except Exception as e:
         return False
     return (
@@ -48,10 +51,13 @@ def user_is_admin_in_domain(
 
 
 def resolve_domain_id(
+    domain: Optional[UserDomain] = None,
     domain_id: Optional[str] = None,
     domain_name: Optional[str] = None,
     phone_number: Optional[str] = None,
 ) -> str:
+    if domain:
+        return domain.id
     if domain_id:
         return domain_id
     elif domain_name and len(domain_name) > 0:
@@ -72,12 +78,53 @@ def resolve_domain_id(
 def combine_domain_and_username(
     username: str,
     *ignore,
+    domain: Optional[UserDomain] = None,
     domain_id: Optional[str] = None,
     domain_name: Optional[str] = None,
     phone_number: Optional[str] = None,
 ) -> str:
-    domain_id = resolve_domain_id(domain_id, domain_name, phone_number)
+    domain_id = resolve_domain_id(
+        domain_id=domain_id,
+        domain_name=domain_name,
+        phone_number=phone_number,
+        domain=domain,
+    )
     return f"{username}🐼{domain_id}"
+
+
+def create_pending_user(email: str, raw_username: str, domain: UserDomain) -> User:
+    """Create a new user with the given email and password.
+
+    Args:
+        email: The user's email address
+        password: The user's password
+        first_name: The user's first name
+        last_name: The user's last name
+
+    Returns:
+        The newly created User object
+    """
+    username = combine_domain_and_username(raw_username, domain=domain)
+    try:
+        user = User.objects.get(
+            username=username,
+            email=email,
+            password=None,
+            is_active=False,
+            first_name=None,
+            last_name=None,
+        )
+        return user
+    except User.DoesNotExist:
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password=None,
+            first_name=None,
+            last_name=None,
+            is_active=False,
+        )
+    return user
 
 
 def create_user(
@@ -104,11 +151,26 @@ def create_user(
     username = combine_domain_and_username(
         raw_username, domain_name=domain_name, phone_number=phone_number
     )
-    user = User.objects.create_user(
-        username=username,
-        email=email,
-        password=password,
-        first_name=first_name,
-        last_name=last_name,
-    )
+    try:
+        user = User.objects.get(
+            username=username,
+            email=email,
+            password=None,
+            is_active=False,
+            first_name=None,
+            last_name=None,
+        )
+        user.password = password
+        user.first_name = first_name
+        user.last_name = last_name
+        user.save()
+        return user
+    except User.DoesNotExist:
+        user = User.objects.create_user(
+            username=username,
+            email=email,
+            password=password,
+            first_name=first_name,
+            last_name=last_name,
+        )
     return user
