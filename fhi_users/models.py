@@ -176,7 +176,7 @@ class VerificationToken(models.Model):
 
 class ResetToken(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    token = models.CharField(max_length=255, default=uuid.uuid4().hex)
+    token = models.CharField(max_length=255, default=uuid.uuid4)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
 
