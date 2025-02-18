@@ -90,9 +90,10 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
                 id=serializer.validated_data["primary_professional"]
             )
             serializer.validated_data["primary_professional"] = primary_professional
-        denial = common_view_logic.DenialCreatorHelper.create_denial(
+        denial_response_info = common_view_logic.DenialCreatorHelper.create_denial(
             creating_professional=creating_professional, **serializer.validated_data
         )
+        denial = Denial.objects.get(uuid=denial_response_info.uuid)
         appeal = Appeal.objects.create(
             for_denial=denial,
             patient_user=denial.patient_user,
@@ -100,7 +101,9 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
             creating_professional=denial.creating_professional,
             pending=True,
         )
-        return serializers.DenialResponseInfoSerializer(instance=denial)
+        return serializers.DenialResponseInfoSerializer(
+            instance=denial_response_info
+        )
 
 
 class FollowUpViewSet(viewsets.ViewSet, CreateMixin):
@@ -210,7 +213,7 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         appeal = None
         try:
             appeal = Appeal.filter_to_allowed_appeals(current_user).get(
-                from_denial=denial, pending=True
+                for_denial=denial, pending=True
             )
         except Appeal.DoesNotExist:
             pass
