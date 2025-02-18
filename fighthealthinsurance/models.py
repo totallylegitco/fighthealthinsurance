@@ -399,10 +399,16 @@ class Denial(ExportModelOperationsMixin("Denial"), models.Model):  # type: ignor
     appeal_fax_number = models.CharField(max_length=40, null=True, blank=True)
     your_state = models.CharField(max_length=40, null=True)
     creating_professional = models.ForeignKey(
-        ProfessionalUser, null=True, on_delete=models.SET_NULL, related_name="denials_created"
+        ProfessionalUser,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="denials_created",
     )
     primary_professional = models.ForeignKey(
-        ProfessionalUser, null=True, on_delete=models.SET_NULL, related_name="denials_primary"
+        ProfessionalUser,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="denials_primary",
     )
     patient_user = models.ForeignKey(PatientUser, null=True, on_delete=models.SET_NULL)
     domain = models.ForeignKey(UserDomain, null=True, on_delete=models.SET_NULL)
@@ -495,10 +501,16 @@ class Appeal(ExportModelOperationsMixin("Appeal"), models.Model):  # type: ignor
     )
     hashed_email = models.CharField(max_length=300, primary_key=False)
     creating_professional = models.ForeignKey(
-        ProfessionalUser, null=True, on_delete=models.SET_NULL, related_name="appeals_created"
+        ProfessionalUser,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="appeals_created",
     )
     primary_professional = models.ForeignKey(
-        ProfessionalUser, null=True, on_delete=models.SET_NULL, related_name="appeals_primary"
+        ProfessionalUser,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="appeals_primary",
     )
     patient_user = models.ForeignKey(PatientUser, null=True, on_delete=models.SET_NULL)
     domain = models.ForeignKey(UserDomain, null=True, on_delete=models.SET_NULL)

@@ -82,7 +82,10 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
         creating_professional = ProfessionalUser.objects.get(user=current_user)
         serializer = self.deserialize(data=request.data)
         serializer.is_valid(raise_exception=True)
-        if "primary_professional" in serializer.validated_data and serializer.validated_data["primary_professional"] is not None:
+        if (
+            "primary_professional" in serializer.validated_data
+            and serializer.validated_data["primary_professional"] is not None
+        ):
             primary_professional = ProfessionalUser.objects.get(
                 id=serializer.validated_data["primary_professional"]
             )
@@ -90,7 +93,13 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
         denial = common_view_logic.DenialCreatorHelper.create_denial(
             creating_professional=creating_professional, **serializer.validated_data
         )
-
+        appeal = Appeal.objects.create(
+            for_denial=denial,
+            patient_user=denial.patient_user,
+            primary_professional=denial.primary_professional,
+            creating_professional=denial.creating_professional,
+            pending=True,
+        )
         return serializers.DenialResponseInfoSerializer(instance=denial)
 
 
@@ -198,6 +207,13 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         denial = Denial.filter_to_allowed_denials(current_user).get(
             denial_uuid=denial_uuid
         )
+        appeal = None
+        try:
+            appeal = Appeal.filter_to_allowed_appeals(current_user).get(
+                from_denial=denial, pending=True
+            )
+        except Appeal.DoesNotExist:
+            pass
         patient_user = denial.patient_user
         if patient_user is None:
             raise Exception("Patient user not found on denial")
@@ -216,7 +232,8 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         include_provided_health_history = serializer.validated_data[
             "include_provided_health_history"
         ]
-        appeal = self.appeal_assembly_helper.create_appeal(
+        appeal = self.appeal_assembly_helper.create_or_update_appeal(
+            appeal=appeal,
             name=denial.patient_user.get_full_name(),
             insurance_company=insurance_company,
             fax_phone=fax_phone,

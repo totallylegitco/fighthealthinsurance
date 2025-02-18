@@ -180,7 +180,7 @@ class AppealAssemblyHelper:
         merger.close()
         return target
 
-    def create_appeal(
+    def create_or_update_appeal(
         self,
         fax_phone: str,
         completed_appeal_text: str,
@@ -192,6 +192,7 @@ class AppealAssemblyHelper:
         denial: Optional[Denial] = None,
         denial_id: Optional[str] = None,
         semi_sekret: Optional[str] = None,
+        appeal: Optional[Appeal] = None,
         creating_professional: Optional[ProfessionalUser] = None,
         primary_professional: Optional[ProfessionalUser] = None,
         patient_user: Optional[PatientUser] = None,
@@ -263,15 +264,26 @@ class AppealAssemblyHelper:
             t.flush()
             t.seek(0)
             doc_fname = os.path.basename(t.name)
-            appeal = Appeal.objects.create(
-                for_denial=denial,
-                appeal_text=completed_appeal_text,
-                hashed_email=hashed_email,
-                document_enc=File(t, name=doc_fname),
-                primary_professional=primary_professional,
-                creating_professional=creating_professional,
-                patient_user=patient_user,
-            )
+            if appeal is None:
+                appeal = Appeal.objects.create(
+                    for_denial=denial,
+                    appeal_text=completed_appeal_text,
+                    hashed_email=hashed_email,
+                    document_enc=File(t, name=doc_fname),
+                    primary_professional=primary_professional,
+                    creating_professional=creating_professional,
+                    patient_user=patient_user,
+                )
+            else:
+                appeal.update(
+                    for_denial=denial,
+                    appeal_text=completed_appeal_text,
+                    hashed_email=hashed_email,
+                    document_enc=File(t, name=doc_fname),
+                    primary_professional=primary_professional,
+                    creating_professional=creating_professional,
+                    patient_user=patient_user,
+                )
             appeal.save()
             return appeal
 
