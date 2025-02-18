@@ -532,7 +532,7 @@ class Appeal(ExportModelOperationsMixin("Appeal"), models.Model):  # type: ignor
             # Appeals they created
             professional_user = ProfessionalUser.objects.get(user=current_user)
             query_set |= Appeal.objects.filter(primary_professional=professional_user)
-            query_set |= Denial.objects.filter(creating_professional=professional_user)
+            query_set |= Appeal.objects.filter(creating_professional=professional_user)
             # Appeals they were add to.
             additional_appeals = SecondaryAppealProfessionalRelation.objects.filter(
                 professional=professional_user
