@@ -125,7 +125,13 @@ class ProfessionalSignupSerializer(serializers.ModelSerializer):
 
     class Meta(object):
         model = ProfessionalUser
-        fields = ["npi_number", "make_new_domain", "user_signup_info", "user_domain", "skip_stripe"]
+        fields = [
+            "npi_number",
+            "make_new_domain",
+            "user_signup_info",
+            "user_domain",
+            "skip_stripe",
+        ]
 
     def validate_npi_number(self, value):
         # Only validate if a value is provided
