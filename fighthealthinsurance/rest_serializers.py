@@ -36,6 +36,12 @@ class DenialTypesSerializer(serializers.ModelSerializer):
         fields = ["id", "name"]
 
 
+class ChooseAppealRequestSerializer(serializers.Serializer):
+    generated_appeal_text = serializers.CharField()
+    editted_appeal_text = serializers.CharField()
+    denial_id = serializers.CharField()
+
+
 class DenialTypesListField(serializers.ListField):
     child = DenialTypesSerializer()
 
@@ -141,6 +147,18 @@ class AppealDetailSerializer(serializers.ModelSerializer):
         return None
 
 
+class NotifyPatientRequestSerializer(serializers.Serializer):
+    patient_id = serializers.IntegerField()
+    include_provider = serializers.BooleanField(default=False)
+
+
+class AppealFullSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Appeal
+        exclude: list[str] = []
+
+
 class AssembleAppealRequestSerializer(serializers.Serializer):
     denial_uuid = serializers.CharField(required=True)
     completed_appeal_text = serializers.CharField(required=True)
@@ -181,3 +199,15 @@ class SendToUserSerializer(serializers.Serializer):
 class SendFax(serializers.Serializer):
     appeal_id = serializers.IntegerField(required=True)
     fax_number = serializers.CharField(required=False)
+
+
+class InviteProviderSerializer(serializers.Serializer):
+    professional_id = serializers.IntegerField(required=False)
+    email = serializers.EmailField(required=False)
+
+    def validate(self, data):
+        if not data.get("professional_id") and not data.get("email"):
+            raise serializers.ValidationError(
+                "Either professional_id or email must be provided."
+            )
+        return data

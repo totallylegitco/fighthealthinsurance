@@ -31,6 +31,7 @@ import stripe
 
 from fhi_users.models import (
     UserDomain,
+    PatientUser,
     ProfessionalUser,
     ProfessionalDomainRelation,
     VerificationToken,
@@ -43,6 +44,7 @@ from fhi_users.auth.auth_utils import (
     combine_domain_and_username,
     user_is_admin_in_domain,
     resolve_domain_id,
+    get_patient_or_create_pending_patient,
 )
 from fighthealthinsurance.rest_mixins import CreateMixin, SerializerMixin
 from rest_framework.serializers import Serializer
@@ -405,7 +407,12 @@ class PatientUserViewSet(ViewSet, CreateMixin):
     def get_or_create_pending(self, request: Request) -> Response:
         serializer = self.deserialize(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
+        domain = UserDomain.objects.get(id=request.session["domain_id"])
+        user = get_patient_or_create_pending_patient(
+            email=serializer.validated_data["username"],
+            raw_username=serializer.validated_data["username"],
+            domain=domain,
+        )
         response_serializer = serializers.PatientReferenceSerializer(user)
         return Response(response_serializer.data)
 
@@ -425,35 +432,42 @@ class VerifyEmailViewSet(ViewSet, SerializerMixin):
             uid = serializer.validated_data["user_id"]
             user = User.objects.get(pk=uid)
         except (TypeError, ValueError, OverflowError, User.DoesNotExist) as e:
-            user = None
-        if user is not None:
-            token = serializer.validated_data["token"]
-            try:
-                verification_token = VerificationToken.objects.get(
-                    user=user, token=token
-                )
-                if timezone.now() > verification_token.expires_at:
-                    return Response(
-                        {"status": "failure", "message": "Activation link has expired"},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    )
-                user.is_active = True
-                try:
-                    extraproperties = ExtraUserProperties.objects.get(user=user)
-                except:
-                    extraproperties = ExtraUserProperties.objects.create(user=user)
-                extraproperties.email_verified = True
-                extraproperties.save()
-                verification_token.delete()
-                return Response({"status": "success"})
-            except VerificationToken.DoesNotExist as e:
-                return Response(
-                    {"status": "failure", "message": "Invalid activation link"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-        else:
             return Response(
-                {"status": "failure", "message": "Activation link is invalid"},
+                {
+                    "status": "failure",
+                    "message": "Invalid activation link [user not found]",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        token = serializer.validated_data["token"]
+        try:
+            verification_token = VerificationToken.objects.get(user=user, token=token)
+            if timezone.now() > verification_token.expires_at:
+                return Response(
+                    {"status": "failure", "message": "Activation link has expired"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+            user.is_active = True
+            user.save()
+            try:
+                extraproperties = ExtraUserProperties.objects.get(user=user)
+            except:
+                extraproperties = ExtraUserProperties.objects.create(user=user)
+            extraproperties.email_verified = True
+            extraproperties.save()
+            verification_token.delete()
+            try:
+                PatientUser.objects.filter(user=user).update(is_active=True)
+            except:
+                pass
+            try:
+                ProfessionalUser.objects.filter(user=user).update(is_active=True)
+            except:
+                pass
+            return Response({"status": "success"})
+        except VerificationToken.DoesNotExist as e:
+            return Response(
+                {"status": "failure", "message": "Invalid activation link"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

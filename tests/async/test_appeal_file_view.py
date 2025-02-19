@@ -10,6 +10,9 @@ from fhi_users.models import (
     ProfessionalDomainRelation,
 )
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.contrib.auth import get_user_model
+from rest_framework import status
+from fhi_users.models import ExtraUserProperties
 
 
 class AppealFileViewTest(TestCase):
@@ -120,7 +123,7 @@ class AppealFileViewTest(TestCase):
             create_patient_url, second_patient_data, format="json"
         )
         self.assertIn(response.status_code, range(200, 300))
-        # Activate the pro user
+        # Get the pro user
         self._professional_user = User.objects.get(
             email="newprouser_creator@example.com"
         )
@@ -268,3 +271,4 @@ class AppealFileViewTest(TestCase):
         response = self.client.get(
             reverse("appeal_file_view", kwargs={"appeal_uuid": self.appeal.uuid})
         )
+        self.assertEqual(response.status_code, 404)

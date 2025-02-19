@@ -1,5 +1,6 @@
 import json
 import typing
+from typing import Optional
 
 from asgiref.sync import async_to_sync
 
@@ -147,6 +148,8 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
             return serializers.SendFax
         elif self.action == "assemble_appeal":
             return serializers.AssembleAppealRequestSerializer
+        elif self.action == "notify_patient":
+            return serializers.NotifyPatientRequestSerializer
         else:
             return None
 
@@ -167,6 +170,53 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         )
         serializer = serializers.AppealDetailSerializer(appeal)
         return Response(serializer.data)
+
+    @action(detail=False, methods=["post"])
+    def notify_patient(self, request: Request) -> Response:
+        serializer = self.deserialize(request.data)
+        pk = serializer.validated_data["id"]
+        include_professional = serializer.validated_data["professional_name"]
+        current_user: User = request.user  # type: ignore
+        appeal = get_object_or_404(
+            Appeal.filter_to_allowed_appeals(current_user), pk=pk
+        )
+        patient_user: Optional[PatientUser] = appeal.patient_user
+        if patient_user is None:
+            return Response(
+                {"status": "Patient not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        professional_name = None
+        if include_professional:
+            professional_name = ProfessionalUser.objects.get(
+                user=current_user
+            ).get_display_name()
+        if not patient_user.user.is_active:
+            # Send an invitation to sign up for an account (mention it's free)
+            common_view_logic.PatientNotificationHelper.send_signup_invitation(
+                email=patient_user.user.email,
+                professional_name=professional_name,
+                practice_number=UserDomain.objects.get(
+                    id=request.session["domain_id"]
+                ).visible_phone_number,
+            )
+        else:
+            # Notify the patient that there's a free draft appeal to fill in
+            common_view_logic.PatientNotificationHelper.notify_of_draft_appeal(
+                email=patient_user.user.email,
+                professional_name=professional_name,
+                practice_number=UserDomain.objects.get(
+                    id=request.session["domain_id"]
+                ).visible_phone_number,
+            )
+        return Response(status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["post"])
+    def get_full_details(self, request, pk: int) -> Response:
+        current_user: User = request.user
+        appeal = get_object_or_404(
+            Appeal.filter_to_allowed_appeals(current_user), pk=pk
+        )
+        return Response(serializers.AppealFullSerializer(appeal).data)
 
     @action(detail=False, methods=["post"])
     def send_fax(self, request) -> Response:
@@ -223,7 +273,7 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         denial = Denial.filter_to_allowed_denials(current_user).get(
             denial_uuid=denial_uuid
         )
-        user_domain = UserDomain.objects.get(request.session["domain_id"])
+        user_domain = UserDomain.objects.get(id=request.session["domain_id"])
         completed_appeal_text = serializer.validated_data["completed_appeal_text"]
         insurance_company = serializer.validated_data["insurance_company"] or ""
         fax_phone = serializer.validated_data["fax_phone"] or denial.fax_phone
@@ -258,6 +308,39 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
             serializers.AssembleAppealResponseSerializer({"appeal_id": appeal.id}),
             status=status.HTTP_201_CREATED,
         )
+
+    @action(detail=False, methods=["post"])
+    def invite_provider(self, request, pk: int) -> Response:
+        current_user: User = request.user  # type: ignore
+        appeal = get_object_or_404(
+            Appeal.filter_to_allowed_appeals(current_user), pk=pk
+        )
+        serializer = serializers.InviteProviderSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        professional_id = serializer.validated_data.get("professional_id")
+        email = serializer.validated_data.get("email")
+
+        if professional_id:
+            professional = get_object_or_404(ProfessionalUser, id=professional_id)
+            SecondaryAppealProfessionalRelation.objects.create(
+                appeal=appeal, professional=professional
+            )
+        else:
+            try:
+                professional_user = ProfessionalUser.objects.get(user__email=email)
+                SecondaryAppealProfessionalRelation.objects.create(
+                    appeal=appeal, professional=professional_user
+                )
+            except ProfessionalUser.DoesNotExist:
+                common_view_logic.ProfessionalNotificationHelper.send_signup_invitation(
+                    email=email,
+                    professional_name=professional.get_display_name(),
+                    practice_number=UserDomain.objects.get(
+                        id=request.session["domain_id"]
+                    ).visible_phone_number,
+                )
+
+        return Response({"status": "ok"}, status=status.HTTP_200_OK)
 
 
 class MailingListSubscriberViewSet(viewsets.ViewSet, CreateMixin, DeleteMixin):

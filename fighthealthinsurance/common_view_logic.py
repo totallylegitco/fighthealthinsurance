@@ -29,7 +29,7 @@ from fighthealthinsurance.forms import questions as question_forms
 from fighthealthinsurance.utils import interleave_iterator_for_keep_alive
 from fhi_users.models import ProfessionalUser, UserDomain
 from .pubmed_tools import PubMedTools
-from .utils import check_call
+from .utils import check_call, send_fallback_email
 
 appealGenerator = AppealGenerator()
 
@@ -679,6 +679,52 @@ class DenialResponseInfo:
     employer_name: Optional[str]
     semi_sekret: str
     appeal_fax_number: Optional[str]
+
+
+class PatientNotificationHelper:
+    @classmethod
+    def send_signup_invitation(
+        cls, email: str, professional_name: Optional[str], practice_number: str
+    ):
+        subject = "Welcome to Fight Paperwork"
+        if professional_name:
+            subject += " from {professional_name}"
+        return send_fallback_email(
+            subject=subject,
+            template_name="welcome_patient",
+            context={"practice_number": practice_number},
+            to_email=email,
+        )
+
+    @classmethod
+    def notify_of_draft_appeal(
+        cls, email: str, professional_name: Optional[str], practice_number: str
+    ):
+        subject = "Draft Appeal on Fight Paperwork"
+        if professional_name:
+            subject += " from {professional_name}"
+        return send_fallback_email(
+            subject=subject,
+            template_name="draft_appeal",
+            context={"practice_number": practice_number},
+            to_email=email,
+        )
+
+
+class ProfessionalNotificationHelper:
+    @classmethod
+    def send_signup_invitation(
+        cls, email: str, professional_name: str, practice_number: str
+    ):
+        return send_fallback_email(
+            subject="You are invited to join your coworker on Fight Paperwork",
+            template_name="welcome_professional",
+            context={
+                "professional_name": professional_name,
+                "practice_number": practice_number,
+            },
+            to_email=email,
+        )
 
 
 class DenialCreatorHelper:

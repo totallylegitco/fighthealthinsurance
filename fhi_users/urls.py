@@ -25,9 +25,7 @@ router.register(
     basename="professional_user",
 )
 router.register(r"api/login", RestLoginView, basename="rest_login")
-router.register(
-    r"api/patient_user", PatientUserViewSet, basename="patient_user"
-)
+router.register(r"api/patient_user", PatientUserViewSet, basename="patient_user")
 router.register(r"rest_verify_email", VerifyEmailViewSet, basename="rest_verify_email")
 router.register(r"password_reset", PasswordResetViewSet, basename="password_reset")
 

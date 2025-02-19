@@ -41,9 +41,10 @@ class RestAuthViewsTests(TestCase):
             address1="123 Test St",
             zipcode="12345",
         )
+        self.user_password = "testpass"
         self.user = User.objects.create_user(
             username=f"testuser🐼{self.domain.id}",
-            password="testpass",
+            password=self.user_password,
             email="test@example.com",
         )
         self.user.is_active = True
@@ -132,6 +133,28 @@ class RestAuthViewsTests(TestCase):
         self.assertFalse(new_user_user_extra_properties.email_verified)
         self.assertIsNotNone(UserContactInfo.objects.get(user=new_user))
         self.assertIsNotNone(PatientUser.objects.get(user=new_user))
+        # Make sure they can't login yet
+        self.assertFalse(self.client.login(
+            username=new_user.username,
+            password="newLongerPasswordMagicCheetoCheeto123"
+        ))
+        # Then make sure they can log in post verification
+        verify_url = reverse("rest_verify_email-verify")
+        print(f"Making verification for {new_user} w/pk {new_user.pk}")
+        verify_data = {
+            "token": VerificationToken.objects.get(user=new_user).token,
+            "user_id": new_user.pk,
+        }
+        response = self.client.post(verify_url, verify_data, format="json")
+        self.assertIn(response.status_code, range(200, 300))
+        new_user.refresh_from_db()
+        self.assertTrue(new_user.is_active)
+        new_user_user_extra_properties = ExtraUserProperties.objects.get(user=new_user)
+        self.assertTrue(new_user_user_extra_properties.email_verified)
+        self.assertTrue(self.client.login(
+            username=new_user.username,
+            password="newLongerPasswordMagicCheetoCheeto123"
+        ))
 
     def test_verify_email_view(self) -> None:
         url = reverse("rest_verify_email-verify")
@@ -177,6 +200,12 @@ class RestAuthViewsTests(TestCase):
 
     def test_email_confirmation_with_verification_token(self) -> None:
         url = reverse("rest_verify_email-verify")
+        self.user.is_active = False
+        self.user.save()
+        # Verify the user can not login until verification
+        self.assertFalse(self.client.login(
+            username=self.user.username,
+            password=self.user_password))
         VerificationToken.objects.create(
             user=self.user, token=default_token_generator.make_token(self.user)
         )
@@ -190,6 +219,11 @@ class RestAuthViewsTests(TestCase):
         self.assertTrue(self.user.is_active)
         new_user_user_extra_properties = ExtraUserProperties.objects.get(user=self.user)
         self.assertTrue(new_user_user_extra_properties.email_verified)
+        # Verify the user can login now
+        self.assertTrue(self.client.login(
+            username=self.user.username,
+            password=self.user_password))
+
 
     def test_email_confirmation_with_invalid_token(self) -> None:
         url = reverse("rest_verify_email-verify")

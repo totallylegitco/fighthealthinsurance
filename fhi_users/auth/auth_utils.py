@@ -9,7 +9,8 @@ from django.contrib.auth import get_user_model
 # See https://github.com/typeddjango/django-stubs/issues/599
 from typing import TYPE_CHECKING, Optional
 
-from fhi_users.models import ProfessionalDomainRelation, UserDomain
+from fhi_users.models import ProfessionalDomainRelation, UserDomain, PatientUser
+from fhi_users.emails import send_verification_email
 
 if TYPE_CHECKING:
     from django.contrib.auth.models import User
@@ -33,9 +34,8 @@ def user_is_admin_in_domain(
 ) -> bool:
     try:
         domain_id = resolve_domain_id(
-            domain_id=domain_id,
-            domain_name=domain_name,
-            phone_number=phone_number)
+            domain_id=domain_id, domain_name=domain_name, phone_number=phone_number
+        )
     except Exception as e:
         return False
     return (
@@ -92,7 +92,9 @@ def combine_domain_and_username(
     return f"{username}🐼{domain_id}"
 
 
-def create_pending_user(email: str, raw_username: str, domain: UserDomain) -> User:
+def get_patient_or_create_pending_patient(
+    email: str, raw_username: str, domain: UserDomain
+) -> PatientUser:
     """Create a new user with the given email and password.
 
     Args:
@@ -106,25 +108,21 @@ def create_pending_user(email: str, raw_username: str, domain: UserDomain) -> Us
     """
     username = combine_domain_and_username(raw_username, domain=domain)
     try:
-        user = User.objects.get(
-            username=username,
-            email=email,
-            password=None,
-            is_active=False,
-            first_name=None,
-            last_name=None,
-        )
-        return user
+        user = User.objects.get(username=username)
     except User.DoesNotExist:
         user = User.objects.create_user(
             username=username,
             email=email,
             password=None,
-            first_name=None,
-            last_name=None,
+            first_name="",
+            last_name="",
             is_active=False,
         )
-    return user
+    try:
+        patient_user = PatientUser.objects.get(user=user)
+    except PatientUser.DoesNotExist:
+        patient_user = PatientUser.objects.create(user=user, active=False)
+    return patient_user
 
 
 def create_user(
@@ -145,7 +143,7 @@ def create_user(
         last_name: The user's last name
 
     Returns:
-        The newly created User object
+        The newly created User object -- the user is set to active false until they verify their email.
     """
 
     username = combine_domain_and_username(
@@ -157,8 +155,8 @@ def create_user(
             email=email,
             password=None,
             is_active=False,
-            first_name=None,
-            last_name=None,
+            first_name="",
+            last_name="",
         )
         user.password = password
         user.first_name = first_name
@@ -172,5 +170,6 @@ def create_user(
             password=password,
             first_name=first_name,
             last_name=last_name,
+            is_active=False,
         )
     return user
