@@ -196,7 +196,7 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         else:
             # Notify the patient that there's a free draft appeal to fill in
             common_view_logic.PatientNotificationHelper.notify_of_draft_appeal(
-                email=patient_user.user.email,
+                email=user.email,
                 professional_name=professional_name,
                 practice_number=UserDomain.objects.get(
                     id=request.session["domain_id"]
@@ -205,8 +205,8 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         return Response(status=status.HTTP_200_OK)
 
     @action(detail=False, methods=["post"])
-    def get_full_details(self, request, pk: int) -> Response:
-        current_user: User = request.user
+    def get_full_details(self, request: Request, pk: int) -> Response:
+        current_user: User = request.user # type: ignore
         appeal = get_object_or_404(
             Appeal.filter_to_allowed_appeals(current_user), pk=pk
         )
@@ -304,7 +304,7 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         )
 
     @action(detail=False, methods=["post"])
-    def invite_provider(self, request, pk: int) -> Response:
+    def invite_provider(self, request: Request, pk: int) -> Response:
         current_user: User = request.user  # type: ignore
         appeal = get_object_or_404(
             Appeal.filter_to_allowed_appeals(current_user), pk=pk
