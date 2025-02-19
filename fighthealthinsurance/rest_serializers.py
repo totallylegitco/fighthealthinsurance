@@ -119,9 +119,21 @@ class AppaealListRequestSerializer(serializers.Serializer):
 
 
 class AppealSummarySerializer(serializers.ModelSerializer):
+    status = serializers.SerializerMethodField()
+
     class Meta:
         model = Appeal
         fields = ["uuid", "status", "response_text", "response_date" "pending"]
+
+    def get_status(self, obj):
+        if obj.pending_patient:
+            return "pending patient"
+        elif obj.pending_professional:
+            return "pending professional"
+        elif obj.sent:
+            return "sent"
+        else:
+            return "unkown"
 
 
 class AppealDetailSerializer(serializers.ModelSerializer):
