@@ -290,7 +290,7 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
             pending=True,
         )
 
-        if settings.is_testing and serializers.data["skip_stripe"]:
+        if settings.DEBUG and data["skip_stripe"]:
             product_id, price_id = stripe_utils.get_or_create_price(
                 "Basic Professional Subscription", 2500, recurring=True
             )
