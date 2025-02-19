@@ -1,21 +1,15 @@
-import json
 import typing
 from typing import Optional
 
-from asgiref.sync import async_to_sync
-
-from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
-from django.views import View
 
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework.serializers import Serializer
 from rest_framework.views import APIView
 from rest_framework.decorators import action
 
@@ -37,7 +31,6 @@ from fighthealthinsurance.models import Appeal, Denial
 
 from fhi_users.models import (
     UserDomain,
-    ProfessionalDomainRelation,
     PatientUser,
     ProfessionalUser,
 )
@@ -58,7 +51,7 @@ class DataRemovalViewSet(viewsets.ViewSet, DeleteMixin, DeleteOnlyMixin):
     serializer_class = serializers.DeleteDataFormSerializer
 
     def perform_delete(self, request: Request, serializer):
-        email = serializer.validated_data["email"]
+        email: str = serializer.validated_data["email"]
         common_view_logic.RemoveDataHelper.remove_data_for_email(email)
 
 
@@ -95,7 +88,8 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
             creating_professional=creating_professional, **serializer.validated_data
         )
         denial = Denial.objects.get(uuid=denial_response_info.uuid)
-        appeal = Appeal.objects.create(
+        # Creating a pending appeal
+        Appeal.objects.create(
             for_denial=denial,
             patient_user=denial.patient_user,
             primary_professional=denial.primary_professional,
@@ -112,8 +106,7 @@ class FollowUpViewSet(viewsets.ViewSet, CreateMixin):
         common_view_logic.FollowUpHelper.store_follow_up_result(
             **serializer.validated_data
         )
-
-        return None
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class Ping(APIView):
@@ -190,10 +183,11 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
             professional_name = ProfessionalUser.objects.get(
                 user=current_user
             ).get_display_name()
-        if not patient_user.user.is_active:
+        user: User = patient_user.user
+        if not user.is_active:
             # Send an invitation to sign up for an account (mention it's free)
             common_view_logic.PatientNotificationHelper.send_signup_invitation(
-                email=patient_user.user.email,
+                email=user.email,
                 professional_name=professional_name,
                 practice_number=UserDomain.objects.get(
                     id=request.session["domain_id"]

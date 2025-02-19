@@ -14,6 +14,7 @@ from fighthealthinsurance.forms import FollowUpTestForm
 from fighthealthinsurance.models import Denial, FollowUpSched, InterestedProfessional
 from fighthealthinsurance.utils import send_fallback_email
 
+
 class ThankyouEmailSender(object):
     def find_candidates(
         self,
@@ -49,7 +50,7 @@ class ThankyouEmailSender(object):
                 template_name="professional_thankyou",
                 subject="Thank you for signing up for Fight Health Insurance Pro Beta!",
                 context=context,
-                to_email = email
+                to_email=email,
             )
             interested_pro.thankyou_email_sent = True
             interested_pro.save()
@@ -107,7 +108,7 @@ class FollowUpEmailSender(object):
                 template_name="followup",
                 subject="Following up from Fight Health Insurance",
                 context=context,
-                to_email = email
+                to_email=email,
             )
             follow_up_sched.follow_up_sent = True
             follow_up_sched.save()
