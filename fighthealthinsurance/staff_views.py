@@ -92,7 +92,14 @@ class ActivateProUserView(generic.FormView):
         domain.active = True
         domain.save()
         # Correctly update all professionals associated with the domain.
-        ProfessionalUser.objects.filter(domains=domain).update(active=True)
+        ProfessionalUser.objects.filter(domains__in=[domain]).update(active=True)
+        for p in ProfessionalUser.objects.filter(domains__in=[domain]):
+            user = p.user
+            user.active = True
+            user.save()
+            print(f"Making user {user} active {user.active}")
+            user.refresh_from_db()
+            print(f"And we got back {user} w/ {user.active}")
         return HttpResponse("Pro user activated")
 
 

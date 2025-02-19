@@ -424,7 +424,7 @@ class Denial(ExportModelOperationsMixin("Denial"), models.Model):  # type: ignor
 
         # Patients can view their own appeals
         try:
-            patient_user = PatientUser.objects.get(user=current_user)
+            patient_user = PatientUser.objects.get(user=current_user, active=True)
             if patient_user and patient_user.active:
                 query_set |= Denial.objects.filter(
                     patient_user=patient_user,
@@ -437,7 +437,7 @@ class Denial(ExportModelOperationsMixin("Denial"), models.Model):  # type: ignor
         # or are a domain admin in.
         try:
             # Appeals they created
-            professional_user = ProfessionalUser.objects.get(user=current_user)
+            professional_user = ProfessionalUser.objects.get(user=current_user, active=True)
             query_set |= Denial.objects.filter(primary_professional=professional_user)
             query_set |= Denial.objects.filter(creating_professional=professional_user)
             # Appeals they were add to.
@@ -529,7 +529,7 @@ class Appeal(ExportModelOperationsMixin("Appeal"), models.Model):  # type: ignor
 
         # Patients can view their own appeals
         try:
-            patient_user = PatientUser.objects.get(user=current_user)
+            patient_user = PatientUser.objects.get(user=current_user, active=True)
             if patient_user and patient_user.active:
                 query_set |= Appeal.objects.filter(
                     patient_user=patient_user,
@@ -542,7 +542,7 @@ class Appeal(ExportModelOperationsMixin("Appeal"), models.Model):  # type: ignor
         # or are a domain admin in.
         try:
             # Appeals they created
-            professional_user = ProfessionalUser.objects.get(user=current_user)
+            professional_user = ProfessionalUser.objects.get(user=current_user, active=True)
             query_set |= Appeal.objects.filter(primary_professional=professional_user)
             query_set |= Appeal.objects.filter(creating_professional=professional_user)
             # Appeals they were add to.

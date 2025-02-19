@@ -329,14 +329,14 @@ class RestLoginView(ViewSet, SerializerMixin):
         serializer = self.deserialize(request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        username: str = data.get("username")
+        raw_username: str = data.get("username")
         password: str = data.get("password")
         domain: str = data.get("domain")
         phone: str = data.get("phone")
         try:
             domain_id = resolve_domain_id(domain_name=domain, phone_number=phone)
             username = combine_domain_and_username(
-                username, phone_number=phone, domain_id=domain_id
+                raw_username, phone_number=phone, domain_id=domain_id
             )
         except Exception as e:
             return Response(
@@ -352,7 +352,7 @@ class RestLoginView(ViewSet, SerializerMixin):
             login(request, user)
             return Response({"status": "success"})
         return Response(
-            {"status": "failure", "message": "Invalid credentials"},
+            {"status": "failure", "message": f"Invalid credentials using {username} and {password}"},
             status=status.HTTP_401_UNAUTHORIZED,
         )
 
