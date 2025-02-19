@@ -302,7 +302,7 @@ class AppealFileViewTest(TestCase):
             username="newprouser_creator",
             password=self.user_password,
         )
-        self.professional_user_domain_relation = True
+        self.professional_user.active = False
         self.professional_user.save()
         response = self.client.get(
             reverse("appeal_file_view", kwargs={"appeal_uuid": self.appeal.uuid})
