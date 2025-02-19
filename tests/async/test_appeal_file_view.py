@@ -272,11 +272,11 @@ class AppealFileViewTest(TestCase):
             reverse("appeal_file_view", kwargs={"appeal_uuid": self.appeal.uuid})
         )
         self.assertEqual(response.status_code, 404)
-        
+
     def test_appeal_file_view_wrong_http_method(self):
         # Test wrong HTTP methods
         self.do_login(username="newuserp1", password="newpass")
-        for method in ['post', 'put', 'patch', 'delete']:
+        for method in ["post", "put", "patch", "delete"]:
             response = getattr(self.client, method)(
                 reverse("appeal_file_view", kwargs={"appeal_uuid": self.appeal.uuid})
             )
@@ -318,14 +318,14 @@ class AppealFileViewTest(TestCase):
         self.do_login(username="newuserp1", password="newpass")
         client2 = APIClient()
         self.do_login(username="newuserp1", password="newpass")
-       
+
         response1 = self.client.get(
             reverse("appeal_file_view", kwargs={"appeal_uuid": self.appeal.uuid})
         )
         response2 = client2.get(
             reverse("appeal_file_view", kwargs={"appeal_uuid": self.appeal.uuid})
         )
-       
+
         self.assertEqual(response1.status_code, 200)
         self.assertEqual(response2.status_code, 200)
 
@@ -339,7 +339,7 @@ class AppealFileViewTest(TestCase):
             primary_professional=self.professional_user,
             domain=UserDomain.objects.get(name=self.domain),
         )
-       
+
         self.do_login(username="newuserp1", password="newpass")
         response = self.client.get(
             reverse("appeal_file_view", kwargs={"appeal_uuid": large_appeal.uuid})
@@ -350,7 +350,7 @@ class AppealFileViewTest(TestCase):
     def test_appeal_file_view_permission_changes(self):
         # Test access after permission changes
         self.do_login(username="newuserp1", password="newpass")
-       
+
         # Initial access
         response1 = self.client.get(
             reverse("appeal_file_view", kwargs={"appeal_uuid": self.appeal.uuid})
@@ -376,7 +376,7 @@ class AppealFileViewTest(TestCase):
             primary_professional=self.professional_user,
             domain=UserDomain.objects.get(name=self.domain),
         )
-       
+
         self.do_login(username="newuserp1", password="newpass")
         response = self.client.get(
             reverse("appeal_file_view", kwargs={"appeal_uuid": corrupted_appeal.uuid})
@@ -385,25 +385,25 @@ class AppealFileViewTest(TestCase):
 
     def test_appeal_file_view_content_type_validation(self):
         # Test different content types
-        for content_type in ['application/pdf', 'image/jpeg', 'image/png']:
+        for content_type in ["application/pdf", "image/jpeg", "image/png"]:
             appeal = Appeal.objects.create(
                 appeal_text="Content type test",
                 document_enc=SimpleUploadedFile(
                     f"test.{content_type.split('/')[-1]}",
                     b"Test content",
-                    content_type=content_type
+                    content_type=content_type,
                 ),
                 patient_user=self.primary_patient_user,
                 primary_professional=self.professional_user,
                 domain=UserDomain.objects.get(name=self.domain),
             )
-           
+
             self.do_login(username="newuserp1", password="newpass")
             response = self.client.get(
                 reverse("appeal_file_view", kwargs={"appeal_uuid": appeal.uuid})
             )
             self.assertEqual(response.status_code, 200)
-            self.assertEqual(response['Content-Type'], content_type)
+            self.assertEqual(response["Content-Type"], content_type)
 
     def test_appeal_file_view_cache_headers(self):
         # Test cache headers
@@ -412,32 +412,32 @@ class AppealFileViewTest(TestCase):
             reverse("appeal_file_view", kwargs={"appeal_uuid": self.appeal.uuid})
         )
         self.assertEqual(response.status_code, 200)
-        self.assertIn('Cache-Control', response)
-        self.assertIn('Last-Modified', response)
-        self.assertIn('ETag', response)
+        self.assertIn("Cache-Control", response)
+        self.assertIn("Last-Modified", response)
+        self.assertIn("ETag", response)
 
     def test_appeal_file_view_conditional_requests(self):
         # Test conditional GET requests
         self.do_login(username="newuserp1", password="newpass")
-       
+
         # Get initial response
         response1 = self.client.get(
             reverse("appeal_file_view", kwargs={"appeal_uuid": self.appeal.uuid})
         )
-        etag = response1['ETag']
-        last_modified = response1['Last-Modified']
+        etag = response1["ETag"]
+        last_modified = response1["Last-Modified"]
 
         # Test If-None-Match
         response2 = self.client.get(
             reverse("appeal_file_view", kwargs={"appeal_uuid": self.appeal.uuid}),
-            HTTP_IF_NONE_MATCH=etag
+            HTTP_IF_NONE_MATCH=etag,
         )
         self.assertEqual(response2.status_code, 304)
 
         # Test If-Modified-Since
         response3 = self.client.get(
             reverse("appeal_file_view", kwargs={"appeal_uuid": self.appeal.uuid}),
-            HTTP_IF_MODIFIED_SINCE=last_modified
+            HTTP_IF_MODIFIED_SINCE=last_modified,
         )
         self.assertEqual(response3.status_code, 304)
         self.assertEqual(response.status_code, 404)
