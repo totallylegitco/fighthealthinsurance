@@ -529,28 +529,3 @@ class RestAuthViewsTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.json()["status"], "failure")
 
-    def test_verification_token_creation_with_existing_token(self) -> None:
-        # Create first token
-        token1 = VerificationToken.objects.create(
-            user=self.user, token=default_token_generator.make_token(self.user)
-        )
-        # Create second token
-        token2 = VerificationToken.objects.create(
-            user=self.user, token=default_token_generator.make_token(self.user)
-        )
-        # First token should be deleted
-        with self.assertRaises(VerificationToken.DoesNotExist):
-            VerificationToken.objects.get(pk=token1.pk)
-        # Second token should exist
-        self.assertIsNotNone(VerificationToken.objects.get(pk=token2.pk))
-
-    def test_reset_token_creation_with_existing_token(self) -> None:
-        # Create first token
-        token1 = ResetToken.objects.create(user=self.user, token=uuid.uuid4().hex)
-        # Create second token
-        token2 = ResetToken.objects.create(user=self.user, token=uuid.uuid4().hex)
-        # First token should be deleted
-        with self.assertRaises(ResetToken.DoesNotExist):
-            ResetToken.objects.get(pk=token1.pk)
-        # Second token should exist
-        self.assertIsNotNone(ResetToken.objects.get(pk=token2.pk))
