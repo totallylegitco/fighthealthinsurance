@@ -352,7 +352,7 @@ class RestLoginView(ViewSet, SerializerMixin):
             login(request, user)
             return Response({"status": "success"})
         return Response(
-            {"status": "failure", "message": f"Invalid credentials using {username} and {password}"},
+            {"status": "failure", "message": f"Invalid credentials"},
             status=status.HTTP_401_UNAUTHORIZED,
         )
 
