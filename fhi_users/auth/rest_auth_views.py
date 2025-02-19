@@ -278,6 +278,7 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
             first_name=first_name,
             last_name=last_name,
         )
+        send_verification_email(request, user)
         professional_user = ProfessionalUser.objects.create(
             user=user,
             active=False,

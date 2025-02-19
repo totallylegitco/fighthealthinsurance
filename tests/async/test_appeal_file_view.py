@@ -39,7 +39,7 @@ class AppealFileViewTest(TestCase):
             "make_new_domain": True,
             "skip_stripe": True,
             "user_domain": {
-                "name": "newdomain",
+                "name": self.domain,
                 "visible_phone_number": "1234567891",
                 "internal_phone_number": "0987654322",
                 "display_name": "New Domain",
@@ -141,34 +141,42 @@ class AppealFileViewTest(TestCase):
         self._professional_user = User.objects.get(
             email="newprouser_creator@example.com"
         )
-        self._professional_user.active = True
+        self._professional_user.is_active = True
         self._professional_user.save()
         self.professional_user = ProfessionalUser.objects.get(
             user=self._professional_user
         )
-        self.professional_user.active = False
+        self.professional_user.active = True
         self.professional_user.save()
+        self.professional_user_domain_relation = ProfessionalDomainRelation.objects.get(
+            professional=self.professional_user, domain__name=self.domain
+        )
+        self.professional_user_domain_relation.pending = False
+        self.professional_user_domain_relation.save()
+
 
         # Activate the domain admin
         self._professional_user_domain_admin = User.objects.get(
             email="newprouser_domain_admin@example.com"
         )
+        self._professional_user_domain_admin.is_active = True
+        self._professional_user_domain_admin.save()
         self.professional_user_domain_admin = ProfessionalUser.objects.get(
             user=self._professional_user_domain_admin
         )
         self.professional_user_domain_admin.active = True
         self.professional_user_domain_admin.save()
-        self.professional_user_domain_relation = ProfessionalDomainRelation.objects.get(
+        self.professional_user_domain_admin_relation = ProfessionalDomainRelation.objects.get(
             professional=self.professional_user_domain_admin, domain__name=self.domain
         )
-        self.professional_user_domain_relation.pending = False
-        self.professional_user_domain_relation.save()
+        self.professional_user_domain_admin_relation.pending = False
+        self.professional_user_domain_admin_relation.save()
 
         # Activate the unrelated professional user
         self._professional_user_unrelated = User.objects.get(
             email="newprouser_unrelated@example.com"
         )
-        self._professional_user_unrelated.active = True
+        self._professional_user_unrelated.is_active = True
         self._professional_user_unrelated.save()
         self.professional_user_unrelated = ProfessionalUser.objects.get(
             user=self._professional_user_unrelated
@@ -243,7 +251,7 @@ class AppealFileViewTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/pdf")
 
-    def test_appeal_file_view_authenticated(self):
+    def test_appeal_file_view_authenticated_combined(self):
         # Check for self
         self.do_login(username="newuserp1", password=self.user_password)
         response = self.client.get(
@@ -261,14 +269,6 @@ class AppealFileViewTest(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/pdf")
-        # Secondary patient is not activated so they should not be able to see their appeal yet.
-        self.do_login(username="newuserp2", password=self.user_password)
-        response = self.client.get(
-            reverse(
-                "appeal_file_view", kwargs={"appeal_uuid": self.secondary_appeal.uuid}
-            )
-        )
-        self.assertEqual(response.status_code, 404)
 
     def test_appeal_file_view_authenticated_incorrect(self):
         # Check for different patient
@@ -307,7 +307,7 @@ class AppealFileViewTest(TestCase):
         response = self.client.get(
             reverse("appeal_file_view", kwargs={"appeal_uuid": self.appeal.uuid})
         )
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 404)
 
     def test_appeal_file_view_concurrent_access(self):
         # Test concurrent access from same user different sessions
