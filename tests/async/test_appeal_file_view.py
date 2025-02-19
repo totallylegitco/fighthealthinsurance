@@ -23,7 +23,7 @@ class AppealFileViewTest(TestCase):
         # Create the initial provider user has domain access
         professional_create_url = reverse("professional_user-list")
         self.domain = "newdomain"
-        self.user_password = "newLongerPasswordMagicCheetoCheeto123" 
+        self.user_password = "newLongerPasswordMagicCheetoCheeto123"
         data = {
             "user_signup_info": {
                 "username": "newprouser_domain_admin",
@@ -229,9 +229,7 @@ class AppealFileViewTest(TestCase):
 
     def test_appeal_file_view_authenticated(self):
         # Check for self
-        self.do_login(
-            username="newuserp1", password=self.user_password
-        )
+        self.do_login(username="newuserp1", password=self.user_password)
         response = self.client.get(
             reverse("appeal_file_view", kwargs={"appeal_uuid": self.appeal.uuid})
         )
@@ -248,9 +246,7 @@ class AppealFileViewTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/pdf")
         # Secondary patient is not activated so they should not be able to see their appeal yet.
-        self.do_login(
-            username="newuserp2", password=self.user_password
-        )
+        self.do_login(username="newuserp2", password=self.user_password)
         response = self.client.get(
             reverse(
                 "appeal_file_view", kwargs={"appeal_uuid": self.secondary_appeal.uuid}
@@ -260,9 +256,7 @@ class AppealFileViewTest(TestCase):
 
     def test_appeal_file_view_authenticated_incorrect(self):
         # Check for different patient
-        self.do_login(
-            username="newuserp2", password=self.user_password
-        )
+        self.do_login(username="newuserp2", password=self.user_password)
         response = self.client.get(
             reverse("appeal_file_view", kwargs={"appeal_uuid": self.appeal.uuid})
         )
@@ -279,9 +273,7 @@ class AppealFileViewTest(TestCase):
 
     def test_appeal_file_view_wrong_http_method(self):
         # Test wrong HTTP methods
-        self.do_login(
-            username="newuserp1", password=self.user_password
-        )
+        self.do_login(username="newuserp1", password=self.user_password)
         for method in ["post", "put", "patch", "delete"]:
             response = getattr(self.client, method)(
                 reverse("appeal_file_view", kwargs={"appeal_uuid": self.appeal.uuid})
@@ -303,9 +295,7 @@ class AppealFileViewTest(TestCase):
 
     def test_appeal_file_view_expired_session(self):
         # Test with expired session
-        self.do_login(
-            username="newuserp1", password=self.user_password
-        )
+        self.do_login(username="newuserp1", password=self.user_password)
         self.client.session.set_expiry(-1)
         self.client.session.save()
         response = self.client.get(
@@ -315,13 +305,9 @@ class AppealFileViewTest(TestCase):
 
     def test_appeal_file_view_concurrent_access(self):
         # Test concurrent access from same user different sessions
-        self.do_login(
-            username="newuserp1", password=self.user_password
-        )
+        self.do_login(username="newuserp1", password=self.user_password)
         client2 = APIClient()
-        self.do_login(
-            username="newuserp1", password=self.user_password
-        )
+        self.do_login(username="newuserp1", password=self.user_password)
 
         response1 = self.client.get(
             reverse("appeal_file_view", kwargs={"appeal_uuid": self.appeal.uuid})
@@ -344,9 +330,7 @@ class AppealFileViewTest(TestCase):
             domain=UserDomain.objects.get(name=self.domain),
         )
 
-        self.do_login(
-            username="newuserp1", password=self.user_password
-        )
+        self.do_login(username="newuserp1", password=self.user_password)
         response = self.client.get(
             reverse("appeal_file_view", kwargs={"appeal_uuid": large_appeal.uuid})
         )
@@ -355,9 +339,7 @@ class AppealFileViewTest(TestCase):
 
     def test_appeal_file_view_permission_changes(self):
         # Test access after permission changes
-        self.do_login(
-            username="newuserp1", password=self.user_password
-        )
+        self.do_login(username="newuserp1", password=self.user_password)
 
         # Initial access
         response1 = self.client.get(
@@ -385,9 +367,7 @@ class AppealFileViewTest(TestCase):
             domain=UserDomain.objects.get(name=self.domain),
         )
 
-        self.do_login(
-            username="newuserp1", password=self.user_password
-        )
+        self.do_login(username="newuserp1", password=self.user_password)
         response = self.client.get(
             reverse("appeal_file_view", kwargs={"appeal_uuid": corrupted_appeal.uuid})
         )
