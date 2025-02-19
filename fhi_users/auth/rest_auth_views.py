@@ -290,66 +290,35 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
             pending=True,
         )
 
-        # TODO: Update to use stripe utils
-        stripe.api_key = settings.STRIPE_API_SECRET_KEY
-        # Check if the product already exists
-        products = stripe.Product.list(limit=100)
-        product = next(
-            (p for p in products.data if p.name == "Basic Professional Subscription"),
-            None,
-        )
-
-        if product is None:
-            product = stripe.Product.create(name="Basic Professional Subscription")
-
-        # Check if the price already exists for the product
-        prices = stripe.Price.list(product=product["id"], limit=100)
-        product_price = next(
-            (
-                p
-                for p in prices.data
-                if p.unit_amount == 2500
-                and p.currency == "usd"
-                and p.id == product["id"]
-            ),
-            None,
-        )
-
-        if product_price is None:
-            product_price = stripe.Price.create(
-                unit_amount=2500, currency="usd", product=product["id"]
+        if settings.is_testing and serializers.data["skip_stripe"]:
+            product_id, price_id = stripe_utils.get_or_create_price(
+                "Basic Professional Subscription", 2500, recurring=True
             )
-        items = [
-            {
-                "price": product_price["id"],
-                "quantity": 1,
-            }
-        ]
 
-        product_id, price_id = stripe_utils.get_or_create_price(
-            "Basic Professional Subscription", 2500, recurring=True
-        )
-
-        checkout_session = stripe.checkout.Session.create(
-            payment_method_types=["card"],
-            line_items=[{"price": price_id, "quantity": 1}],
-            mode="subscription",
-            success_url=user_signup_info["continue_url"],
-            cancel_url=user_signup_info["continue_url"],
-            customer_email=email,
-            metadata={
-                "payment_type": "professional_domain_subscription",
-                "professional_id": str(professional_user.id),
-                "domain_id": str(user_domain.id),
-            },
-        )
-        extra_user_properties = ExtraUserProperties.objects.create(
-            user=user, email_verified=False
-        )
-        subscription_id = checkout_session.subscription
-        return serializers.ProfessionalSignupResponseSerializer(
-            {"next_url": checkout_session.url}
-        )
+            checkout_session = stripe.checkout.Session.create(
+                payment_method_types=["card"],
+                line_items=[{"price": price_id, "quantity": 1}],
+                mode="subscription",
+                success_url=user_signup_info["continue_url"],
+                cancel_url=user_signup_info["continue_url"],
+                customer_email=email,
+                metadata={
+                    "payment_type": "professional_domain_subscription",
+                    "professional_id": str(professional_user.id),
+                    "domain_id": str(user_domain.id),
+                },
+            )
+            extra_user_properties = ExtraUserProperties.objects.create(
+                user=user, email_verified=False
+            )
+            subscription_id = checkout_session.subscription
+            return serializers.ProfessionalSignupResponseSerializer(
+                {"next_url": checkout_session.url}
+            )
+        else:
+            return serializers.ProfessionalSignupResponseSerializer(
+                {"next_url": "https://www.fightpaperwork.com/?q=testmode"}
+            )
 
 
 class RestLoginView(ViewSet, SerializerMixin):

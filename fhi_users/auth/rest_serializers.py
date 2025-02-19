@@ -118,6 +118,7 @@ class ProfessionalSignupSerializer(serializers.ModelSerializer):
 
     user_signup_info = UserSignupSerializer()
     make_new_domain = serializers.BooleanField()
+    skip_stripe = serializers.BooleanField(default=False)
     # If they're joining an existing domain user_domain *MUST NOT BE POPULATED*
     user_domain = UserDomainSerializer(required=False)
     npi_number = serializers.CharField(required=False, allow_blank=True)
