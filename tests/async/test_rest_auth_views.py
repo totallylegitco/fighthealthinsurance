@@ -8,6 +8,7 @@ from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
 from django.core import mail
 from django.utils import timezone
+from unittest import mock
 
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -419,3 +420,137 @@ class RestAuthViewsTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.json()["status"], "failure")
         self.assertEqual(response.json()["message"], "Reset token has expired")
+
+    def test_rest_login_view_with_nonexistent_domain(self) -> None:
+        url = reverse("rest_login-login")
+        data = {
+            "username": "testuser",
+            "password": "testpass",
+            "domain": "nonexistentdomain",
+            "phone": "",
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.json()["status"], "failure")
+
+    def test_rest_login_view_with_invalid_phone(self) -> None:
+        url = reverse("rest_login-login")
+        data = {
+            "username": "testuser",
+            "password": "testpass",
+            "domain": "",
+            "phone": "9999999999",
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.json()["status"], "failure")
+
+    def test_rest_login_view_with_inactive_user(self) -> None:
+        self.user.is_active = False
+        self.user.save()
+        url = reverse("rest_login-login")
+        data = {
+            "username": "testuser",
+            "password": "testpass",
+            "domain": "testdomain",
+            "phone": "",
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_verify_email_with_nonexistent_user(self) -> None:
+        url = reverse("rest_verify_email-verify")
+        data = {
+            "token": "sometoken",
+            "user_id": 99999,
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.json()["status"], "failure")
+
+    def test_verify_email_without_token(self) -> None:
+        url = reverse("rest_verify_email-verify")
+        data = {"user_id": self.user.pk}
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_create_professional_user_without_required_fields(self) -> None:
+        url = reverse("professional_user-list")
+        data = {
+            "user_signup_info": {
+                "username": "newprouser4",
+                "password": "newLongerPasswordMagicCheetoCheeto123",
+            },
+            "make_new_domain": True,
+            "user_domain": {
+                "name": "newdomain2",
+            },
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_create_professional_user_with_invalid_email(self) -> None:
+        url = reverse("professional_user-list")
+        data = {
+            "user_signup_info": {
+                "username": "newprouser5",
+                "password": "newLongerPasswordMagicCheetoCheeto123",
+                "email": "invalid-email",
+                "first_name": "New",
+                "last_name": "User",
+                "domain_name": "newdomain3",
+                "visible_phone_number": "1234567893",
+                "continue_url": "http://example.com/continue",
+            },
+            "make_new_domain": True,
+            "user_domain": {
+                "name": "newdomain3",
+                "visible_phone_number": "1234567893",
+                "internal_phone_number": "0987654325",
+                "display_name": "New Domain 3",
+                "country": "USA",
+                "state": "CA",
+                "city": "Test City",
+                "address1": "123 Test St",
+                "zipcode": "12345",
+            },
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_request_password_reset_nonexistent_user(self) -> None:
+        url = reverse("password_reset-request-reset")
+        data = {
+            "username": "nonexistentuser",
+            "domain": "testdomain",
+            "phone": "",
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.json()["status"], "failure")
+
+    def test_verification_token_creation_with_existing_token(self) -> None:
+        # Create first token
+        token1 = VerificationToken.objects.create(
+            user=self.user, token=default_token_generator.make_token(self.user)
+        )
+        # Create second token
+        token2 = VerificationToken.objects.create(
+            user=self.user, token=default_token_generator.make_token(self.user)
+        )
+        # First token should be deleted
+        with self.assertRaises(VerificationToken.DoesNotExist):
+            VerificationToken.objects.get(pk=token1.pk)
+        # Second token should exist
+        self.assertIsNotNone(VerificationToken.objects.get(pk=token2.pk))
+
+    def test_reset_token_creation_with_existing_token(self) -> None:
+        # Create first token
+        token1 = ResetToken.objects.create(user=self.user, token=uuid.uuid4().hex)
+        # Create second token
+        token2 = ResetToken.objects.create(user=self.user, token=uuid.uuid4().hex)
+        # First token should be deleted
+        with self.assertRaises(ResetToken.DoesNotExist):
+            ResetToken.objects.get(pk=token1.pk)
+        # Second token should exist
+        self.assertIsNotNone(ResetToken.objects.get(pk=token2.pk))

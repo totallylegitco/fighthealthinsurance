@@ -2,6 +2,7 @@ import uuid
 import time
 import datetime
 import typing
+from django.utils import timezone
 
 from django.db import models
 from django.contrib.auth import get_user_model
@@ -176,27 +177,21 @@ class VerificationToken(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     token = models.CharField(max_length=255, default=uuid.uuid4)
     created_at = models.DateTimeField(auto_now_add=True)
-    expires_at = models.DateTimeField()
+    expires_at = models.DateTimeField(default=lambda: timezone.now() + timezone.timedelta(hours=24))
 
     def save(self, *args, **kwargs):
-        if not self.expires_at:
-            if self.created_at:
-                self.expires_at = self.created_at + datetime.timedelta(hours=24)
-            else:
-                self.expires_at = datetime.datetime.now() + datetime.timedelta(hours=24)
+        # Delete existing token if it exists
+        VerificationToken.objects.filter(user=self.user).delete()
         super().save(*args, **kwargs)
 
 
 class ResetToken(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    token = models.CharField(max_length=255, default=uuid.uuid4)
+    token = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
-    expires_at = models.DateTimeField()
+    expires_at = models.DateTimeField(default=lambda: timezone.now() + timezone.timedelta(hours=24))
 
     def save(self, *args, **kwargs):
-        if not self.expires_at:
-            if self.created_at:
-                self.expires_at = self.created_at + datetime.timedelta(hours=24)
-            else:
-                self.expires_at = datetime.datetime.now() + datetime.timedelta(hours=24)
+        # Delete existing token if it exists
+        ResetToken.objects.filter(user=self.user).delete()
         super().save(*args, **kwargs)
