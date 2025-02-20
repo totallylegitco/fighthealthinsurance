@@ -1,51 +1,64 @@
 import os
-
 import ray
 import time
 import asyncio
+import logging
 
 from asgiref.sync import sync_to_async
+from configurations.wsgi import get_wsgi_application
+from fighthealthinsurance.followup_emails import ThankyouEmailSender, FollowUpEmailSender
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 name = "EmailPollingActor"
 
-
 @ray.remote(max_restarts=-1, max_task_retries=-1)
 class EmailPollingActor:
+    """
+    Actor responsible for polling and sending follow-up and thank-you emails asynchronously.
+    """
+
     def __init__(self):
-        print(f"Starting actor")
-        time.sleep(1)
-        # This is a bit of a hack but we do this so we have the app configured
-        from configurations.wsgi import get_wsgi_application
+        """Initializes the EmailPollingActor, ensuring the Django app is properly configured."""
+        logger.info("Initializing EmailPollingActor...")
 
+        time.sleep(1)  # Small delay to ensure proper setup
         os.environ.setdefault("DJANGO_SETTINGS_MODULE", "fighthealthinsurance.settings")
-        _application = get_wsgi_application()
-        print(f"wsgi started")
-        # Now we can import the follow up e-mails logic
-        from fighthealthinsurance.followup_emails import (
-            ThankyouEmailSender,
-            FollowUpEmailSender,
-        )
+        get_wsgi_application()
+        logger.info("Django WSGI application started.")
 
+        # Initialize email senders
         self.followup_sender = FollowUpEmailSender()
         self.thankyou_sender = ThankyouEmailSender()
-        print(f"Senders started")
+        self.running = False
+
+        logger.info("Email senders initialized successfully.")
 
     async def run(self) -> None:
-        print(f"Starting run")
+        """
+        Starts polling for follow-up and thank-you email candidates.
+        This function continuously checks for candidates and sleeps in between.
+        """
+        logger.info("Email polling started.")
         self.running = True
+
         while self.running:
             try:
-                followup_candidates = await sync_to_async(
-                    self.followup_sender.find_candidates
-                )()
-                print(f"Top follow up candidates: {followup_candidates[0:4]}")
-                thankyou_candidates = await sync_to_async(
-                    self.thankyou_sender.find_candidates
-                )()
-                print(f"Top follow up candidates: {thankyou_candidates[0:4]}")
-                await asyncio.sleep(10)
-            except Exception as e:
-                print(f"Error {e} while checking messages.")
+                followup_candidates = await sync_to_async(self.followup_sender.find_candidates)()
+                logger.info(f"Top follow-up candidates: {followup_candidates[:4]}")
 
-        print(f"Done running? what?")
-        return None
+                thankyou_candidates = await sync_to_async(self.thankyou_sender.find_candidates)()
+                logger.info(f"Top thank-you candidates: {thankyou_candidates[:4]}")
+
+                await asyncio.sleep(10)  # Polling interval
+            except Exception as e:
+                logger.error(f"Error encountered while checking messages: {e}")
+
+        logger.info("Email polling stopped.")
+
+    def stop(self):
+        """Stops the polling loop."""
+        logger.info("Stopping EmailPollingActor...")
+        self.running = False
