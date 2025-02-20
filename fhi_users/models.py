@@ -187,6 +187,31 @@ class VerificationToken(models.Model):
         super().save(*args, **kwargs)
 
 
+class RemoveDataToken(models.Model):
+    """
+    Model to handle data removal requests using a token.
+    Each token is valid for 24 hours after creation.
+    """
+    
+    email = models.EmailField(max_length=255, unique=True)
+    token = models.CharField(max_length=255, default=uuid.uuid4)
+    created_at = models.DateTimeField(auto_now_add=True)  # Set creation time automatically
+    expires_at = models.DateTimeField(blank=True, null=True)  # Can be empty initially
+
+    def save(self, *args, **kwargs):
+        """Overrides save to set `expires_at` if not provided."""
+        if not self.expires_at:
+            self.expires_at = self.created_at + datetime.timedelta(hours=24)
+        super().save(*args, **kwargs)
+
+    def is_expired(self) -> bool:
+        """Check if the token is expired."""
+        return self.expires_at < datetime.datetime.now(datetime.timezone.utc)
+
+    def __str__(self):
+        return f"RemoveDataToken(email={self.email}, expires_at={self.expires_at})"
+
+
 class ResetToken(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     token = models.CharField(max_length=255, default=uuid.uuid4)
