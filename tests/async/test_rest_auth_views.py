@@ -532,6 +532,13 @@ class RestAuthViewsTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.json()["status"], "failure")
 
+    def test_whoami_view_authed(self):
+        url = reverse("whoami-list")
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(url, format="json")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["email"], self.user.email)
 
 class TestE2EProfessionalUserSignupFlow(TestCase):
     def setUp(self):
