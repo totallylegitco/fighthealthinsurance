@@ -21,6 +21,10 @@ from fighthealthinsurance import forms as core_forms
 from fighthealthinsurance import models
 from fighthealthinsurance import followup_emails
 
+from fhi_users.models import (
+    RemoveDataToken
+)
+
 
 def render_ocr_error(request: HttpRequest, text: str) -> HttpResponseBase:
     return render(
@@ -227,12 +231,17 @@ class RemoveDataView(View):
 
         if form.is_valid():
             email = form.cleaned_data["email"]
-            common_view_logic.RemoveDataHelper.remove_data_for_email(email)
+            remove_data_token = RemoveDataToken.objects.create(email=email)
+
+            send_email_confirmation(email, {
+                "reset_url": f"https://fighthealthinsurance.com/remove_data/finish?token={reset_data_token.token}"
+            },)
+
             return render(
                 request,
                 "removed_data.html",
                 context={
-                    "title": "Remove My Data",
+                    "title": "Waiting for confirmation",
                 },
             )
 
@@ -244,6 +253,31 @@ class RemoveDataView(View):
                 "form": form,
             },
         )
+
+class RemoveDataFinishView(View):
+    def get(self, request):
+        token = request.GET.get("token")
+
+        if not token:
+            return render(request, "remove_data_error.html", {"message": "Invalid token."})
+
+        try:
+            remove_data_token = RemoveDataToken.objects.get(token=token)
+
+            # Verify token expiration
+            if remove_data_token.expires_at < now():
+                return render(request, "remove_data_error.html", {"message": "This token has expired."})
+
+            # Proceed with data removal
+            common_view_logic.RemoveDataHelper.remove_data_for_email(remove_data_token.email)
+
+            # Delete the token after successful processing
+            remove_data_token.delete()
+
+            return render(request, "remove_data.html", context={"title": "Successfully data removed."})
+
+        except RemoveDataToken.DoesNotExist:
+            return render(request, "remove_data_error.html", {"message": "Token not found."})
 
 
 class RecommendAppeal(View):

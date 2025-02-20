@@ -164,6 +164,7 @@ urlpatterns: List[Union[URLPattern, URLResolver]] = [
     path("share_denial", views.ShareDenialView.as_view(), name="share_denial"),
     path("share_appeal", views.ShareAppealView.as_view(), name="share_appeal"),
     path("remove_data", views.RemoveDataView.as_view(), name="remove_data"),
+    path("remove_data/finish/", views.RemoveDataFinishView.as_view(), name="remove_data_finish"),
     path(
         "tos",
         cache_control(public=True)(
