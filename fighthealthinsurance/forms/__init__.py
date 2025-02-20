@@ -73,6 +73,9 @@ class DenialForm(forms.Form):
     use_external_models = forms.BooleanField(required=False)
     denial_text = forms.CharField(required=True)
     email = forms.EmailField(required=True)
+    # Only used in pro
+    patient_name = forms.CharField(required=Flase)
+    insurer = forms.CharField(required=False)
 
 
 class DenialRefForm(forms.Form):
