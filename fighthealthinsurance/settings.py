@@ -437,6 +437,7 @@ class Dev(Base):
     }
     # Configure logging
     load_loguru(globals())
+    CSRF_FAILURE_VIEW = "fighthealthinsurance.views.csrf_failure"
 
 
 class Test(Dev):
