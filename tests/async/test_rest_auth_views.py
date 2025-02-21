@@ -602,23 +602,35 @@ class TestE2EProfessionalUserSignupFlow(TestCase):
         self.assertTrue(
             self.client.login(username=new_user.username, password="temp12345")
         )
+        # Ok but hit the rest endpoint for the login so we have a domain id
+        login_url = reverse("rest_login-login")
+        data = {
+            "username": "testpro@example.com",
+            "password": "temp12345",
+            "domain": domain_name
+        }
+        response = self.client.post(login_url, data, format="json")
+        self.assertIn(response.status_code, range(200, 300))
+        self.assertEqual(response.json()["status"], "success")
         # Have the now logged in pro-user start to make an appeal
         get_pending_url = reverse("patient_user-get-or-create-pending")
         data = {
-            "domain_name": domain_name,
-            "provider_phone_number": phone_number,
-            "email": "testpro@example.com",
+            "username": "testpro@example.com",
+            "first_name": "fname",
+            "last_name": "lname",
         }
         response = self.client.post(get_pending_url, data, format="json")
+        print(response)
         self.assertIn(response.status_code, range(200, 300))
+        patient_id = response.json()["id"]
 
         # Let’s pretend to create a denial record via DenialFormSerializer
         denial_create_url = reverse("denials-list")
         denial_data = {
-            "patient_name": "Test Patient",
-            "insurer": "Test Insurer",
+            "insurance_company": "Test Insurer",
             "denial_text": "Sample denial text",
             "email": "testpro@example.com",
+            "patient_id": patient_id,
             "pii": True,
             "tos": True,
             "privacy": True,
@@ -627,22 +639,7 @@ class TestE2EProfessionalUserSignupFlow(TestCase):
 
         # Validate response has data we can use for the generate appeal websocket
         denial_response = response.json()
-        self.assertIn("id", denial_response)
-        denial_id = denial_response["id"]
+        self.assertIn("denial_id", denial_response)
+        denial_id = denial_response["denial_id"]
 
-        # Generate an appeal (placeholder URL/method)
-        generate_appeal_url = reverse("denials-generate-appeal", args=[denial_id])
-        response = self.client.post(generate_appeal_url, {}, format="json")
-        self.assertIn(response.status_code, range(200, 300))
-        appeal_data = response.json()
-        self.assertIn("appeal_id", appeal_data)
-
-        # Choose a specific appeal (placeholder URL/method)
-        choose_appeal_url = reverse("denials-choose-appeal", args=[appeal_data["appeal_id"]])
-        response = self.client.post(choose_appeal_url, {}, format="json")
-        self.assertIn(response.status_code, range(200, 300))
-
-        # Send a fax (placeholder URL/method)
-        send_fax_url = reverse("denials-send-fax", args=[appeal_data["appeal_id"]])
-        response = self.client.post(send_fax_url, {}, format="json")
-        self.assertIn(response.status_code, range(200, 300))
+        # Now we need to call the websocket...

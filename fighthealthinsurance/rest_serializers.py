@@ -73,13 +73,9 @@ class ChooseAppealFormSerializer(FormSerializer):
 
 
 class DenialFormSerializer(FormSerializer):
-    primary_professional = serializers.IntegerField(required=False)
-    user_id = forms.IntegerField(required=True)
-
     class Meta(object):
         form = core_forms.DenialForm
         exclude = ("plan_documents",)
-
 
 class PostInferedFormSerializer(FormSerializer):
     class Meta(object):
