@@ -77,6 +77,7 @@ class DenialFormSerializer(FormSerializer):
         form = core_forms.DenialForm
         exclude = ("plan_documents",)
 
+
 class PostInferedFormSerializer(FormSerializer):
     class Meta(object):
         form = core_forms.PostInferedForm

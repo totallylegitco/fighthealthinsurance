@@ -551,6 +551,7 @@ class RestAuthViewsTests(TestCase):
         data = response.json()
         self.assertEqual(data["email"], self.user.email)
 
+
 class TestE2EProfessionalUserSignupFlow(TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -607,7 +608,7 @@ class TestE2EProfessionalUserSignupFlow(TestCase):
         data = {
             "username": "testpro@example.com",
             "password": "temp12345",
-            "domain": domain_name
+            "domain": domain_name,
         }
         response = self.client.post(login_url, data, format="json")
         self.assertIn(response.status_code, range(200, 300))

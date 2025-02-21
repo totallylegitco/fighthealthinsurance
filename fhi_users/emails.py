@@ -63,9 +63,10 @@ def send_verification_email(request, user: "User") -> None:
     mail_subject = "Activate your account."
     verification_token = default_token_generator.make_token(user)
     VerificationToken.objects.create(user=user, token=verification_token)
-    activation_link = "https://www.fightpaperwork.com/activate-account/?token={}&uid={}".format(
-        verification_token,
-        user.pk
+    activation_link = (
+        "https://www.fightpaperwork.com/activate-account/?token={}&uid={}".format(
+            verification_token, user.pk
+        )
     )
     send_fallback_email(
         mail_subject,

@@ -206,6 +206,7 @@ class GetOrCreatePendingPatientSerializer(serializers.Serializer):
     first_name = serializers.CharField()
     last_name = serializers.CharField()
 
+
 class PatientReferenceSerializer(serializers.Serializer):
     """
     Return the patient id

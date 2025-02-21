@@ -59,7 +59,7 @@ else:
 
 class WhoAmIViewSet(viewsets.ViewSet):
     def list(self, request: Request):
-        user: User = request.user # type: ignore
+        user: User = request.user  # type: ignore
         if user.is_authenticated:
             # Get the user domain from the session
             domain_id = request.session.get("domain_id")
@@ -410,7 +410,10 @@ class RestLoginView(ViewSet, SerializerMixin):
             user = User.objects.get(username=username)
             if not user.is_active:
                 return Response(
-                    {"status": "failure", "message": "User is inactive -- please verify your e-mail"},
+                    {
+                        "status": "failure",
+                        "message": "User is inactive -- please verify your e-mail",
+                    },
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
         except User.DoesNotExist:
@@ -445,8 +448,8 @@ class PatientUserViewSet(ViewSet, CreateMixin):
             email=serializer.validated_data["username"],
             raw_username=serializer.validated_data["username"],
             domain=domain,
-            fname = serializer.validated_data["first_name"],
-            lname = serializer.validated_data["last_name"],
+            fname=serializer.validated_data["first_name"],
+            lname=serializer.validated_data["last_name"],
         )
         response_serializer = serializers.PatientReferenceSerializer({"id": user.id})
         return Response(response_serializer.data)
