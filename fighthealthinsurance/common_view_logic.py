@@ -773,6 +773,7 @@ class DenialCreatorHelper:
         use_external_models=False,
         store_raw_email=False,
         plan_documents=None,
+        patient_id = None,
         insurance_company: Optional[str] = None,
         denial: Optional[Denial] = None,
         creating_professional: Optional[ProfessionalUser] = None,
