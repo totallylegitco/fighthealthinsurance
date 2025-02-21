@@ -33,11 +33,17 @@ os.environ.setdefault("DJANGO_CONFIGURATION", os.getenv("ENVIRONMENT", "Dev"))
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+from rest_framework.authentication import SessionAuthentication, BasicAuthentication 
+
+class CsrfExemptSessionAuthentication(SessionAuthentication):
+
+    def enforce_csrf(self, request):
+        return  # To not perform the csrf check previously happening
 
 class Base(Configuration):
     SENTRY_ENDPOINT = os.getenv("SENTRY_ENDPOINT")
-    COOKIE_CONSENT_ENABLED = True
-    COOKIE_CONSENT_LOG_ENABLED = True
+    COOKIE_CONSENT_ENABLED = False
+    COOKIE_CONSENT_LOG_ENABLED = False
     LOGIN_URL = "login"
     LOGIN_REDIRECT_URL = "/"
     THUMBNAIL_DEBUG = True
@@ -49,6 +55,11 @@ class Base(Configuration):
         ],
         "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     }
+
+    # Session cookie configs
+    SESSION_COOKIE_SECURE = True # https only (up to the browser to enforce)
+    SESSION_COOKIE_HTTPONLY = False # allow js access
+    SESSION_COOKIE_SAMESITE = None # cross site happytimes.
 
     # Quick-start development settings - unsuitable for production
     # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
@@ -287,6 +298,12 @@ class Base(Configuration):
         "POST",
         "PUT",
     ]
+    CSRF_TRUSTED_ORIGINS = [
+        'https://fightpaperwork.com',
+        'https://fighthealthinsurance.com',
+        'https://www.fightpaperwork.com',
+        'https://www.fighthealthinsurance.com',
+    ]
 
 
     PROMETHEUS_METRIC_NAMESPACE = "fhi"
@@ -351,6 +368,11 @@ class Base(Configuration):
 
 
 class Dev(Base):
+    CSRF_TRUSTED_ORIGINS = [
+        'https://fightpaperwork.com',
+        'https://localhost:3000',
+        'https://localhost:8000',
+    ]
     DEFF_SALT = os.getenv("DEFF_SALT", "dev-salt")
     DEFF_PASSWORD = os.getenv("DEFF_PASSWORD", "dev-password")
     DEBUG = True
@@ -391,13 +413,28 @@ class Dev(Base):
             }
         },
         'loggers': {
-            'django.db.backends': {
-                'level': 'DEBUG',
+            'django': {
                 'handlers': ['console'],
-            }
-        }
+                'level': 'INFO',
+                'propagate': True,
+            },
+            'django.middleware': {
+                'handlers': ['console'],
+                'level': 'DEBUG',
+                'propagate': True,
+            },
+            'django.contrib.sessions': {
+                'handlers': ['console'],
+                'level': 'DEBUG',
+                'propagate': True,
+            },
+            'django.contrib.auth': {
+                'handlers': ['console'],
+                'level': 'DEBUG',
+                'propagate': True,
+            },
+        },
     }
-
     # Configure logging
     load_loguru(globals())
 

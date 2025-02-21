@@ -441,6 +441,7 @@ class PatientUserViewSet(ViewSet, CreateMixin):
 
     @action(detail=False, methods=["post", "options"])
     def get_or_create_pending(self, request: Request) -> Response:
+        print(f"Called...")
         serializer = self.deserialize(data=request.data)
         serializer.is_valid(raise_exception=True)
         domain = UserDomain.objects.get(id=request.session["domain_id"])
