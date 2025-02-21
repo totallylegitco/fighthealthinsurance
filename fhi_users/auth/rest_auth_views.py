@@ -439,7 +439,7 @@ class PatientUserViewSet(ViewSet, CreateMixin):
         send_verification_email(request, user)
         return Response({"status": "pending"})
 
-    @action(detail=False, methods=["post"])
+    @action(detail=False, methods=["post", "options"])
     def get_or_create_pending(self, request: Request) -> Response:
         serializer = self.deserialize(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -451,6 +451,7 @@ class PatientUserViewSet(ViewSet, CreateMixin):
             fname=serializer.validated_data["first_name"],
             lname=serializer.validated_data["last_name"],
         )
+        print(f"User is {user}")
         response_serializer = serializers.PatientReferenceSerializer({"id": user.id})
         return Response(response_serializer.data)
 

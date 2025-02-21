@@ -24,6 +24,8 @@ from django.core.files.storage import Storage
 from minio_storage.storage import MinioStorage
 import time
 from dj_easy_log import load_loguru
+from corsheaders.defaults import default_methods
+
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "fighthealthinsurance.settings")
 os.environ.setdefault("DJANGO_CONFIGURATION", os.getenv("ENVIRONMENT", "Dev"))
@@ -107,10 +109,10 @@ class Base(Configuration):
         "django_recaptcha",
         "rest_framework",
         "mfa",
-        "corsheaders",
         "channels",
         "django_prometheus",
         "drf_spectacular",
+        "corsheaders",
     ]
 
     COMPRESS_JS_FILTERS = [
@@ -133,6 +135,7 @@ class Base(Configuration):
     )
 
     MIDDLEWARE = [
+        "corsheaders.middleware.CorsMiddleware",
         "django_prometheus.middleware.PrometheusBeforeMiddleware",
         "django.contrib.sessions.middleware.SessionMiddleware",
         "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -140,7 +143,6 @@ class Base(Configuration):
         "django.middleware.clickjacking.XFrameOptionsMiddleware",
         "cookie_consent.middleware.CleanCookiesMiddleware",
         "django_user_agents.middleware.UserAgentMiddleware",
-        "corsheaders.middleware.CorsMiddleware",
         "django.middleware.common.CommonMiddleware",
         "django.middleware.csrf.CsrfViewMiddleware",
         "django.middleware.security.SecurityMiddleware",
@@ -191,6 +193,8 @@ class Base(Configuration):
         "django.contrib.auth.hashers.ScryptPasswordHasher",
         "mfa.recovery.Hash",
     ]
+
+    CSRF_COOKIE_HTTPONLY = False
 
     # Password validation
     # https://docs.djangoproject.com/en/4.0/ref/settings/#auth-password-validators
@@ -264,7 +268,7 @@ class Base(Configuration):
     DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
     # CORS settings
-    # CORS_URLS_REGEX = r"^/ziggy/.*$"
+    # CORS_URLS_REGEX = r"^/.*$"
     # CORS_ALLOWED_ORIGINS_REGEXES = [
     #    "https://fhi-react.vercel.app",
     #    "http://localhost:\d+",
@@ -274,6 +278,16 @@ class Base(Configuration):
     CORS_ALLOW_ALL_ORIGINS = True
     CORS_ALLOW_PRIVATE_NETWORK = True
     CORS_ALLOW_CREDENTIALS = True
+    CORS_ALLOW_HEADERS = (*default_methods, 'accept', 'accept-encoding', 'accept-language', 'connection', 'authorization', 'content-type', 'dnt', 'origin', 'user-agent', 'x-csrftoken', 'x-requested-with', 'cookie')
+    CORS_ALLOW_METHODS = [
+        "DELETE",
+        "GET",
+        "OPTIONS",
+        "PATCH",
+        "POST",
+        "PUT",
+    ]
+
 
     PROMETHEUS_METRIC_NAMESPACE = "fhi"
 
@@ -360,6 +374,28 @@ class Dev(Base):
                 "NAME": BASE_DIR / "test.db.sqlite3",
             },
         },
+    }
+
+    LOGGING = {
+        'version': 1,
+        'filters': {
+            'require_debug_true': {
+                '()': 'django.utils.log.RequireDebugTrue',
+            }
+        },
+        'handlers': {
+            'console': {
+                'level': 'DEBUG',
+                'filters': ['require_debug_true'],
+                'class': 'logging.StreamHandler',
+            }
+        },
+        'loggers': {
+            'django.db.backends': {
+                'level': 'DEBUG',
+                'handlers': ['console'],
+            }
+        }
     }
 
     # Configure logging
