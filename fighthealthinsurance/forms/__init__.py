@@ -74,7 +74,8 @@ class DenialForm(forms.Form):
     denial_text = forms.CharField(required=True)
     email = forms.EmailField(required=True)
     # Only used in pro
-    patient_name = forms.CharField(required=Flase)
+    patient_name = forms.CharField(required=False)
+    patient_id = forms.CharField(required=False)
     insurer = forms.CharField(required=False)
 
 
