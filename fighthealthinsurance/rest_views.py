@@ -92,9 +92,12 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
                 denial = Denial.filter_to_allowed_denials(current_user).get(
                     denial_id=denial_id
                 )
-        serializer_data["patient_user"] = PatientUser.objects.get(
-            id=serializer_data.pop("patient_id")
-        )
+        if "patient_id" in serializer_data:
+            patient_id = serializer_data.pop("patient_id")
+            if patient_id:
+                serializer_data["patient_user"] = PatientUser.objects.get(
+                    id=patient_id
+                )
         denial_response_info = (
             common_view_logic.DenialCreatorHelper.create_or_update_denial(
                 denial=denial,
