@@ -533,8 +533,19 @@ class RestAuthViewsTests(TestCase):
         self.assertEqual(response.json()["status"], "failure")
 
     def test_whoami_view_authed(self):
+        # Log in
+        url = reverse("rest_login-login")
+        data = {
+            "username": "testuser",
+            "password": "testpass",
+            "domain": "testdomain",
+            "phone": "1234567890",
+        }
+        response = self.client.post(url, data, format="json")
+        self.assertIn(response.status_code, range(200, 300))
+        self.assertEqual(response.json()["status"], "success")
+        # Check whoami
         url = reverse("whoami-list")
-        self.client.force_authenticate(user=self.user)
         response = self.client.get(url, format="json")
         self.assertEqual(response.status_code, 200)
         data = response.json()

@@ -63,6 +63,11 @@ class WhoAmIViewSet(viewsets.ViewSet):
         if user.is_authenticated:
             # Get the user domain from the session
             domain_id = request.session.get("domain_id")
+            if not domain_id:
+                return Response(
+                    {"error": "Domain ID not found in session"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             user_domain = UserDomain.objects.get(id=domain_id)
             patient = False
             professional = False
@@ -96,7 +101,7 @@ class WhoAmIViewSet(viewsets.ViewSet):
                         "professional": professional,
                         "admin": admin,
                     }
-                ),
+                ).data,
                 status=status.HTTP_200_OK,
             )
         else:
