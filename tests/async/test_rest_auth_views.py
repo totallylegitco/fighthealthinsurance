@@ -603,7 +603,7 @@ class TestE2EProfessionalUserSignupFlow(TestCase):
             self.client.login(username=new_user.username, password="temp12345")
         )
         # Have the now logged in pro-user start to make an appeal
-        get_pending_url = reverse("patient_user-get_or_create_pending")
+        get_pending_url = reverse("patient_user-get-or-create-pending")
         data = {
             "domain_name": domain_name,
             "provider_phone_number": phone_number,
