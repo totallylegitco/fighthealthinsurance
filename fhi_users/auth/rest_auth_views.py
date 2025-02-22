@@ -404,6 +404,7 @@ class RestLoginView(ViewSet, SerializerMixin):
         user = authenticate(username=username, password=password)
         if user:
             request.session["domain_id"] = domain_id
+            logger.info(f"User {user.username} logged in setting domain id to {domain_id}")
             login(request, user)
             return Response({"status": "success"})
         try:

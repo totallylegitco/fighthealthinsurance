@@ -599,7 +599,7 @@ class StripeWebhookView(View):
                 if subscription_id:
                     models.UserDomain.objects.filter(
                         id=session.metadata.get("id")
-                    ).update(stripe_subscription_id=subscription_id, active=True)
+                    ).update(stripe_subscription_id=subscription_id, active=True, pending=False)
                     models.ProfessionalUser.objects.filter(
                         id=session.metadata.get("professional_id")
                     ).update(active=True)
