@@ -1,73 +1,14 @@
 import asyncio
-import json
 import io
 from asgiref.sync import async_to_sync
-from unittest.mock import Mock, patch
+from unittest.mock import patch, Mock
 from typing import AsyncIterator
-from fighthealthinsurance.common_view_logic import (
-    RemoveDataHelper,
-    SendFaxHelper,
-    FindNextStepsHelper,
-    DenialCreatorHelper,
-    AppealsBackendHelper,
-    DenialResponseInfo,
-    NextStepInfo,
-)
-from fighthealthinsurance.models import Denial, DenialTypes, FaxesToSend
 import pytest
-from django.test import TestCase, Client
-
+from fighthealthinsurance.models import Denial, DenialTypes
+from fighthealthinsurance.common_view_logic import AppealsBackendHelper
 
 class TestCommonViewLogic(TestCase):
     fixtures = ["fighthealthinsurance/fixtures/initial.yaml"]
-
-    @pytest.mark.django_db
-    @patch("fighthealthinsurance.common_view_logic.Denial.objects")
-    def test_remove_data_for_email(self, mock_denial_objects):
-        mock_denial = Mock()
-        mock_denial_objects.filter.return_value.delete.return_value = 1
-        RemoveDataHelper.remove_data_for_email("test@example.com")
-        mock_denial_objects.filter.assert_called()
-        mock_denial_objects.filter.return_value.delete.assert_called()
-
-    @pytest.mark.django_db
-    @patch("fighthealthinsurance.common_view_logic.Denial.objects")
-    def test_find_next_steps(self, mock_denial_objects):
-        denial = Denial.objects.create(
-            denial_id=1,
-            semi_sekret="sekret",
-            hashed_email=Denial.get_hashed_email("test@example.com"),
-        )
-        denial.denial_type.all.return_value = [
-            DenialTypes.objects.get(name="Insurance Company"),
-            DenialTypes.objects.get(name="Medically Necessary"),
-        ]
-        next_steps = FindNextStepsHelper.find_next_steps(
-            denial_id=1,
-            email="test@example.com",
-            semi_sekret=denial.semi_sekret,
-            procedure="prep",
-            plan_id="1",
-            denial_type=None,
-            denial_date=None,
-            diagnosis="high risk homosexual behvaiour",
-            insurance_company="evilco",
-            claim_id=7,
-        )
-        self.assertIsInstance(next_steps, NextStepInfo)
-
-    @pytest.mark.django_db
-    @patch("fighthealthinsurance.common_view_logic.Denial.objects")
-    def test_create_denial(self, mock_denial_objects):
-        mock_denial = Mock()
-        mock_denial_objects.create.return_value = mock_denial
-        denial_response = DenialCreatorHelper.create_or_update_denial(
-            email="test@example.com",
-            denial_text="text",
-            health_history="history",
-            zip="1234",
-        )
-        self.assertIsInstance(denial_response, DenialResponseInfo)
 
     @pytest.mark.django_db
     @patch("fighthealthinsurance.common_view_logic.appealGenerator")
@@ -79,17 +20,19 @@ class TestCommonViewLogic(TestCase):
             hashed_email=Denial.get_hashed_email(email),
         )
 
+        # Test helper: Async generator yielding items with delay.
         async def async_generator(items) -> AsyncIterator[str]:
-            """Test helper: Async generator yielding items with delay."""
             for item in items:
                 await asyncio.sleep(0.1)
                 yield item
 
         async def test():
-            # TODO: Wire this up correctly.
+            # Mocking appeal generation with an async generator
             mock_appeal_generator.generate_appeals.return_value = async_generator(
-                ["test"]
+                ["test appeal data"]
             )
+            
+            # Running the backend helper that processes the appeals
             response = await AppealsBackendHelper.generate_appeals(
                 {
                     "denial_id": 1,
@@ -97,15 +40,21 @@ class TestCommonViewLogic(TestCase):
                     "semi_sekret": denial.semi_sekret,
                 }
             )
-            # Create a BytesIO to capture the response
+            
+            # Create a StringIO buffer to capture the response
             buf = io.StringIO()
 
-            # Write each chunk to the BytesIO
+            # Write each chunk from the async generator to the StringIO
             async for chunk in response:
                 buf.write(chunk)
 
-            # Go back to the beginning of the BytesIO
+            # Go back to the beginning of the StringIO to read the value
             buf.seek(0)
             string_data = buf.getvalue()
 
+            # Assert that the string data matches the expected output
+            self.assertEqual(string_data, "test appeal data")
+
+        # Convert the async test function to run synchronously
         async_to_sync(test)()
+

@@ -1,0 +1,6 @@
+omit =
+    tests/*
+    */tests/*
+
+source =
+    fighthealthinsurance
