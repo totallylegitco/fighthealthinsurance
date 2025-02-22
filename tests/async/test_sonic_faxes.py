@@ -1,4 +1,5 @@
 import os
+import unittest
 import tempfile
 import pytest
 import asyncio
@@ -10,22 +11,21 @@ class SonicFaxTest(unittest.TestCase):
         keys = ["SONIC_USERNAME", "SONIC_PASSWORD", "SONIC_TOKEN"]
         for key in keys:
             if key not in environ:
-                return False  # Return False if any key is missing
-        return True  # Return True if all keys are present
+                return False  
+        return True  
 
     @pytest.mark.skipif(_sonic_is_configured(), reason="Not configured")
     def test_sonic_fax_success(self):
         """Test faxing with a valid fax number."""
         s = SonicFax()
         with tempfile.NamedTemporaryFile(suffix=".txt", prefix="meeps", mode="w+t", delete=False) as f:
-            # Write content to the file
             f.write("This is a test fax")
             f.close()
             os.sync()
 
             file_name = f.name
             try:
-                # Attempt to send the fax
+
                 result = asyncio.run(
                     s.send_fax(
                         destination=os.getenv("TEST_GOOD_FAX_NUMBER", "4158407591"),
