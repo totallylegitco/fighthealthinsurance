@@ -1,4 +1,5 @@
 import os
+from os import environ
 import unittest
 import tempfile
 import pytest
@@ -35,7 +36,7 @@ class SonicFaxTest(unittest.TestCase):
                 )
                 self.assertTrue(result)
             finally:
-                os.remove(file_name)  # Clean up the file after the test
+                os.remove(file_name) 
 
     @pytest.mark.skipif(_sonic_is_configured(), reason="Not configured")
     def test_sonic_fax_failure(self):
@@ -49,7 +50,6 @@ class SonicFaxTest(unittest.TestCase):
 
             file_name = f.name
             try:
-                # Attempt to send the fax to an invalid number
                 result = asyncio.run(
                     s.send_fax(
                         destination=os.getenv("TEST_BAD_FAX_NUMBER", "4255555555"),
@@ -59,7 +59,7 @@ class SonicFaxTest(unittest.TestCase):
                 )
                 self.assertFalse(result)
             finally:
-                os.remove(file_name)  # Clean up the file after the test
+                os.remove(file_name)
 
     @pytest.mark.skipif(_sonic_is_configured(), reason="Not configured")
     def test_invalid_file(self):
@@ -79,7 +79,7 @@ class SonicFaxTest(unittest.TestCase):
                         blocking=True,
                     )
                 )
-                self.assertFalse(result)  # Expecting failure due to incorrect file format
+                self.assertFalse(result) 
             finally:
                 os.remove(file_name)
 
@@ -88,7 +88,7 @@ class SonicFaxTest(unittest.TestCase):
         """Test sending an empty file."""
         s = SonicFax()
         with tempfile.NamedTemporaryFile(suffix=".txt", prefix="empty_meeps", mode="w+t", delete=False) as f:
-            f.write("")  # Write an empty file
+            f.write("")  
             f.close()
             os.sync()
 
@@ -101,6 +101,6 @@ class SonicFaxTest(unittest.TestCase):
                         blocking=True,
                     )
                 )
-                self.assertFalse(result)  # Expecting failure due to empty content
+                self.assertFalse(result) 
             finally:
                 os.remove(file_name)
