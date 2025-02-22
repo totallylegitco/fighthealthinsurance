@@ -289,9 +289,19 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         serializer.is_valid(raise_exception=True)
         # Make sure the user has permission to this denial
         denial_uuid = serializer.validated_data["denial_uuid"]
-        denial = Denial.filter_to_allowed_denials(current_user).get(
-            denial_uuid=denial_uuid
-        )
+        denial_opt: Optional[Denial] = None
+        if denial_uuid:
+            denial_opt = Denial.filter_to_allowed_denials(current_user).get(
+                denial_uuid=denial_uuid
+            )
+        else:
+            denial_id = serializer.validated_data["denial_id"]
+            denial_opt = Denial.filter_to_allowed_denials(current_user).get(
+                denial_id=denial_id
+            )
+        if denial_opt is None:
+            raise Exception("Denial not found")
+        denial = denial_opt
         appeal = None
         try:
             appeal = Appeal.filter_to_allowed_appeals(current_user).get(
