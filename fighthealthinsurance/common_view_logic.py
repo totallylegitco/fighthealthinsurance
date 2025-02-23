@@ -1170,8 +1170,12 @@ class AppealsBackendHelper:
         filtered_appeals: Iterator[str] = filter(lambda x: x != None, appeals)
 
         # We convert to async here.
-        saved_appeals: AsyncIterator[dict[str, str]] = a.map(save_appeal, filtered_appeals)
-        subbed_appeals: AsyncIterator[dict[str, str]] = a.map(sub_in_appeals, saved_appeals)
+        saved_appeals: AsyncIterator[dict[str, str]] = a.map(
+            save_appeal, filtered_appeals
+        )
+        subbed_appeals: AsyncIterator[dict[str, str]] = a.map(
+            sub_in_appeals, saved_appeals
+        )
         subbed_appeals_json: AsyncIterator[str] = a.map(format_response, subbed_appeals)
         # StreamignHttpResponse needs a synchronous iterator otherwise it blocks.
         interleaved: AsyncIterator[str] = interleave_iterator_for_keep_alive(

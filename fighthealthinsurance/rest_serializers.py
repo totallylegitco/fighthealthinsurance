@@ -89,9 +89,11 @@ class FollowUpFormSerializer(FormSerializer):
         exclude = ("followup_documents",)
         field_mapping = {forms.UUIDField: serializers.CharField}
 
+
 class QAResponsesSerializer(serializers.Serializer):
     denial_id = serializers.CharField()
     qa = serializers.DictField(child=serializers.CharField())
+
 
 # Model serializers
 

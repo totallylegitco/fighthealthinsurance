@@ -121,7 +121,7 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
             common_view_logic.DenialCreatorHelper.create_or_update_denial(
                 denial=denial,
                 creating_professional=creating_professional,
-                **serializer_data
+                **serializer_data,
             )
         )
         denial = Denial.objects.get(uuid=denial_response_info.uuid)
@@ -138,6 +138,7 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
             )
         return serializers.DenialResponseInfoSerializer(instance=denial_response_info)
 
+
 class QAResponseViewSet(viewsets.ViewSet, CreateMixin):
     serializer_class = serializers.QAResponsesSerializer
 
@@ -151,7 +152,7 @@ class QAResponseViewSet(viewsets.ViewSet, CreateMixin):
                 continue
             try:
                 dqa = DenialQA.objects.filter(denial=denial).get(question=key)
-                dqa.text_answer=value
+                dqa.text_answer = value
                 dqa.save()
             except DenialQA.DoesNotExist:
                 DenialQA.objects.create(
@@ -167,6 +168,7 @@ class QAResponseViewSet(viewsets.ViewSet, CreateMixin):
         denial.qa_context = qa_context
         denial.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class FollowUpViewSet(viewsets.ViewSet, CreateMixin):
     serializer_class = serializers.FollowUpFormSerializer
