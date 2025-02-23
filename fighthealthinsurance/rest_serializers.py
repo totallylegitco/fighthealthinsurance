@@ -90,6 +90,11 @@ class FollowUpFormSerializer(FormSerializer):
         field_mapping = {forms.UUIDField: serializers.CharField}
 
 
+class QAResponsesSerializer(serializers.Serializer):
+    denial_id = serializers.CharField()
+    qa = serializers.DictField(child=serializers.CharField())
+
+
 # Model serializers
 
 
@@ -238,24 +243,6 @@ class EmailVerifierSerializer(serializers.Serializer):
     email = serializers.EmailField()
     token = serializers.CharField()
     user_id = serializers.IntegerField()
-
-
-class StatisticalMetricsSerializer(serializers.Serializer):
-    # Current period metrics
-    current_appeals_submitted = serializers.IntegerField()
-    current_success_rate = serializers.FloatField()
-    current_tips_received = serializers.IntegerField()
-    current_patients_engaged = serializers.IntegerField()
-    
-    # Previous period metrics for comparison
-    previous_appeals_submitted = serializers.IntegerField()
-    previous_success_rate = serializers.FloatField()
-    previous_tips_received = serializers.IntegerField()
-    previous_patients_engaged = serializers.IntegerField()
-    
-    # Period information
-    period_start_date = serializers.DateField()
-    period_end_date = serializers.DateField()
 
 
 # Mailing list
