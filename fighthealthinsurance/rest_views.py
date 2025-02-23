@@ -345,21 +345,22 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         patient_user = denial.patient_user
         if patient_user is None:
             raise Exception("Patient user not found on denial")
-        # Make sure the user has permission to this denial
-        denial_uuid = serializer.validated_data["denial_uuid"]
-        denial = Denial.filter_to_allowed_denials(current_user).get(
-            denial_uuid=denial_uuid
-        )
         user_domain = UserDomain.objects.get(id=request.session["domain_id"])
         completed_appeal_text = serializer.validated_data["completed_appeal_text"]
-        insurance_company = serializer.validated_data["insurance_company"] or ""
-        fax_phone = serializer.validated_data["fax_phone"] or denial.fax_phone
-        pubmed_articles_to_include = serializer.validated_data[
-            "pubmed_articles_to_include"
-        ]
-        include_provided_health_history = serializer.validated_data[
-            "include_provided_health_history"
-        ]
+        insurance_company = "Insurance Company"
+        if "insurance_company" in serializer.validated_data and serializer.validated_data["insurance_company"]:
+            insurance_company = serializer.validated_data["insurance_company"]
+        # Fax phone is an optional field
+        fax_phone = denial.fax_phone
+        if "fax_phone" in serializer.validated_data and serializer.validated_data["fax_phone"]:
+            fax_phone = serializer.validated_data["fax_phone"]
+        pubmed_articles_to_include: list[str] = []
+        if "pubmed_articles_to_include" in serializer.validated_data:
+            pubmed_articles_to_include = serializer.validated_data[
+                "pubmed_articles_to_include"
+            ]
+        # See https://github.com/totallylegitco/fhi-nextjs-pro/issues/73
+        include_provided_health_history = False
         patient_user = denial.patient_user
         patient_name: str = "unkown"
         if patient_user is not None:
@@ -386,7 +387,7 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         )
         appeal.save()
         return Response(
-            serializers.AssembleAppealResponseSerializer({"appeal_id": appeal.id}),
+            serializers.AssembleAppealResponseSerializer({"appeal_id": appeal.id}).data,
             status=status.HTTP_201_CREATED,
         )
 

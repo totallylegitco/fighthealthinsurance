@@ -398,6 +398,7 @@ class Denial(ExportModelOperationsMixin("Denial"), models.Model):  # type: ignor
     reference_summary = models.TextField(primary_key=False, null=True, blank=True)
     appeal_fax_number = models.CharField(max_length=40, null=True, blank=True)
     your_state = models.CharField(max_length=40, null=True)
+    fax_phone = models.CharField(max_length=40, null=True)
     creating_professional = models.ForeignKey(
         ProfessionalUser,
         null=True,
