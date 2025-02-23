@@ -182,7 +182,7 @@ class AppealAssemblyHelper:
 
     def create_or_update_appeal(
         self,
-        fax_phone: str,
+        fax_phone: Optional[str],
         completed_appeal_text: str,
         company_name: str,
         email: str,
@@ -244,11 +244,12 @@ class AppealAssemblyHelper:
         with tempfile.NamedTemporaryFile(
             suffix=".pdf", prefix="alltogether", mode="w+b", delete=False
         ) as t:
+            fax_phone_concrete: str = fax_phone or ""
             self._assemble_appeal_pdf(
                 insurance_company=insurance_company,
                 patient_name=name,
                 claim_id=claim_id,
-                fax_phone=fax_phone,
+                fax_phone=fax_phone_concrete,
                 completed_appeal_text=completed_appeal_text,
                 health_history=health_history,
                 pubmed_ids_parsed=pubmed_ids_parsed,
