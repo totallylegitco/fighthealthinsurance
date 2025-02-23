@@ -348,11 +348,17 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         user_domain = UserDomain.objects.get(id=request.session["domain_id"])
         completed_appeal_text = serializer.validated_data["completed_appeal_text"]
         insurance_company = "Insurance Company"
-        if "insurance_company" in serializer.validated_data and serializer.validated_data["insurance_company"]:
+        if (
+            "insurance_company" in serializer.validated_data
+            and serializer.validated_data["insurance_company"]
+        ):
             insurance_company = serializer.validated_data["insurance_company"]
         # Fax phone is an optional field
         fax_phone = denial.fax_phone
-        if "fax_phone" in serializer.validated_data and serializer.validated_data["fax_phone"]:
+        if (
+            "fax_phone" in serializer.validated_data
+            and serializer.validated_data["fax_phone"]
+        ):
             fax_phone = serializer.validated_data["fax_phone"]
         pubmed_articles_to_include: list[str] = []
         if "pubmed_articles_to_include" in serializer.validated_data:
