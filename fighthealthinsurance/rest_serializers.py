@@ -127,23 +127,6 @@ class AppealListRequestSerializer(serializers.Serializer):
     page_size = serializers.IntegerField(min_value=1, required=False, default=10)
 
 
-class GlobalSearchRequestSerializer(serializers.Serializer):
-    query = serializers.CharField(required=True, min_length=2)
-    search_type = serializers.ChoiceField(
-        choices=[
-            "all",
-            "appeals",
-            "patients",
-            "providers",
-            "insurance_companies",
-        ],
-        required=False,
-        default="all"
-    )
-    page = serializers.IntegerField(min_value=1, required=False, default=1)
-    page_size = serializers.IntegerField(min_value=1, required=False, default=10)
-
-
 class AppealSummarySerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
     provider_name = serializers.SerializerMethodField()
@@ -290,3 +273,12 @@ class StatisticsSerializer(serializers.Serializer):
     period_start = serializers.DateTimeField()
     period_end = serializers.DateTimeField()
 
+
+class SearchResultSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    uuid = serializers.CharField()
+    appeal_text = serializers.CharField()
+    pending = serializers.BooleanField()
+    sent = serializers.BooleanField()
+    mod_date = serializers.DateField()
+    has_response = serializers.BooleanField()

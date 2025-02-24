@@ -5,6 +5,10 @@ from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
+from django.db.models import Q, Count
+from django.urls import reverse
+from django.utils import timezone
+from dateutil.relativedelta import relativedelta
 
 from rest_framework import status
 from rest_framework import viewsets
@@ -27,7 +31,7 @@ from fighthealthinsurance.rest_mixins import (
     DeleteMixin,
     DeleteOnlyMixin,
 )
-from fighthealthinsurance.models import Appeal, Denial, DenialQA
+from fighthealthinsurance.models import Appeal, Denial, DenialQA, Patient, Tip
 
 from fhi_users.models import (
     UserDomain,
@@ -449,65 +453,47 @@ class SendToUserViewSet(viewsets.ViewSet, SerializerMixin):
         )
 
 
-class StatisticsAPIViewSet(viewsets.ViewSet, SerializerMixin):
+class StatisticsAPIViewSet(APIView):
     def get(self, request):
         now = timezone.now()
         
+        # Define current period (current month)
         current_period_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         current_period_end = now
         
+        # Define previous period
         previous_period_start = (current_period_start - relativedelta(months=1))
         previous_period_end = current_period_start - relativedelta(microseconds=1)
         
-        current_stats = {
-            'current_total_appeals': Appeal.objects.filter(
-                created_at__range=(current_period_start, current_period_end)
-            ).count(),
-            
-            'current_success_rate': Appeal.objects.filter(
-                created_at__range=(current_period_start, current_period_end),
-                status='approved'
-            ).count() / Appeal.objects.filter(
-                created_at__range=(current_period_start, current_period_end)
-            ).count() * 100 if Appeal.objects.filter(
-                created_at__range=(current_period_start, current_period_end)
-            ).exists() else 0,
-            
-            'current_total_tips': Tip.objects.filter(
-                created_at__range=(current_period_start, current_period_end)
-            ).count(),
-            
-            'current_total_patients': Patient.objects.filter(
-                created_at__range=(current_period_start, current_period_end)
-            ).count(),
-        }
-
-        previous_stats = {
-            'previous_total_appeals': Appeal.objects.filter(
-                created_at__range=(previous_period_start, previous_period_end)
-            ).count(),
-            
-            'previous_success_rate': Appeal.objects.filter(
-                created_at__range=(previous_period_start, previous_period_end),
-                status='approved'
-            ).count() / Appeal.objects.filter(
-                created_at__range=(previous_period_start, previous_period_end)
-            ).count() * 100 if Appeal.objects.filter(
-                created_at__range=(previous_period_start, previous_period_end)
-            ).exists() else 0,
-            
-            'previous_total_tips': Tip.objects.filter(
-                created_at__range=(previous_period_start, previous_period_end)
-            ).count(),
-            
-            'previous_total_patients': Patient.objects.filter(
-                created_at__range=(previous_period_start, previous_period_end)
-            ).count(),
-        }
+        # Calculate current period statistics
+        current_appeals = Appeal.objects.filter(
+            mod_date__range=(current_period_start.date(), current_period_end.date())
+        )
+        current_total = current_appeals.count()
+        current_pending = current_appeals.filter(pending=True).count()
+        current_sent = current_appeals.filter(sent=True).count()
+        current_with_response = current_appeals.exclude(response_date=None).count()
+        
+        # Calculate previous period statistics
+        previous_appeals = Appeal.objects.filter(
+            mod_date__range=(previous_period_start.date(), previous_period_end.date())
+        )
+        previous_total = previous_appeals.count()
+        previous_pending = previous_appeals.filter(pending=True).count()
+        previous_sent = previous_appeals.filter(sent=True).count()
+        previous_with_response = previous_appeals.exclude(response_date=None).count()
         
         statistics = {
-            **current_stats,
-            **previous_stats,
+            'current_total_appeals': current_total,
+            'current_pending_appeals': current_pending,
+            'current_sent_appeals': current_sent,
+            'current_response_rate': (current_with_response / current_total * 100) if current_total > 0 else 0,
+            
+            'previous_total_appeals': previous_total,
+            'previous_pending_appeals': previous_pending,
+            'previous_sent_appeals': previous_sent,
+            'previous_response_rate': (previous_with_response / previous_total * 100) if previous_total > 0 else 0,
+            
             'period_start': current_period_start,
             'period_end': current_period_end
         }
@@ -515,7 +501,7 @@ class StatisticsAPIViewSet(viewsets.ViewSet, SerializerMixin):
         return Response(serializers.StatisticsSerializer(statistics).data, status=status.HTTP_200_OK)
 
 
-class GlobalSearchAPIView(viewsets.ViewSet, SerializerMixin):
+class GlobalSearchAPIView(APIView):
     def get(self, request):
         query = request.GET.get('q', '')
         if not query:
@@ -524,68 +510,28 @@ class GlobalSearchAPIView(viewsets.ViewSet, SerializerMixin):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Initialize empty results list
-        search_results = []
-
         # Search in Appeals
         appeals = Appeal.objects.filter(
-            Q(title__icontains=query) |
-            Q(description__icontains=query) |
-            Q(patient__name__icontains=query)
+            Q(uuid__icontains=query) |
+            Q(appeal_text__icontains=query) |
+            Q(response_text__icontains=query)
         )
+
+        # Convert appeals to search results
+        search_results = []
         for appeal in appeals:
             search_results.append({
                 'id': appeal.id,
-                'model_type': 'appeal',
-                'title': appeal.title,
-                'description': appeal.description[:200],  # First 200 chars as preview
-                'created_at': appeal.created_at,
-                'url': reverse('appeal-detail', args=[appeal.id]),
-                'metadata': {
-                    'status': appeal.status,
-                    'patient_name': appeal.patient.name,
-                }
+                'uuid': appeal.uuid,
+                'appeal_text': appeal.appeal_text[:200] if appeal.appeal_text else '',  # Preview
+                'pending': appeal.pending,
+                'sent': appeal.sent,
+                'mod_date': appeal.mod_date,
+                'has_response': appeal.response_date is not None
             })
 
-        # Search in Patients
-        patients = Patient.objects.filter(
-            Q(name__icontains=query) |
-            Q(medical_history__icontains=query)
-        )
-        for patient in patients:
-            search_results.append({
-                'id': patient.id,
-                'model_type': 'patient',
-                'title': patient.name,
-                'description': patient.medical_history[:200] if patient.medical_history else '',
-                'created_at': patient.created_at,
-                'url': reverse('patient-detail', args=[patient.id]),
-                'metadata': {
-                    'age': patient.age,
-                    'gender': patient.gender,
-                }
-            })
-
-        # Search in Tips
-        tips = Tip.objects.filter(
-            Q(title__icontains=query) |
-            Q(content__icontains=query)
-        )
-        for tip in tips:
-            search_results.append({
-                'id': tip.id,
-                'model_type': 'tip',
-                'title': tip.title,
-                'description': tip.content[:200],
-                'created_at': tip.created_at,
-                'url': reverse('tip-detail', args=[tip.id]),
-                'metadata': {
-                    'category': tip.category,
-                }
-            })
-
-        # Sort results by creation date (newest first)
-        search_results.sort(key=lambda x: x['created_at'], reverse=True)
+        # Sort results by modification date (newest first)
+        search_results.sort(key=lambda x: x['mod_date'], reverse=True)
 
         # Paginate results
         page_size = int(request.GET.get('page_size', 10))
@@ -595,10 +541,11 @@ class GlobalSearchAPIView(viewsets.ViewSet, SerializerMixin):
 
         paginated_results = search_results[start_idx:end_idx]
         
+        serializer = serializers.SearchResultSerializer(paginated_results, many=True)
         
-        return Response(serializers.SearchResultSerializer({
+        return Response({
             'count': len(search_results),
             'next': page < len(search_results) // page_size + 1,
             'previous': page > 1,
             'results': serializer.data
-        }))
+        })
