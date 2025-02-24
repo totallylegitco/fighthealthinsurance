@@ -447,3 +447,158 @@ class SendToUserViewSet(viewsets.ViewSet, SerializerMixin):
         appeal = Appeal.filter_to_allowed_appeals(current_user).get(
             id=serializer.validated_data["appeal_id"]
         )
+
+
+class StatisticsAPIViewSet(viewsets.ViewSet, SerializerMixin):
+    def get(self, request):
+        now = timezone.now()
+        
+        current_period_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        current_period_end = now
+        
+        previous_period_start = (current_period_start - relativedelta(months=1))
+        previous_period_end = current_period_start - relativedelta(microseconds=1)
+        
+        current_stats = {
+            'current_total_appeals': Appeal.objects.filter(
+                created_at__range=(current_period_start, current_period_end)
+            ).count(),
+            
+            'current_success_rate': Appeal.objects.filter(
+                created_at__range=(current_period_start, current_period_end),
+                status='approved'
+            ).count() / Appeal.objects.filter(
+                created_at__range=(current_period_start, current_period_end)
+            ).count() * 100 if Appeal.objects.filter(
+                created_at__range=(current_period_start, current_period_end)
+            ).exists() else 0,
+            
+            'current_total_tips': Tip.objects.filter(
+                created_at__range=(current_period_start, current_period_end)
+            ).count(),
+            
+            'current_total_patients': Patient.objects.filter(
+                created_at__range=(current_period_start, current_period_end)
+            ).count(),
+        }
+
+        previous_stats = {
+            'previous_total_appeals': Appeal.objects.filter(
+                created_at__range=(previous_period_start, previous_period_end)
+            ).count(),
+            
+            'previous_success_rate': Appeal.objects.filter(
+                created_at__range=(previous_period_start, previous_period_end),
+                status='approved'
+            ).count() / Appeal.objects.filter(
+                created_at__range=(previous_period_start, previous_period_end)
+            ).count() * 100 if Appeal.objects.filter(
+                created_at__range=(previous_period_start, previous_period_end)
+            ).exists() else 0,
+            
+            'previous_total_tips': Tip.objects.filter(
+                created_at__range=(previous_period_start, previous_period_end)
+            ).count(),
+            
+            'previous_total_patients': Patient.objects.filter(
+                created_at__range=(previous_period_start, previous_period_end)
+            ).count(),
+        }
+        
+        statistics = {
+            **current_stats,
+            **previous_stats,
+            'period_start': current_period_start,
+            'period_end': current_period_end
+        }
+        
+        return Response(serializers.StatisticsSerializer(statistics).data, status=status.HTTP_200_OK)
+
+
+class GlobalSearchAPIView(viewsets.ViewSet, SerializerMixin):
+    def get(self, request):
+        query = request.GET.get('q', '')
+        if not query:
+            return Response(
+                {'error': 'Please provide a search query parameter "q"'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Initialize empty results list
+        search_results = []
+
+        # Search in Appeals
+        appeals = Appeal.objects.filter(
+            Q(title__icontains=query) |
+            Q(description__icontains=query) |
+            Q(patient__name__icontains=query)
+        )
+        for appeal in appeals:
+            search_results.append({
+                'id': appeal.id,
+                'model_type': 'appeal',
+                'title': appeal.title,
+                'description': appeal.description[:200],  # First 200 chars as preview
+                'created_at': appeal.created_at,
+                'url': reverse('appeal-detail', args=[appeal.id]),
+                'metadata': {
+                    'status': appeal.status,
+                    'patient_name': appeal.patient.name,
+                }
+            })
+
+        # Search in Patients
+        patients = Patient.objects.filter(
+            Q(name__icontains=query) |
+            Q(medical_history__icontains=query)
+        )
+        for patient in patients:
+            search_results.append({
+                'id': patient.id,
+                'model_type': 'patient',
+                'title': patient.name,
+                'description': patient.medical_history[:200] if patient.medical_history else '',
+                'created_at': patient.created_at,
+                'url': reverse('patient-detail', args=[patient.id]),
+                'metadata': {
+                    'age': patient.age,
+                    'gender': patient.gender,
+                }
+            })
+
+        # Search in Tips
+        tips = Tip.objects.filter(
+            Q(title__icontains=query) |
+            Q(content__icontains=query)
+        )
+        for tip in tips:
+            search_results.append({
+                'id': tip.id,
+                'model_type': 'tip',
+                'title': tip.title,
+                'description': tip.content[:200],
+                'created_at': tip.created_at,
+                'url': reverse('tip-detail', args=[tip.id]),
+                'metadata': {
+                    'category': tip.category,
+                }
+            })
+
+        # Sort results by creation date (newest first)
+        search_results.sort(key=lambda x: x['created_at'], reverse=True)
+
+        # Paginate results
+        page_size = int(request.GET.get('page_size', 10))
+        page = int(request.GET.get('page', 1))
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+
+        paginated_results = search_results[start_idx:end_idx]
+        
+        
+        return Response(serializers.SearchResultSerializer({
+            'count': len(search_results),
+            'next': page < len(search_results) // page_size + 1,
+            'previous': page > 1,
+            'results': serializer.data
+        }))

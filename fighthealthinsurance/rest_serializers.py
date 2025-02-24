@@ -274,3 +274,19 @@ class InviteProviderSerializer(serializers.Serializer):
                 "Either professional_id or email must be provided."
             )
         return data
+
+
+class StatisticsSerializer(serializers.Serializer):
+    current_total_appeals = serializers.IntegerField()
+    current_success_rate = serializers.FloatField()
+    current_total_tips = serializers.IntegerField()
+    current_total_patients = serializers.IntegerField()
+    
+    previous_total_appeals = serializers.IntegerField()
+    previous_success_rate = serializers.FloatField()
+    previous_total_tips = serializers.IntegerField()
+    previous_total_patients = serializers.IntegerField()
+    
+    period_start = serializers.DateTimeField()
+    period_end = serializers.DateTimeField()
+
