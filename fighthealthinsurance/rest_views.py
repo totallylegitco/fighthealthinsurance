@@ -501,7 +501,7 @@ class StatisticsAPIViewSet(viewsets.ViewSet):
             'period_end': current_period_end
         }
         
-        return Response(statistics, status=status.HTTP_200_OK)
+        return Response(statistics)
 
 
 class SearchAPIViewSet(viewsets.ViewSet):
