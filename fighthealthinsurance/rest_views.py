@@ -207,7 +207,7 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
 
     def get_serializer_class(self):
         if self.action == "list":
-            return serializers.AppaealListRequestSerializer
+            return serializers.AppealListRequestSerializer
         elif self.action == "send_fax":
             return serializers.SendFax
         elif self.action == "assemble_appeal":
