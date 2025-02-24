@@ -7,6 +7,8 @@ from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from django.http import FileResponse
 
+from django_encrypted_filefield.crypt import Cryptographer
+
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.request import Request
@@ -495,9 +497,10 @@ class AppealAttachmentViewSet(viewsets.ViewSet):
         attachment = get_object_or_404(
             AppealAttachment.filter_to_allowed_attachments(current_user), id=pk
         )
-
+        file = attachment.document_enc.open()
+        content = Cryptographer.decrypted(file.read())
         response = FileResponse(
-            attachment.file.open(),
+            content,
             content_type=attachment.mime_type,
             as_attachment=True,
             filename=attachment.filename,
