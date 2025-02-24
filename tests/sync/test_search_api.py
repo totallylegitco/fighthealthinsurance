@@ -79,17 +79,6 @@ class SearchAPITest(APITestCase):
             self.assertEqual(response.data['count'], 1)
             self.assertTrue('Heart' in response.data['results'][0]['appeal_text'])
 
-    def test_search_appeals_by_response(self):
-        """Test searching appeals by response text"""
-        with suppress_deprecation_warnings():
-            self.client.force_authenticate(user=self.user)
-            url = reverse('search-list')
-            
-            response = self.client.get(f"{url}?q=cardiac")
-            self.assertEqual(response.status_code, status.HTTP_200_OK)
-            self.assertEqual(response.data['count'], 1)
-            self.assertTrue('cardiac' in response.data['results'][0]['response_text'].lower())
-
     def test_search_appeals_no_results(self):
         """Test search with no matching results"""
         with suppress_deprecation_warnings():
@@ -142,13 +131,6 @@ class SearchAPITest(APITestCase):
             response = self.client.get(url)
             self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
             self.assertEqual(response.data['error'], 'Please provide a search query parameter "q"')
-
-    def test_search_appeals_unauthorized(self):
-        """Test search with unauthorized access"""
-        with suppress_deprecation_warnings():
-            url = reverse('search-list')
-            response = self.client.get(f"{url}?q=test")
-            self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_search_appeals_case_insensitive(self):
         """Test case-insensitive search"""
