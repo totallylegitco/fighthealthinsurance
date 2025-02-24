@@ -132,13 +132,14 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
         try:
             Appeal.objects.get(for_denial=denial)
         except:
-            Appeal.objects.create(
+            appeal = Appeal.objects.create(
                 for_denial=denial,
                 patient_user=denial.patient_user,
                 primary_professional=denial.primary_professional,
                 creating_professional=denial.creating_professional,
                 pending=True,
             )
+            denial_response_info.appeal_id = appeal.id
         return serializers.DenialResponseInfoSerializer(instance=denial_response_info)
 
 
