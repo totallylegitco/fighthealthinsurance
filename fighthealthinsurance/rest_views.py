@@ -31,7 +31,7 @@ from fighthealthinsurance.rest_mixins import (
     DeleteMixin,
     DeleteOnlyMixin,
 )
-from fighthealthinsurance.models import Appeal, Denial, DenialQA, Patient, Tip
+from fighthealthinsurance.models import Appeal, Denial, DenialQA
 
 from fhi_users.models import (
     UserDomain,
@@ -453,8 +453,11 @@ class SendToUserViewSet(viewsets.ViewSet, SerializerMixin):
         )
 
 
-class StatisticsAPIViewSet(APIView):
-    def get(self, request):
+class StatisticsAPIViewSet(viewsets.ViewSet):
+    """
+    ViewSet for statistics API
+    """
+    def list(self, request):
         now = timezone.now()
         
         # Define current period (current month)
@@ -466,7 +469,7 @@ class StatisticsAPIViewSet(APIView):
         previous_period_end = current_period_start - relativedelta(microseconds=1)
         
         # Calculate current period statistics
-        current_appeals = Appeal.objects.filter(
+        current_appeals = Appeal.filter_to_allowed_appeals(request.user).filter(
             mod_date__range=(current_period_start.date(), current_period_end.date())
         )
         current_total = current_appeals.count()
@@ -475,7 +478,7 @@ class StatisticsAPIViewSet(APIView):
         current_with_response = current_appeals.exclude(response_date=None).count()
         
         # Calculate previous period statistics
-        previous_appeals = Appeal.objects.filter(
+        previous_appeals = Appeal.filter_to_allowed_appeals(request.user).filter(
             mod_date__range=(previous_period_start.date(), previous_period_end.date())
         )
         previous_total = previous_appeals.count()
@@ -498,11 +501,14 @@ class StatisticsAPIViewSet(APIView):
             'period_end': current_period_end
         }
         
-        return Response(serializers.StatisticsSerializer(statistics).data, status=status.HTTP_200_OK)
+        return Response(statistics, status=status.HTTP_200_OK)
 
 
-class GlobalSearchAPIView(APIView):
-    def get(self, request):
+class SearchAPIViewSet(viewsets.ViewSet):
+    """
+    ViewSet for search API
+    """
+    def list(self, request):
         query = request.GET.get('q', '')
         if not query:
             return Response(
@@ -510,8 +516,8 @@ class GlobalSearchAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Search in Appeals
-        appeals = Appeal.objects.filter(
+        # Search in Appeals with user permissions
+        appeals = Appeal.filter_to_allowed_appeals(request.user).filter(
             Q(uuid__icontains=query) |
             Q(appeal_text__icontains=query) |
             Q(response_text__icontains=query)
@@ -523,7 +529,7 @@ class GlobalSearchAPIView(APIView):
             search_results.append({
                 'id': appeal.id,
                 'uuid': appeal.uuid,
-                'appeal_text': appeal.appeal_text[:200] if appeal.appeal_text else '',  # Preview
+                'appeal_text': appeal.appeal_text[:200] if appeal.appeal_text else '',
                 'pending': appeal.pending,
                 'sent': appeal.sent,
                 'mod_date': appeal.mod_date,
@@ -541,11 +547,9 @@ class GlobalSearchAPIView(APIView):
 
         paginated_results = search_results[start_idx:end_idx]
         
-        serializer = serializers.SearchResultSerializer(paginated_results, many=True)
-        
         return Response({
             'count': len(search_results),
             'next': page < len(search_results) // page_size + 1,
             'previous': page > 1,
-            'results': serializer.data
+            'results': paginated_results
         })

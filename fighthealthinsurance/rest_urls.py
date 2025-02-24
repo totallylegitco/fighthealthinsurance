@@ -21,7 +21,7 @@ router.register(r"next_steps", rest_views.NextStepsViewSet, basename="nextsteps"
 router.register(r"follow_up", rest_views.FollowUpViewSet, basename="followups")
 router.register(r"qaresponse", rest_views.QAResponseViewSet, basename="qacontext")
 router.register(r"statistics", rest_views.StatisticsAPIViewSet, basename="statistics")
-router.register(r"search", rest_views.GlobalSearchAPIView, basename="search")
+router.register(r"search", rest_views.SearchAPIViewSet, basename="search")
 
 
 router.register(
