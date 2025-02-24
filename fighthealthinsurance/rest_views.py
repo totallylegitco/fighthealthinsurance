@@ -240,7 +240,7 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         appeal = get_object_or_404(
             Appeal.filter_to_allowed_appeals(current_user), pk=pk
         )
-        serializer = serializers.AppealDetailSerializer(appeal)
+        serializer = serializers.AppealFullSerializer(appeal)
         return Response(serializer.data)
 
     @action(detail=False, methods=["post"])
@@ -365,7 +365,7 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         pubmed_articles_to_include = []
         if "pubmed_articles_to_include" in serializer.validated_data:
             pubmed_articles_to_include = serializer.validated_data[
-            "pubmed_articles_to_include"
+                "pubmed_articles_to_include"
             ]
         # TODO: Collect this
         include_provided_health_history = False

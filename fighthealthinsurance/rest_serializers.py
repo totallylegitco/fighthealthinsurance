@@ -197,29 +197,6 @@ class DenialModelSerializer(serializers.ModelSerializer):
         exclude: list[str] = []
 
 
-class AppealDetailSerializer(serializers.ModelSerializer):
-    appeal_pdf_url = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Appeal
-        fields = [
-            "uuid",
-            "status",
-            "response_text",
-            "response_date",
-            "appeal_text",
-            "appeal_pdf_url",
-            "pending",
-        ]
-
-    def get_appeal_pdf_url(self, obj):
-        # Generate a URL for downloading the appeal PDF
-        if obj.document_enc:
-            # TODO: Use reverse here rather than hardcoding
-            return reverse("appeal_file_view", kwargs={"appeal_uuid": obj.uuid})
-        return None
-
-
 class NotifyPatientRequestSerializer(serializers.Serializer):
     patient_id = serializers.IntegerField()
     include_provider = serializers.BooleanField(default=False)
@@ -230,6 +207,11 @@ class AppealFullSerializer(serializers.ModelSerializer):
     denial = serializers.SerializerMethodField()
     in_userdomain = serializers.SerializerMethodField()
     primary_professional = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    professional_name = serializers.SerializerMethodField()
+    patient_name = serializers.SerializerMethodField()
+    denial_reason = serializers.SerializerMethodField()
+    insurance_company = serializers.SerializerMethodField()
 
     class Meta:
         model = Appeal
@@ -263,6 +245,39 @@ class AppealFullSerializer(serializers.ModelSerializer):
                 obj.creating_professional
             ).data
         return None
+
+    def get_status(self, obj):
+        if obj.pending_patient:
+            return "pending patient"
+        elif obj.pending_professional:
+            return "pending professional"
+        elif obj.sent:
+            return "sent"
+        else:
+            return "unknown"
+
+    def get_insurance_company(self, obj):
+        return obj.for_denial.insurance_company if obj.for_denial else None
+
+    def get_professional_name(self, obj):
+        if obj.primary_professional:
+            return obj.primary_professional.get_display_name()
+        elif obj.creating_professional:
+            return obj.creating_professional.get_display_name()
+        else:
+            return None
+
+    def get_patient_name(self, obj):
+        if obj.patient_user:
+            # Use the get_combined_name method to get the patient's name
+            return obj.patient_user.get_combined_name()
+
+    def get_denial_reason(self, obj):
+        return (
+            [x.name for x in obj.for_denial.denial_type.all()]
+            if obj.for_denial
+            else None
+        )
 
 
 class AssembleAppealRequestSerializer(serializers.Serializer):
