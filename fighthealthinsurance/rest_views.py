@@ -283,8 +283,9 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
             )
         return Response(status=status.HTTP_200_OK)
 
-    @action(detail=False, methods=["post"])
-    def get_full_details(self, request: Request, pk: int) -> Response:
+    @action(detail=False, methods=["get"])
+    def get_full_details(self, request: Request) -> Response:
+        pk = request.query_params.get("pk")
         current_user: User = request.user  # type: ignore
         appeal = get_object_or_404(
             Appeal.filter_to_allowed_appeals(current_user), pk=pk

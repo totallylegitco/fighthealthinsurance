@@ -11,6 +11,7 @@ from fighthealthinsurance.models import (
     MailingListSubscriber,
     ProposedAppeal,
     AppealAttachment,
+    Denial,
 )
 from rest_framework import serializers
 
@@ -185,6 +186,12 @@ class AppealSummarySerializer(serializers.ModelSerializer):
         )
 
 
+class DenialModelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Denial
+        exclude: list[str] = []
+
+
 class AppealDetailSerializer(serializers.ModelSerializer):
     appeal_pdf_url = serializers.SerializerMethodField()
 
@@ -202,7 +209,7 @@ class AppealDetailSerializer(serializers.ModelSerializer):
 
     def get_appeal_pdf_url(self, obj):
         # Generate a URL for downloading the appeal PDF
-        if obj.appeal_pdf:
+        if obj.document_enc:
             # TODO: Use reverse here rather than hardcoding
             return reverse("appeal_file_view", kwargs={"appeal_uuid": obj.uuid})
         return None
@@ -214,10 +221,34 @@ class NotifyPatientRequestSerializer(serializers.Serializer):
 
 
 class AppealFullSerializer(serializers.ModelSerializer):
+    appeal_pdf_url = serializers.SerializerMethodField()
+    denial = serializers.SerializerMethodField()
+    in_userdomain = serializers.SerializerMethodField()
 
     class Meta:
         model = Appeal
         exclude: list[str] = []
+
+    def get_appeal_pdf_url(self, obj):
+        # Generate a URL for downloading the appeal PDF
+        if obj.document_enc:
+            # TODO: Use reverse here rather than hardcoding
+            return reverse("appeal_file_view", kwargs={"appeal_uuid": obj.uuid})
+        return None
+
+    def get_denial(self, obj):
+        # Generate a URL for downloading the appeal PDF
+        if obj.for_denial:
+            return DenialModelSerializer(obj.for_denial).data
+        return None
+
+    def get_in_userdomain(self, obj):
+        # Generate a URL for downloading the appeal PDF
+        if obj.domain:
+            from fhi_users.auth import rest_serializers as auth_serializers
+
+            return auth_serializers.UserDomainSerializer(obj.domain).data
+        return None
 
 
 class AssembleAppealRequestSerializer(serializers.Serializer):
