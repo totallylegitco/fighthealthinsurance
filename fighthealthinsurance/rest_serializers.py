@@ -10,6 +10,7 @@ from fighthealthinsurance.models import (
     DenialTypes,
     MailingListSubscriber,
     ProposedAppeal,
+    AppealAttachment,
 )
 from rest_framework import serializers
 
@@ -50,10 +51,12 @@ class DenialResponseInfoSerializer(serializers.Serializer):
     selected_denial_type = DenialTypesListField()
     all_denial_types = DenialTypesListField()
     denial_id = serializers.CharField()
-    your_state = serializers.CharField()
+    appeal_id = serializers.CharField(required=False)
+    your_state = serializers.CharField(required=False)
     procedure = serializers.CharField()
     diagnosis = serializers.CharField()
     semi_sekret = serializers.CharField()
+    fax_number = serializers.CharField(required=False)
 
 
 # Forms
@@ -282,3 +285,13 @@ class SearchResultSerializer(serializers.Serializer):
     sent = serializers.BooleanField()
     mod_date = serializers.DateField()
     has_response = serializers.BooleanField()
+
+class AppealAttachmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppealAttachment
+        fields = ["id", "filename", "mime_type", "created_at"]
+
+
+class AppealAttachmentUploadSerializer(serializers.Serializer):
+    appeal_id = serializers.IntegerField()
+    file = serializers.FileField()

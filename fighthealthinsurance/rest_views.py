@@ -9,6 +9,9 @@ from django.db.models import Q, Count
 from django.urls import reverse
 from django.utils import timezone
 from dateutil.relativedelta import relativedelta
+from django.http import FileResponse
+
+from django_encrypted_filefield.crypt import Cryptographer
 
 from rest_framework import status
 from rest_framework import viewsets
@@ -31,7 +34,7 @@ from fighthealthinsurance.rest_mixins import (
     DeleteMixin,
     DeleteOnlyMixin,
 )
-from fighthealthinsurance.models import Appeal, Denial, DenialQA
+from fighthealthinsurance.models import Appeal, Denial, DenialQA, AppealAttachment
 
 from fhi_users.models import (
     UserDomain,
@@ -133,13 +136,14 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
         try:
             Appeal.objects.get(for_denial=denial)
         except:
-            Appeal.objects.create(
+            appeal = Appeal.objects.create(
                 for_denial=denial,
                 patient_user=denial.patient_user,
                 primary_professional=denial.primary_professional,
                 creating_professional=denial.creating_professional,
                 pending=True,
             )
+            denial_response_info.appeal_id = appeal.id
         return serializers.DenialResponseInfoSerializer(instance=denial_response_info)
 
 
@@ -553,3 +557,67 @@ class SearchAPIViewSet(viewsets.ViewSet):
             'previous': page > 1,
             'results': paginated_results
         })
+      
+class AppealAttachmentViewSet(viewsets.ViewSet):
+    def list(self, request: Request) -> Response:
+        """List attachments for a given appeal"""
+        appeal_id = request.query_params.get("appeal_id")
+        if not appeal_id:
+            return Response(
+                {"error": "appeal_id required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        current_user: User = request.user  # type: ignore
+        appeal = get_object_or_404(
+            Appeal.filter_to_allowed_appeals(current_user), id=appeal_id
+        )
+        attachments = AppealAttachment.objects.filter(appeal=appeal)
+        serializer = serializers.AppealAttachmentSerializer(attachments, many=True)
+        return Response(serializer.data)
+
+    def create(self, request: Request) -> Response:
+        """Upload a new attachment"""
+        serializer = serializers.AppealAttachmentUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        current_user: User = request.user  # type: ignore
+        appeal = get_object_or_404(
+            Appeal.filter_to_allowed_appeals(current_user),
+            id=serializer.validated_data["appeal_id"],
+        )
+
+        file = serializer.validated_data["file"]
+
+        attachment = AppealAttachment.objects.create(
+            appeal=appeal, file=file, filename=file.name, mime_type=file.content_type
+        )
+
+        return Response(
+            serializers.AppealAttachmentSerializer(attachment).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    def retrieve(self, request: Request, pk=None) -> FileResponse:
+        """Download an attachment"""
+        current_user: User = request.user  # type: ignore
+        attachment = get_object_or_404(
+            AppealAttachment.filter_to_allowed_attachments(current_user), id=pk
+        )
+        file = attachment.document_enc.open()
+        content = Cryptographer.decrypted(file.read())
+        response = FileResponse(
+            content,
+            content_type=attachment.mime_type,
+            as_attachment=True,
+            filename=attachment.filename,
+        )
+        return response
+
+    def destroy(self, request: Request, pk=None) -> Response:
+        """Delete an attachment"""
+        current_user: User = request.user  # type: ignore
+        attachment = get_object_or_404(
+            AppealAttachment.filter_to_allowed_attachments(current_user), id=pk
+        )
+        attachment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
