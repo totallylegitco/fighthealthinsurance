@@ -5,6 +5,13 @@ from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
+from django.db.models import Q, Count
+from django.urls import reverse
+from django.utils import timezone
+from dateutil.relativedelta import relativedelta
+from django.http import FileResponse
+
+from django_encrypted_filefield.crypt import Cryptographer
 
 from rest_framework import status
 from rest_framework import viewsets
@@ -27,7 +34,7 @@ from fighthealthinsurance.rest_mixins import (
     DeleteMixin,
     DeleteOnlyMixin,
 )
-from fighthealthinsurance.models import Appeal, Denial
+from fighthealthinsurance.models import Appeal, Denial, DenialQA, AppealAttachment
 
 from fhi_users.models import (
     UserDomain,
@@ -121,7 +128,7 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
             common_view_logic.DenialCreatorHelper.create_or_update_denial(
                 denial=denial,
                 creating_professional=creating_professional,
-                **serializer_data
+                **serializer_data,
             )
         )
         denial = Denial.objects.get(uuid=denial_response_info.uuid)
@@ -129,14 +136,46 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
         try:
             Appeal.objects.get(for_denial=denial)
         except:
-            Appeal.objects.create(
+            appeal = Appeal.objects.create(
                 for_denial=denial,
                 patient_user=denial.patient_user,
                 primary_professional=denial.primary_professional,
                 creating_professional=denial.creating_professional,
                 pending=True,
             )
+            denial_response_info.appeal_id = appeal.id
         return serializers.DenialResponseInfoSerializer(instance=denial_response_info)
+
+
+class QAResponseViewSet(viewsets.ViewSet, CreateMixin):
+    serializer_class = serializers.QAResponsesSerializer
+
+    def perform_create(self, request: Request, serializer):
+        user: User = request.user  # type: ignore
+        denial = Denial.filter_to_allowed_denials(user).get(
+            denial_id=serializer.validated_data["denial_id"]
+        )
+        for key, value in serializer.validated_data["qa"].items():
+            if not key or not value or len(value) == 0:
+                continue
+            try:
+                dqa = DenialQA.objects.filter(denial=denial).get(question=key)
+                dqa.text_answer = value
+                dqa.save()
+            except DenialQA.DoesNotExist:
+                DenialQA.objects.create(
+                    denial=denial,
+                    question=key,
+                    text_answer=value,
+                )
+        qa_context = ""
+        for key, value in DenialQA.objects.filter(denial=denial).values_list(
+            "question", "text_answer"
+        ):
+            qa_context += f"{key}: {value}\n"
+        denial.qa_context = qa_context
+        denial.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class FollowUpViewSet(viewsets.ViewSet, CreateMixin):
@@ -176,7 +215,7 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
 
     def get_serializer_class(self):
         if self.action == "list":
-            return serializers.AppaealListRequestSerializer
+            return serializers.AppealListRequestSerializer
         elif self.action == "send_fax":
             return serializers.SendFax
         elif self.action == "assemble_appeal":
@@ -244,8 +283,9 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
             )
         return Response(status=status.HTTP_200_OK)
 
-    @action(detail=False, methods=["post"])
-    def get_full_details(self, request: Request, pk: int) -> Response:
+    @action(detail=False, methods=["get"])
+    def get_full_details(self, request: Request) -> Response:
+        pk = request.query_params.get("pk")
         current_user: User = request.user  # type: ignore
         appeal = get_object_or_404(
             Appeal.filter_to_allowed_appeals(current_user), pk=pk
@@ -416,3 +456,186 @@ class SendToUserViewSet(viewsets.ViewSet, SerializerMixin):
         appeal = Appeal.filter_to_allowed_appeals(current_user).get(
             id=serializer.validated_data["appeal_id"]
         )
+
+
+class StatisticsAPIViewSet(viewsets.ViewSet):
+    """
+    ViewSet for statistics API
+    """
+
+    def list(self, request):
+        now = timezone.now()
+
+        # Define current period (current month)
+        current_period_start = now.replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+        current_period_end = now
+
+        # Define previous period
+        previous_period_start = current_period_start - relativedelta(months=1)
+        previous_period_end = current_period_start - relativedelta(microseconds=1)
+
+        # Calculate current period statistics
+        current_appeals = Appeal.filter_to_allowed_appeals(request.user).filter(
+            mod_date__range=(current_period_start.date(), current_period_end.date())
+        )
+        current_total = current_appeals.count()
+        current_pending = current_appeals.filter(pending=True).count()
+        current_sent = current_appeals.filter(sent=True).count()
+        current_with_response = current_appeals.exclude(response_date=None).count()
+
+        # Calculate previous period statistics
+        previous_appeals = Appeal.filter_to_allowed_appeals(request.user).filter(
+            mod_date__range=(previous_period_start.date(), previous_period_end.date())
+        )
+        previous_total = previous_appeals.count()
+        previous_pending = previous_appeals.filter(pending=True).count()
+        previous_sent = previous_appeals.filter(sent=True).count()
+        previous_with_response = previous_appeals.exclude(response_date=None).count()
+
+        statistics = {
+            "current_total_appeals": current_total,
+            "current_pending_appeals": current_pending,
+            "current_sent_appeals": current_sent,
+            "current_response_rate": (
+                (current_with_response / current_total * 100)
+                if current_total > 0
+                else 0
+            ),
+            "previous_total_appeals": previous_total,
+            "previous_pending_appeals": previous_pending,
+            "previous_sent_appeals": previous_sent,
+            "previous_response_rate": (
+                (previous_with_response / previous_total * 100)
+                if previous_total > 0
+                else 0
+            ),
+            "period_start": current_period_start,
+            "period_end": current_period_end,
+        }
+
+        return Response(statistics)
+
+
+class SearchAPIViewSet(viewsets.ViewSet):
+    """
+    ViewSet for search API
+    """
+
+    def list(self, request):
+        query = request.GET.get("q", "")
+        if not query:
+            return Response(
+                {"error": 'Please provide a search query parameter "q"'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Search in Appeals with user permissions
+        appeals = Appeal.filter_to_allowed_appeals(request.user).filter(
+            Q(uuid__icontains=query)
+            | Q(appeal_text__icontains=query)
+            | Q(response_text__icontains=query)
+        )
+
+        # Convert appeals to search results
+        search_results = []
+        for appeal in appeals:
+            search_results.append(
+                {
+                    "id": appeal.id,
+                    "uuid": appeal.uuid,
+                    "appeal_text": (
+                        appeal.appeal_text[:200] if appeal.appeal_text else ""
+                    ),
+                    "pending": appeal.pending,
+                    "sent": appeal.sent,
+                    "mod_date": appeal.mod_date,
+                    "has_response": appeal.response_date is not None,
+                }
+            )
+
+        # Sort results by modification date (newest first)
+        search_results.sort(key=lambda x: x["mod_date"], reverse=True)
+
+        # Paginate results
+        page_size = int(request.GET.get("page_size", 10))
+        page = int(request.GET.get("page", 1))
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+
+        paginated_results = search_results[start_idx:end_idx]
+
+        return Response(
+            {
+                "count": len(search_results),
+                "next": page < len(search_results) // page_size + 1,
+                "previous": page > 1,
+                "results": paginated_results,
+            }
+        )
+
+
+class AppealAttachmentViewSet(viewsets.ViewSet):
+    def list(self, request: Request) -> Response:
+        """List attachments for a given appeal"""
+        appeal_id = request.query_params.get("appeal_id")
+        if not appeal_id:
+            return Response(
+                {"error": "appeal_id required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        current_user: User = request.user  # type: ignore
+        appeal = get_object_or_404(
+            Appeal.filter_to_allowed_appeals(current_user), id=appeal_id
+        )
+        attachments = AppealAttachment.objects.filter(appeal=appeal)
+        serializer = serializers.AppealAttachmentSerializer(attachments, many=True)
+        return Response(serializer.data)
+
+    def create(self, request: Request) -> Response:
+        """Upload a new attachment"""
+        serializer = serializers.AppealAttachmentUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        current_user: User = request.user  # type: ignore
+        appeal = get_object_or_404(
+            Appeal.filter_to_allowed_appeals(current_user),
+            id=serializer.validated_data["appeal_id"],
+        )
+
+        file = serializer.validated_data["file"]
+
+        attachment = AppealAttachment.objects.create(
+            appeal=appeal, file=file, filename=file.name, mime_type=file.content_type
+        )
+
+        return Response(
+            serializers.AppealAttachmentSerializer(attachment).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    def retrieve(self, request: Request, pk=None) -> FileResponse:
+        """Download an attachment"""
+        current_user: User = request.user  # type: ignore
+        attachment = get_object_or_404(
+            AppealAttachment.filter_to_allowed_attachments(current_user), id=pk
+        )
+        file = attachment.document_enc.open()
+        content = Cryptographer.decrypted(file.read())
+        response = FileResponse(
+            content,
+            content_type=attachment.mime_type,
+            as_attachment=True,
+            filename=attachment.filename,
+        )
+        return response
+
+    def destroy(self, request: Request, pk=None) -> Response:
+        """Delete an attachment"""
+        current_user: User = request.user  # type: ignore
+        attachment = get_object_or_404(
+            AppealAttachment.filter_to_allowed_attachments(current_user), id=pk
+        )
+        attachment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

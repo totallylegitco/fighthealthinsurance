@@ -472,6 +472,14 @@ class Denial(ExportModelOperationsMixin("Denial"), models.Model):  # type: ignor
         return hashlib.sha512(encoded_email).hexdigest()
 
 
+class DenialQA(models.Model):
+    id = models.AutoField(primary_key=True)
+    denial = models.ForeignKey("Denial", on_delete=models.CASCADE)
+    question = models.TextField(max_length=3000, primary_key=False)
+    text_answer = models.TextField(max_length=3000, primary_key=False)
+    bool_answer = models.BooleanField(default=False)
+
+
 class ProposedAppeal(ExportModelOperationsMixin("ProposedAppeal"), models.Model):  # type: ignore
     appeal_text = models.TextField(max_length=3000000000, primary_key=False, null=True)
     for_denial = models.ForeignKey(
@@ -536,6 +544,7 @@ class Appeal(ExportModelOperationsMixin("Appeal"), models.Model):  # type: ignor
     )
     response_date = models.DateField(auto_now=False, null=True)
     mod_date = models.DateField(auto_now=True, null=True)
+    creation_date = models.DateField(auto_now_add=True, null=True)
 
     # Similar to the method on denial -- TODO refactor to a mixin / DRY
     @classmethod
@@ -619,3 +628,19 @@ class StripePrice(models.Model):
     amount = models.IntegerField()
     currency = models.CharField(max_length=3)
     active = models.BooleanField(default=True)
+
+
+class AppealAttachment(models.Model):
+    appeal = models.ForeignKey(
+        Appeal, on_delete=models.CASCADE, related_name="attachments"
+    )
+    file = EncryptedFileField(null=True, storage=settings.COMBINED_STORAGE)
+    filename = models.CharField(max_length=255)
+    mime_type = models.CharField(max_length=127)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @classmethod
+    def filter_to_allowed_attachments(cls, user):
+        """Filter attachments to only those the user has permission to access"""
+        allowed_appeals = Appeal.filter_to_allowed_appeals(user)
+        return cls.objects.filter(appeal__in=allowed_appeals)

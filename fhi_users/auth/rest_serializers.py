@@ -75,6 +75,7 @@ class WhoAmiSerializer(serializers.Serializer):
     domain_name = serializers.CharField()
     patient = serializers.BooleanField()
     professional = serializers.BooleanField()
+    current_professional_id = serializers.IntegerField(required=False)
     admin = serializers.BooleanField()
 
 
@@ -112,6 +113,14 @@ class UserSignupSerializer(serializers.ModelSerializer):
             "This serializer should not be used directly -- use Patient or Professional version"
         )
 
+class UserSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the base django user model
+    """
+
+    class Meta(object):
+        model = UserDomain
+        include = ("first_name", "last_name", "email", "username", "is_active")
 
 class UserDomainSerializer(serializers.ModelSerializer):
     """
@@ -150,6 +159,22 @@ class ProfessionalSignupSerializer(serializers.ModelSerializer):
         if value and not re.match(r"^\d{10}$", str(value)):
             raise serializers.ValidationError("Invalid NPI number format.")
         return value
+
+
+class FullProfessionalSerializer(serializers.ModelSerializer):
+    """
+    Serialize all of the professional
+    """
+
+    fullname = serializers.SerializerMethodField()
+
+    class Meta(object):
+        model = ProfessionalUser
+        exclude: list[str] = []
+
+    def get_fullname(self, obj):
+        user: User = obj.user
+        return f"{user.first_name} {user.last_name}"
 
 
 class ProfessionalSignupResponseSerializer(serializers.Serializer):

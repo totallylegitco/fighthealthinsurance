@@ -10,8 +10,12 @@ from fighthealthinsurance.models import (
     DenialTypes,
     MailingListSubscriber,
     ProposedAppeal,
+    AppealAttachment,
+    Denial,
 )
 from rest_framework import serializers
+
+from fhi_users.auth import rest_serializers as auth_serializers
 
 
 # Common
@@ -50,10 +54,12 @@ class DenialResponseInfoSerializer(serializers.Serializer):
     selected_denial_type = DenialTypesListField()
     all_denial_types = DenialTypesListField()
     denial_id = serializers.CharField()
-    your_state = serializers.CharField()
+    appeal_id = serializers.CharField(required=False)
+    your_state = serializers.CharField(required=False)
     procedure = serializers.CharField()
     diagnosis = serializers.CharField()
     semi_sekret = serializers.CharField()
+    fax_number = serializers.CharField(required=False)
 
 
 # Forms
@@ -90,6 +96,11 @@ class FollowUpFormSerializer(FormSerializer):
         field_mapping = {forms.UUIDField: serializers.CharField}
 
 
+class QAResponsesSerializer(serializers.Serializer):
+    denial_id = serializers.CharField()
+    qa = serializers.DictField(child=serializers.CharField())
+
+
 # Model serializers
 
 
@@ -98,7 +109,7 @@ class ProposedAppealSerializer(serializers.ModelSerializer):
         model = ProposedAppeal
 
 
-class AppaealListRequestSerializer(serializers.Serializer):
+class AppealListRequestSerializer(serializers.Serializer):
     status_filter = serializers.ChoiceField(
         choices=[
             "pending",
@@ -113,14 +124,38 @@ class AppaealListRequestSerializer(serializers.Serializer):
     )
     insurance_company_filter = serializers.CharField(required=False)
     procedure_filter = serializers.CharField(required=False)
+    provider_filter = serializers.CharField(required=False)
+    patient_filter = serializers.CharField(required=False)
+    date_from = serializers.DateField(required=False)
+    date_to = serializers.DateField(required=False)
+
+    page = serializers.IntegerField(min_value=1, required=False, default=1)
+    page_size = serializers.IntegerField(min_value=1, required=False, default=10)
 
 
 class AppealSummarySerializer(serializers.ModelSerializer):
     status = serializers.SerializerMethodField()
+    professional_name = serializers.SerializerMethodField()
+    patient_name = serializers.SerializerMethodField()
+    denial_reason = serializers.SerializerMethodField()
+    insurance_company = serializers.SerializerMethodField()
 
     class Meta:
         model = Appeal
-        fields = ["uuid", "status", "response_text", "response_date", "pending"]
+        fields = [
+            "id",
+            "uuid",
+            "status",
+            "response_text",
+            "response_date",
+            "pending",
+            "professional_name",
+            "patient_name",
+            "insurance_company",
+            "denial_reason",
+            "creation_date",
+            "mod_date",
+        ]
 
     def get_status(self, obj):
         if obj.pending_patient:
@@ -130,7 +165,36 @@ class AppealSummarySerializer(serializers.ModelSerializer):
         elif obj.sent:
             return "sent"
         else:
-            return "unkown"
+            return "unknown"
+
+    def get_insurance_company(self, obj):
+        return obj.for_denial.insurance_company if obj.for_denial else None
+
+    def get_professional_name(self, obj):
+        if obj.primary_professional:
+            return obj.primary_professional.get_display_name()
+        elif obj.creating_professional:
+            return obj.creating_professional.get_display_name()
+        else:
+            return None
+
+    def get_patient_name(self, obj):
+        if obj.patient_user:
+            # Use the get_combined_name method to get the patient's name
+            return obj.patient_user.get_combined_name()
+
+    def get_denial_reason(self, obj):
+        return (
+            [x.name for x in obj.for_denial.denial_type.all()]
+            if obj.for_denial
+            else None
+        )
+
+
+class DenialModelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Denial
+        exclude: list[str] = []
 
 
 class AppealDetailSerializer(serializers.ModelSerializer):
@@ -150,7 +214,7 @@ class AppealDetailSerializer(serializers.ModelSerializer):
 
     def get_appeal_pdf_url(self, obj):
         # Generate a URL for downloading the appeal PDF
-        if obj.appeal_pdf:
+        if obj.document_enc:
             # TODO: Use reverse here rather than hardcoding
             return reverse("appeal_file_view", kwargs={"appeal_uuid": obj.uuid})
         return None
@@ -162,10 +226,43 @@ class NotifyPatientRequestSerializer(serializers.Serializer):
 
 
 class AppealFullSerializer(serializers.ModelSerializer):
+    appeal_pdf_url = serializers.SerializerMethodField()
+    denial = serializers.SerializerMethodField()
+    in_userdomain = serializers.SerializerMethodField()
+    primary_professional = serializers.SerializerMethodField()
 
     class Meta:
         model = Appeal
         exclude: list[str] = []
+
+    def get_appeal_pdf_url(self, obj):
+        # Generate a URL for downloading the appeal PDF
+        if obj.document_enc:
+            # TODO: Use reverse here rather than hardcoding
+            return reverse("appeal_file_view", kwargs={"appeal_uuid": obj.uuid})
+        return None
+
+    def get_denial(self, obj):
+        # Generate a URL for downloading the appeal PDF
+        if obj.for_denial:
+            return DenialModelSerializer(obj.for_denial).data
+        return None
+
+    def get_in_userdomain(self, obj):
+        if obj.domain:
+            return auth_serializers.UserDomainSerializer(obj.domain).data
+        return None
+
+    def get_primary_professional(self, obj):
+        if obj.primary_professional:
+            return auth_serializers.FullProfessionalSerializer(
+                obj.primary_professional
+            ).data
+        if obj.creating_professional:
+            return auth_serializers.FullProfessionalSerializer(
+                obj.creating_professional
+            ).data
+        return None
 
 
 class AssembleAppealRequestSerializer(serializers.Serializer):
@@ -221,3 +318,39 @@ class InviteProviderSerializer(serializers.Serializer):
                 "Either professional_id or email must be provided."
             )
         return data
+
+
+class StatisticsSerializer(serializers.Serializer):
+    current_total_appeals = serializers.IntegerField()
+    current_success_rate = serializers.FloatField()
+    current_total_tips = serializers.IntegerField()
+    current_total_patients = serializers.IntegerField()
+
+    previous_total_appeals = serializers.IntegerField()
+    previous_success_rate = serializers.FloatField()
+    previous_total_tips = serializers.IntegerField()
+    previous_total_patients = serializers.IntegerField()
+
+    period_start = serializers.DateTimeField()
+    period_end = serializers.DateTimeField()
+
+
+class SearchResultSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    uuid = serializers.CharField()
+    appeal_text = serializers.CharField()
+    pending = serializers.BooleanField()
+    sent = serializers.BooleanField()
+    mod_date = serializers.DateField()
+    has_response = serializers.BooleanField()
+
+
+class AppealAttachmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppealAttachment
+        fields = ["id", "filename", "mime_type", "created_at"]
+
+
+class AppealAttachmentUploadSerializer(serializers.Serializer):
+    appeal_id = serializers.IntegerField()
+    file = serializers.FileField()
