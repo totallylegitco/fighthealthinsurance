@@ -125,7 +125,8 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
                     denial_id=denial_id
                 )
         if "patient_id" in serializer_data and is_convertible_to_int(
-            serializer_data["patient_id"]):
+            serializer_data["patient_id"]
+        ):
             patient_id = serializer_data.pop("patient_id")
             if patient_id:
                 serializer_data["patient_user"] = PatientUser.objects.get(id=patient_id)
