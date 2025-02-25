@@ -616,16 +616,20 @@ class TestE2EProfessionalUserSignupFlow(TestCase):
         # Have the now logged in pro-user start to make an appeal
         get_pending_url = reverse("patient_user-get-or-create-pending")
         data = {
-            "username": "testpro@example.com",
+            "email": "testpatient@example.com",
+            "username": "testpatient",
             "first_name": "fname",
             "last_name": "lname",
+            "domain": domain_name,
+            "provider_phone_number": phone_number,
         }
         response = self.client.post(get_pending_url, data, format="json")
-        print(response)
         self.assertIn(response.status_code, range(200, 300))
-        patient_id = response.json()["id"]
+        patient_data = response.json()
+        self.assertIsNotNone(patient_data.get('id'))
+        patient_id = patient_data['id']
 
-        # Let’s pretend to create a denial record via DenialFormSerializer
+        # Let's pretend to create a denial record via DenialFormSerializer
         denial_create_url = reverse("denials-list")
         denial_data = {
             "insurance_company": "Test Insurer",
@@ -637,6 +641,7 @@ class TestE2EProfessionalUserSignupFlow(TestCase):
             "privacy": True,
         }
         response = self.client.post(denial_create_url, denial_data, format="json")
+        self.assertIn(response.status_code, range(200, 300))
 
         # Validate response has data we can use for the generate appeal websocket
         denial_response = response.json()
