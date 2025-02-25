@@ -28,7 +28,7 @@ class Command(BaseCommand):
         if test_file:
             self.stdout.write(self.style.SUCCESS("Test file: " + test_file))
             result = subprocess.run(
-                ["coverage", "run", "-m", "pytest", test_file],
+                ["coverage", "run", "-m", "pytest", "-v", test_file],
                 capture_output=True,
                 text=True,
             )
