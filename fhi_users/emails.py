@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from fhi_users.models import VerificationToken
 from fighthealthinsurance.utils import send_fallback_email
 from django.utils.html import strip_tags
+from loguru import logger
 
 if TYPE_CHECKING:
     from django.contrib.auth.models import User
@@ -62,19 +63,32 @@ def send_verification_email(request, user: "User") -> None:
     current_site = get_current_site(request)
     mail_subject = "Activate your account."
     verification_token = default_token_generator.make_token(user)
-    VerificationToken.objects.create(user=user, token=verification_token)
+    
+    try:
+        VerificationToken.objects.create(user=user, token=verification_token)
+    except Exception as e:
+        logger.error(f"Failed to create verification token for user {user.pk}: {e}")
+        return  # Handle this as appropriate, maybe raise an exception or notify admin
+
     activation_link = (
         "https://www.fightpaperwork.com/activate-account/?token={}&uid={}".format(
             verification_token, user.pk
         )
     )
-    send_fallback_email(
-        mail_subject,
-        "acc_active_email",
-        {
-            "user": user,
-            "domain": current_site.domain,
-            "activation_link": activation_link,
-        },
-        user.email,
-    )
+
+    try:
+        send_fallback_email(
+            mail_subject,
+            "acc_active_email",
+            {
+                "user": user,
+                "domain": current_site.domain,
+                "activation_link": activation_link,
+            },
+            user.email,
+        )
+        logger.info(f"Verification email sent to {user.email}")
+    except (SMTPException, ImproperlyConfigured) as e:
+        logger.error(f"Failed to send verification email to {user.email}: {e}")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred when sending email to {user.email}: {e}")
