@@ -18,7 +18,7 @@ class FaxActor:
         # This is a bit of a hack but we do this so we have the app configured
         from configurations.wsgi import get_wsgi_application
 
-        os.environ.setdefault("DJANGO_SETTINGS_MODULE", get_env_variable("DJANGO_SETTINGS_MODULE", "fighthealthinsurance.config"))
+        os.environ.setdefault("DJANGO_SETTINGS_MODULE", get_env_variable("DJANGO_SETTINGS_MODULE", "fighthealthinsurance.settings"))
         get_wsgi_application()
         from fighthealthinsurance.models import FaxesToSend
 

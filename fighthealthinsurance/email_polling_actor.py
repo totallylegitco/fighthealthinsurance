@@ -17,7 +17,7 @@ class EmailPollingActor:
         print(f"Starting actor")
         time.sleep(1)
         
-        os.environ.setdefault("DJANGO_SETTINGS_MODULE", get_env_variable("DJANGO_SETTINGS_MODULE", "fighthealthinsurance.config"))
+        os.environ.setdefault("DJANGO_SETTINGS_MODULE", get_env_variable("DJANGO_SETTINGS_MODULE", "fighthealthinsurance.settings"))
         
         from configurations.wsgi import get_wsgi_application
         _application = get_wsgi_application()
