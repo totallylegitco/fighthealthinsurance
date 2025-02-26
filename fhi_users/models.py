@@ -41,7 +41,9 @@ class UserDomain(models.Model):
     # be unique and hope we don't have to remove this. The real world is
     # tricky.
     visible_phone_number = models.CharField(max_length=150, null=False, unique=True)
-    internal_phone_number = models.CharField(max_length=150, null=True, unique=False, blank=True)
+    internal_phone_number = models.CharField(
+        max_length=150, null=True, unique=False, blank=True
+    )
     office_fax = models.CharField(max_length=150, null=True)
     country = models.CharField(max_length=150, default="USA")
     state = models.CharField(max_length=50, null=False)
