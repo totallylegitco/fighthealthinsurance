@@ -40,8 +40,14 @@ class Command(BaseCommand):
 
     def handle(self, *args: str, **options: Any) -> None:
         User = get_user_model()
-        username_raw = options.get("username").strip()
-        email = options.get("email").strip()
+        if options.get("username"):
+            username_raw = options.get("username").strip()
+        else:
+            username_raw = options.get("username")
+        if options.get("email"):
+            email = options.get("email").strip()
+        else:
+            email = options.get("email")
         password = options.get("password")
         domain_input = options["domain"]
         is_provider = options.get("is_provider", False)
