@@ -207,17 +207,29 @@ class DenialModelSerializer(serializers.ModelSerializer):
 
 class AppealDetailSerializer(serializers.ModelSerializer):
     appeal_pdf_url = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    professional_name = serializers.SerializerMethodField()
+    patient_name = serializers.SerializerMethodField()
+    denial_reason = serializers.SerializerMethodField()
+    insurance_company = serializers.SerializerMethodField()
 
     class Meta:
         model = Appeal
         fields = [
+            "id",
             "uuid",
             "status",
             "response_text",
             "response_date",
             "appeal_text",
-            "appeal_pdf_url",
             "pending",
+            "professional_name",
+            "patient_name",
+            "insurance_company",
+            "denial_reason",
+            "creation_date",
+            "mod_date",
+            "appeal_pdf_url",
         ]
 
     @extend_schema_field(serializers.CharField)
@@ -227,6 +239,34 @@ class AppealDetailSerializer(serializers.ModelSerializer):
             # TODO: Use reverse here rather than hardcoding
             return reverse("appeal_file_view", kwargs={"appeal_uuid": obj.uuid})
         return None
+
+    @extend_schema_field(serializers.CharField)
+    def get_insurance_company(self, obj: Appeal) -> Optional[str]:
+        return obj.for_denial.insurance_company if obj.for_denial else None
+
+    @extend_schema_field(serializers.CharField)
+    def get_professional_name(self, obj: Appeal) -> Optional[str]:
+        if obj.primary_professional:
+            return obj.primary_professional.get_display_name()
+        elif obj.creating_professional:
+            return obj.creating_professional.get_display_name()
+        else:
+            return None
+
+    @extend_schema_field(serializers.CharField)
+    def get_patient_name(self, obj: Appeal) -> Optional[str]:
+        if obj.patient_user:
+            return obj.patient_user.get_combined_name()
+        return None
+
+    @extend_schema_field(serializers.CharField)
+    def get_denial_reason(self, obj: Appeal) -> Optional[str]:
+        denial_types: Optional[List[str]] = (
+            [x.name for x in obj.for_denial.denial_type.all()]
+            if obj.for_denial
+            else None
+        )
+        return ", ".join(denial_types) if denial_types else None
 
 
 class NotifyPatientRequestSerializer(serializers.Serializer):
