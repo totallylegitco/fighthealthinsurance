@@ -590,7 +590,7 @@ class SearchAPIViewSet(viewsets.ViewSet):
         appeals = Appeal.filter_to_allowed_appeals(request.user).filter(
             Q(uuid__icontains=query)
             | Q(appeal_text__icontains=query)
-            | Q(response_text__icontains(query))
+            | Q(response_text__icontains=query)
         )
 
         # Convert appeals to search results

@@ -102,7 +102,7 @@ class WhoAmIViewSet(viewsets.ViewSet):
                 highest_role = "admin"
             elif professional:
                 highest_role = "professional"
-            elif self.patient:
+            elif patient:
                 highest_role = "patient"
 
             return Response(
