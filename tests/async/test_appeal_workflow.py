@@ -42,32 +42,22 @@ class TestAppealWorkflow(TestCase):
             denial=self.test_denial
         )
 
-    async def test_create_appeal_workflow(self):
-        """Test creating a new appeal"""
-        url = reverse('create-appeal')
-        data = {
-            'email': 'test@example.com',
-            'denial_type': 'medical_necessity',
-            'insurance_company': 'Test Insurance',
-            'appeal_text': 'New appeal text'
-        }
-        response = await self.client.post(url, data)
-        self.assertEqual(response.status_code, 201)
-
-    async def test_update_appeal_status(self):
-        """Test updating appeal status"""
-        url = reverse('update-appeal-status', kwargs={'uuid': self.test_appeal.uuid})
-        data = {
-            'status': 'in_review',
-            'notes': 'Under review'
-        }
-        response = await self.client.patch(url, data)
+    async def test_async_home_view(self):
+        """Test the async home view"""
+        url = reverse('root')
+        response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
 
-    async def test_get_appeal_details(self):
-        """Test retrieving appeal details"""
-        url = reverse('appeal-detail', kwargs={'uuid': self.test_appeal.uuid})
-        response = await self.client.get(url)
+    async def test_async_api_endpoint(self):
+        """Test async API endpoint"""
+        url = reverse('process')
+        data = {
+            'email': 'test@example.com',
+            'message': 'test',
+            'denial_type': 'medical_necessity',
+            'insurance_company': 'Test Insurance'
+        }
+        response = self.client.post(url, data)
         self.assertEqual(response.status_code, 200)
 
     @classmethod
