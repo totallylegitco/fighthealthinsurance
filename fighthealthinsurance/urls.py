@@ -49,11 +49,14 @@ class SecurityScanMiddleware:
             r'(?i)(<|%3C)script',  # XSS attempts
             r'(?i)(union\s+select|insert\s+into|drop\s+table|delete\s+from)',  # SQL injection attempts
             r'(?i)(/\.\./|\.\./)',  # Path traversal attempts
+            r'(?i)(exec\s+|eval\s*\()',  # Code injection attempts
+            r'(?i)(file|system|phpinfo)\s*\(',  # PHP injection attempts
         ]
         self.patterns = [re.compile(pattern) for pattern in self.security_patterns]
         self.request_history: Dict[str, List[float]] = {}
         self.rate_limit = 30  # requests
         self.time_window = 300  # 5 minutes in seconds
+        self.max_history_size = 10000  # Maximum number of IPs to track
 
     def __call__(self, request: HttpRequest) -> HttpResponseBase:
         # Skip security checks for test environment
@@ -94,10 +97,19 @@ class SecurityScanMiddleware:
             else:
                 self.request_history[client_ip] = [current_time]
 
-        # Check for security violations
-        for pattern in self.patterns:
-            if pattern.search(content):
-                return HttpResponseForbidden("Security violation detected")
+        # Check request history size and clear if too large
+        if len(self.request_history) > self.max_history_size:
+            self.request_history.clear()
+
+        # Also check request body for security patterns if it exists
+        if request.method in ['POST', 'PUT', 'PATCH']:
+            try:
+                body = request.body.decode('utf-8')
+                for pattern in self.patterns:
+                    if pattern.search(body):
+                        return HttpResponseForbidden("Security violation detected")
+            except UnicodeDecodeError:
+                pass  # Skip body check if it's not text
 
         response: HttpResponseBase = self.get_response(request)
         return response

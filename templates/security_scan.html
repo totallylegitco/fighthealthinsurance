@@ -4,62 +4,79 @@
 <div class="container mt-4">
     <h2>Security Scan Results</h2>
     
+    <!-- Status and Timestamp -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Status Information</h4>
+        </div>
+        <div class="card-body">
+            <p><strong>Status:</strong> <span class="badge {% if status == 'ok' %}bg-success{% else %}bg-danger{% endif %}">{{ status }}</span></p>
+            <p><strong>Timestamp:</strong> {{ timestamp }}</p>
+            {% if message %}
+                <div class="alert alert-danger">{{ message }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Server Information -->
     <div class="card mb-4">
         <div class="card-header">
             <h4>Server Information</h4>
         </div>
         <div class="card-body">
-            <table class="table">
-                <tbody>
-                    <tr>
-                        <th>Status:</th>
-                        <td><span class="badge bg-success" id="status">Unknown</span></td>
-                    </tr>
-                    <tr>
-                        <th>Last Updated:</th>
-                        <td id="timestamp">-</td>
-                    </tr>
-                    <tr>
-                        <th>Django Version:</th>
-                        <td id="django-version">-</td>
-                    </tr>
-                    <tr>
-                        <th>Python Version:</th>
-                        <td id="python-version">-</td>
-                    </tr>
-                </tbody>
-            </table>
+            <p><strong>Django Version:</strong> {{ server_info.django_version }}</p>
+            <p><strong>Python Version:</strong> {{ server_info.python_version }}</p>
         </div>
     </div>
 
-    <div class="card">
+    <!-- Security Patterns -->
+    <div class="card mb-4">
         <div class="card-header">
-            <h4>Scan History</h4>
+            <h4>Security Patterns Monitored</h4>
         </div>
         <div class="card-body">
-            <div id="scan-results">
-                <!-- Scan results will be populated here -->
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Pattern</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for type, pattern in security_patterns.items %}
+                        <tr>
+                            <td>{{ type|title }}</td>
+                            <td><code>{{ pattern }}</code></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
-</div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Fetch current security status
-    fetch('{% url "security_scan" %}')
-        .then(response => response.json())
-        .then(data => {
-            document.getElementById('status').textContent = data.status;
-            document.getElementById('timestamp').textContent = new Date(data.timestamp).toLocaleString();
-            document.getElementById('django-version').textContent = data.server_info.django_version;
-            document.getElementById('python-version').textContent = data.server_info.python_version;
-        })
-        .catch(error => {
-            console.error('Error fetching security scan data:', error);
-            document.getElementById('status').textContent = 'Error';
-            document.getElementById('status').className = 'badge bg-danger';
-        });
-});
-</script>
+    <!-- Rate Limiting -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Rate Limiting Configuration</h4>
+        </div>
+        <div class="card-body">
+            <p><strong>Max Requests:</strong> {{ rate_limit.requests }}</p>
+            <p><strong>Time Window:</strong> {{ rate_limit.time_window_seconds }} seconds</p>
+        </div>
+    </div>
+
+    {% if scan_data_size %}
+    <!-- Scan Data Information -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Scan Data</h4>
+        </div>
+        <div class="card-body">
+            <p><strong>Data Size:</strong> {{ scan_data_size }} bytes</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
 {% endblock %} 

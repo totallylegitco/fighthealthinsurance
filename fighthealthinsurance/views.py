@@ -627,29 +627,49 @@ class StripeWebhookView(View):
 
 class SecurityScanView(View):
     """View for security scan results and monitoring."""
+    template_name = "security_scan.html"
     
     def get(self, request, *args, **kwargs):
-        """Return basic security scan information."""
-        return JsonResponse({
+        """Return security scan information and detected threats."""
+        security_patterns = {
+            'xss_attempts': r'(?i)(<|%3C)script',
+            'sql_injection': r'(?i)(union\s+select|insert\s+into|drop\s+table|delete\s+from)',
+            'path_traversal': r'(?i)(/\.\./|\.\./)',
+            'code_injection': r'(?i)(exec\s+|eval\s*\()',
+            'php_injection': r'(?i)(file|system|phpinfo)\s*\('
+        }
+
+        context = {
             'status': 'ok',
             'timestamp': timezone.now().isoformat(),
             'server_info': {
                 'django_version': django.get_version(),
                 'python_version': platform.python_version(),
+            },
+            'security_patterns': security_patterns,
+            'rate_limit': {
+                'requests': 30,
+                'time_window_seconds': 300
             }
-        })
+        }
+
+        return render(request, self.template_name, context)
 
     def post(self, request, *args, **kwargs):
         """Handle security scan reports."""
         try:
             scan_data = json.loads(request.body)
-            # Here you could log or process security scan data
-            return JsonResponse({
+            context = {
                 'status': 'received',
-                'timestamp': timezone.now().isoformat()
-            })
+                'timestamp': timezone.now().isoformat(),
+                'scan_data_size': len(str(scan_data))
+            }
         except json.JSONDecodeError:
-            return JsonResponse({
+            context = {
                 'status': 'error',
-                'message': 'Invalid JSON data'
-            }, status=400)
+                'message': 'Invalid JSON data',
+                'timestamp': timezone.now().isoformat()
+            }
+            return render(request, self.template_name, context, status=400)
+
+        return render(request, self.template_name, context)
