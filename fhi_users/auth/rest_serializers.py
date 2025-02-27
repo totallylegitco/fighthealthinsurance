@@ -76,7 +76,10 @@ class WhoAmiSerializer(serializers.Serializer):
     patient = serializers.BooleanField()
     professional = serializers.BooleanField()
     current_professional_id = serializers.IntegerField(required=False)
-    highest_role = serializers.CharField()
+    highest_role = serializers.ChoiceField(
+        choices=[(role.value, role.name) for role in UserRole],
+        help_text="The highest permission level role of the user: none, patient, professional, or admin",
+    )
     admin = serializers.BooleanField()
 
 

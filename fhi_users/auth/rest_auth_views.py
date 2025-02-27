@@ -37,6 +37,7 @@ from fhi_users.models import (
     VerificationToken,
     ExtraUserProperties,
     ResetToken,
+    UserRole,
 )
 from fhi_users.auth import rest_serializers as serializers
 from fhi_users.auth.auth_utils import (
@@ -101,25 +102,26 @@ class WhoAmIViewSet(viewsets.ViewSet):
                     pass
             except ProfessionalUser.DoesNotExist:
                 pass
-            highest_role = "none"
-            if admin:
-                highest_role = "admin"
-            elif professional:
-                highest_role = "professional"
-            elif patient:
-                highest_role = "patient"
+
+            # Use the UserRole enum to get the highest role
+            highest_role = UserRole.get_highest_role(
+                is_patient=patient, is_professional=professional, is_admin=admin
+            )
 
             return Response(
                 serializers.WhoAmiSerializer(
-                    [{
-                        "email": user.email,
-                        "domain_name": user_domain.name,
-                        "patient": patient,
-                        "professional": professional,
-                        "current_professional_id": professional_id,
-                        "highest_role": highest_role,
-                        "admin": admin,
-                    }], many=True # This is to match list endpoints returning arrays.
+                    [
+                        {
+                            "email": user.email,
+                            "domain_name": user_domain.name,
+                            "patient": patient,
+                            "professional": professional,
+                            "current_professional_id": professional_id,
+                            "highest_role": highest_role.value,
+                            "admin": admin,
+                        }
+                    ],
+                    many=True,  # This is to match list endpoints returning arrays.
                 ).data,
                 status=status.HTTP_200_OK,
             )

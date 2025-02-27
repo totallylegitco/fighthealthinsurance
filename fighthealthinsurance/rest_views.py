@@ -514,6 +514,7 @@ class SendToUserViewSet(viewsets.ViewSet, SerializerMixin):
 
 # TODO: Merge many of these into the AppealViewSet
 
+
 class StatisticsAPIViewSet(viewsets.ViewSet):
     """
     ViewSet for statistics API
