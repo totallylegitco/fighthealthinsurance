@@ -97,6 +97,14 @@ class WhoAmIViewSet(viewsets.ViewSet):
                     pass
             except ProfessionalUser.DoesNotExist:
                 pass
+            highest_role = "none"
+            if admin:
+                highest_role = "admin"
+            elif professional:
+                highest_role = "professional"
+            elif self.patient:
+                highest_role = "patient"
+
             return Response(
                 serializers.WhoAmiSerializer(
                     {
@@ -105,6 +113,7 @@ class WhoAmIViewSet(viewsets.ViewSet):
                         "patient": patient,
                         "professional": professional,
                         "current_professional_id": professional_id,
+                        "highest_role": highest_role,
                         "admin": admin,
                     }
                 ).data,

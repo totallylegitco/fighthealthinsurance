@@ -76,21 +76,8 @@ class WhoAmiSerializer(serializers.Serializer):
     patient = serializers.BooleanField()
     professional = serializers.BooleanField()
     current_professional_id = serializers.IntegerField(required=False)
-    highest_role = serializers.SerializerMethodField()
+    highest_role = serializers.CharField()
     admin = serializers.BooleanField()
-
-    def get_highest_role(self) -> str:
-        """
-        Returns the highest role of the user. Can be admin, professional, patient, or none.
-        """
-        if self.admin:
-            return "admin"
-        elif self.professional:
-            return "professional"
-        elif self.patient:
-            return "patient"
-        else:
-            return "none"
 
 
 class UserSignupSerializer(serializers.Serializer):
