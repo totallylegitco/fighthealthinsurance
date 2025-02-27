@@ -117,7 +117,7 @@ class WhoAmIViewSet(viewsets.ViewSet):
             )
 
 
-class ProfessionalUserViewSet(viewsets.ViewSet):
+class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
     """
     Handles professional user sign-up and domain acceptance or rejection.
     """
