@@ -14,7 +14,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
-from typing import List, Union
+from typing import List, Union, Callable
 
 from django.urls import URLPattern, URLResolver
 from django.contrib import admin
@@ -42,7 +42,7 @@ def trigger_error(request: HttpRequest) -> HttpResponseBase:
 
 # Add security middleware
 class SecurityScanMiddleware:
-    def __init__(self, get_response):
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponseBase]):
         self.get_response = get_response
         # Add patterns for potentially malicious requests
         self.security_patterns = [
@@ -90,7 +90,8 @@ class SecurityScanMiddleware:
             if pattern.search(content):
                 return HttpResponseForbidden("Security violation detected")
 
-        response = self.get_response(request)
+        # Explicitly type the response
+        response: HttpResponseBase = self.get_response(request)
         return response
 
 
