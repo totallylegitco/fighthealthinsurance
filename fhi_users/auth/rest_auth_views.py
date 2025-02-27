@@ -51,6 +51,8 @@ from rest_framework.serializers import Serializer
 from fighthealthinsurance import stripe_utils
 from fhi_users.emails import send_verification_email, send_password_reset_email
 
+from drf_spectacular.utils import extend_schema
+
 if TYPE_CHECKING:
     from django.contrib.auth.models import User
 else:
@@ -58,6 +60,7 @@ else:
 
 
 class WhoAmIViewSet(viewsets.ViewSet):
+    @extend_schema(responses=serializers.WhoAmiSerializer)
     def list(self, request: Request):
         user: User = request.user  # type: ignore
         if user.is_authenticated:
@@ -138,6 +141,7 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
             permission_classes = []
         return [permission() for permission in permission_classes]
 
+    @extend_schema(responses=serializers.ProfessionalSummary)
     @action(detail=False, methods=["post"])
     def list_active_in_domain(self, request) -> Response:
         domain_id = request.session["domain_id"]
@@ -156,6 +160,7 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
         serializer = serializers.ProfessionalSummary(professionals, many=True)
         return Response({"active_professionals": serializer.data})
 
+    @extend_schema(responses=serializers.ProfessionalSummary)
     @action(detail=False, methods=["post"])
     def list_pending_in_domain(self, request) -> Response:
         domain_id = request.session["domain_id"]
@@ -173,6 +178,7 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
         serializer = serializers.ProfessionalSummary(professionals, many=True)
         return Response({"pending_professionals": serializer.data})
 
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     @action(detail=False, methods=["post"])
     def reject(self, request) -> Response:
         """
@@ -197,6 +203,7 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
         relation.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     @action(detail=False, methods=["post"])
     def accept(self, request) -> Response:
         """
@@ -252,6 +259,7 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+    @extend_schema(responses=serializers.ProfessionalSignupResponseSerializer)
     def perform_create(
         self, request: HttpRequest, serializer: Serializer
     ) -> Response | serializers.ProfessionalSignupResponseSerializer:
@@ -382,6 +390,7 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
 class RestLoginView(ViewSet, SerializerMixin):
     serializer_class = serializers.LoginFormSerializer
 
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     @action(detail=False, methods=["post"])
     def login(self, request: Request) -> Response:
         serializer = self.deserialize(request.data)
@@ -439,12 +448,14 @@ class PatientUserViewSet(ViewSet, CreateMixin):
         else:
             return serializers.GetOrCreatePendingPatientSerializer
 
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     def perform_create(self, request: Request, serializer) -> Response:
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         send_verification_email(request, user)
         return Response({"status": "pending"})
 
+    @extend_schema(responses=serializers.PatientReferenceSerializer)
     @action(detail=False, methods=["post", "options"])
     def get_or_create_pending(self, request: Request) -> Response:
         print(f"Called...")
@@ -470,6 +481,7 @@ class VerifyEmailViewSet(ViewSet, SerializerMixin):
 
     serializer_class = serializers.VerificationTokenSerializer
 
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     @action(detail=False, methods=["post"])
     def verify(self, request: Request) -> Response:
         serializer = self.deserialize(data=request.data)
@@ -517,6 +529,7 @@ class VerifyEmailViewSet(ViewSet, SerializerMixin):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     @action(detail=False, methods=["post"])
     def resend(self, request: Request) -> Response:
         """
@@ -539,6 +552,7 @@ class PasswordResetViewSet(ViewSet, SerializerMixin):
             return serializers.FinishPasswordResetFormSerializer
         return serializers.RequestPasswordResetFormSerializer
 
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     @action(detail=False, methods=["post"])
     def request_reset(self, request: Request) -> Response:
         """Request a password reset."""
@@ -574,6 +588,7 @@ class PasswordResetViewSet(ViewSet, SerializerMixin):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     @action(detail=False, methods=["post"])
     def finish_reset(self, request: Request) -> Response:
         """Complete a password reset."""

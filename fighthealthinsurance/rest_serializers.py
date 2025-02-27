@@ -354,3 +354,7 @@ class AppealAttachmentSerializer(serializers.ModelSerializer):
 class AppealAttachmentUploadSerializer(serializers.Serializer):
     appeal_id = serializers.IntegerField()
     file = serializers.FileField()
+
+
+class StatusResponseSerializer(serializers.Serializer):
+    status = serializers.CharField()

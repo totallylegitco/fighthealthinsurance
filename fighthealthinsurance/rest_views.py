@@ -20,6 +20,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.decorators import action
 
+from drf_spectacular.utils import extend_schema
 
 from fighthealthinsurance import common_view_logic
 from fighthealthinsurance.models import (
@@ -58,14 +59,17 @@ appeal_assembly_helper = AppealAssemblyHelper()
 class DataRemovalViewSet(viewsets.ViewSet, DeleteMixin, DeleteOnlyMixin):
     serializer_class = serializers.DeleteDataFormSerializer
 
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     def perform_delete(self, request: Request, serializer):
         email: str = serializer.validated_data["email"]
         common_view_logic.RemoveDataHelper.remove_data_for_email(email)
+        return Response({"status": "deleted"}, status=status.HTTP_204_NO_CONTENT)
 
 
 class NextStepsViewSet(viewsets.ViewSet, CreateMixin):
     serializer_class = serializers.PostInferedFormSerializer
 
+    @extend_schema(responses=serializers.NextStepInfoSerizableSerializer)
     def perform_create(self, request: Request, serializer):
         next_step_info = common_view_logic.FindNextStepsHelper.find_next_steps(
             **serializer.validated_data
@@ -87,6 +91,7 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
         else:
             return None
 
+    @extend_schema(responses=serializers.DenialResponseInfoSerializer)
     def retrieve(self, request: Request, pk: int) -> Response:
         current_user: User = request.user  # type: ignore
         denial = get_object_or_404(
@@ -100,6 +105,7 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
         )
         return Response(response_serializer.data)
 
+    @extend_schema(responses=serializers.DenialResponseInfoSerializer)
     def perform_create(self, request: Request, serializer):
         current_user: User = request.user  # type: ignore
         creating_professional = ProfessionalUser.objects.get(user=current_user)
@@ -156,6 +162,7 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
 class QAResponseViewSet(viewsets.ViewSet, CreateMixin):
     serializer_class = serializers.QAResponsesSerializer
 
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     def perform_create(self, request: Request, serializer):
         user: User = request.user  # type: ignore
         denial = Denial.filter_to_allowed_denials(user).get(
@@ -187,6 +194,7 @@ class QAResponseViewSet(viewsets.ViewSet, CreateMixin):
 class FollowUpViewSet(viewsets.ViewSet, CreateMixin):
     serializer_class = serializers.FollowUpFormSerializer
 
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     def perform_create(self, request: Request, serializer):
         common_view_logic.FollowUpHelper.store_follow_up_result(
             **serializer.validated_data
@@ -195,11 +203,13 @@ class FollowUpViewSet(viewsets.ViewSet, CreateMixin):
 
 
 class Ping(APIView):
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     def get(self, request: Request) -> Response:
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class CheckStorage(APIView):
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     def get(self, request: Request) -> Response:
         es = settings.EXTERNAL_STORAGE
         with Timeout(2.0):
@@ -209,6 +219,7 @@ class CheckStorage(APIView):
 
 
 class CheckMlBackend(APIView):
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     def get(self, request: Request) -> Response:
         if ml_router.working():
             return Response(status=status.HTTP_204_NO_CONTENT)
@@ -231,6 +242,7 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         else:
             return None
 
+    @extend_schema(responses=serializers.AppealSummarySerializer)
     def list(self, request: Request) -> Response:
         # Lets figure out what appeals they _should_ see
         current_user: User = request.user  # type: ignore
@@ -241,6 +253,7 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         output_serializer = serializers.AppealSummarySerializer(appeals, many=True)
         return Response(output_serializer.data)
 
+    @extend_schema(responses=serializers.AppealDetailSerializer)
     def retrieve(self, request: Request, pk: int) -> Response:
         current_user: User = request.user  # type: ignore
         appeal = get_object_or_404(
@@ -249,6 +262,7 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         serializer = serializers.AppealDetailSerializer(appeal)
         return Response(serializer.data)
 
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     @action(detail=False, methods=["post"])
     def notify_patient(self, request: Request) -> Response:
         serializer = self.deserialize(request.data)
@@ -289,6 +303,7 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
             )
         return Response(status=status.HTTP_200_OK)
 
+    @extend_schema(responses=serializers.AppealFullSerializer)
     @action(detail=False, methods=["get"])
     def get_full_details(self, request: Request) -> Response:
         pk = request.query_params.get("pk")
@@ -298,6 +313,7 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         )
         return Response(serializers.AppealFullSerializer(appeal).data)
 
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     @action(detail=False, methods=["post"])
     def send_fax(self, request) -> Response:
         current_user: User = request.user  # type: ignore
@@ -328,6 +344,7 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
             )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @extend_schema(responses=serializers.AssembleAppealResponseSerializer)
     @action(detail=False, methods=["post"])
     def assemble_appeal(self, request) -> Response:
         current_user: User = request.user  # type: ignore
@@ -409,6 +426,7 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
             status=status.HTTP_201_CREATED,
         )
 
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     @action(detail=False, methods=["post"])
     def invite_provider(self, request: Request, pk: int) -> Response:
         current_user: User = request.user  # type: ignore
@@ -446,13 +464,16 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
 class MailingListSubscriberViewSet(viewsets.ViewSet, CreateMixin, DeleteMixin):
     serializer_class = serializers.MailingListSubscriberSerializer
 
+    @extend_schema(responses=serializers.MailingListSubscriberSerializer)
     def perform_create(self, request: Request, serializer):
         serializer.save()
         return Response({"status": "subscribed"}, status=status.HTTP_201_CREATED)
 
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     def perform_delete(self, request: Request, serializer):
         email = serializer.validated_data["email"]
         MailingListSubscriber.objects.filter(email=email).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class SendToUserViewSet(viewsets.ViewSet, SerializerMixin):
@@ -460,6 +481,7 @@ class SendToUserViewSet(viewsets.ViewSet, SerializerMixin):
 
     serializer_class = serializers.SendToUserSerializer
 
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     def post(self, request):
         current_user: User = request.user  # type: ignore
         serializer = self.deserialize(request.data)
@@ -475,6 +497,7 @@ class StatisticsAPIViewSet(viewsets.ViewSet):
     ViewSet for statistics API
     """
 
+    @extend_schema(responses=serializers.StatisticsSerializer)
     def list(self, request):
         now = timezone.now()
 
@@ -589,6 +612,7 @@ class SearchAPIViewSet(viewsets.ViewSet):
 
 
 class AppealAttachmentViewSet(viewsets.ViewSet):
+    @extend_schema(responses=serializers.AppealAttachmentSerializer)
     def list(self, request: Request) -> Response:
         """List attachments for a given appeal"""
         appeal_id = request.query_params.get("appeal_id")
@@ -605,6 +629,7 @@ class AppealAttachmentViewSet(viewsets.ViewSet):
         serializer = serializers.AppealAttachmentSerializer(attachments, many=True)
         return Response(serializer.data)
 
+    @extend_schema(responses=serializers.AppealAttachmentSerializer)
     def create(self, request: Request) -> Response:
         """Upload a new attachment"""
         serializer = serializers.AppealAttachmentUploadSerializer(data=request.data)
@@ -627,6 +652,7 @@ class AppealAttachmentViewSet(viewsets.ViewSet):
             status=status.HTTP_201_CREATED,
         )
 
+    @extend_schema(responses=None)
     def retrieve(self, request: Request, pk=None) -> FileResponse:
         """Download an attachment"""
         current_user: User = request.user  # type: ignore
@@ -643,6 +669,7 @@ class AppealAttachmentViewSet(viewsets.ViewSet):
         )
         return response
 
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     def destroy(self, request: Request, pk=None) -> Response:
         """Delete an attachment"""
         current_user: User = request.user  # type: ignore
