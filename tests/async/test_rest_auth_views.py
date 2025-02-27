@@ -616,12 +616,9 @@ class TestE2EProfessionalUserSignupFlow(TestCase):
         # Have the now logged in pro-user start to make an appeal
         get_pending_url = reverse("patient_user-get-or-create-pending")
         data = {
-            "email": "testpatient@example.com",
-            "username": "testpatient",
+            "username": "testpro@example.com",
             "first_name": "fname",
             "last_name": "lname",
-            "domain": domain_name,
-            "provider_phone_number": phone_number,
         }
         response = self.client.post(get_pending_url, data, format="json")
         self.assertIn(response.status_code, range(200, 300))

@@ -55,7 +55,7 @@ class TestCommonViewLogic(TestCase):
             claim_id=7,
         )
         self.assertIsInstance(next_steps, NextStepInfo)
-        
+ 
     @pytest.mark.django_db
     @patch("fighthealthinsurance.common_view_logic.appealGenerator")
     def test_generate_appeals(self, mock_appeal_generator):
