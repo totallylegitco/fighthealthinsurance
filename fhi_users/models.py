@@ -18,10 +18,9 @@ else:
 
 # Auth-ish-related models
 class UserDomain(models.Model):
-    id = models.CharField(
-        max_length=300,
+    id = models.UUIDField(
         primary_key=True,
-        default=uuid.uuid4,
+        default=uuid.uuid4(),
         editable=False,
         unique=True,
     )

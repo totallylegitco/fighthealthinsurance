@@ -301,9 +301,7 @@ class FaxesToSend(ExportModelOperationsMixin("FaxesToSend"), models.Model):  # t
     combined_document_enc = EncryptedFileField(
         null=True, storage=settings.COMBINED_STORAGE
     )
-    uuid = models.CharField(
-        max_length=300, primary_key=False, default=uuid.uuid4, editable=False
-    )
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False)
     sent = models.BooleanField(default=False)
     attempting_to_send_as_of = models.DateTimeField(
         auto_now=False, auto_now_add=False, null=True, blank=True
@@ -350,9 +348,7 @@ class PlanSourceRelation(models.Model):
 
 class Denial(ExportModelOperationsMixin("Denial"), models.Model):  # type: ignore
     denial_id = models.AutoField(primary_key=True, null=False)
-    uuid = models.CharField(
-        max_length=300, primary_key=False, default=uuid.uuid4, editable=False
-    )
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False)
     hashed_email = models.CharField(max_length=300, primary_key=False)
     denial_text = models.TextField(primary_key=False)
     denial_type_text = models.TextField(
@@ -497,14 +493,7 @@ class ProposedAppeal(ExportModelOperationsMixin("ProposedAppeal"), models.Model)
 
 class Appeal(ExportModelOperationsMixin("Appeal"), models.Model):  # type: ignore
     id = models.AutoField(primary_key=True)
-    uuid = models.CharField(
-        default=uuid.uuid4,
-        editable=False,
-        primary_key=False,
-        unique=True,
-        db_index=False,
-        max_length=100,
-    )
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False)
     appeal_text = models.TextField(max_length=3000000000, primary_key=False, null=True)
     for_denial = models.ForeignKey(
         Denial, on_delete=models.CASCADE, null=True, blank=True
