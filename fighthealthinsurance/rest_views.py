@@ -70,6 +70,10 @@ class NextStepsViewSet(viewsets.ViewSet, CreateMixin):
     serializer_class = serializers.PostInferedFormSerializer
 
     @extend_schema(responses=serializers.NextStepInfoSerizableSerializer)
+    def create(self, request: Request) -> Response:
+        return super().create(request)
+
+    @extend_schema(responses=serializers.NextStepInfoSerizableSerializer)
     def perform_create(self, request: Request, serializer):
         next_step_info = common_view_logic.FindNextStepsHelper.find_next_steps(
             **serializer.validated_data
@@ -90,6 +94,10 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
             return serializers.DenialFormSerializer
         else:
             return None
+
+    @extend_schema(responses=serializers.DenialResponseInfoSerializer)
+    def create(self, request: Request) -> Response:
+        return super().create(request)
 
     @extend_schema(responses=serializers.DenialResponseInfoSerializer)
     def retrieve(self, request: Request, pk: int) -> Response:
@@ -163,6 +171,10 @@ class QAResponseViewSet(viewsets.ViewSet, CreateMixin):
     serializer_class = serializers.QAResponsesSerializer
 
     @extend_schema(responses=serializers.StatusResponseSerializer)
+    def create(self, request: Request) -> Response:
+        return super().create(request)
+
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     def perform_create(self, request: Request, serializer):
         user: User = request.user  # type: ignore
         denial = Denial.filter_to_allowed_denials(user).get(
@@ -193,6 +205,10 @@ class QAResponseViewSet(viewsets.ViewSet, CreateMixin):
 
 class FollowUpViewSet(viewsets.ViewSet, CreateMixin):
     serializer_class = serializers.FollowUpFormSerializer
+
+    @extend_schema(responses=serializers.StatusResponseSerializer)
+    def create(self, request: Request) -> Response:
+        return super().create(request)
 
     @extend_schema(responses=serializers.StatusResponseSerializer)
     def perform_create(self, request: Request, serializer):
@@ -465,6 +481,10 @@ class MailingListSubscriberViewSet(viewsets.ViewSet, CreateMixin, DeleteMixin):
     serializer_class = serializers.MailingListSubscriberSerializer
 
     @extend_schema(responses=serializers.MailingListSubscriberSerializer)
+    def create(self, request: Request) -> Response:
+        return super().create(request)
+
+    @extend_schema(responses=serializers.MailingListSubscriberSerializer)
     def perform_create(self, request: Request, serializer):
         serializer.save()
         return Response({"status": "subscribed"}, status=status.HTTP_201_CREATED)
@@ -570,7 +590,7 @@ class SearchAPIViewSet(viewsets.ViewSet):
         appeals = Appeal.filter_to_allowed_appeals(request.user).filter(
             Q(uuid__icontains=query)
             | Q(appeal_text__icontains=query)
-            | Q(response_text__icontains=query)
+            | Q(response_text__icontains(query))
         )
 
         # Convert appeals to search results

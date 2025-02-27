@@ -117,7 +117,7 @@ class WhoAmIViewSet(viewsets.ViewSet):
             )
 
 
-class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
+class ProfessionalUserViewSet(viewsets.ViewSet):
     """
     Handles professional user sign-up and domain acceptance or rejection.
     """
@@ -260,8 +260,14 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
             )
 
     @extend_schema(responses=serializers.ProfessionalSignupResponseSerializer)
+    def create(self, request: Request) -> Response:
+        """
+        Creates a new professional user and optionally a new domain.
+        """
+        return super().create(request)
+
     def perform_create(
-        self, request: HttpRequest, serializer: Serializer
+        self, request: Request, serializer: Serializer
     ) -> Response | serializers.ProfessionalSignupResponseSerializer:
         data: dict[str, bool | str | dict[str, str]] = serializer.validated_data  # type: ignore
         user_signup_info: dict[str, str] = data["user_signup_info"]  # type: ignore
@@ -447,6 +453,10 @@ class PatientUserViewSet(ViewSet, CreateMixin):
             return serializers.CreatePatientUserSerializer
         else:
             return serializers.GetOrCreatePendingPatientSerializer
+
+    @extend_schema(responses=serializers.StatusResponseSerializer)
+    def create(self, request: Request) -> Response:
+        return super().create(request)
 
     @extend_schema(responses=serializers.StatusResponseSerializer)
     def perform_create(self, request: Request, serializer) -> Response:
