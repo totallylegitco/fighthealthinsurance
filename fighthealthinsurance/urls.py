@@ -18,7 +18,7 @@ from typing import List, Union
 
 from django.urls import URLPattern, URLResolver
 from django.contrib import admin
-from django.http import HttpRequest, HttpResponseBase
+from django.http import HttpRequest, HttpResponseBase, HttpResponse, HttpResponseForbidden
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.urls import include, path, re_path
@@ -80,7 +80,7 @@ class SecurityScanMiddleware:
             if client_ip in self.request_history:
                 times = self.request_history[client_ip]
                 if len(times) >= self.rate_limit:
-                    raise PermissionDenied("Rate limit exceeded")
+                    return HttpResponseForbidden("Rate limit exceeded")
                 times.append(current_time)
             else:
                 self.request_history[client_ip] = [current_time]
@@ -88,9 +88,10 @@ class SecurityScanMiddleware:
         # Check for security violations
         for pattern in self.patterns:
             if pattern.search(content):
-                raise PermissionDenied("Security violation detected")
+                return HttpResponseForbidden("Security violation detected")
 
-        return self.get_response(request)
+        response = self.get_response(request)
+        return response
 
 
 urlpatterns: List[Union[URLPattern, URLResolver]] = [
