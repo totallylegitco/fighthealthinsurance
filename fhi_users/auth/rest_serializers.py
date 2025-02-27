@@ -15,7 +15,6 @@ from fhi_users.auth.auth_utils import (
     create_user,
     resolve_domain_id,
 )
-from fighthealthinsurance.rest_serializers import StatusResponseSerializer
 from typing import Any, Optional
 import re
 
@@ -317,3 +316,8 @@ class CreatePatientUserSerializer(serializers.ModelSerializer):
         )
 
         return user
+
+
+# This is here instead of in the other rest_serializer since the dependency graph
+class StatusResponseSerializer(serializers.Serializer):
+    status = serializers.CharField()

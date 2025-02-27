@@ -16,6 +16,8 @@ from fighthealthinsurance.models import (
 from rest_framework import serializers
 
 from fhi_users.auth import rest_serializers as auth_serializers
+from typing import Optional, List, Dict, Any
+from drf_spectacular.utils import extend_schema_field
 
 
 # Common
@@ -157,7 +159,8 @@ class AppealSummarySerializer(serializers.ModelSerializer):
             "mod_date",
         ]
 
-    def get_status(self, obj):
+    @extend_schema_field(serializers.CharField)
+    def get_status(self, obj: Appeal) -> str:
         if obj.pending_patient:
             return "pending patient"
         elif obj.pending_professional:
@@ -167,10 +170,12 @@ class AppealSummarySerializer(serializers.ModelSerializer):
         else:
             return "unknown"
 
-    def get_insurance_company(self, obj):
+    @extend_schema_field(serializers.CharField)
+    def get_insurance_company(self, obj: Appeal) -> Optional[str]:
         return obj.for_denial.insurance_company if obj.for_denial else None
 
-    def get_professional_name(self, obj):
+    @extend_schema_field(serializers.CharField)
+    def get_professional_name(self, obj: Appeal) -> Optional[str]:
         if obj.primary_professional:
             return obj.primary_professional.get_display_name()
         elif obj.creating_professional:
@@ -178,17 +183,20 @@ class AppealSummarySerializer(serializers.ModelSerializer):
         else:
             return None
 
-    def get_patient_name(self, obj):
+    @extend_schema_field(serializers.CharField)
+    def get_patient_name(self, obj: Appeal) -> Optional[str]:
         if obj.patient_user:
-            # Use the get_combined_name method to get the patient's name
             return obj.patient_user.get_combined_name()
+        return None
 
-    def get_denial_reason(self, obj):
-        return (
+    @extend_schema_field(serializers.CharField)
+    def get_denial_reason(self, obj: Appeal) -> Optional[str]:
+        denial_types: Optional[List[str]] = (
             [x.name for x in obj.for_denial.denial_type.all()]
             if obj.for_denial
             else None
         )
+        return ", ".join(denial_types) if denial_types else None
 
 
 class DenialModelSerializer(serializers.ModelSerializer):
@@ -212,7 +220,8 @@ class AppealDetailSerializer(serializers.ModelSerializer):
             "pending",
         ]
 
-    def get_appeal_pdf_url(self, obj):
+    @extend_schema_field(serializers.CharField)
+    def get_appeal_pdf_url(self, obj: Appeal) -> Optional[str]:
         # Generate a URL for downloading the appeal PDF
         if obj.document_enc:
             # TODO: Use reverse here rather than hardcoding
@@ -235,33 +244,35 @@ class AppealFullSerializer(serializers.ModelSerializer):
         model = Appeal
         exclude: list[str] = []
 
-    def get_appeal_pdf_url(self, obj):
+    @extend_schema_field(serializers.CharField)
+    def get_appeal_pdf_url(self, obj: Appeal) -> Optional[str]:
         # Generate a URL for downloading the appeal PDF
         if obj.document_enc:
             # TODO: Use reverse here rather than hardcoding
             return reverse("appeal_file_view", kwargs={"appeal_uuid": obj.uuid})
         return None
 
-    def get_denial(self, obj):
-        # Generate a URL for downloading the appeal PDF
+    def get_denial(self, obj: Appeal) -> Optional[Dict[str, Any]]:
         if obj.for_denial:
-            return DenialModelSerializer(obj.for_denial).data
+            return DenialModelSerializer(obj.for_denial).data  # type: ignore
         return None
 
-    def get_in_userdomain(self, obj):
+    def get_in_userdomain(self, obj: Appeal) -> Optional[Dict[str, Any]]:
         if obj.domain:
-            return auth_serializers.UserDomainSerializer(obj.domain).data
+            return auth_serializers.UserDomainSerializer(obj.domain).data  # type: ignore
         return None
 
-    def get_primary_professional(self, obj):
+    def get_primary_professional(self, obj: Appeal) -> Optional[Dict[str, Any]]:
         if obj.primary_professional:
-            return auth_serializers.FullProfessionalSerializer(
+            ser_data: Dict[str, Any] = auth_serializers.FullProfessionalSerializer(
                 obj.primary_professional
-            ).data
+            ).data  # type: ignore
+            return ser_data
         if obj.creating_professional:
-            return auth_serializers.FullProfessionalSerializer(
+            ser_data = auth_serializers.FullProfessionalSerializer(
                 obj.creating_professional
-            ).data
+            ).data  # type: ignore
+            return ser_data
         return None
 
 
@@ -312,7 +323,7 @@ class InviteProviderSerializer(serializers.Serializer):
     professional_id = serializers.IntegerField(required=False)
     email = serializers.EmailField(required=False)
 
-    def validate(self, data):
+    def validate(self, data: dict) -> dict:
         if not data.get("professional_id") and not data.get("email"):
             raise serializers.ValidationError(
                 "Either professional_id or email must be provided."

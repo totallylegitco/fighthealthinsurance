@@ -612,6 +612,8 @@ class SearchAPIViewSet(viewsets.ViewSet):
 
 
 class AppealAttachmentViewSet(viewsets.ViewSet):
+    serializer_class = serializers.AppealAttachmentSerializer
+
     @extend_schema(responses=serializers.AppealAttachmentSerializer)
     def list(self, request: Request) -> Response:
         """List attachments for a given appeal"""
@@ -652,8 +654,8 @@ class AppealAttachmentViewSet(viewsets.ViewSet):
             status=status.HTTP_201_CREATED,
         )
 
-    @extend_schema(responses=None)
-    def retrieve(self, request: Request, pk=None) -> FileResponse:
+    @extend_schema(responses=serializers.AppealAttachmentSerializer)
+    def retrieve(self, request: Request, pk: int) -> FileResponse:
         """Download an attachment"""
         current_user: User = request.user  # type: ignore
         attachment = get_object_or_404(

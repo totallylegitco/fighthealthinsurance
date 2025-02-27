@@ -139,7 +139,7 @@ class ProfessionalUser(models.Model):
     domains = models.ManyToManyField("UserDomain", through="ProfessionalDomainRelation")  # type: ignore
     display_name = models.CharField(max_length=400, null=True)
 
-    def get_display_name(self):
+    def get_display_name(self) -> str:
         if self.display_name and len(self.display_name) > 0:
             return self.display_name
         elif len(self.user.first_name) > 0:
