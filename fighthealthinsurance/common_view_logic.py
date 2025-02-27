@@ -396,8 +396,10 @@ class AppealAssemblyHelper:
 
 @dataclass
 class FaxHelperResults:
+    success: bool
     uuid: str
     hashed_email: str
+    message: str
 
 
 class SendFaxHelper:
@@ -431,7 +433,12 @@ class SendFaxHelper:
             professional=professional,
         )
         fax_actor_ref.get.do_send_fax.remote(fts.hashed_email, fts.uuid)
-        return FaxHelperResults(uuid=fts.uuid, hashed_email=hashed_email)
+        return FaxHelperResults(
+            success=True,
+            uuid=str(fts.uuid),
+            hashed_email=str(hashed_email),
+            message="Fax sent successfully"
+        )
 
     @classmethod
     def blocking_dosend_target(cls, email) -> int:
