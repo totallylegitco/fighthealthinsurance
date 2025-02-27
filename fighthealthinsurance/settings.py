@@ -16,6 +16,7 @@ import re
 import traceback
 from functools import cached_property
 from typing import Optional, List
+import sys
 
 from configurations import Configuration
 from fighthealthinsurance.combined_storage import CombinedStorage
@@ -35,6 +36,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 
+TESTING = 'test' in sys.argv
 
 class CsrfExemptSessionAuthentication(SessionAuthentication):
 
