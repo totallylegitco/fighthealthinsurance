@@ -110,7 +110,7 @@ class Base(Configuration):
         "fighthealthinsurance",
         "fhi_users",
         "charts",
-        "sorl.thumbnail",
+        # "sorl.thumbnail",
         "easy_thumbnails",
         "cookie_consent",
         "compressor",
