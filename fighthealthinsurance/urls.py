@@ -26,6 +26,9 @@ from django.views.decorators.cache import cache_control, cache_page
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic.base import RedirectView
 from django.contrib.staticfiles.storage import staticfiles_storage
+from django.core.exceptions import PermissionDenied
+import re
+import time
 
 from fighthealthinsurance import views
 from fighthealthinsurance import fax_views
@@ -33,12 +36,66 @@ from fighthealthinsurance import staff_views
 from django.views.decorators.debug import sensitive_post_parameters
 import os
 
-
 def trigger_error(request: HttpRequest) -> HttpResponseBase:
     raise Exception("Test error")
 
 
+# Add security middleware
+class SecurityScanMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+        # Add patterns for potentially malicious requests
+        self.security_patterns = [
+            r'(?i)(<|%3C)script',  # XSS attempts
+            r'(?i)(union|select|insert|drop|delete)\s+',  # SQL injection attempts
+            r'(?i)(/\.\./|\.\./)',  # Path traversal attempts
+            # Add patterns for sensitive endpoints
+            r'(?i)(rest_verify_email|password_reset|login|logout|device_add)',  # Sensitive routes
+            r'(?i)(admin|webhook)',  # Administrative routes
+        ]
+        self.patterns = [re.compile(pattern) for pattern in self.security_patterns]
+        # Initialize rate limiting
+        self.request_history = {}
+        self.rate_limit = 30  # requests
+        self.time_window = 300  # 5 minutes in seconds
+
+    def __call__(self, request: HttpRequest) -> HttpResponseBase:
+        # Check for security scan patterns
+        path = request.path
+        query = request.META.get('QUERY_STRING', '')
+        content = path + query
+        client_ip = request.META.get('REMOTE_ADDR')
+
+        # Rate limiting for sensitive endpoints
+        if any(pattern in path.lower() for pattern in ['login', 'logout', 'password_reset', 'rest_verify_email', 'admin', 'webhook']):
+            current_time = time.time()
+            
+            # Clean up old entries
+            self.request_history = {
+                ip: times for ip, times in self.request_history.items()
+                if times[-1] > current_time - self.time_window
+            }
+            
+            # Check rate limit
+            if client_ip in self.request_history:
+                times = self.request_history[client_ip]
+                if len(times) >= self.rate_limit:
+                    raise PermissionDenied("Rate limit exceeded")
+                times.append(current_time)
+            else:
+                self.request_history[client_ip] = [current_time]
+
+        # Check for security violations
+        for pattern in self.patterns:
+            if pattern.search(content):
+                raise PermissionDenied("Security violation detected")
+
+        return self.get_response(request)
+
+
 urlpatterns: List[Union[URLPattern, URLResolver]] = [
+    # Add security monitoring endpoint for authorized scanners
+    path('security/', staff_member_required(views.SecurityScanView.as_view())),
     # Internal-ish-views
     path("ziggy/rest/", include("fighthealthinsurance.rest_urls")),
     path("timbit/sentry-debug/", trigger_error),

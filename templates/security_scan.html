@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Security Scan Results</h2>
+    
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Server Information</h4>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <tbody>
+                    <tr>
+                        <th>Status:</th>
+                        <td><span class="badge bg-success" id="status">Unknown</span></td>
+                    </tr>
+                    <tr>
+                        <th>Last Updated:</th>
+                        <td id="timestamp">-</td>
+                    </tr>
+                    <tr>
+                        <th>Django Version:</th>
+                        <td id="django-version">-</td>
+                    </tr>
+                    <tr>
+                        <th>Python Version:</th>
+                        <td id="python-version">-</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h4>Scan History</h4>
+        </div>
+        <div class="card-body">
+            <div id="scan-results">
+                <!-- Scan results will be populated here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Fetch current security status
+    fetch('{% url "security_scan" %}')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('status').textContent = data.status;
+            document.getElementById('timestamp').textContent = new Date(data.timestamp).toLocaleString();
+            document.getElementById('django-version').textContent = data.server_info.django_version;
+            document.getElementById('python-version').textContent = data.server_info.python_version;
+        })
+        .catch(error => {
+            console.error('Error fetching security scan data:', error);
+            document.getElementById('status').textContent = 'Error';
+            document.getElementById('status').className = 'badge bg-danger';
+        });
+});
+</script>
+{% endblock %} 

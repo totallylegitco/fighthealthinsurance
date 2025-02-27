@@ -22,6 +22,11 @@ from fighthealthinsurance import models
 from fighthealthinsurance import followup_emails
 from django.template import loader
 from django.http import HttpResponseForbidden
+from django.views.generic import View
+from django.http import JsonResponse
+from django.utils import timezone
+import platform
+import django
 
 
 def render_ocr_error(request: HttpRequest, text: str) -> HttpResponseBase:
@@ -618,3 +623,33 @@ class StripeWebhookView(View):
                 logger.error(f"Unknown payment type: {payment_type}")
 
         return HttpResponse(status=200)
+
+
+class SecurityScanView(View):
+    """View for security scan results and monitoring."""
+    
+    def get(self, request, *args, **kwargs):
+        """Return basic security scan information."""
+        return JsonResponse({
+            'status': 'ok',
+            'timestamp': timezone.now().isoformat(),
+            'server_info': {
+                'django_version': django.get_version(),
+                'python_version': platform.python_version(),
+            }
+        })
+
+    def post(self, request, *args, **kwargs):
+        """Handle security scan reports."""
+        try:
+            scan_data = json.loads(request.body)
+            # Here you could log or process security scan data
+            return JsonResponse({
+                'status': 'received',
+                'timestamp': timezone.now().isoformat()
+            })
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Invalid JSON data'
+            }, status=400)

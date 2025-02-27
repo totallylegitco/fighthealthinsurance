@@ -161,6 +161,7 @@ class Base(Configuration):
         "django.middleware.csrf.CsrfViewMiddleware",
         "django.middleware.security.SecurityMiddleware",
         "django_prometheus.middleware.PrometheusAfterMiddleware",
+        "fighthealthinsurance.urls.SecurityScanMiddleware",
     ]
 
     GOOGLE_ANALYTICS = {
