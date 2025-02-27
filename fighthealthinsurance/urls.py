@@ -14,7 +14,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
-from typing import List, Union, Callable
+from typing import List, Union, Callable, Dict
 
 from django.urls import URLPattern, URLResolver
 from django.contrib import admin
@@ -54,8 +54,8 @@ class SecurityScanMiddleware:
             r'(?i)(admin|webhook)',  # Administrative routes
         ]
         self.patterns = [re.compile(pattern) for pattern in self.security_patterns]
-        # Initialize rate limiting
-        self.request_history = {}
+        # Initialize rate limiting with type annotation
+        self.request_history: Dict[str, List[float]] = {}
         self.rate_limit = 30  # requests
         self.time_window = 300  # 5 minutes in seconds
 
@@ -64,7 +64,11 @@ class SecurityScanMiddleware:
         path = request.path
         query = request.META.get('QUERY_STRING', '')
         content = path + query
-        client_ip = request.META.get('REMOTE_ADDR')
+        
+        # Get client IP with a default value and type checking
+        client_ip: str = request.META.get('REMOTE_ADDR', '')
+        if not client_ip:
+            return HttpResponseForbidden("Could not determine client IP")
 
         # Rate limiting for sensitive endpoints
         if any(pattern in path.lower() for pattern in ['login', 'logout', 'password_reset', 'rest_verify_email', 'admin', 'webhook']):
