@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Optional
 
 from fhi_users.models import ProfessionalDomainRelation, UserDomain, PatientUser
 from fhi_users.emails import send_verification_email
+from uuid import UUID
 
 if TYPE_CHECKING:
     from django.contrib.auth.models import User
@@ -34,14 +35,16 @@ def user_is_admin_in_domain(
 ) -> bool:
     try:
         domain_id = resolve_domain_id(
-            domain_id=domain_id, domain_name=domain_name, phone_number=phone_number
+            domain_id=get_user_domain(domain_id),
+            domain_name=domain_name,
+            phone_number=phone_number,
         )
     except Exception as e:
         return False
     return (
         ProfessionalDomainRelation.objects.filter(
             professional__user=user,
-            domain_id=domain_id,
+            domain_id=get_user_domain(domain_id),
             admin=True,
             pending=False,
             active=True,
@@ -57,20 +60,22 @@ def resolve_domain_id(
     phone_number: Optional[str] = None,
 ) -> str:
     if domain:
-        return domain.id
+        return get_user_domaindomain.id
     if domain_id:
         return domain_id
     elif domain_name and len(domain_name) > 0:
         # Try and resolve with domain name then fall back to phone number if it fails
         try:
-            return UserDomain.objects.get(name=domain_name).id
+            return get_user_domain(UserDomain.objects.get(name=domain_name).id)
         except UserDomain.DoesNotExist as e:
             if phone_number:
-                return UserDomain.objects.get(visible_phone_number=phone_number).id
+                return get_user_domain(
+                    UserDomain.objects.get(visible_phone_number=phone_number).id
+                )
             else:
                 raise e
     elif phone_number and len(phone_number) > 0:
-        return UserDomain.objects.get(visible_phone_number=phone_number).id
+        return  get_user_domain(UserDomain.objects.get(visible_phone_number=phone_number).id)
     else:
         raise Exception("No domain id, name or phone number provided.")
 
@@ -171,3 +176,12 @@ def create_user(
             is_active=False,
         )
     return user
+
+
+def get_user_domain(domain_id: str) -> Optional[UserDomain]:
+    try:
+        return UserDomain.objects.get(uuid=UUID(domain_id))  # Convert string to UUID
+        # or alternatively:
+        # return UserDomain.objects.get(domain_id=UUID(domain_id))
+    except (UserDomain.DoesNotExist, ValueError):
+        return None
