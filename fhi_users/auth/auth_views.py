@@ -71,7 +71,7 @@ class LogoutView(generic.TemplateView):
         for key in request.session.keys():
             del request.session[key]
         request.session.flush()
-        response.delete_cookie('sessionid')
+        response.delete_cookie("sessionid")
         return response
 
 
