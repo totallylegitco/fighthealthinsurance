@@ -60,6 +60,10 @@ else:
 
 
 class WhoAmIViewSet(viewsets.ViewSet):
+    """
+    Returns the current user's information, including their roles and domain.
+    """
+
     @extend_schema(responses=serializers.WhoAmiSerializer)
     def list(self, request: Request):
         user: User = request.user  # type: ignore
@@ -107,7 +111,7 @@ class WhoAmIViewSet(viewsets.ViewSet):
 
             return Response(
                 serializers.WhoAmiSerializer(
-                    {
+                    [{
                         "email": user.email,
                         "domain_name": user_domain.name,
                         "patient": patient,
@@ -115,7 +119,7 @@ class WhoAmIViewSet(viewsets.ViewSet):
                         "current_professional_id": professional_id,
                         "highest_role": highest_role,
                         "admin": admin,
-                    }
+                    }], many=True # This is to match list endpoints returning arrays.
                 ).data,
                 status=status.HTTP_200_OK,
             )
