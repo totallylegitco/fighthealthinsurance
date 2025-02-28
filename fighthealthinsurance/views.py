@@ -109,6 +109,11 @@ def safe_redirect(request, url_or_view_name, params=None):
             logger.error(f"Failed to reverse URL for view name: {url_or_view_name}")
             raise SuspiciousOperation(f"Invalid redirect destination: {url_or_view_name}")
     
+    # For external URLs, only allow https:// for security
+    if not url_or_view_name.startswith('https://'):
+        logger.warning(f"Attempted redirect to non-HTTPS URL: {url_or_view_name}")
+        raise SuspiciousOperation("Only HTTPS URLs are allowed for external redirects")
+    
     # If it's a full URL, validate the domain
     from urllib.parse import urlparse
     parsed_url = urlparse(url_or_view_name)
