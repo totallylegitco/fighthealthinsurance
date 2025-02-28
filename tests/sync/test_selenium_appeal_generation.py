@@ -79,6 +79,16 @@ class SeleniumTestAppealGenerationBase(FHISeleniumBase, StaticLiveServerTestCase
             "denial_text",
         )
 
+    def login_if_needed(self):
+        """Helper method to handle login if redirected to login page"""
+        if "Login" in self.get_title():
+            # Assuming you have test credentials - adjust as needed
+            self.type("input#id_username", "testuser")
+            self.type("input#id_password", "testpassword")
+            self.click("button#login")
+            # Wait for login to complete
+            time.sleep(1)
+
     def test_submit_an_appeal_with_enough_and_fax(self):
         assert DenialTypes.objects.filter(name="Medically Necessary").count() > 0
         self.open(f"{self.live_server_url}/")
@@ -104,8 +114,10 @@ Cheap-O-Insurance-Corp""",
         self.assert_title_eventually("Upload your Health Insurance Denial")
         self.click("button#submit")
         self.assert_title_eventually("Optional: Health History")
+        self.login_if_needed()
         self.click("button#next")
         self.assert_title_eventually("Optional: Add Plan Documents")
+        self.login_if_needed()
         self.click("button#next")
         self.assert_title_eventually("Categorize Your Denial")
         # This is because channels is needs a different base to work and it's hanging so we manually
@@ -163,8 +175,10 @@ Cheap-O-Insurance-Corp""",
         self.click("input#tos")
         self.click("button#submit")
         self.assert_title_eventually("Optional: Health History")
+        self.login_if_needed()
         self.click("button#next")
         self.assert_title_eventually("Optional: Add Plan Documents")
+        self.login_if_needed()
         self.click("button#next")
         self.assert_title_eventually("Categorize Your Denial")
         self.click("input#submit_cat")
@@ -194,8 +208,10 @@ Cheap-O-Insurance-Corp""",
         self.click("input#tos")
         self.click("button#submit")
         self.assert_title_eventually("Optional: Health History")
+        self.login_if_needed()
         self.click("button#next")
         self.assert_title_eventually("Optional: Add Plan Documents")
+        self.login_if_needed()
         self.click("button#next")
         self.assert_title_eventually("Categorize Your Denial")
         self.click("input#submit_cat")
