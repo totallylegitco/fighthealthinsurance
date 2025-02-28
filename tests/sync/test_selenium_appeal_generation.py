@@ -14,7 +14,7 @@ from seleniumbase import BaseCase
 BaseCase.main(__name__, __file__)
 
 
-class SeleniumTestAppealGeneration(FHISeleniumBase, StaticLiveServerTestCase):
+class SeleniumTestAppealGeneration:
     fixtures = [
         "fighthealthinsurance/fixtures/initial.yaml",
         "fighthealthinsurance/fixtures/followup.yaml",
