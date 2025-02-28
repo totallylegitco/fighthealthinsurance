@@ -1,6 +1,6 @@
 from typing import Tuple
 import ray
-from fighthealthinsurance.fax_utils import *
+from fighthealthinsurance.utils.fax import *
 from datetime import timedelta
 import time
 import asyncio

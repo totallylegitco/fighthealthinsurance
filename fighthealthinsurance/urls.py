@@ -27,9 +27,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.generic.base import RedirectView
 from django.contrib.staticfiles.storage import staticfiles_storage
 
-from fighthealthinsurance import views
-from fighthealthinsurance import fax_views
-from fighthealthinsurance import staff_views
+from fighthealthinsurance.views import views
+from fighthealthinsurance.views import fax
+from fighthealthinsurance.views import staff
 from django.views.decorators.debug import sensitive_post_parameters
 import os
 
@@ -54,23 +54,23 @@ urlpatterns: List[Union[URLPattern, URLResolver]] = [
     path("", include("django_prometheus.urls")),
     path(
         "timbit/help/followup_sched",
-        staff_member_required(staff_views.ScheduleFollowUps.as_view()),
+        staff_member_required(staff.ScheduleFollowUps.as_view()),
     ),
     path(
         "timbit/help/followup_sender_test",
-        staff_member_required(staff_views.FollowUpEmailSenderView.as_view()),
+        staff_member_required(staff.FollowUpEmailSenderView.as_view()),
     ),
     path(
         "timbit/help/thankyou_sender_test",
-        staff_member_required(staff_views.ThankyouSenderView.as_view()),
+        staff_member_required(staff.ThankyouSenderView.as_view()),
     ),
     path(
         "timbit/help/followup_fax_test",
-        staff_member_required(staff_views.FollowUpFaxSenderView.as_view()),
+        staff_member_required(staff.FollowUpFaxSenderView.as_view()),
     ),
     path(
         "timbit/help/activate_pro",
-        staff_member_required(staff_views.ActivateProUserView.as_view()),
+        staff_member_required(staff.ActivateProUserView.as_view()),
         name="activate_pro",
     ),
     # Authentication
@@ -97,28 +97,28 @@ urlpatterns: List[Union[URLPattern, URLResolver]] = [
     # So if there's an extra / or . at the end we ignore it.
     path(
         "v0/faxfollowup/<uuid:uuid>/<slug:hashed_email>",
-        fax_views.FaxFollowUpView.as_view(),
+        fax.FaxFollowUpView.as_view(),
         name="fax-followup",
     ),
     path(
         "v0/faxfollowup/<uuid:uuid>/<slug:hashed_email>.",
-        fax_views.FaxFollowUpView.as_view(),
+        fax.FaxFollowUpView.as_view(),
         name="fax-followup-with-a-period",
     ),
     path(
         "v0/faxfollowup/<uuid:uuid>/<slug:hashed_email>/",
-        fax_views.FaxFollowUpView.as_view(),
+        fax.FaxFollowUpView.as_view(),
         name="fax-followup-with-trailing-slash",
     ),
     # Back to normal stuff
     path(
         "v0/sendfax/<uuid:uuid>/<slug:hashed_email>/",
-        fax_views.SendFaxView.as_view(),
+        fax.SendFaxView.as_view(),
         name="sendfaxview",
     ),
     path(
         "v0/stagefax",
-        fax_views.StageFaxView.as_view(),
+        fax.StageFaxView.as_view(),
         name="stagefaxview",
     ),
     # View an appeal

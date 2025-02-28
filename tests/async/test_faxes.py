@@ -1,7 +1,7 @@
 import os
 from os import environ
 import unittest
-from fighthealthinsurance.fax_utils import FaxSenderBase, FlexibleFaxMagic
+from fighthealthinsurance.utils.fax import FaxSenderBase, FlexibleFaxMagic
 import tempfile
 import time
 import pytest

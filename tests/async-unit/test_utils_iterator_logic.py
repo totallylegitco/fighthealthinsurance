@@ -2,7 +2,7 @@ import pytest
 import unittest
 import asyncio
 from typing import AsyncIterator
-from fighthealthinsurance.utils import interleave_iterator_for_keep_alive
+from fighthealthinsurance.utils.utils import interleave_iterator_for_keep_alive
 
 
 async def async_generator(items, delay: float = 0.1) -> AsyncIterator[str]:

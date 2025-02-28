@@ -13,7 +13,7 @@ from fighthealthinsurance import forms as core_forms
 from fighthealthinsurance import common_view_logic
 from fighthealthinsurance.generate_appeal import *
 from fighthealthinsurance.models import *
-from fighthealthinsurance.utils import *
+from fighthealthinsurance.utils.utils import *
 from fighthealthinsurance.stripe_utils import get_or_create_price
 
 

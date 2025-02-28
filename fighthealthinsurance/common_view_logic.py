@@ -21,12 +21,12 @@ from django.db import connections
 import uszipcode
 from fighthealthinsurance import forms as core_forms
 from fighthealthinsurance.fax_actor_ref import fax_actor_ref
-from fighthealthinsurance.fax_utils import flexible_fax_magic
+from fighthealthinsurance.utils.fax import flexible_fax_magic
 from fighthealthinsurance.form_utils import *
 from fighthealthinsurance.generate_appeal import *
 from fighthealthinsurance.models import *
 from fighthealthinsurance.forms import questions as question_forms
-from fighthealthinsurance.utils import interleave_iterator_for_keep_alive
+from fighthealthinsurance.utils.utils import interleave_iterator_for_keep_alive
 from fhi_users.models import ProfessionalUser, UserDomain
 from .pubmed_tools import PubMedTools
 from .utils import check_call, send_fallback_email

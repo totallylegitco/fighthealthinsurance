@@ -4,7 +4,7 @@ import unittest
 import tempfile
 import pytest
 import asyncio
-from fighthealthinsurance.fax_utils import SonicFax
+from fighthealthinsurance.utils.fax import SonicFax
 
 
 class SonicFaxTest(unittest.TestCase):
