@@ -31,6 +31,20 @@ class SeleniumTestAppealGenerationBase(FHISeleniumBase, StaticLiveServerTestCase
         super(StaticLiveServerTestCase, cls).tearDownClass()
         super(BaseCase, cls).tearDownClass()
 
+    def login_test_user(self):
+        """Helper method to log in a test user when redirected to login page"""
+        # Assuming you have a test user in your fixtures or you can create one here
+        username = "testuser"
+        password = "testpassword"
+        
+        # Fill in login form
+        self.type("input#id_username", username)
+        self.type("input#id_password", password)
+        self.click("button[type='submit']")
+        
+        # Wait for login to complete
+        self.wait_for_element_absent("button[type='submit']", timeout=5)
+
     def test_submit_an_appeal_with_missing_info_and_fail(self):
         self.open(f"{self.live_server_url}/")
         self.assert_title_eventually(
@@ -87,6 +101,15 @@ class SeleniumTestAppealGenerationBase(FHISeleniumBase, StaticLiveServerTestCase
         )
         self.click('a[id="scanlink"]')
         self.assert_title_eventually("Upload your Health Insurance Denial")
+        
+        # Log in first if redirected to login page
+        if "Login" in self.get_title():
+            self.login_test_user()
+            # Navigate back to the upload page
+            self.open(f"{self.live_server_url}/")
+            self.click('a[id="scanlink"]')
+            self.assert_title_eventually("Upload your Health Insurance Denial")
+        
         self.type("input#store_fname", "First NameTest")
         self.type("input#store_lname", "LastName")
         self.type("input#email", "farts@fart.com")
@@ -147,6 +170,15 @@ Cheap-O-Insurance-Corp""",
         )
         self.click('a[id="scanlink"]')
         self.assert_title_eventually("Upload your Health Insurance Denial")
+        
+        # Log in first if redirected to login page
+        if "Login" in self.get_title():
+            self.login_test_user()
+            # Navigate back to the upload page
+            self.open(f"{self.live_server_url}/")
+            self.click('a[id="scanlink"]')
+            self.assert_title_eventually("Upload your Health Insurance Denial")
+        
         self.type("input#store_fname", "First NameTest")
         self.type("input#store_lname", "LastName")
         self.type("input#email", "farts@fart.com")
@@ -178,6 +210,15 @@ Cheap-O-Insurance-Corp""",
         )
         self.click('a[id="scanlink"]')
         self.assert_title_eventually("Upload your Health Insurance Denial")
+        
+        # Log in first if redirected to login page
+        if "Login" in self.get_title():
+            self.login_test_user()
+            # Navigate back to the upload page
+            self.open(f"{self.live_server_url}/")
+            self.click('a[id="scanlink"]')
+            self.assert_title_eventually("Upload your Health Insurance Denial")
+        
         self.type("input#store_fname", "First NameTest")
         self.type("input#store_lname", "LastName")
         self.type("input#email", email)
