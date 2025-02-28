@@ -21,7 +21,6 @@ class SeleniumTestAppealGeneration:
         "fighthealthinsurance/fixtures/plan_source.yaml",
     ]
 
-    # Add test credentials for login
     test_username = "testuser"
     test_password = "testpassword123"
 
