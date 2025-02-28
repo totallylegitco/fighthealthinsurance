@@ -464,13 +464,11 @@ class InitialProcessView(generic.FormView):
         )
 
 
-class SessionRequiredMixin:
+class SessionRequiredMixin(View):
     """Verify that the current user has an active session."""
     
     def dispatch(self, request, *args, **kwargs):
-        # Check if the session has necessary data
         if not request.session.get('denial_uuid'):
-            # Redirect to the initial process view if no session data
             return redirect('process')
         return super().dispatch(request, *args, **kwargs)
 
