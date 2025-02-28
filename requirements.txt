@@ -81,6 +81,6 @@ typing-extensions
 types-python-dateutil
 urllib3
 uszipcode
-uvicorn[standard],
-werkzeug,
+uvicorn[standard]
+werkzeug
 django-redis
