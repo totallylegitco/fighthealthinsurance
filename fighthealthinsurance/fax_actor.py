@@ -112,7 +112,7 @@ class FaxActor:
         fax.fax_success = fax_success
         fax.save()
 
-    def do_send_fax_object(self, fax: "Fax") -> bool:
+    def do_send_fax_object(self, fax) -> bool:
         """Send a fax and notify the user via email with robust error handling."""
         try:
             email = fax.email
@@ -159,7 +159,7 @@ class FaxActor:
                 "fax_redo_link": fax_redo_link,
             }
 
-            email_sent = send_fax_followup_email(email, context)
+            email_sent = self.send_fax_followup_email(email, context)
             if email_sent:
                 logger.info(f"Follow-up email successfully sent to {email}.")
             else:
@@ -171,7 +171,7 @@ class FaxActor:
             logger.error(f"Unexpected error in do_send_fax_object: {e}", exc_info=True)
             return False
 
-    def send_fax_followup_email(to_email: str, context: dict) -> bool:
+    def send_fax_followup_email(self, to_email: str, context: dict) -> bool:
         """Send a follow-up email after fax sending."""
         try:
             if not to_email:

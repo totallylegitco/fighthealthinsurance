@@ -8,6 +8,8 @@ from fhi_users.models import VerificationToken
 from fighthealthinsurance.utils import send_fallback_email
 from django.utils.html import strip_tags
 from loguru import logger
+from smtplib import SMTPException
+from django.core.exceptions import ImproperlyConfigured
 
 if TYPE_CHECKING:
     from django.contrib.auth.models import User
@@ -68,7 +70,7 @@ def send_verification_email(request, user: "User") -> None:
         VerificationToken.objects.create(user=user, token=verification_token)
     except Exception as e:
         logger.error(f"Failed to create verification token for user {user.pk}: {e}")
-        return  # Handle this as appropriate, maybe raise an exception or notify admin
+        raise Exception(f"Could not create verification token for user {user.pk}") from e
 
     activation_link = (
         "https://www.fightpaperwork.com/activate-account/?token={}&uid={}".format(
@@ -90,5 +92,7 @@ def send_verification_email(request, user: "User") -> None:
         logger.info(f"Verification email sent to {user.email}")
     except (SMTPException, ImproperlyConfigured) as e:
         logger.error(f"Failed to send verification email to {user.email}: {e}")
+        raise
     except Exception as e:
         logger.error(f"An unexpected error occurred when sending email to {user.email}: {e}")
+        raise
