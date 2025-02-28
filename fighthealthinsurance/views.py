@@ -13,6 +13,8 @@ from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django.views import View, generic
 from django.http import HttpRequest, HttpResponseBase, HttpResponse, FileResponse
+from django.core.exceptions import SuspiciousOperation
+from django.http import HttpResponseRedirect
 
 from django_encrypted_filefield.crypt import Cryptographer
 
@@ -70,6 +72,55 @@ class BRB(generic.TemplateView):
         response = super().get(request, *args, **kwargs)
         response.status_code = 503  # Set HTTP status to 503
         return response
+
+
+# Add this utility function to validate redirect URLs
+def safe_redirect(request, url_or_view_name, params=None):
+    """
+    Safely redirect to a URL after validating it's safe.
+    
+    Args:
+        request: The HTTP request
+        url_or_view_name: Either a URL or a view name
+        params: Optional parameters for the URL
+    
+    Returns:
+        HttpResponseRedirect to a safe URL
+    
+    Raises:
+        SuspiciousOperation if the URL is not safe
+    """
+    # List of allowed domains for redirection
+    ALLOWED_HOSTS = [
+        request.get_host(),  # Current host
+        'checkout.stripe.com',  # Stripe checkout domain
+        # Add other trusted domains here
+    ]
+    
+    # If it's a view name, use reverse to get the URL
+    if not url_or_view_name.startswith(('http://', 'https://')):
+        try:
+            if params:
+                url = reverse(url_or_view_name, kwargs=params)
+            else:
+                url = reverse(url_or_view_name)
+            return HttpResponseRedirect(url)
+        except:
+            logger.error(f"Failed to reverse URL for view name: {url_or_view_name}")
+            raise SuspiciousOperation(f"Invalid redirect destination: {url_or_view_name}")
+    
+    # If it's a full URL, validate the domain
+    from urllib.parse import urlparse
+    parsed_url = urlparse(url_or_view_name)
+    
+    if parsed_url.netloc and parsed_url.netloc not in ALLOWED_HOSTS:
+        logger.warning(f"Suspicious redirect attempt to: {url_or_view_name}")
+        raise SuspiciousOperation(f"Redirect to untrusted domain: {parsed_url.netloc}")
+    
+    # Log the redirect for audit purposes
+    logger.info(f"Redirecting to: {url_or_view_name}")
+    
+    return HttpResponseRedirect(url_or_view_name)
 
 
 class ProVersionView(generic.FormView):
@@ -142,7 +193,7 @@ class ProVersionView(generic.FormView):
         if checkout_url is None:
             raise Exception("Could not create checkout url")
         else:
-            return redirect(checkout_url)
+            return safe_redirect(self.request, checkout_url)
 
 
 class IndexView(generic.TemplateView):
