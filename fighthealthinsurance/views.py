@@ -446,6 +446,8 @@ class InitialProcessView(generic.FormView):
             **form.cleaned_data,
         )
         
+        # Store the denial ID in the session to maintain state across the multi-step form process
+        # This allows the SessionRequiredMixin to verify the user is working with a valid denial
         self.request.session['denial_uuid'] = denial_response.denial_id
 
         form = core_forms.HealthHistory(
