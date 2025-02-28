@@ -15,7 +15,7 @@ from pathlib import Path
 import re
 import traceback
 from functools import cached_property
-from typing import Optional, List
+from typing import Optional, List, Dict, Any, Union
 import sys
 
 from configurations import Configuration
@@ -164,23 +164,6 @@ class Base(Configuration):
         "django_prometheus.middleware.PrometheusAfterMiddleware",
         "fighthealthinsurance.middleware.SecurityScanMiddleware",
     ]
-
-    if 'test' in sys.argv:
-        CACHES = {
-            'default': {
-                'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-            }
-        }
-    else:
-        CACHES = {
-            'default': {
-                'BACKEND': 'django_redis.cache.RedisCache',
-                'LOCATION': 'redis://127.0.0.1:6379/1',
-                'OPTIONS': {
-                    'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-                }
-            }
-        }
 
     GOOGLE_ANALYTICS = {
         "google_analytics_id": "G-2EDT623L0V",
