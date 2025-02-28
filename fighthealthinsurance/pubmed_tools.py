@@ -2,8 +2,8 @@ from fighthealthinsurance.models import (
     PubMedArticleSummarized,
     PubMedQueryData,
 )
-from fighthealthinsurance.utils import as_available_nested, pubmed_fetcher
-from .utils import markdown_escape
+from fighthealthinsurance.utils.utils import as_available_nested, pubmed_fetcher
+from fighthealthinsurance.utils.utils import markdown_escape
 from concurrent.futures import Future
 from metapub import FindIt
 from stopit import ThreadingTimeout as Timeout

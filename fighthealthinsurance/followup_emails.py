@@ -12,7 +12,7 @@ from django.views import View, generic
 
 from fighthealthinsurance.forms import FollowUpTestForm
 from fighthealthinsurance.models import Denial, FollowUpSched, InterestedProfessional
-from fighthealthinsurance.utils import send_fallback_email
+from fighthealthinsurance.utils.utils import send_fallback_email
 
 
 class ThankyouEmailSender(object):

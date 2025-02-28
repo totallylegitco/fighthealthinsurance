@@ -6,7 +6,7 @@ from django.forms import ModelForm, Textarea, CheckboxInput
 from fighthealthinsurance.models import InterestedProfessional
 
 from django_recaptcha.fields import ReCaptchaField, ReCaptchaV2Checkbox
-from fighthealthinsurance.form_utils import *
+from fighthealthinsurance.utils.form import *
 from fighthealthinsurance.models import (
     DenialTypes,
     InterestedProfessional,

@@ -22,14 +22,14 @@ import uszipcode
 from fighthealthinsurance import forms as core_forms
 from fighthealthinsurance.fax_actor_ref import fax_actor_ref
 from fighthealthinsurance.utils.fax import flexible_fax_magic
-from fighthealthinsurance.form_utils import *
+from fighthealthinsurance.utils.form import *
 from fighthealthinsurance.generate_appeal import *
 from fighthealthinsurance.models import *
 from fighthealthinsurance.forms import questions as question_forms
 from fighthealthinsurance.utils.utils import interleave_iterator_for_keep_alive
 from fhi_users.models import ProfessionalUser, UserDomain
-from .pubmed_tools import PubMedTools
-from .utils import check_call, send_fallback_email
+from fighthealthinsurance.pubmed_tools import PubMedTools
+from fighthealthinsurance.utils.utils import check_call, send_fallback_email
 
 appealGenerator = AppealGenerator()
 

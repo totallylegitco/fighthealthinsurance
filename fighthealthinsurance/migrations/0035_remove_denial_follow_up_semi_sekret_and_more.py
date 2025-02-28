@@ -3,7 +3,7 @@
 import django.db.models.deletion
 from django.db import migrations, models
 
-import fighthealthinsurance.utils
+import fighthealthinsurance.utils.utils
 
 
 class Migration(migrations.Migration):
@@ -52,7 +52,7 @@ class Migration(migrations.Migration):
             model_name="followupsched",
             name="follow_up_semi_sekret",
             field=models.CharField(
-                default=fighthealthinsurance.utils.sekret_gen, max_length=100
+                default=fighthealthinsurance.utils.utils.sekret_gen, max_length=100
             ),
         ),
         migrations.AddField(

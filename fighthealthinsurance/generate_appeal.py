@@ -12,7 +12,7 @@ from fighthealthinsurance.exec import *
 from fighthealthinsurance.ml.ml_models import RemoteFullOpenLike, RemoteModelLike
 from fighthealthinsurance.ml.ml_router import ml_router
 from fighthealthinsurance.process_denial import *
-from fighthealthinsurance.utils import as_available_nested
+from fighthealthinsurance.utils.utils import as_available_nested
 from typing_extensions import reveal_type
 from .pubmed_tools import PubMedTools
 

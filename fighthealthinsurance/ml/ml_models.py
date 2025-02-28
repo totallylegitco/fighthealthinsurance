@@ -16,7 +16,7 @@ from loguru import logger
 from llm_result_utils.cleaner_utils import CleanerUtils
 
 from fighthealthinsurance.exec import *
-from fighthealthinsurance.utils import all_concrete_subclasses
+from fighthealthinsurance.utils.utils import all_concrete_subclasses
 from fighthealthinsurance.process_denial import DenialBase
 
 

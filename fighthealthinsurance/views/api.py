@@ -43,8 +43,8 @@ from fhi_users.models import (
 )
 
 from stopit import ThreadingTimeout as Timeout
-from .common_view_logic import AppealAssemblyHelper
-from .utils import is_convertible_to_int
+from fighthealthinsurance.common_view_logic import AppealAssemblyHelper
+from fighthealthinsurance.utils.utils import is_convertible_to_int
 
 
 if typing.TYPE_CHECKING:
