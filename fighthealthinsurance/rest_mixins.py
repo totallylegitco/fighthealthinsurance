@@ -45,3 +45,14 @@ class DeleteMixin(SerializerMixin):
         serializer.is_valid(raise_exception=True)
         self.perform_delete(request, serializer, *args, **kwargs)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+class DeleteOnlyMixin:
+    """Extra mixin that allows router display for delete-only resources"""
+
+    def list(self, request, *args, **kwargs):
+        # For some reason, delete resources don't show if there's not an
+        # associated endpoint for working with their related data. So,
+        # this adds one that 404s whenever its used until we can come up
+        # with a better solution (or figure out what's wrong)
+
+        return Response(status=status.HTTP_404_NOT_FOUND)
