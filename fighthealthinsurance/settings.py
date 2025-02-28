@@ -112,7 +112,6 @@ class Base(Configuration):
         "fighthealthinsurance",
         "fhi_users",
         "charts",
-        # "sorl.thumbnail",
         "easy_thumbnails",
         "cookie_consent",
         "compressor",
@@ -163,8 +162,18 @@ class Base(Configuration):
         "django.middleware.csrf.CsrfViewMiddleware",
         "django.middleware.security.SecurityMiddleware",
         "django_prometheus.middleware.PrometheusAfterMiddleware",
-        "fighthealthinsurance.urls.SecurityScanMiddleware",
+        "fighthealthinsurance.middleware.SecurityScanMiddleware",
     ]
+
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': 'redis://127.0.0.1:6379/1',
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            }
+        }
+    }
 
     GOOGLE_ANALYTICS = {
         "google_analytics_id": "G-2EDT623L0V",
