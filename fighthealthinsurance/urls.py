@@ -26,6 +26,7 @@ from django.views.decorators.cache import cache_control, cache_page
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic.base import RedirectView
 from django.contrib.staticfiles.storage import staticfiles_storage
+from django.contrib.auth.decorators import login_required
 
 from fighthealthinsurance import views
 from fighthealthinsurance import fax_views
@@ -134,11 +135,11 @@ urlpatterns: List[Union[URLPattern, URLResolver]] = [
     ),
     path(
         "v0/combined_collected_view",
-        sensitive_post_parameters("email")(views.DenialCollectedView.as_view()),
+        login_required(sensitive_post_parameters("email")(views.DenialCollectedView.as_view())),
         name="dvc",
     ),
-    path("v0/plan_documents", views.PlanDocumentsView.as_view(), name="hh"),
-    path("v0/categorize", views.EntityExtractView.as_view(), name="eev"),
+    path("v0/plan_documents", login_required(views.PlanDocumentsView.as_view()), name="hh"),
+    path("v0/categorize", login_required(views.EntityExtractView.as_view()), name="eev"),
     path(
         "server_side_ocr",
         sensitive_post_parameters("email")(views.OCRView.as_view()),

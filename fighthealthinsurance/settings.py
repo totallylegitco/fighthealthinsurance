@@ -208,7 +208,12 @@ class Base(Configuration):
         "mfa.recovery.Hash",
     ]
 
+    CSRF_COOKIE_SECURE = True
     CSRF_COOKIE_HTTPONLY = False
+
+    # Redirect to HTTPS for all requests
+    # In Production we will use
+    # SECURE_SSL_REDIRECT = True
 
     # Password validation
     # https://docs.djangoproject.com/en/4.0/ref/settings/#auth-password-validators
