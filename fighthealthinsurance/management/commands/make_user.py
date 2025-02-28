@@ -40,15 +40,11 @@ class Command(BaseCommand):
 
     def handle(self, *args: str, **options: Any) -> None:
         User = get_user_model()
-        if options.get("username"):
-            username_raw = options.get("username").strip()
-        else:
-            username_raw = options.get("username")
-        if options.get("email"):
-            email = options.get("email").strip()
-        else:
-            email = options.get("email")
-        password = options.get("password")
+
+        # Directly index into options since these are required
+        username_raw = options["username"].strip()
+        email = options["email"].strip()
+        password = options["password"]
         domain_input = options["domain"]
         is_provider = options.get("is_provider", False)
 
@@ -67,9 +63,9 @@ class Command(BaseCommand):
 
         try:
             user_domain, created = UserDomain.objects.get_or_create(
-                    name=domain_clean,
-                    defaults={'active': True, 'visible_phone_number': ''}
-                )
+                name=domain_clean,
+                defaults={'active': True, 'visible_phone_number': ''}
+            )
             if created:
                 self.stdout.write(self.style.SUCCESS(f"Domain '{domain_clean}' created successfully."))
             else:
