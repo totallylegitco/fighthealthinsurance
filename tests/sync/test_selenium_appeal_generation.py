@@ -10,6 +10,8 @@ from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from fighthealthinsurance.models import *
 from .fhi_selenium_base import FHISeleniumBase
 from seleniumbase import BaseCase
+from django.contrib.sessions.backends.db import SessionStore
+from django.contrib.sessions.models import Session
 
 BaseCase.main(__name__, __file__)
 
@@ -232,3 +234,17 @@ Cheap-O-Insurance-Corp""",
             hashed_email=hashed_email
         ).count()
         assert denials_for_user_count == 0
+
+    def setup_session(self, denial_uuid):
+        """Helper to set up a session with necessary data"""
+        # Create a session
+        session = SessionStore()
+        session['denial_uuid'] = str(denial_uuid)
+        session.save()
+        
+        # Add the session cookie to the browser
+        self.driver.add_cookie({
+            'name': 'sessionid',
+            'value': session.session_key,
+            'path': '/'
+        })

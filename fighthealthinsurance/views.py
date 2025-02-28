@@ -464,7 +464,18 @@ class InitialProcessView(generic.FormView):
         )
 
 
-class EntityExtractView(generic.FormView):
+class SessionRequiredMixin:
+    """Verify that the current user has an active session."""
+    
+    def dispatch(self, request, *args, **kwargs):
+        # Check if the session has necessary data
+        if not request.session.get('denial_uuid'):
+            # Redirect to the initial process view if no session data
+            return redirect('process')
+        return super().dispatch(request, *args, **kwargs)
+
+
+class EntityExtractView(SessionRequiredMixin, View):
     form_class = core_forms.EntityExtractForm
     template_name = "entity_extract.html"
 
@@ -495,7 +506,7 @@ class EntityExtractView(generic.FormView):
         )
 
 
-class PlanDocumentsView(generic.FormView):
+class PlanDocumentsView(SessionRequiredMixin, View):
     form_class = core_forms.HealthHistory
     template_name = "health_history.html"
 
@@ -522,7 +533,7 @@ class PlanDocumentsView(generic.FormView):
         )
 
 
-class DenialCollectedView(generic.FormView):
+class DenialCollectedView(SessionRequiredMixin, View):
     form_class = core_forms.PlanDocumentsForm
     template_name = "plan_documents.html"
 
