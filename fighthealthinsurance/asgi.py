@@ -12,9 +12,7 @@ from fighthealthinsurance.env_utils import get_env_variable
 
 
 print("Setting default envs")
-env = get_env_variable(
-    "DJANGO_CONFIGURATION",
-    get_env_variable("ENVIRONMENT", "Dev"))
+env = get_env_variable("DJANGO_CONFIGURATION", get_env_variable("ENVIRONMENT", "Dev"))
 print(f"Using env {env}")
 
 os.environ.setdefault(

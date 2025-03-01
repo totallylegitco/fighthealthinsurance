@@ -10,6 +10,7 @@ from fhi_users.models import UserDomain
 
 class Command(BaseCommand):
     """Make a new user (for local dev work) if user already exists just move on."""
+
     help = "Securely create a new user with proper input validation and error handling."
 
     def add_arguments(self, parser: CommandParser) -> None:
@@ -69,7 +70,8 @@ class Command(BaseCommand):
 
         try:
             user_domain, created = UserDomain.objects.get_or_create(
-                name=domain_clean, defaults={"active": True, "visible_phone_number": visible_phone_number}
+                name=domain_clean,
+                defaults={"active": True, "visible_phone_number": visible_phone_number},
             )
             if created:
                 self.stdout.write(
@@ -102,7 +104,9 @@ class Command(BaseCommand):
                     user.is_provider = is_provider
                     user.save()
                 self.stdout.write(
-                    self.style.SUCCESS(f"User '{combined_username}' created successfully.")
+                    self.style.SUCCESS(
+                        f"User '{combined_username}' created successfully."
+                    )
                 )
             except Exception as e:
                 raise CommandError(f"Failed to create user: {str(e)}")
