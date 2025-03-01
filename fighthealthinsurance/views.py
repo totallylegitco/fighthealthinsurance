@@ -74,15 +74,13 @@ class BRB(generic.TemplateView):
         return response
 
 
-# Add this utility function to validate redirect URLs
-def safe_redirect(request, url_or_view_name, params=None):
+def safe_redirect(request, url):
     """
     Safely redirect to a URL after validating it's safe.
     
     Args:
         request: The HTTP request
-        url_or_view_name: Either a URL or a view name
-        params: Optional parameters for the URL
+        url: The URL to redirect to
     
     Returns:
         HttpResponseRedirect to a safe URL
@@ -90,42 +88,26 @@ def safe_redirect(request, url_or_view_name, params=None):
     Raises:
         SuspiciousOperation if the URL is not safe
     """
-    # List of allowed domains for redirection
     ALLOWED_HOSTS = [
-        request.get_host(),  # Current host
-        'checkout.stripe.com',  # Stripe checkout domain
-        # Add other trusted domains here
+        request.get_host(),  
+        'checkout.stripe.com',
     ]
+
+    # For views, we can just redirect to the URL
+    if url.startswith('/'):
+        return HttpResponseRedirect(url)
     
-    # If it's a view name, use reverse to get the URL
-    if not url_or_view_name.startswith(('http://', 'https://')):
-        try:
-            if params:
-                url = reverse(url_or_view_name, kwargs=params)
-            else:
-                url = reverse(url_or_view_name)
-            return HttpResponseRedirect(url)
-        except:
-            logger.error(f"Failed to reverse URL for view name: {url_or_view_name}")
-            raise SuspiciousOperation(f"Invalid redirect destination: {url_or_view_name}")
-    
-    # For external URLs, only allow https:// for security
-    if not url_or_view_name.startswith('https://'):
-        logger.warning(f"Attempted redirect to non-HTTPS URL: {url_or_view_name}")
-        raise SuspiciousOperation("Only HTTPS URLs are allowed for external redirects")
-    
-    # If it's a full URL, validate the domain
+    # For URLs, we need to validate the domain
     from urllib.parse import urlparse
-    parsed_url = urlparse(url_or_view_name)
+    parsed_url = urlparse(url)
     
     if parsed_url.netloc and parsed_url.netloc not in ALLOWED_HOSTS:
-        logger.warning(f"Suspicious redirect attempt to: {url_or_view_name}")
+        logger.warning(f"Suspicious redirect attempt to: {url}")
         raise SuspiciousOperation(f"Redirect to untrusted domain: {parsed_url.netloc}")
     
-    # Log the redirect for audit purposes
-    logger.info(f"Redirecting to: {url_or_view_name}")
+    logger.info(f"Redirecting to: {url}")
     
-    return HttpResponseRedirect(url_or_view_name)
+    return HttpResponseRedirect(url)
 
 
 class ProVersionView(generic.FormView):
@@ -148,7 +130,6 @@ class ProVersionView(generic.FormView):
 
         stripe.api_key = settings.STRIPE_API_SECRET_KEY
 
-        # Check if the product already exists
         products = stripe.Product.list(limit=100)
         product = next(
             (p for p in products.data if p.name == "Pre-Signup -- New"), None
@@ -157,7 +138,6 @@ class ProVersionView(generic.FormView):
         if product is None:
             product = stripe.Product.create(name="Pre-Signup -- New")
 
-        # Check if the price already exists for the product
         prices = stripe.Price.list(product=product["id"], limit=100)
         product_price = next(
             (
