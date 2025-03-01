@@ -9,6 +9,7 @@ from fhi_users.models import UserDomain
 
 
 class Command(BaseCommand):
+    """Make a new user (for local dev work) if user already exists just move on."""
     help = "Securely create a new user with proper input validation and error handling."
 
     def add_arguments(self, parser: CommandParser) -> None:
@@ -29,6 +30,11 @@ class Command(BaseCommand):
             help="Domain associated with the user (e.g., company or organization name).",
         )
         parser.add_argument(
+            "--visible-phone-number",
+            required=True,
+            help="Visible phone number for the domain.",
+        )
+        parser.add_argument(
             "--is-provider",
             type=lambda x: x.lower() in ["true", "1", "yes"],
             default=False,
@@ -43,7 +49,8 @@ class Command(BaseCommand):
         email = options["email"].strip()
         password = options["password"]
         domain_input = options["domain"]
-        is_provider = options.get("is_provider", False)
+        visible_phone_number = options.get("visible_phone_number", "0")
+        is_provider = options.get("is_provider", True)
 
         if not re.match(r"^\w+$", username_raw):
             raise CommandError(
@@ -62,7 +69,7 @@ class Command(BaseCommand):
 
         try:
             user_domain, created = UserDomain.objects.get_or_create(
-                name=domain_clean, defaults={"active": True, "visible_phone_number": ""}
+                name=domain_clean, defaults={"active": True, "visible_phone_number": visible_phone_number}
             )
             if created:
                 self.stdout.write(
@@ -81,21 +88,21 @@ class Command(BaseCommand):
             raise CommandError(f"Error combining username and domain: {str(e)}")
 
         if User.objects.filter(username=combined_username).exists():
-            raise CommandError(
+            self.stdout.write(
                 f"User with username '{combined_username}' already exists."
             )
-
-        try:
-            user = User.objects.create_user(
-                username=combined_username,
-                email=email,
-                password=password,
-            )
-            if hasattr(user, "is_provider"):
-                user.is_provider = is_provider
-                user.save()
-            self.stdout.write(
-                self.style.SUCCESS(f"User '{combined_username}' created successfully.")
-            )
-        except Exception as e:
-            raise CommandError(f"Failed to create user: {str(e)}")
+        else:
+            try:
+                user = User.objects.create_user(
+                    username=combined_username,
+                    email=email,
+                    password=password,
+                )
+                if hasattr(user, "is_provider"):
+                    user.is_provider = is_provider
+                    user.save()
+                self.stdout.write(
+                    self.style.SUCCESS(f"User '{combined_username}' created successfully.")
+                )
+            except Exception as e:
+                raise CommandError(f"Failed to create user: {str(e)}")
