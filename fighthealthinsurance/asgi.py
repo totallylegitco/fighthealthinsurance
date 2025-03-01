@@ -15,7 +15,10 @@ from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
 
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", get_env_variable("DJANGO_SETTINGS_MODULE", "fighthealthinsurance.settings"))
+os.environ.setdefault(
+    "DJANGO_SETTINGS_MODULE",
+    get_env_variable("DJANGO_SETTINGS_MODULE", "fighthealthinsurance.settings"),
+)
 os.environ.setdefault("DJANGO_CONFIGURATION", get_env_variable("ENVIRONMENT", "Dev"))
 
 application = ProtocolTypeRouter(
