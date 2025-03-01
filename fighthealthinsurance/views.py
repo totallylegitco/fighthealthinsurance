@@ -22,6 +22,8 @@ from fighthealthinsurance import models
 from fighthealthinsurance import followup_emails
 from django.template import loader
 from django.http import HttpResponseForbidden
+from django.http import Http404
+from django.core.exceptions import PermissionDenied
 
 
 def render_ocr_error(request: HttpRequest, text: str) -> HttpResponseBase:
@@ -51,7 +53,13 @@ class FollowUpView(generic.FormView):
         # NOTE: Potential security issue here
         denial = common_view_logic.FollowUpHelper.fetch_denial(**self.kwargs)
         if denial is None:
-            raise Exception(f"Could not find denial for {self.kwargs}")
+            logger.warning(f"Denial not found for params: {self.kwargs}")
+            raise Http404("Denial record not found.")
+        
+        if not self.request.user.is_authenticated or self.request.user.email != denial.hashed_email:
+            logger.warning(f"Unauthorized access attempt by {self.request.user} for denial {denial.uuid}")
+            raise PermissionDenied("You do not have permission to access this resource.")
+        
         return self.kwargs
 
     def form_valid(self, form):
