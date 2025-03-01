@@ -10,10 +10,7 @@ pytest-xdist
 isort==4.3.21
 django_compressor_toolkit
 django-memoize
-seleniumbase
-djangorestframework
 pymupdf
-python-decouple
 mypy
 black
 easyocr
