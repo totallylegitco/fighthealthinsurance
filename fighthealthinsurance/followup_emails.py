@@ -13,7 +13,7 @@ from django.views import View, generic
 from fighthealthinsurance.forms import FollowUpTestForm
 from fighthealthinsurance.models import Denial, FollowUpSched, InterestedProfessional
 from fighthealthinsurance.utils import send_fallback_email
-
+from loguru import logger
 
 class ThankyouEmailSender(object):
     def find_candidates(
@@ -57,9 +57,7 @@ class ThankyouEmailSender(object):
             return True
         except Exception as e:
             # Log the error for debugging
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"Failed to send thank you email to {email}: {str(e)}")
+            logger.debug(f"Failed to send thank you email to {email}: {str(e)}")
             return False
 
 
@@ -119,7 +117,5 @@ class FollowUpEmailSender(object):
             return True
         except Exception as e:
             # Log the error for debugging
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"Failed to send follow-up email to {email}: {str(e)}")
+            logger.debug(f"Failed to send follow-up email to {email}: {str(e)}")
             return False
