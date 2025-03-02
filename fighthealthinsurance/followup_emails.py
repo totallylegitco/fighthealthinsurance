@@ -55,7 +55,11 @@ class ThankyouEmailSender(object):
             interested_pro.thankyou_email_sent = True
             interested_pro.save()
             return True
-        except:
+        except Exception as e:
+            # Log the error for debugging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to send thank you email to {email}: {str(e)}")
             return False
 
 
@@ -113,5 +117,9 @@ class FollowUpEmailSender(object):
             follow_up_sched.follow_up_sent = True
             follow_up_sched.save()
             return True
-        except:
+        except Exception as e:
+            # Log the error for debugging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to send follow-up email to {email}: {str(e)}")
             return False
