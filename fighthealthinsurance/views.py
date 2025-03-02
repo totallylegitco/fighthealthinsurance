@@ -93,21 +93,18 @@ def safe_redirect(request, url):
         'checkout.stripe.com',
     ]
 
-    # For views, we can just redirect to the URL
-    if url.startswith('/'):
+    if not url.startswith('/'):
+        # For URLs, we need to validate the domain        
+        from urllib.parse import urlparse
+        parsed_url = urlparse(url)
+
+        if parsed_url.netloc and parsed_url.netloc not in ALLOWED_HOSTS:
+            logger.warning(f"Suspicious redirect attempt to: {url}")
+            raise SuspiciousOperation(f"Redirect to untrusted domain: {parsed_url.netloc}")
+        
+        logger.info(f"Redirecting to: {url}")
+        
         return HttpResponseRedirect(url)
-    
-    # For URLs, we need to validate the domain
-    from urllib.parse import urlparse
-    parsed_url = urlparse(url)
-    
-    if parsed_url.netloc and parsed_url.netloc not in ALLOWED_HOSTS:
-        logger.warning(f"Suspicious redirect attempt to: {url}")
-        raise SuspiciousOperation(f"Redirect to untrusted domain: {parsed_url.netloc}")
-    
-    logger.info(f"Redirecting to: {url}")
-    
-    return HttpResponseRedirect(url)
 
 
 class ProVersionView(generic.FormView):
@@ -130,6 +127,7 @@ class ProVersionView(generic.FormView):
 
         stripe.api_key = settings.STRIPE_API_SECRET_KEY
 
+        # Check if the product already exists
         products = stripe.Product.list(limit=100)
         product = next(
             (p for p in products.data if p.name == "Pre-Signup -- New"), None
