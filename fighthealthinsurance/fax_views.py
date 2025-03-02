@@ -43,7 +43,7 @@ class StageFaxView(generic.FormView):
     def form_valid(self, form):
         form_data = form.cleaned_data
         # Get all of the articles the user wants to send
-        logger.debug(f"Items received: {len(self.request.POST.items())}")
+        logger.debug(f"Items received: {len(list(self.request.POST.items()))}")
         pubmed_checkboxes = [
             key[len("pubmed_") :]
             for key, value in self.request.POST.items()
