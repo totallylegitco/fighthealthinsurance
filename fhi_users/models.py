@@ -51,7 +51,7 @@ class UserDomain(models.Model):
     stripe_subscription_id = models.CharField(max_length=300, null=True)
     # Info
     name = models.CharField(
-        primary_key=False, blank=False, null=False, max_length=300, unique=True
+        primary_key=False, blank=True, null=True, max_length=300
     )
     active = models.BooleanField()
     # Business name can be blank, we'll use display name then.
@@ -67,12 +67,12 @@ class UserDomain(models.Model):
     internal_phone_number = models.CharField(
         max_length=150, null=True, unique=False, blank=True
     )
-    office_fax = models.CharField(max_length=150, null=True)
+    office_fax = models.CharField(max_length=150, null=True, blank=True)
     country = models.CharField(max_length=150, default="USA")
     state = models.CharField(max_length=50, null=False)
     city = models.CharField(max_length=150, null=False)
     address1 = models.CharField(max_length=200, null=False)
-    address2 = models.CharField(max_length=200, null=True)
+    address2 = models.CharField(max_length=200, null=True, blank=True)
     zipcode = models.CharField(max_length=20, null=False)
     # Customize the defaults
     default_procedure = models.CharField(
