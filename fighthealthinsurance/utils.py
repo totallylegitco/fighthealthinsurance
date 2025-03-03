@@ -208,3 +208,16 @@ async def _interleave_iterator_for_keep_alive(
         except StopAsyncIteration:
             # Break the loop if iteration is complete
             break
+
+
+def as_valid_semi_sekret(semi_sekret):
+    """
+    Validate that semi_sekret follows the expected format to prevent injection attacks.
+    """
+    if not semi_sekret or not isinstance(semi_sekret, str):
+        return False
+    if len(semi_sekret) != 36:
+        return False
+    if not re.match(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', semi_sekret):
+        return False
+    return True

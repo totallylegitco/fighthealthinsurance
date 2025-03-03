@@ -22,6 +22,7 @@ from fighthealthinsurance import common_view_logic
 from fighthealthinsurance import forms as core_forms
 from fighthealthinsurance import models
 from fighthealthinsurance import followup_emails
+from fighthealthinsurance.utils import as_valid_semi_sekret
 from django.template import loader
 from django.http import HttpResponseForbidden
 
@@ -237,12 +238,11 @@ class ShareAppealView(View):
             denial_id = form.cleaned_data["denial_id"]
             hashed_email = models.Denial.get_hashed_email(form.cleaned_data["email"])
 
-            # Update the denial
-            denial = models.Denial.objects.filter(
+            denial = get_object_or_404(
+                models.Denial,
                 denial_id=denial_id,
-                # Include the hashed e-mail so folks can't brute force denial_id
                 hashed_email=hashed_email,
-            ).get()
+            )
             logger.debug(form.cleaned_data)
             denial.appeal_text = form.cleaned_data["appeal_text"]
             denial.save()
@@ -337,8 +337,9 @@ class FindNextSteps(View):
 class ChooseAppeal(View):
     def post(self, request):
         form = core_forms.ChooseAppealForm(request.POST)
-
-        if not form.is_valid():
+        semi_sekret = form.cleaned_data.get("semi_sekret", "")
+        
+        if not form.is_valid() or not as_valid_semi_sekret(semi_sekret):
             logger.debug(form)
             return
 
