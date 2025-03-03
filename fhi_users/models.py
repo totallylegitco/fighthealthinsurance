@@ -89,7 +89,7 @@ class UserDomain(models.Model):
         super().save(*args, **kwargs)
 
     @staticmethod
-    def _clean_name(name):
+    def _clean_name(name: str) -> str:
         """Strip URL prefixes from name string"""
         if name:
             # Remove http://, https://, and www.
@@ -97,7 +97,7 @@ class UserDomain(models.Model):
         return name
 
     @classmethod
-    def find_by_name(cls, name):
+    def find_by_name(cls, name: typing.Optional[str]) -> models.QuerySet["UserDomain"]:
         """Find domains by name, cleaning the input name first"""
         if name:
             cleaned_name = cls._clean_name(name)
