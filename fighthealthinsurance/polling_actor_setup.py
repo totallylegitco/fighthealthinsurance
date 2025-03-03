@@ -3,8 +3,9 @@ from fighthealthinsurance.fax_polling_actor_ref import fax_polling_actor_ref
 import time
 import ray
 
-epar, etask = email_polling_actor_ref.get
-fpar, ftask = fax_polling_actor_ref.get
+epar, etask = email_polling_actor_ref.get()
+fpar, ftask = fax_polling_actor_ref.get()
+
 print(f"Launched email polling actor {epar}")
 print(f"Launched fax polling actor {fpar}")
 
