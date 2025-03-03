@@ -14,10 +14,8 @@ class SerializerMixin:
         return self.serializer_class
 
     def deserialize(self, data=None) -> Serializer:
-        if self.serializer_class is None:
-            raise ValidationError("serializer_class must not be None")
-        else:
-            return self.get_serializer_class()(data=data)
+        serializer_cls = self.get_serializer_class()
+        return serializer_cls(data=data or {})
 
 
 class CreateMixin(SerializerMixin):
