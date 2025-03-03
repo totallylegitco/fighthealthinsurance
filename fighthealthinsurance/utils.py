@@ -24,6 +24,8 @@ from metapub import PubMedFetcher
 from requests.exceptions import RequestException
 from markdown_strings import esc_format
 
+from fighthealthinsurance.env_utils import *
+
 pubmed_fetcher = PubMedFetcher()
 
 U = TypeVar("U")
@@ -49,6 +51,8 @@ def is_convertible_to_int(s):
 
 
 def send_fallback_email(subject: str, template_name: str, context, to_email: str):
+    if to_email.endswith("-fake@fighthealthinsurance.com"):
+        return
     # First, render the plain text content if present
     text_content = render_to_string(
         f"emails/{template_name}.txt",

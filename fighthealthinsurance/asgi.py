@@ -8,10 +8,20 @@ https://docs.djangoproject.com/en/4.1/howto/deployment/asgi/
 """
 
 import os
+from fighthealthinsurance.env_utils import get_env_variable
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "fighthealthinsurance.settings")
-os.environ.setdefault("DJANGO_CONFIGURATION", "Dev")
 
+print("Setting default envs")
+env = get_env_variable("DJANGO_CONFIGURATION", get_env_variable("ENVIRONMENT", "Dev"))
+print(f"Using env {env}")
+
+os.environ.setdefault(
+    "DJANGO_SETTINGS_MODULE",
+    get_env_variable("DJANGO_SETTINGS_MODULE", "fighthealthinsurance.settings"),
+)
+os.environ.setdefault("DJANGO_CONFIGURATION", env)
+
+# We make sure we have the env variables configured first
 from configurations.asgi import get_asgi_application
 from fighthealthinsurance.routing import websocket_urlpatterns
 from channels.auth import AuthMiddlewareStack
@@ -39,8 +49,8 @@ if settings.SENTRY_ENDPOINT and not settings.DEBUG:
         # of transactions for tracing.
         traces_sample_rate=1.0,
         integrations=[DjangoIntegration()],
-        environment=os.getenv("DJANGO_CONFIGURATION", "production-ish"),
-        release=os.getenv("RELEASE", "unset"),
+        environment=get_env_variable("DJANGO_CONFIGURATION", "production-ish"),
+        release=get_env_variable("RELEASE", "unset"),
         _experiments={
             # Set continuous_profiling_auto_start to True
             # to automatically start the profiler on when

@@ -25,6 +25,9 @@ from django.template.loader import render_to_string
 from django.contrib.sites.shortcuts import get_current_site
 from django.contrib.auth.tokens import default_token_generator
 from django.shortcuts import get_object_or_404
+from django.views.decorators.cache import cache_control
+from django.views.decorators.vary import vary_on_cookie
+from django.utils.decorators import method_decorator
 
 
 import stripe
@@ -37,19 +40,24 @@ from fhi_users.models import (
     VerificationToken,
     ExtraUserProperties,
     ResetToken,
+    UserRole,
 )
 from fhi_users.auth import rest_serializers as serializers
+from fighthealthinsurance import rest_serializers as common_serializers
 from fhi_users.auth.auth_utils import (
     create_user,
     combine_domain_and_username,
     user_is_admin_in_domain,
     resolve_domain_id,
     get_patient_or_create_pending_patient,
+    get_next_fake_username,
 )
 from fighthealthinsurance.rest_mixins import CreateMixin, SerializerMixin
 from rest_framework.serializers import Serializer
 from fighthealthinsurance import stripe_utils
 from fhi_users.emails import send_verification_email, send_password_reset_email
+
+from drf_spectacular.utils import extend_schema
 
 if TYPE_CHECKING:
     from django.contrib.auth.models import User
@@ -58,14 +66,31 @@ else:
 
 
 class WhoAmIViewSet(viewsets.ViewSet):
-    def list(self, request: Request):
+    """
+    Returns the current user's information, including their roles and domain.
+    """
+
+    @method_decorator(
+        cache_control(max_age=600, private=True)
+    )  # Cache for 10 minutes, private to user, vary only on cookie header
+    @method_decorator(vary_on_cookie)  # Vary only on the session cookie
+    @extend_schema(
+        responses={
+            200: serializers.WhoAmiSerializer,
+            400: common_serializers.ErrorSerializer,
+            401: common_serializers.ErrorSerializer,
+        }
+    )
+    def list(self, request: Request) -> Response:
         user: User = request.user  # type: ignore
         if user.is_authenticated:
             # Get the user domain from the session
             domain_id = request.session.get("domain_id")
             if not domain_id:
                 return Response(
-                    {"error": "Domain ID not found in session"},
+                    common_serializers.ErrorSerializer(
+                        {"error": "Domain ID not found in session"}
+                    ).data,
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             user_domain = UserDomain.objects.get(id=domain_id)
@@ -94,22 +119,34 @@ class WhoAmIViewSet(viewsets.ViewSet):
                     pass
             except ProfessionalUser.DoesNotExist:
                 pass
+
+            # Use the UserRole enum to get the highest role
+            highest_role = UserRole.get_highest_role(
+                is_patient=patient, is_professional=professional, is_admin=admin
+            )
+
             return Response(
                 serializers.WhoAmiSerializer(
-                    {
-                        "email": user.email,
-                        "domain_name": user_domain.name,
-                        "patient": patient,
-                        "professional": professional,
-                        "current_professional_id": professional_id,
-                        "admin": admin,
-                    }
+                    [
+                        {
+                            "email": user.email,
+                            "domain_name": user_domain.name,
+                            "patient": patient,
+                            "professional": professional,
+                            "current_professional_id": professional_id,
+                            "highest_role": highest_role.value,
+                            "admin": admin,
+                        }
+                    ],
+                    many=True,  # This is to match list endpoints returning arrays.
                 ).data,
                 status=status.HTTP_200_OK,
             )
         else:
             return Response(
-                {"error": "User is not authenticated"},
+                common_serializers.ErrorSerializer(
+                    {"error": "User is not authenticated"}
+                ).data,
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
@@ -138,6 +175,15 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
             permission_classes = []
         return [permission() for permission in permission_classes]
 
+    @method_decorator(
+        cache_control(max_age=600, private=True)
+    )  # Cache for 10 minutes, private to user, vary only on cookie header
+    @method_decorator(vary_on_cookie)  # Vary only on the session cookie
+    @extend_schema(
+        responses={
+            200: serializers.ProfessionalSummary,
+        }
+    )
     @action(detail=False, methods=["post"])
     def list_active_in_domain(self, request) -> Response:
         domain_id = request.session["domain_id"]
@@ -154,8 +200,17 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
         )
         professionals = domain.get_professional_users(active=True)
         serializer = serializers.ProfessionalSummary(professionals, many=True)
-        return Response({"active_professionals": serializer.data})
+        return Response(serializer.data)
 
+    @method_decorator(
+        cache_control(max_age=600, private=True)
+    )  # Cache for 10 minutes, private to user, vary only on cookie header
+    @method_decorator(vary_on_cookie)  # Vary only on the session cookie
+    @extend_schema(
+        responses={
+            200: serializers.ProfessionalSummary,
+        }
+    )
     @action(detail=False, methods=["post"])
     def list_pending_in_domain(self, request) -> Response:
         domain_id = request.session["domain_id"]
@@ -173,6 +228,12 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
         serializer = serializers.ProfessionalSummary(professionals, many=True)
         return Response({"pending_professionals": serializer.data})
 
+    @extend_schema(
+        responses={
+            204: serializers.StatusResponseSerializer,
+            403: common_serializers.ErrorSerializer,
+        }
+    )
     @action(detail=False, methods=["post"])
     def reject(self, request) -> Response:
         """
@@ -186,7 +247,12 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
         current_user_admin_in_domain = user_is_admin_in_domain(current_user, domain_id)
         if not current_user_admin_in_domain:
             # Credentials are valid but does not have permissions
-            return Response(status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                common_serializers.ErrorSerializer(
+                    {"error": "User does not have admin privileges"}
+                ).data,
+                status=status.HTTP_403_FORBIDDEN,
+            )
         relation = ProfessionalDomainRelation.objects.get(
             professional_id=professional_user_id, pending=True, domain_id=domain_id
         )
@@ -195,8 +261,14 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
         relation.rejected = True
         relation.active = False
         relation.save()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(
+            serializers.StatusResponseSerializer(
+                {"status": "rejected", "message": "Professional user rejected"}
+            ).data,
+            status=status.HTTP_204_NO_CONTENT,
+        )
 
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     @action(detail=False, methods=["post"])
     def accept(self, request) -> Response:
         """
@@ -213,11 +285,24 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
             )
             if not current_user_admin_in_domain:
                 # Credentials are valid but does not have permissions
-                return Response(status=status.HTTP_403_FORBIDDEN)
+                return Response(
+                    serializers.StatusResponseSerializer(
+                        {
+                            "status": "failure",
+                            "message": "User does not have admin privileges",
+                        }
+                    ).data,
+                    status=status.HTTP_403_FORBIDDEN,
+                )
         except Exception as e:
             # Unexecpted generic error, fail closed
             logger.opt(exception=e).error("Error in accepting professional user")
-            return Response(status=status.HTTP_401_UNAUTHORIZED)
+            return Response(
+                serializers.StatusResponseSerializer(
+                    {"status": "failure", "message": "Authentication error"}
+                ).data,
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
         try:
             relation = ProfessionalDomainRelation.objects.get(
                 professional_id=professional_user_id, pending=True, domain_id=domain_id
@@ -245,15 +330,32 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
             else:
                 logger.debug("Skipping no subscription present.")
 
-            return Response({"status": "accepted"}, status=status.HTTP_200_OK)
+            return Response(
+                serializers.StatusResponseSerializer(
+                    {"status": "accepted", "message": "Professional user accepted"}
+                ).data,
+                status=status.HTTP_200_OK,
+            )
         except ProfessionalDomainRelation.DoesNotExist:
             return Response(
-                {"error": "Relation not found or already accepted"},
+                serializers.StatusResponseSerializer(
+                    {
+                        "status": "failure",
+                        "message": "Relation not found or already accepted",
+                    }
+                ).data,
                 status=status.HTTP_404_NOT_FOUND,
             )
 
+    @extend_schema(responses=serializers.ProfessionalSignupResponseSerializer)
+    def create(self, request: Request) -> Response:
+        """
+        Creates a new professional user and optionally a new domain.
+        """
+        return super().create(request)
+
     def perform_create(
-        self, request: HttpRequest, serializer: Serializer
+        self, request: Request, serializer: Serializer
     ) -> Response | serializers.ProfessionalSignupResponseSerializer:
         data: dict[str, bool | str | dict[str, str]] = serializer.validated_data  # type: ignore
         user_signup_info: dict[str, str] = data["user_signup_info"]  # type: ignore
@@ -264,19 +366,23 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
         if not new_domain:
             # In practice the serializer may enforce these for us
             try:
-                UserDomain.objects.filter(name=domain_name).get()
+                UserDomain.find_by_name(name=domain_name).get()
             except UserDomain.DoesNotExist:
                 try:
                     UserDomain.objects.get(visible_phone_number=visible_phone_number)
                 except:
                     return Response(
-                        {"error": "Domain does not exist"},
+                        serializers.StatusResponseSerializer(
+                            {"status": "failure", "message": "Domain does not exist"}
+                        ).data,
                         status=status.HTTP_400_BAD_REQUEST,
                     )
         else:
-            if UserDomain.objects.filter(name=domain_name).count() != 0:
+            if UserDomain.find_by_name(name=domain_name).count() != 0:
                 return Response(
-                    {"error": "Domain already exists"},
+                    serializers.StatusResponseSerializer(
+                        {"status": "failure", "message": "Domain already exists"}
+                    ).data,
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             if (
@@ -286,14 +392,22 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
                 != 0
             ):
                 return Response(
-                    {"error": "Visible phone number already exists"},
+                    serializers.StatusResponseSerializer(
+                        {
+                            "status": "failure",
+                            "message": "Visible phone number already exists",
+                        }
+                    ).data,
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             if "user_domain" not in data:
                 return Response(
-                    {
-                        "error": "Need domain info when making a new domain or solo provider"
-                    },
+                    serializers.StatusResponseSerializer(
+                        {
+                            "status": "failure",
+                            "message": "Need domain info when making a new domain or solo provider",
+                        }
+                    ).data,
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             user_domain_info: dict[str, str] = data["user_domain"]  # type: ignore
@@ -302,7 +416,12 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
                     user_domain_info["name"] = domain_name
                 else:
                     return Response(
-                        {"error": "Domain name and user domain name must match"},
+                        serializers.StatusResponseSerializer(
+                            {
+                                "status": "failure",
+                                "message": "Domain name and user domain name must match",
+                            }
+                        ).data,
                         status=status.HTTP_400_BAD_REQUEST,
                     )
             if visible_phone_number != user_domain_info["visible_phone_number"]:
@@ -310,9 +429,12 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
                     user_domain_info["visible_phone_number"] = visible_phone_number
                 else:
                     return Response(
-                        {
-                            "error": "Visible phone number and user domain visible phone number must match"
-                        },
+                        serializers.StatusResponseSerializer(
+                            {
+                                "status": "failure",
+                                "message": "Visible phone number and user domain visible phone number must match",
+                            }
+                        ).data,
                         status=status.HTTP_400_BAD_REQUEST,
                     )
             UserDomain.objects.create(
@@ -320,7 +442,7 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
                 **user_domain_info,
             )
 
-        user_domain: UserDomain = UserDomain.objects.get(name=domain_name)
+        user_domain: UserDomain = UserDomain.find_by_name(name=domain_name).get()
         raw_username: str = user_signup_info["username"]  # type: ignore
         email: str = user_signup_info["email"]  # type: ignore
         password: str = user_signup_info["password"]  # type: ignore
@@ -382,6 +504,7 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
 class RestLoginView(ViewSet, SerializerMixin):
     serializer_class = serializers.LoginFormSerializer
 
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     @action(detail=False, methods=["post"])
     def login(self, request: Request) -> Response:
         serializer = self.deserialize(request.data)
@@ -398,10 +521,12 @@ class RestLoginView(ViewSet, SerializerMixin):
             )
         except Exception as e:
             return Response(
-                {
-                    "status": "failure",
-                    "message": f"Domain or phone number not found -- {e}",
-                },
+                serializers.StatusResponseSerializer(
+                    {
+                        "status": "failure",
+                        "message": f"Domain or phone number not found -- {e}",
+                    }
+                ).data,
                 status=status.HTTP_400_BAD_REQUEST,
             )
         user = authenticate(username=username, password=password)
@@ -411,21 +536,27 @@ class RestLoginView(ViewSet, SerializerMixin):
                 f"User {user.username} logged in setting domain id to {domain_id}"
             )
             login(request, user)
-            return Response({"status": "success"})
+            return Response(
+                serializers.StatusResponseSerializer({"status": "success"}).data
+            )
         try:
             user = User.objects.get(username=username)
             if not user.is_active:
                 return Response(
-                    {
-                        "status": "failure",
-                        "message": "User is inactive -- please verify your e-mail",
-                    },
+                    serializers.StatusResponseSerializer(
+                        {
+                            "status": "failure",
+                            "message": "User is inactive -- please verify your e-mail",
+                        }
+                    ).data,
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
         except User.DoesNotExist:
             pass
         return Response(
-            {"status": "failure", "message": f"Invalid credentials"},
+            serializers.StatusResponseSerializer(
+                {"status": "failure", "message": f"Invalid credentials"}
+            ).data,
             status=status.HTTP_401_UNAUTHORIZED,
         )
 
@@ -439,17 +570,31 @@ class PatientUserViewSet(ViewSet, CreateMixin):
         else:
             return serializers.GetOrCreatePendingPatientSerializer
 
+    @extend_schema(responses=serializers.StatusResponseSerializer)
+    def create(self, request: Request) -> Response:
+        return super().create(request)
+
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     def perform_create(self, request: Request, serializer) -> Response:
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         send_verification_email(request, user)
-        return Response({"status": "pending"})
+        return Response(
+            serializers.StatusResponseSerializer({"status": "pending"}).data
+        )
 
+    @extend_schema(responses=serializers.PatientReferenceSerializer)
     @action(detail=False, methods=["post", "options"])
     def get_or_create_pending(self, request: Request) -> Response:
         print(f"Called...")
         serializer = self.deserialize(data=request.data)
         serializer.is_valid(raise_exception=True)
+        email = None
+        # We allow for creation without a patient e-mail but we make a fake ID
+        if "username" in serializer.validated_data:
+            email = serializer.validated_data["username"]
+        if not email or len(email) == 0:
+            email = get_next_fake_username()
         domain = UserDomain.objects.get(id=request.session["domain_id"])
         user = get_patient_or_create_pending_patient(
             email=serializer.validated_data["username"],
@@ -470,6 +615,7 @@ class VerifyEmailViewSet(ViewSet, SerializerMixin):
 
     serializer_class = serializers.VerificationTokenSerializer
 
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     @action(detail=False, methods=["post"])
     def verify(self, request: Request) -> Response:
         serializer = self.deserialize(data=request.data)
@@ -479,10 +625,12 @@ class VerifyEmailViewSet(ViewSet, SerializerMixin):
             user = User.objects.get(pk=uid)
         except (TypeError, ValueError, OverflowError, User.DoesNotExist) as e:
             return Response(
-                {
-                    "status": "failure",
-                    "message": "Invalid activation link [user not found]",
-                },
+                serializers.StatusResponseSerializer(
+                    {
+                        "status": "failure",
+                        "message": "Invalid activation link [user not found]",
+                    }
+                ).data,
                 status=status.HTTP_400_BAD_REQUEST,
             )
         token = serializer.validated_data["token"]
@@ -490,7 +638,9 @@ class VerifyEmailViewSet(ViewSet, SerializerMixin):
             verification_token = VerificationToken.objects.get(user=user, token=token)
             if timezone.now() > verification_token.expires_at:
                 return Response(
-                    {"status": "failure", "message": "Activation link has expired"},
+                    serializers.StatusResponseSerializer(
+                        {"status": "failure", "message": "Activation link has expired"}
+                    ).data,
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
             user.is_active = True
@@ -510,13 +660,18 @@ class VerifyEmailViewSet(ViewSet, SerializerMixin):
                 ProfessionalUser.objects.filter(user=user).update(is_active=True)
             except:
                 pass
-            return Response({"status": "success"})
+            return Response(
+                serializers.StatusResponseSerializer({"status": "success"}).data
+            )
         except VerificationToken.DoesNotExist as e:
             return Response(
-                {"status": "failure", "message": "Invalid activation link"},
+                serializers.StatusResponseSerializer(
+                    {"status": "failure", "message": "Invalid activation link"}
+                ).data,
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     @action(detail=False, methods=["post"])
     def resend(self, request: Request) -> Response:
         """
@@ -526,7 +681,11 @@ class VerifyEmailViewSet(ViewSet, SerializerMixin):
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data["user"]
         send_verification_email(request, user)
-        return Response({"status": "verification email resent"})
+        return Response(
+            serializers.StatusResponseSerializer(
+                {"status": "verification email resent"}
+            ).data
+        )
 
 
 class PasswordResetViewSet(ViewSet, SerializerMixin):
@@ -539,6 +698,7 @@ class PasswordResetViewSet(ViewSet, SerializerMixin):
             return serializers.FinishPasswordResetFormSerializer
         return serializers.RequestPasswordResetFormSerializer
 
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     @action(detail=False, methods=["post"])
     def request_reset(self, request: Request) -> Response:
         """Request a password reset."""
@@ -565,15 +725,20 @@ class PasswordResetViewSet(ViewSet, SerializerMixin):
             # Send reset email
             send_password_reset_email(user.email, reset_token.token)
 
-            return Response({"status": "reset_requested"})
+            return Response(
+                serializers.StatusResponseSerializer({"status": "reset_requested"}).data
+            )
 
         except Exception as e:
             logger.error(f"Password reset request failed: {e}")
             return Response(
-                {"status": "failure", "message": str(e)},
+                serializers.StatusResponseSerializer(
+                    {"status": "failure", "message": str(e)}
+                ).data,
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+    @extend_schema(responses=serializers.StatusResponseSerializer)
     @action(detail=False, methods=["post"])
     def finish_reset(self, request: Request) -> Response:
         """Complete a password reset."""
@@ -588,7 +753,9 @@ class PasswordResetViewSet(ViewSet, SerializerMixin):
             if timezone.now() > reset_token.expires_at:
                 reset_token.delete()
                 return Response(
-                    {"status": "failure", "message": "Reset token has expired"},
+                    serializers.StatusResponseSerializer(
+                        {"status": "failure", "message": "Reset token has expired"}
+                    ).data,
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -600,10 +767,16 @@ class PasswordResetViewSet(ViewSet, SerializerMixin):
             # Clean up token
             reset_token.delete()
 
-            return Response({"status": "password_reset_complete"})
+            return Response(
+                serializers.StatusResponseSerializer(
+                    {"status": "password_reset_complete"}
+                ).data
+            )
 
         except ResetToken.DoesNotExist:
             return Response(
-                {"status": "failure", "message": "Invalid reset token"},
+                serializers.StatusResponseSerializer(
+                    {"status": "failure", "message": "Invalid reset token"}
+                ).data,
                 status=status.HTTP_400_BAD_REQUEST,
             )

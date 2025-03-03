@@ -25,10 +25,13 @@ from minio_storage.storage import MinioStorage
 import time
 from dj_easy_log import load_loguru
 from corsheaders.defaults import default_methods
+from fighthealthinsurance.utils import get_env_variable
 
-
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "fighthealthinsurance.settings")
-os.environ.setdefault("DJANGO_CONFIGURATION", os.getenv("ENVIRONMENT", "Dev"))
+os.environ.setdefault(
+    "DJANGO_SETTINGS_MODULE",
+    get_env_variable("DJANGO_SETTINGS_MODULE", "fighthealthinsurance.settings"),
+)
+os.environ.setdefault("DJANGO_CONFIGURATION", get_env_variable("ENVIRONMENT", "Dev"))
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -59,7 +62,7 @@ class Base(Configuration):
     }
 
     # Session cookie configs
-    SESSION_COOKIE_SECURE = True  # https only (up to the browser to enforce)
+    SESSION_COOKIE_SECURE = False  # https only (up to the browser to enforce)
     SESSION_COOKIE_HTTPONLY = False  # allow js access
     SESSION_COOKIE_SAMESITE = "Lax"  # cross site happytimes.
 

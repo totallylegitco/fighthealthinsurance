@@ -13,6 +13,8 @@ from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django.views import View, generic
 from django.http import HttpRequest, HttpResponseBase, HttpResponse, FileResponse
+from django.core.exceptions import SuspiciousOperation
+from django.http import HttpResponseRedirect
 
 from django_encrypted_filefield.crypt import Cryptographer
 
@@ -72,6 +74,42 @@ class BRB(generic.TemplateView):
         return response
 
 
+def safe_redirect(request, url):
+    """
+    Safely redirect to a URL after validating it's safe.
+
+    Args:
+        request: The HTTP request
+        url: The URL to redirect to
+
+    Returns:
+        HttpResponseRedirect to a safe URL
+
+    Raises:
+        SuspiciousOperation if the URL is not safe
+    """
+    ALLOWED_HOSTS = [
+        request.get_host(),
+        "checkout.stripe.com",
+    ]
+
+    if not url.startswith("/"):
+        # For URLs, we need to validate the domain
+        from urllib.parse import urlparse
+
+        parsed_url = urlparse(url)
+
+        if parsed_url.netloc and parsed_url.netloc not in ALLOWED_HOSTS:
+            logger.warning(f"Suspicious redirect attempt to: {url}")
+            raise SuspiciousOperation(
+                f"Redirect to untrusted domain: {parsed_url.netloc}"
+            )
+
+        logger.info(f"Redirecting to: {url}")
+
+        return HttpResponseRedirect(url)
+
+
 class ProVersionView(generic.FormView):
     template_name = "professional.html"
     form_class = core_forms.InterestedProfessionalForm
@@ -101,7 +139,6 @@ class ProVersionView(generic.FormView):
         if product is None:
             product = stripe.Product.create(name="Pre-Signup -- New")
 
-        # Check if the price already exists for the product
         prices = stripe.Price.list(product=product["id"], limit=100)
         product_price = next(
             (
@@ -142,7 +179,7 @@ class ProVersionView(generic.FormView):
         if checkout_url is None:
             raise Exception("Could not create checkout url")
         else:
-            return redirect(checkout_url)
+            return safe_redirect(self.request, checkout_url)
 
 
 class IndexView(generic.TemplateView):
@@ -446,6 +483,10 @@ class InitialProcessView(generic.FormView):
             **form.cleaned_data,
         )
 
+        # Store the denial ID in the session to maintain state across the multi-step form process
+        # This allows the SessionRequiredMixin to verify the user is working with a valid denial
+        self.request.session["denial_uuid"] = denial_response.denial_id
+
         form = core_forms.HealthHistory(
             initial={
                 "denial_id": denial_response.denial_id,
@@ -464,7 +505,20 @@ class InitialProcessView(generic.FormView):
         )
 
 
-class EntityExtractView(generic.FormView):
+class SessionRequiredMixin(View):
+    """Verify that the current user has an active session."""
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.session.get("denial_uuid"):
+            denial_id = request.POST.get("denial_id") or request.GET.get("denial_id")
+            if denial_id:
+                request.session["denial_uuid"] = denial_id
+            else:
+                return redirect("process")
+        return super().dispatch(request, *args, **kwargs)
+
+
+class EntityExtractView(SessionRequiredMixin, View):
     form_class = core_forms.EntityExtractForm
     template_name = "entity_extract.html"
 
@@ -495,7 +549,7 @@ class EntityExtractView(generic.FormView):
         )
 
 
-class PlanDocumentsView(generic.FormView):
+class PlanDocumentsView(SessionRequiredMixin, View):
     form_class = core_forms.HealthHistory
     template_name = "health_history.html"
 
@@ -522,7 +576,7 @@ class PlanDocumentsView(generic.FormView):
         )
 
 
-class DenialCollectedView(generic.FormView):
+class DenialCollectedView(SessionRequiredMixin, View):
     form_class = core_forms.PlanDocumentsForm
     template_name = "plan_documents.html"
 
