@@ -12,6 +12,8 @@ from fighthealthinsurance.models import (
     InterestedProfessional,
     PlanSource,
 )
+from django.core.exceptions import ValidationError
+from fighthealthinsurance.common_view_logic import validate_semi_sekret
 
 
 # Actual forms
@@ -83,6 +85,12 @@ class DenialRefForm(forms.Form):
     denial_id = forms.IntegerField(required=True, widget=forms.HiddenInput())
     email = forms.CharField(required=True, widget=forms.HiddenInput())
     semi_sekret = forms.CharField(required=True, widget=forms.HiddenInput())
+    
+    def clean_semi_sekret(self):
+        semi_sekret = self.cleaned_data.get('semi_sekret')
+        if not validate_semi_sekret(semi_sekret):
+            raise forms.ValidationError("Invalid security token format.")
+        return semi_sekret
 
 
 class HealthHistory(DenialRefForm):
@@ -210,6 +218,12 @@ class FollowUpForm(forms.Form):
         required=False,
         label="Optional: Any documents you wish to share",
     )
+    
+    def clean_follow_up_semi_sekret(self):
+        semi_sekret = self.cleaned_data.get('follow_up_semi_sekret')
+        if not validate_semi_sekret(semi_sekret):
+            raise forms.ValidationError("Invalid security token format.")
+        return semi_sekret
 
 
 # New form for activating pro users

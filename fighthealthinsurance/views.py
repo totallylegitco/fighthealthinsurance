@@ -592,7 +592,6 @@ class StripeWebhookView(View):
         sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
 
         try:
-            stripe.api_key = settings.STRIPE_API_SECRET_KEY
             event = stripe.Webhook.construct_event(
                 payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
             )
