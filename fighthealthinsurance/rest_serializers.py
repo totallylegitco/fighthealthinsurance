@@ -238,6 +238,17 @@ class AppealDetailSerializer(serializers.ModelSerializer):
         ]
 
     @extend_schema_field(serializers.CharField)
+    def get_status(self, obj: Appeal) -> str:
+        if obj.pending_patient:
+            return "pending patient"
+        elif obj.pending_professional:
+            return "pending professional"
+        elif obj.sent:
+            return "sent"
+        else:
+            return "unknown"
+
+    @extend_schema_field(serializers.CharField)
     def get_appeal_pdf_url(self, obj: Appeal) -> Optional[str]:
         # Generate a URL for downloading the appeal PDF
         if obj.document_enc:
@@ -417,11 +428,26 @@ class StatusResponseSerializer(serializers.Serializer):
     message = serializers.CharField(required=False, allow_blank=True)
 
 
-class ErrorSerializer(serializers.Serializer):
+class ErrorSerializer(StatusResponseSerializer):
     error = serializers.CharField()
-    message = serializers.CharField(required=False, allow_blank=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Set status to "error" if not explicitly provided
+        if "data" in kwargs and isinstance(kwargs["data"], dict):
+            if "status" not in kwargs["data"]:
+                kwargs["data"]["status"] = "error"
+            # Set message to error value if not explicitly provided
+            if "error" in kwargs["data"] and "message" not in kwargs["data"]:
+                kwargs["data"]["message"] = kwargs["data"]["error"]
 
 
-class SuccessSerializer(serializers.Serializer):
+class SuccessSerializer(StatusResponseSerializer):
     success = serializers.BooleanField(default=True)
-    message = serializers.CharField(required=False, allow_blank=True)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Set status to "success" if not explicitly provided
+        if "data" in kwargs and isinstance(kwargs["data"], dict):
+            if "status" not in kwargs["data"]:
+                kwargs["data"]["status"] = "success"
