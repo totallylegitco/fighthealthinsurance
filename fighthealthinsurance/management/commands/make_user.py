@@ -1,7 +1,7 @@
 import re
 from typing import Any
 from django.core.management.base import BaseCommand, CommandParser, CommandError
-from django.core.validators import validate_email
+from django.core.validators import validate_email, RegexValidator
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from fhi_users.auth.auth_utils import combine_domain_and_username
@@ -49,11 +49,12 @@ class Command(BaseCommand):
         username_raw = options["username"].strip()
         email = options["email"].strip()
         password = options["password"]
-        domain_input = options["domain"]
-        visible_phone_number = options.get("visible_phone_number", "0")
+        domain_input = options["domain"].strip()
+        visible_phone_number = options.get("visible_phone_number", "0").strip()
         is_provider = options.get("is_provider", True)
 
-        if not re.match(r"^\w+$", username_raw):
+        # Enhanced username validation
+        if not re.match(r"^[a-zA-Z0-9_]{3,30}$", username_raw):
             raise CommandError(
                 "Invalid username. Only alphanumeric characters and underscores are allowed."
             )
@@ -65,8 +66,27 @@ class Command(BaseCommand):
 
         if len(password) < 8:
             raise CommandError("Password must be at least 8 characters long.")
+        
+        if not any(c.isupper() for c in password) or not any(c.islower() for c in password) or not any(c.isdigit() for c in password):
+            raise CommandError("Password must contain at least one uppercase letter, one lowercase letter, and one digit.")
 
+        # Domain validation
         domain_clean = domain_input.strip()
+        if not domain_clean or len(domain_clean) < 2:
+            raise CommandError("Domain name must be at least 2 characters long.")
+        
+        if not re.match(r"^[a-zA-Z0-9_\-\.]+$", domain_clean):
+            raise CommandError("Domain name contains invalid characters.")
+
+        # Phone number validation
+        phone_validator = RegexValidator(
+            regex=r"^\+?1?\d{9,15}$",
+            message="Phone number must be entered in the format: '+999999999'. Up to 15 digits allowed."
+        )
+        try:
+            phone_validator(visible_phone_number)
+        except ValidationError as e:
+            raise CommandError(f"Invalid phone number: {e}")
 
         try:
             user_domain, created = UserDomain.objects.get_or_create(
