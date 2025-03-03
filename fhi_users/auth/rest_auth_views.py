@@ -81,7 +81,9 @@ class WhoAmIViewSet(viewsets.ViewSet):
             domain_id = request.session.get("domain_id")
             if not domain_id:
                 return Response(
-                    {"error": "Domain ID not found in session"},
+                    serializers.StatusResponseSerializer(
+                        {"status": "failure", "message": "Domain ID not found in session"}
+                    ).data,
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             user_domain = UserDomain.objects.get(id=domain_id)
@@ -135,7 +137,9 @@ class WhoAmIViewSet(viewsets.ViewSet):
             )
         else:
             return Response(
-                {"error": "User is not authenticated"},
+                serializers.StatusResponseSerializer(
+                    {"status": "failure", "message": "User is not authenticated"}
+                ).data,
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
