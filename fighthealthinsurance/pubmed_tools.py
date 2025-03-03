@@ -72,28 +72,29 @@ class PubMedTools(object):
             if pmid is None or pmid == "":
                 continue
             try:
-                pubmed_docs.append(
-                    PubMedArticleSummarized.objects.filter(pmid=pmid).first()
-                )
+                article = PubMedArticleSummarized.objects.filter(pmid=pmid).first()
+                if article is not None:
+                    pubmed_docs.append(article)
+                else:
+                    try:
+                        fetched = pubmed_fetcher.article_by_pmid(pmid)
+                        if fetched is not None:
+                            title = fetched.title.replace("\x00", "") if fetched.title else ""
+                            abstract = fetched.abstract.replace("\x00", "") if fetched.abstract else ""
+                            text = fetched.content.text.replace("\x00", "") if fetched.content and fetched.content.text else ""
+                            
+                            article = PubMedArticleSummarized.objects.create(
+                                pmid=pmid,
+                                doi=fetched.doi or "",
+                                title=title,
+                                abstract=abstract,
+                                text=text,
+                            )
+                            pubmed_docs.append(article)
+                    except Exception as e:
+                        logger.debug(f"Failed to fetch article {pmid}: {e}")
             except Exception as e:
                 logger.debug(f"Error retrieving article {pmid} from database: {e}")
-                try:
-                    fetched = pubmed_fetcher.article_by_pmid(pmid)
-                    if fetched is not None:
-                        title = fetched.title.replace("\x00", "") if fetched.title else ""
-                        abstract = fetched.abstract.replace("\x00", "") if fetched.abstract else ""
-                        text = fetched.content.text.replace("\x00", "") if fetched.content and fetched.content.text else ""
-                        
-                        article = PubMedArticleSummarized.objects.create(
-                            pmid=pmid,
-                            doi=fetched.doi or "",
-                            title=title,
-                            abstract=abstract,
-                            text=text,
-                        )
-                        pubmed_docs.append(article)
-                except Exception as e:
-                    logger.debug(f"Failed to fetch article {pmid}: {e}")
         return pubmed_docs
 
     def do_article_summary(
