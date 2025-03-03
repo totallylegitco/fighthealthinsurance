@@ -431,24 +431,24 @@ class StatusResponseSerializer(serializers.Serializer):
 class ErrorSerializer(StatusResponseSerializer):
     error = serializers.CharField()
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, data, *args, **kwargs):
         # Set status to "error" if not explicitly provided
-        if "data" in kwargs and isinstance(kwargs["data"], dict):
-            if "status" not in kwargs["data"]:
-                kwargs["data"]["status"] = "error"
-            # Set message to error value if not explicitly provided
-            if "error" in kwargs["data"] and "message" not in kwargs["data"]:
-                kwargs["data"]["message"] = kwargs["data"]["error"]
-        super().__init__(*args, **kwargs)
+        if "status" not in data:
+            data["status"] = "error"
+        # Set message to error value if not explicitly provided
+        if "error" in data and "message" not in data:
+            data["message"] = data["error"]
+        super().__init__(data, *args, **kwargs)
 
 
 
 class SuccessSerializer(StatusResponseSerializer):
     success = serializers.BooleanField(default=True)
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, data, *args, **kwargs):
         # Set status to "success" if not explicitly provided
-        if "data" in kwargs and isinstance(kwargs["data"], dict):
-            if "status" not in kwargs["data"]:
-                kwargs["data"]["status"] = "success"
-        super().__init__(*args, **kwargs)
+        if "status" not in data:
+            data["status"] = "success"
+        if "message" not in data:
+            data["message"] = "Operation completed successfully."
+        super().__init__(data, *args, **kwargs)
