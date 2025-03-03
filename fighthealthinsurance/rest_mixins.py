@@ -15,7 +15,7 @@ class SerializerMixin:
 
     def deserialize(self, data=None) -> Serializer:
         serializer_cls = self.get_serializer_class()
-        return serializer_cls(data=data)
+        return serializer_cls(data=data or {})
 
 
 class CreateMixin(SerializerMixin):
