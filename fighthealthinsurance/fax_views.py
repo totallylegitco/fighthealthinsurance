@@ -43,14 +43,13 @@ class StageFaxView(generic.FormView):
     def form_valid(self, form):
         form_data = form.cleaned_data
         # Get all of the articles the user wants to send
-        logger.debug(f"Items received: {len(list(self.request.POST.items()))}")
         pubmed_checkboxes = [
             key[len("pubmed_") :]
             for key, value in self.request.POST.items()
             if key.startswith("pubmed_") and value == "on"
         ]
         form_data["pubmed_ids_parsed"] = pubmed_checkboxes
-        logger.debug(f"Staging fax with pubmed IDs count: {len(pubmed_checkboxes)}")
+        logger.debug(f"Pubmed IDs: {pubmed_checkboxes}")
         # Make sure the denial secret is present
         denial = Denial.objects.filter(semi_sekret=form_data["semi_sekret"]).get(
             denial_id=form_data["denial_id"]
