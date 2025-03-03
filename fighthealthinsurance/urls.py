@@ -14,11 +14,11 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
-from typing import List, Union
+from typing import List, Union, Callable, Dict
 
 from django.urls import URLPattern, URLResolver
 from django.contrib import admin
-from django.http import HttpRequest, HttpResponseBase
+from django.http import HttpRequest, HttpResponseBase, HttpResponse, HttpResponseForbidden
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.urls import include, path, re_path
@@ -26,19 +26,23 @@ from django.views.decorators.cache import cache_control, cache_page
 from django.views.decorators.csrf import csrf_exempt
 from django.views.generic.base import RedirectView
 from django.contrib.staticfiles.storage import staticfiles_storage
+from django.core.exceptions import PermissionDenied
+import re
+import time
 
 from fighthealthinsurance import views
 from fighthealthinsurance import fax_views
 from fighthealthinsurance import staff_views
 from django.views.decorators.debug import sensitive_post_parameters
 import os
-
+from django.conf import settings
 
 def trigger_error(request: HttpRequest) -> HttpResponseBase:
     raise Exception("Test error")
 
-
 urlpatterns: List[Union[URLPattern, URLResolver]] = [
+    # Add security monitoring endpoint for authorized scanners
+    path('security/', staff_member_required(views.SecurityScanView.as_view())),
     # Internal-ish-views
     path("ziggy/rest/", include("fighthealthinsurance.rest_urls")),
     path("timbit/sentry-debug/", trigger_error),

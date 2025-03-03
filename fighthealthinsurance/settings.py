@@ -15,7 +15,8 @@ from pathlib import Path
 import re
 import traceback
 from functools import cached_property
-from typing import Optional, List
+from typing import Optional, List, Dict, Any, Union
+import sys
 
 from configurations import Configuration
 from fighthealthinsurance.combined_storage import CombinedStorage
@@ -38,6 +39,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 
+TESTING = 'test' in sys.argv
 
 class CsrfExemptSessionAuthentication(SessionAuthentication):
 
@@ -113,7 +115,6 @@ class Base(Configuration):
         "fighthealthinsurance",
         "fhi_users",
         "charts",
-        "sorl.thumbnail",
         "easy_thumbnails",
         "cookie_consent",
         "compressor",
@@ -164,6 +165,7 @@ class Base(Configuration):
         "django.middleware.csrf.CsrfViewMiddleware",
         "django.middleware.security.SecurityMiddleware",
         "django_prometheus.middleware.PrometheusAfterMiddleware",
+        "fighthealthinsurance.middleware.SecurityScanMiddleware",
     ]
 
     GOOGLE_ANALYTICS = {
