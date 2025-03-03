@@ -20,6 +20,7 @@ from fighthealthinsurance import common_view_logic
 from fighthealthinsurance import forms as core_forms
 from fighthealthinsurance import models
 from fighthealthinsurance import followup_emails
+from fighthealthinsurance.utils import as_valid_semi_sekret
 from django.template import loader
 from django.http import HttpResponseForbidden
 
@@ -301,7 +302,7 @@ class ChooseAppeal(View):
         form = core_forms.ChooseAppealForm(request.POST)
         semi_sekret = form.cleaned_data.get("semi_sekret", "")
         
-        if not form.is_valid() or not common_view_logic.as_valid_semi_sekret(semi_sekret):
+        if not form.is_valid() or not as_valid_semi_sekret(semi_sekret):
             logger.debug(form)
             return
 

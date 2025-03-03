@@ -31,7 +31,6 @@ from fhi_users.models import ProfessionalUser, UserDomain
 from .pubmed_tools import PubMedTools
 from .utils import check_call, send_fallback_email
 import re
-from fighthealthinsurance.utils import as_valid_semi_sekret
 
 appealGenerator = AppealGenerator()
 

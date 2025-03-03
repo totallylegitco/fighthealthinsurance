@@ -12,9 +12,9 @@ from fighthealthinsurance.common_view_logic import (
     DenialCreatorHelper,
     AppealsBackendHelper,
     DenialResponseInfo,
-    NextStepInfo,
-    as_valid_semi_sekret,
+    NextStepInfo
 )
+from fighthealthinsurance.utils import as_valid_semi_sekret
 from fighthealthinsurance.models import Denial, DenialTypes, FaxesToSend
 import pytest
 from django.test import TestCase, Client
