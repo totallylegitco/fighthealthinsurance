@@ -43,6 +43,7 @@ from fhi_users.models import (
     UserRole,
 )
 from fhi_users.auth import rest_serializers as serializers
+from fighthealthinsurance import rest_serializers as common_serializers
 from fhi_users.auth.auth_utils import (
     create_user,
     combine_domain_and_username,
@@ -73,7 +74,7 @@ class WhoAmIViewSet(viewsets.ViewSet):
         cache_control(max_age=600, private=True)
     )  # Cache for 10 minutes, private to user, vary only on cookie header
     @method_decorator(vary_on_cookie)  # Vary only on the session cookie
-    @extend_schema(responses={200: serializers.WhoAmiSerializer, 400: serializers.ErrorSerializer, 401: serializers.ErrorSerializer})
+    @extend_schema(responses={200: serializers.WhoAmiSerializer, 400: common_serializers.ErrorSerializer, 401: common_serializers.ErrorSerializer})
     def list(self, request: Request) -> Response:
         user: User = request.user  # type: ignore
         if user.is_authenticated:
@@ -81,7 +82,7 @@ class WhoAmIViewSet(viewsets.ViewSet):
             domain_id = request.session.get("domain_id")
             if not domain_id:
                 return Response(
-                    serializers.ErrorSerializer(
+                    common_serializers.ErrorSerializer(
                         {"error": "Domain ID not found in session"}
                     ).data,
                     status=status.HTTP_400_BAD_REQUEST,
@@ -137,7 +138,7 @@ class WhoAmIViewSet(viewsets.ViewSet):
             )
         else:
             return Response(
-                serializers.ErrorSerializer(
+                common_serializers.ErrorSerializer(
                     {"error": "User is not authenticated"}
                 ).data,
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -213,7 +214,7 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
         serializer = serializers.ProfessionalSummary(professionals, many=True)
         return Response({"pending_professionals": serializer.data})
 
-    @extend_schema(responses={204: serializers.StatusResponseSerializer, 403: serializers.ErrorSerializer})
+    @extend_schema(responses={204: serializers.StatusResponseSerializer, 403: common_serializers.ErrorSerializer})
     @action(detail=False, methods=["post"])
     def reject(self, request) -> Response:
         """
@@ -228,7 +229,7 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
         if not current_user_admin_in_domain:
             # Credentials are valid but does not have permissions
             return Response(
-                serializers.ErrorSerializer(
+                common_serializers.ErrorSerializer(
                     {"error": "User does not have admin privileges"}
                 ).data,
                 status=status.HTTP_403_FORBIDDEN
