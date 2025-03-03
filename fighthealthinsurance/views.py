@@ -301,7 +301,7 @@ class ChooseAppeal(View):
         form = core_forms.ChooseAppealForm(request.POST)
         semi_sekret = form.cleaned_data.get("semi_sekret", "")
         
-        if not form.is_valid() or not common_view_logic.validate_semi_sekret(semi_sekret):
+        if not form.is_valid() or not common_view_logic.as_valid_semi_sekret(semi_sekret):
             logger.debug(form)
             return
 

@@ -13,7 +13,7 @@ from fighthealthinsurance.common_view_logic import (
     AppealsBackendHelper,
     DenialResponseInfo,
     NextStepInfo,
-    validate_semi_sekret,
+    as_valid_semi_sekret,
 )
 from fighthealthinsurance.models import Denial, DenialTypes, FaxesToSend
 import pytest
@@ -96,25 +96,25 @@ class TestCommonViewLogic(TestCase):
         async_to_sync(test)()
 
     @pytest.mark.django_db
-    def test_validate_semi_sekret(self):
+    def test_as_valid_semi_sekret(self):
         # Test valid UUID format
         valid_uuid = str(uuid.uuid4())
-        self.assertTrue(validate_semi_sekret(valid_uuid))
+        self.assertTrue(as_valid_semi_sekret(valid_uuid))
         
         # Test invalid formats
-        self.assertFalse(validate_semi_sekret(None))
-        self.assertFalse(validate_semi_sekret(123))
-        self.assertFalse(validate_semi_sekret(""))
-        self.assertFalse(validate_semi_sekret("not-a-uuid"))
-        self.assertFalse(validate_semi_sekret("12345678-1234-1234-1234-1234567890ab-extra"))
-        self.assertFalse(validate_semi_sekret("12345678-1234-1234-1234-1234567890"))
+        self.assertFalse(as_valid_semi_sekret(None))
+        self.assertFalse(as_valid_semi_sekret(123))
+        self.assertFalse(as_valid_semi_sekret(""))
+        self.assertFalse(as_valid_semi_sekret("not-a-uuid"))
+        self.assertFalse(as_valid_semi_sekret("12345678-1234-1234-1234-1234567890ab-extra"))
+        self.assertFalse(as_valid_semi_sekret("12345678-1234-1234-1234-1234567890"))
         
         # Test with invalid characters
-        self.assertFalse(validate_semi_sekret("12345678-1234-1234-1234-1234567890zz"))
+        self.assertFalse(as_valid_semi_sekret("12345678-1234-1234-1234-1234567890zz"))
         
         # Test with uppercase (if your implementation is case-sensitive)
         uppercase_uuid = str(uuid.uuid4()).upper()
-        self.assertFalse(validate_semi_sekret(uppercase_uuid))
+        self.assertFalse(as_valid_semi_sekret(uppercase_uuid))
 
     @pytest.mark.django_db
     def test_generated_semi_sekret_passes_validation(self):
@@ -122,5 +122,5 @@ class TestCommonViewLogic(TestCase):
         # This assumes you generate semi_sekrets using uuid.uuid4()
         for _ in range(100):  # Test multiple generations
             generated_uuid = str(uuid.uuid4())
-            self.assertTrue(validate_semi_sekret(generated_uuid), 
+            self.assertTrue(as_valid_semi_sekret(generated_uuid), 
                            f"Generated UUID {generated_uuid} failed validation")

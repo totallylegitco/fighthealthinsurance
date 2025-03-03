@@ -13,7 +13,7 @@ from fighthealthinsurance.models import (
     PlanSource,
 )
 from django.core.exceptions import ValidationError
-from fighthealthinsurance.common_view_logic import validate_semi_sekret
+from fighthealthinsurance.utils import as_valid_semi_sekret
 
 
 # Actual forms
@@ -88,7 +88,7 @@ class DenialRefForm(forms.Form):
     
     def clean_semi_sekret(self):
         semi_sekret = self.cleaned_data.get('semi_sekret')
-        if not validate_semi_sekret(semi_sekret):
+        if not as_valid_semi_sekret(semi_sekret):
             raise forms.ValidationError("Invalid security token format.")
         return semi_sekret
 
@@ -221,7 +221,7 @@ class FollowUpForm(forms.Form):
     
     def clean_follow_up_semi_sekret(self):
         semi_sekret = self.cleaned_data.get('follow_up_semi_sekret')
-        if not validate_semi_sekret(semi_sekret):
+        if not as_valid_semi_sekret(semi_sekret):
             raise forms.ValidationError("Invalid security token format.")
         return semi_sekret
 
