@@ -508,6 +508,7 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
     @action(detail=False, methods=["get"])
     def stats(self, request: Request) -> Response:
         now = timezone.now()
+        user: User = request.user  # type: ignore
 
         # Define current period (current month)
         current_period_start = now.replace(
@@ -520,7 +521,7 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         previous_period_end = current_period_start - relativedelta(microseconds=1)
 
         # Calculate current period statistics
-        current_appeals = Appeal.filter_to_allowed_appeals(request.user).filter(
+        current_appeals = Appeal.filter_to_allowed_appeals(user).filter(
             mod_date__range=(current_period_start.date(), current_period_end.date())
         )
         current_total = current_appeals.count()
@@ -529,7 +530,7 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         current_with_response = current_appeals.exclude(response_date=None).count()
 
         # Calculate previous period statistics
-        previous_appeals = Appeal.filter_to_allowed_appeals(request.user).filter(
+        previous_appeals = Appeal.filter_to_allowed_appeals(user).filter(
             mod_date__range=(previous_period_start.date(), previous_period_end.date())
         )
         previous_total = previous_appeals.count()
