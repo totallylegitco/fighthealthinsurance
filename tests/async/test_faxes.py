@@ -130,6 +130,9 @@ class FaxSendBaseTest(unittest.TestCase):
         with tempfile.NamedTemporaryFile(
             suffix=".txt", prefix="short_meeps", mode="w+t", delete=True
         ) as t1:
+            t1.write("Test ")
+            t1.flush()
+            time.sleep(1)
             try:
                 # Create a subclass to track which backends are selected
                 class TestFlexibleFaxMagic(FlexibleFaxMagic):
