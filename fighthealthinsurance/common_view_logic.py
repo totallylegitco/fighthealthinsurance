@@ -908,7 +908,7 @@ class DenialCreatorHelper:
 
     @classmethod
     def start_background(cls, denial_id):
-        async_to_sync(cls._start_background(denial_id))
+        async_to_sync(cls.run_background_extractions)(denial_id)
 
     @classmethod
     async def extract_entity(cls, denial_id: int) -> AsyncIterator[str]:
@@ -956,69 +956,17 @@ class DenialCreatorHelper:
         # Combine both types of tasks
         all_tasks = formatted_optional + formatted_required
 
-        # Create an async iterator from all tasks
-        formatted: AsyncIterator[str] = a.iter(all_tasks)
+        # Fix: Convert tasks to an async generator instead of using iter directly
+        async def task_generator() -> AsyncIterator[str]:
+            for task in all_tasks:
+                yield await task
+
+        # Create a proper AsyncIterator from our generator
+        formatted: AsyncIterator[str] = task_generator()
 
         # StreamingHttpResponse needs a synchronous iterator otherwise it blocks.
         interleaved: AsyncIterator[str] = interleave_iterator_for_keep_alive(formatted)
         return interleaved
-
-    @classmethod
-    async def _start_background(cls, denial_id):
-        """Run"""
-        asyncio.ensure_future(cls.extract_set_fax_number(denial_id))
-        await cls.extract_set_denialtype(denial_id)
-        await cls.extract_set_denial_and_diagnosis(denial_id)
-
-    @classmethod
-    async def extract_set_denialtype(cls, denial_id):
-        logger.debug(f"Extracting and setting denial types....")
-        # Try and guess at the denial types
-        denial = await Denial.objects.filter(denial_id=denial_id).aget()
-        denial_types = await cls.regex_denial_processor.get_denialtype(
-            denial_text=denial.denial_text,
-            procedure=denial.procedure,
-            diagnosis=denial.diagnosis,
-        )
-        logger.debug(f"Ok lets rock with {denial_types}")
-        for dt in denial_types:
-            try:
-                await DenialTypesRelation.objects.acreate(
-                    denial=denial, denial_type=dt, src=await cls.regex_src()
-                )
-            except:
-                logger.opt(exception=True).debug(f"Failed setting denial type")
-        logger.debug(f"Done setting denial types")
-
-    @classmethod
-    async def extract_set_fax_number(cls, denial_id):
-        # Try and extract the appeal fax number
-        denial = await Denial.objects.filter(denial_id=denial_id).aget()
-        appeal_fax_number = None
-        try:
-            appeal_fax_number = await appealGenerator.get_fax_number(
-                denial_text=denial.denial_text
-            )
-        except Exception as e:
-            logger.opt(exception=True).warning(
-                f"Failed to extract fax number for denial {denial_id}: {e}"
-            )
-
-        # Slight guard against hallucinations
-        if appeal_fax_number is not None:
-            # TODO: More flexible regex matching
-            if (
-                appeal_fax_number not in denial.denial_text
-                and "Fax" not in denial.denial_text
-            ) or len(appeal_fax_number) > 30:
-                appeal_fax_number = None
-
-        if appeal_fax_number is not None:
-            denial.fax_number = appeal_fax_number
-            await denial.asave()
-            logger.debug(f"Successfully extracted fax number: {appeal_fax_number}")
-            return appeal_fax_number
-        return None
 
     @classmethod
     async def extract_set_denial_and_diagnosis(cls, denial_id: int):
@@ -1146,8 +1094,8 @@ class DenialCreatorHelper:
         return None
 
     @classmethod
-    async def _start_background(cls, denial_id):
-        """Run extraction tasks in the background"""
+    async def run_background_extractions(cls, denial_id):
+        """Run extraction tasks in the background with timeouts"""
         # Create tasks for all extractions and run them in parallel
         tasks = [
             cls.extract_set_fax_number(denial_id),
@@ -1168,6 +1116,56 @@ class DenialCreatorHelper:
             logger.warning(f"Some extraction tasks timed out for denial {denial_id}")
         except Exception as e:
             logger.opt(exception=True).warning(f"Error in background tasks: {e}")
+
+    @classmethod
+    async def extract_set_fax_number(cls, denial_id):
+        # Try and extract the appeal fax number
+        denial = await Denial.objects.filter(denial_id=denial_id).aget()
+        appeal_fax_number = None
+        try:
+            appeal_fax_number = await appealGenerator.get_fax_number(
+                denial_text=denial.denial_text
+            )
+        except Exception as e:
+            logger.opt(exception=True).warning(
+                f"Failed to extract fax number for denial {denial_id}: {e}"
+            )
+
+        # Slight guard against hallucinations
+        if appeal_fax_number is not None:
+            # TODO: More flexible regex matching
+            if (
+                appeal_fax_number not in denial.denial_text
+                and "Fax" not in denial.denial_text
+            ) or len(appeal_fax_number) > 30:
+                appeal_fax_number = None
+
+        if appeal_fax_number is not None:
+            denial.fax_number = appeal_fax_number
+            await denial.asave()
+            logger.debug(f"Successfully extracted fax number: {appeal_fax_number}")
+            return appeal_fax_number
+        return None
+
+    @classmethod
+    async def extract_set_denialtype(cls, denial_id):
+        logger.debug(f"Extracting and setting denial types....")
+        # Try and guess at the denial types
+        denial = await Denial.objects.filter(denial_id=denial_id).aget()
+        denial_types = await cls.regex_denial_processor.get_denialtype(
+            denial_text=denial.denial_text,
+            procedure=denial.procedure,
+            diagnosis=denial.diagnosis,
+        )
+        logger.debug(f"Ok lets rock with {denial_types}")
+        for dt in denial_types:
+            try:
+                await DenialTypesRelation.objects.acreate(
+                    denial=denial, denial_type=dt, src=await cls.regex_src()
+                )
+            except:
+                logger.opt(exception=True).debug(f"Failed setting denial type")
+        logger.debug(f"Done setting denial types")
 
     @classmethod
     def update_denial(

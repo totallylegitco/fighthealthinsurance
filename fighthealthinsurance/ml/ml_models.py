@@ -22,7 +22,13 @@ from fighthealthinsurance.process_denial import DenialBase
 
 class RemoteModelLike(DenialBase):
     def infer(self, prompt, patient_context, plan_context, pubmed_context, infer_type):
-        return None
+        """
+        Abstract method for inference
+
+        Returns:
+            Result from the model
+        """
+        pass
 
     @abstractmethod
     async def _infer(
@@ -39,34 +45,86 @@ class RemoteModelLike(DenialBase):
         return None
 
     async def get_denialtype(self, denial_text, procedure, diagnosis) -> Optional[str]:
-        """What is the denial type?"""
-        await asyncio.sleep(0)  # yield
+        """Get the denial type from the text and procedure/diagnosis"""
         return None
 
     async def get_regulator(self, text) -> Optional[str]:
-        """Who is the regulator most likely associated with a given denial."""
-        await asyncio.sleep(0)  # yield
+        """Get the regulator from the text"""
         return None
 
     async def get_plan_type(self, text) -> Optional[str]:
-        """What is the plan type."""
-        await asyncio.sleep(0)  # yield
+        """Get the plan type from the text"""
         return None
 
     async def get_procedure_and_diagnosis(
         self, prompt
     ) -> Tuple[Optional[str], Optional[str]]:
-        """Single call to get procedure and diagnosis."""
-        await asyncio.sleep(0)  # yield
+        """Get the procedure and diagnosis from the prompt"""
         return (None, None)
 
     async def get_fax_number(self, prompt) -> Optional[str]:
-        """Try and extract the fax number."""
-        return await asyncio.sleep(0, result=None)
+        """
+        Extract fax number from the denial text
+
+        Args:
+            prompt: The denial letter text
+
+        Returns:
+            Extracted fax number or None
+        """
+        return None
+
+    async def get_insurance_company(self, prompt) -> Optional[str]:
+        """
+        Extract insurance company name from the denial text
+
+        Args:
+            prompt: The denial letter text
+
+        Returns:
+            Extracted insurance company name or None
+        """
+        return None
+
+    async def get_plan_id(self, prompt) -> Optional[str]:
+        """
+        Extract plan ID from the denial text
+
+        Args:
+            prompt: The denial letter text
+
+        Returns:
+            Extracted plan ID or None
+        """
+        return None
+
+    async def get_claim_id(self, prompt) -> Optional[str]:
+        """
+        Extract claim ID from the denial text
+
+        Args:
+            prompt: The denial letter text
+
+        Returns:
+            Extracted claim ID or None
+        """
+        return None
+
+    async def get_date_of_service(self, prompt) -> Optional[str]:
+        """
+        Extract date of service from the denial text
+
+        Args:
+            prompt: The denial letter text
+
+        Returns:
+            Extracted date of service or None
+        """
+        return None
 
     def external(self):
-        """Is this an external model. This is important for privacy conscious folks & pro."""
-        return True
+        """Whether this is an external model"""
+        return False
 
 
 @dataclass(kw_only=True)
