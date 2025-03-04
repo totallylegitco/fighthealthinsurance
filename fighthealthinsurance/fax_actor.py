@@ -5,14 +5,11 @@ from datetime import timedelta
 import time
 import asyncio
 
-from django.core.mail import EmailMultiAlternatives, BadHeaderError
+from django.core.mail import EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.urls import reverse
 from fighthealthinsurance.utils import get_env_variable
-from smtplib import SMTPException
-from django.core.exceptions import ValidationError, ImproperlyConfigured
-from loguru import logger
 
 
 @ray.remote(max_restarts=-1, max_task_retries=-1)
