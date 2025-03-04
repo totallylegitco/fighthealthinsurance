@@ -953,7 +953,7 @@ class DenialCreatorHelper:
             waitAndReturnNewline(a, name=f"required_{i}") for i, a in enumerate(asyncs)
         ]
 
-        # Combine both types of tasks
+        # Combine both types of tasks: TODO: Make optional non-blocking
         all_tasks = formatted_optional + formatted_required
 
         # Fix: Convert tasks to an async generator instead of using iter directly
