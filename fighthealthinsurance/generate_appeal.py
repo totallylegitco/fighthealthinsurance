@@ -79,7 +79,7 @@ class AppealGenerator(object):
             for model in models_to_try:
                 if hasattr(model, model_method_name):
                     method = getattr(model, model_method_name)
-                    extracted: Optional[str] = await method(denial_text) # type:ignore
+                    extracted: Optional[str] = await method(denial_text)  # type:ignore
                     if extracted is not None and "UNKNOWN" not in extracted:
                         return extracted
 
