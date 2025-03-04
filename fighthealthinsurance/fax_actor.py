@@ -111,100 +111,76 @@ class FaxActor:
 
     def _update_fax_for_sent(self, fax, fax_success):
         print(f"Fax send command returned :)")
+        email = fax.email
         fax.sent = True
         fax.fax_success = fax_success
         fax.save()
+        print(f"Checking if we should notify user of result {fax_success}")
+        if fax.professional:
+            print(f"Professional fax, no need to notify user -- updating appeal")
+            appeal = fax.for_appeal.get()
+            appeal.sent = fax_success
+            appeal.save()
+            return True
+        fax_redo_link = "https://www.fighthealthinsurance.com" + reverse(
+            "fax-followup",
+            kwargs={
+                "hashed_email": fax.hashed_email,
+                "uuid": fax.uuid,
+            },
+        )
+        context = {
+            "name": fax.name,
+            "success": fax_success,
+            "fax_redo_link": fax_redo_link,
+        }
+        # First, render the plain text content.
+        text_content = render_to_string(
+            "emails/fax_followup.txt",
+            context=context,
+        )
+
+        # Secondly, render the HTML content.
+        html_content = render_to_string(
+            "emails/fax_followup.html",
+            context=context,
+        )
+        # Then, create a multipart email instance.
+        msg = EmailMultiAlternatives(
+            "Following up from Fight Health Insurance",
+            text_content,
+            "support42@fighthealthinsurance.com",
+            [email],
+        )
+        msg.attach_alternative(html_content, "text/html")
+        msg.send()
+        print(f"E-mail sent!")
 
     def do_send_fax_object(self, fax) -> bool:
-        """Send a fax and notify the user via email with robust error handling."""
+        denial = fax.denial_id
+        if denial is None:
+            return False
+        if fax.destination is None:
+            return False
+        extra = ""
+        if denial.claim_id is not None and len(denial.claim_id) > 2:
+            extra += f"This is regarding claim id {denial.claim_id}."
+        if fax.name is not None and len(fax.name) > 2:
+            extra += f"This fax is sent on behalf of {fax.name}."
+        self._update_fax_for_sending(fax)
+        print(f"Kicking of fax sending")
+        fax_sent = False
         try:
-            email = fax.email
-            denial = fax.denial_id
-
-            # Validate fax details before sending
-            if not denial or not fax.destination:
-                logger.warning(f"Fax {fax.id} has missing denial or destination. Aborting.")
-                return False
-
-            # Construct extra message details
-            extra = []
-            if denial.claim_id and len(denial.claim_id) > 2:
-                extra.append(f"This is regarding claim ID {denial.claim_id}.")
-            if fax.name and len(fax.name) > 2:
-                extra.append(f"This fax is sent on behalf of {fax.name}.")
-            extra_message = " ".join(extra)
-
-            self._update_fax_for_sending(fax)
-            logger.info(f"Starting fax sending process for fax ID {fax.id}")
-
-            # Run async function properly in a sync environment
-            try:
-                fax_sent = asyncio.run(
-                    flexible_fax_magic.send_fax(
-                        input_paths=[fax.get_temporary_document_path()],
-                        extra=extra_message,
-                        destination=fax.destination,
-                        blocking=True,
-                    )
+            fax_sent = asyncio.run(
+                flexible_fax_magic.send_fax(
+                    input_paths=[fax.get_temporary_document_path()],
+                    extra=extra,
+                    destination=fax.destination,
+                    blocking=True,
+                    professional=fax.professional,
                 )
-            except Exception as e:
-                logger.error(f"Error sending fax {fax.id}: {e}", exc_info=True)
-                fax_sent = False
-
-            self._update_fax_for_sent(fax, fax_sent)
-            logger.info(f"Fax sending completed for fax ID {fax.id}. Result: {fax_sent}")
-
-            # Construct follow-up email
-            fax_redo_link = f"https://www.fighthealthinsurance.com{reverse('fax-followup', kwargs={'hashed_email': fax.hashed_email, 'uuid': fax.uuid})}"
-            context = {
-                "name": fax.name,
-                "success": fax_sent,
-                "fax_redo_link": fax_redo_link,
-            }
-
-            email_sent = self.send_fax_followup_email(email, context)
-            if email_sent:
-                logger.info(f"Follow-up email successfully sent to {email}.")
-            else:
-                logger.error(f"Failed to send follow-up email to {email}.")
-
-            return fax_sent
-
-        except Exception as e:
-            logger.error(f"Unexpected error in do_send_fax_object: {e}", exc_info=True)
-            return False
-
-    def send_fax_followup_email(self, to_email: str, context: dict) -> bool:
-        """Send a follow-up email after fax sending."""
-        try:
-            if not to_email:
-                raise ValidationError("Recipient email is required.")
-
-            # Render email content
-            text_content = render_to_string("emails/fax_followup.txt", context=context).strip()
-            html_content = render_to_string("emails/fax_followup.html", context=context).strip()
-
-            if not text_content and not html_content:
-                raise ValidationError("Both text and HTML templates are empty.")
-
-            msg = EmailMultiAlternatives(
-                "Following up from Fight Health Insurance",
-                text_content,
-                "support42@fighthealthinsurance.com",
-                [to_email],
             )
-
-            if html_content:
-                msg.attach_alternative(html_content, "text/html")
-
-            msg.send()
-            return True  # Email sent successfully
-
-        except (BadHeaderError, SMTPException, ImproperlyConfigured, ValidationError) as e:
-            logger.error(f"Email sending failed for {to_email}: {e}", exc_info=True)
-            return False
-
         except Exception as e:
-            logger.error(f"Unexpected error in send_fax_followup_email: {e}", exc_info=True)
-            return False
-
+            print(f"Error running async send_fax {e}")
+        self._update_fax_for_sent(fax, fax_sent)
+        return True

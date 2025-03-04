@@ -59,11 +59,18 @@ appeal_assembly_helper = AppealAssemblyHelper()
 class DataRemovalViewSet(viewsets.ViewSet, DeleteMixin, DeleteOnlyMixin):
     serializer_class = serializers.DeleteDataFormSerializer
 
-    @extend_schema(responses=serializers.StatusResponseSerializer)
+    @extend_schema(
+        responses={204: serializers.SuccessSerializer, 400: serializers.ErrorSerializer}
+    )
     def perform_delete(self, request: Request, serializer):
         email: str = serializer.validated_data["email"]
         common_view_logic.RemoveDataHelper.remove_data_for_email(email)
-        return Response({"status": "deleted"}, status=status.HTTP_204_NO_CONTENT)
+        return Response(
+            serializers.SuccessSerializer(
+                {"message": "Data deleted successfully"}
+            ).data,
+            status=status.HTTP_204_NO_CONTENT,
+        )
 
 
 class NextStepsViewSet(viewsets.ViewSet, CreateMixin):
@@ -278,7 +285,9 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         serializer = serializers.AppealDetailSerializer(appeal)
         return Response(serializer.data)
 
-    @extend_schema(responses=serializers.StatusResponseSerializer)
+    @extend_schema(
+        responses={200: serializers.SuccessSerializer, 404: serializers.ErrorSerializer}
+    )
     @action(detail=False, methods=["post"])
     def notify_patient(self, request: Request) -> Response:
         serializer = self.deserialize(request.data)
@@ -291,7 +300,8 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         patient_user: Optional[PatientUser] = appeal.patient_user
         if patient_user is None:
             return Response(
-                {"status": "Patient not found"}, status=status.HTTP_404_NOT_FOUND
+                serializers.ErrorSerializer({"error": "Patient not found"}).data,
+                status=status.HTTP_404_NOT_FOUND,
             )
         professional_name = None
         if include_professional:
@@ -317,7 +327,10 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
                     id=request.session["domain_id"]
                 ).visible_phone_number,
             )
-        return Response(status=status.HTTP_200_OK)
+        return Response(
+            serializers.SuccessSerializer({"message": "Notification sent"}).data,
+            status=status.HTTP_200_OK,
+        )
 
     @extend_schema(responses=serializers.AppealFullSerializer)
     @action(detail=False, methods=["get"])
@@ -484,55 +497,18 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
                     ).visible_phone_number,
                 )
 
-        return Response({"status": "ok"}, status=status.HTTP_200_OK)
-
-
-class MailingListSubscriberViewSet(viewsets.ViewSet, CreateMixin, DeleteMixin):
-    serializer_class = serializers.MailingListSubscriberSerializer
-
-    @extend_schema(responses=serializers.MailingListSubscriberSerializer)
-    def create(self, request: Request) -> Response:
-        return super().create(request)
-
-    @extend_schema(responses=serializers.MailingListSubscriberSerializer)
-    def perform_create(self, request: Request, serializer):
-        serializer.save()
-        return Response({"status": "subscribed"}, status=status.HTTP_201_CREATED)
-
-    @extend_schema(responses=serializers.StatusResponseSerializer)
-    def perform_delete(self, request: Request, serializer):
-        email = serializer.validated_data["email"]
-        MailingListSubscriber.objects.filter(email=email).delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-class SendToUserViewSet(viewsets.ViewSet, SerializerMixin):
-    """Send a draft appeal to a user to fill in."""
-
-    serializer_class = serializers.SendToUserSerializer
-
-    @extend_schema(responses=serializers.StatusResponseSerializer)
-    def post(self, request):
-        current_user: User = request.user  # type: ignore
-        serializer = self.deserialize(request.data)
-        serializer.is_valid(raise_exception=True)
-        # TODO: Send an e-mail to the patient
-        appeal = Appeal.filter_to_allowed_appeals(current_user).get(
-            id=serializer.validated_data["appeal_id"]
+        return Response(
+            serializers.SuccessSerializer(
+                {"message": "Provider invited successfully"}
+            ).data,
+            status=status.HTTP_200_OK,
         )
 
-
-# TODO: Merge many of these into the AppealViewSet
-
-
-class StatisticsAPIViewSet(viewsets.ViewSet):
-    """
-    ViewSet for statistics API
-    """
-
     @extend_schema(responses=serializers.StatisticsSerializer)
-    def list(self, request):
+    @action(detail=False, methods=["get"])
+    def stats(self, request: Request) -> Response:
         now = timezone.now()
+        user: User = request.user  # type: ignore
 
         # Define current period (current month)
         current_period_start = now.replace(
@@ -545,7 +521,7 @@ class StatisticsAPIViewSet(viewsets.ViewSet):
         previous_period_end = current_period_start - relativedelta(microseconds=1)
 
         # Calculate current period statistics
-        current_appeals = Appeal.filter_to_allowed_appeals(request.user).filter(
+        current_appeals = Appeal.filter_to_allowed_appeals(user).filter(
             mod_date__range=(current_period_start.date(), current_period_end.date())
         )
         current_total = current_appeals.count()
@@ -554,7 +530,7 @@ class StatisticsAPIViewSet(viewsets.ViewSet):
         current_with_response = current_appeals.exclude(response_date=None).count()
 
         # Calculate previous period statistics
-        previous_appeals = Appeal.filter_to_allowed_appeals(request.user).filter(
+        previous_appeals = Appeal.filter_to_allowed_appeals(user).filter(
             mod_date__range=(previous_period_start.date(), previous_period_end.date())
         )
         previous_total = previous_appeals.count()
@@ -585,17 +561,20 @@ class StatisticsAPIViewSet(viewsets.ViewSet):
 
         return Response(statistics)
 
-
-class SearchAPIViewSet(viewsets.ViewSet):
-    """
-    ViewSet for search API
-    """
-
-    def list(self, request):
+    @extend_schema(
+        responses={
+            200: serializers.SearchResultSerializer,
+            400: serializers.ErrorSerializer,
+        }
+    )
+    @action(detail=False, methods=["get"])
+    def search(self, request):
         query = request.GET.get("q", "")
         if not query:
             return Response(
-                {"error": 'Please provide a search query parameter "q"'},
+                serializers.ErrorSerializer(
+                    {"error": 'Please provide a search query parameter "q"'}
+                ).data,
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -644,16 +623,60 @@ class SearchAPIViewSet(viewsets.ViewSet):
         )
 
 
+class MailingListSubscriberViewSet(viewsets.ViewSet, CreateMixin, DeleteMixin):
+    serializer_class = serializers.MailingListSubscriberSerializer
+
+    @extend_schema(responses=serializers.StatusResponseSerializer)
+    def create(self, request: Request) -> Response:
+        return super().create(request)
+
+    @extend_schema(responses=serializers.StatusResponseSerializer)
+    def perform_create(self, request: Request, serializer):
+        serializer.save()
+        return Response(
+            serializers.StatusResponseSerializer({"status": "subscribed"}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @extend_schema(responses=serializers.StatusResponseSerializer)
+    def perform_delete(self, request: Request, serializer):
+        email = serializer.validated_data["email"]
+        MailingListSubscriber.objects.filter(email=email).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class SendToUserViewSet(viewsets.ViewSet, SerializerMixin):
+    """Send a draft appeal to a user to fill in."""
+
+    serializer_class = serializers.SendToUserSerializer
+
+    @extend_schema(responses=serializers.StatusResponseSerializer)
+    def post(self, request):
+        current_user: User = request.user  # type: ignore
+        serializer = self.deserialize(request.data)
+        serializer.is_valid(raise_exception=True)
+        # TODO: Send an e-mail to the patient
+        appeal = Appeal.filter_to_allowed_appeals(current_user).get(
+            id=serializer.validated_data["appeal_id"]
+        )
+
+
 class AppealAttachmentViewSet(viewsets.ViewSet):
     serializer_class = serializers.AppealAttachmentSerializer
 
-    @extend_schema(responses=serializers.AppealAttachmentSerializer)
+    @extend_schema(
+        responses={
+            200: serializers.AppealAttachmentSerializer,
+            400: serializers.ErrorSerializer,
+        }
+    )
     def list(self, request: Request) -> Response:
         """List attachments for a given appeal"""
         appeal_id = request.query_params.get("appeal_id")
         if not appeal_id:
             return Response(
-                {"error": "appeal_id required"}, status=status.HTTP_400_BAD_REQUEST
+                serializers.ErrorSerializer({"error": "appeal_id required"}).data,
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         current_user: User = request.user  # type: ignore

@@ -65,6 +65,8 @@ class DenialResponseInfoSerializer(serializers.Serializer):
     date_of_service = serializers.CharField(required=False)
     plan_id = serializers.CharField(required=False)
     claim_id = serializers.CharField(required=False)
+    insurance_company = serializers.CharField(required=False)
+    date_of_service = serializers.CharField(required=False)
 
 
 # Forms
@@ -91,6 +93,7 @@ class DenialFormSerializer(FormSerializer):
 
 class PostInferedFormSerializer(FormSerializer):
     date_of_service = serializers.CharField(required=False)
+
     class Meta(object):
         form = core_forms.PostInferedForm
 
@@ -235,6 +238,17 @@ class AppealDetailSerializer(serializers.ModelSerializer):
             "mod_date",
             "appeal_pdf_url",
         ]
+
+    @extend_schema_field(serializers.CharField)
+    def get_status(self, obj: Appeal) -> str:
+        if obj.pending_patient:
+            return "pending patient"
+        elif obj.pending_professional:
+            return "pending professional"
+        elif obj.sent:
+            return "sent"
+        else:
+            return "unknown"
 
     @extend_schema_field(serializers.CharField)
     def get_appeal_pdf_url(self, obj: Appeal) -> Optional[str]:
@@ -414,3 +428,28 @@ class AppealAttachmentUploadSerializer(serializers.Serializer):
 class StatusResponseSerializer(serializers.Serializer):
     status = serializers.CharField()
     message = serializers.CharField(required=False, allow_blank=True)
+
+
+class ErrorSerializer(StatusResponseSerializer):
+    error = serializers.CharField()
+
+    def __init__(self, data=None, *args, **kwargs):
+        # Set status to "error" if not explicitly provided
+        if data and "status" not in data:
+            data["status"] = "error"
+        # Set message to error value if not explicitly provided
+        if data and "error" in data and "message" not in data:
+            data["message"] = data["error"]
+        super().__init__(data, *args, **kwargs)
+
+
+class SuccessSerializer(StatusResponseSerializer):
+    success = serializers.BooleanField(default=True)
+
+    def __init__(self, data=None, *args, **kwargs):
+        # Set status to "success" if not explicitly provided
+        if data and "status" not in data:
+            data["status"] = "success"
+        if data and "message" not in data:
+            data["message"] = "Operation completed successfully."
+        super().__init__(data, *args, **kwargs)
