@@ -293,8 +293,16 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
     @action(detail=False, methods=["post"])
     def notify_patient(self, request: Request) -> Response:
         serializer = self.deserialize(request.data)
+        if not serializer.is_valid():
+            print(serializer.errors)
+            return Response(
+                serializers.ErrorSerializer({"error": serializer.errors}).data,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         pk = serializer.validated_data["id"]
-        include_professional = serializer.validated_data["professional_name"]
+        include_professional = False
+        if "include_professional" in serializer.validated_data:
+            include_professional = serializer.validated_data["include_professional"]
         current_user: User = request.user  # type: ignore
         appeal = get_object_or_404(
             Appeal.filter_to_allowed_appeals(current_user), pk=pk

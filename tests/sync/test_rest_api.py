@@ -389,7 +389,7 @@ class NotifyPatientTest(APITestCase):
         # Set up session
         self.client.login(username=self.pro_username, password=self.pro_password)
         session = self.client.session
-        session["domain_id"] = self.domain.id
+        session["domain_id"] = str(self.domain.id)
         session.save()
 
     def test_notify_patient(self):
@@ -398,7 +398,7 @@ class NotifyPatientTest(APITestCase):
         # Test with professional name included
         response = self.client.post(
             url,
-            json.dumps({"id": self.appeal.id, "professional_name": True}),
+            json.dumps({"id": self.appeal.id, "include_professional": True}),
             content_type="application/json",
         )
 
@@ -409,7 +409,7 @@ class NotifyPatientTest(APITestCase):
         # Test without professional name
         response = self.client.post(
             url,
-            json.dumps({"id": self.appeal.id, "professional_name": False}),
+            json.dumps({"id": self.appeal.id, "include_professional": False}),
             content_type="application/json",
         )
 
@@ -491,7 +491,7 @@ class SendFaxTest(APITestCase):
             creating_professional=self.professional,
             patient_user=self.patient,
             hashed_email=Denial.get_hashed_email(self.patient_user.email),
-            fax_phone="5551234567",
+            appeal_fax_number="5551234567",
         )
 
         # Create an appeal with text
@@ -507,7 +507,7 @@ class SendFaxTest(APITestCase):
         # Set up session for professional
         self.client.login(username=self.pro_username, password=self.pro_password)
         session = self.client.session
-        session["domain_id"] = self.domain.id
+        session["domain_id"] = str(self.domain.id)
         session.save()
 
     def test_send_fax_as_professional(self):
@@ -532,7 +532,7 @@ class SendFaxTest(APITestCase):
         self.client.logout()
         self.client.login(username="patientuser", password="patientpass")
         session = self.client.session
-        session["domain_id"] = self.domain.id
+        session["domain_id"] = str(self.domain.id)
         session.save()
 
         # Set the appeal to require professional finishing
@@ -645,7 +645,7 @@ class InviteProviderTest(APITestCase):
             username=self.primary_pro_username, password=self.primary_pro_password
         )
         session = self.client.session
-        session["domain_id"] = self.domain.id
+        session["domain_id"] = str(self.domain.id)
         session.save()
 
     def test_invite_existing_provider_by_id(self):
