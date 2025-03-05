@@ -5,6 +5,7 @@ import sys
 import tempfile
 import uuid
 import typing
+from loguru import logger
 
 from django.conf import settings
 from django.db import models
@@ -211,7 +212,7 @@ class DenialTypes(models.Model):
                     sys.modules["fighthealthinsurance.forms.questions"], self.form
                 )
             except Exception as e:
-                print(f"Error loading form {e}")
+                logger.debug(f"Error loading form {e}")
                 return None
 
     def __str__(self):
@@ -434,7 +435,6 @@ class Denial(ExportModelOperationsMixin("Denial"), models.Model):  # type: ignor
                     patient_visible=True,
                 )
         except PatientUser.DoesNotExist:
-            print(f"Failed to get patient for {current_user}")
             pass
 
         # Providers can view appeals they created or were added to as a provider
@@ -565,9 +565,7 @@ class Appeal(ExportModelOperationsMixin("Appeal"), models.Model):  # type: ignor
                     patient_user=patient_user,
                     patient_visible=True,
                 )
-                print(f"Adding patient query set {query_set}")
         except PatientUser.DoesNotExist:
-            print(f"Failed to get patient for {current_user}")
             pass
 
         # Providers can view appeals they created or were added to as a provider
