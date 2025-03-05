@@ -914,61 +914,68 @@ class DenialCreatorHelper:
 
     @classmethod
     async def extract_entity(cls, denial_id: int) -> AsyncIterator[str]:
-        # Best effort extractions
-        optional_async: list[tuple[str, Awaitable[Any]]] = [
-            ("fax", cls.extract_set_fax_number(denial_id)),
-            ("insurance company", cls.extract_set_insurance_company(denial_id)),
-            ("plan id", cls.extract_set_plan_id(denial_id)),
-            ("claim id", cls.extract_set_claim_id(denial_id)),
-            ("date of service", cls.extract_set_date_of_service(denial_id)),
-            ("....", asyncio.sleep(0, result="")),
-        ]
-
-        asyncs: list[tuple[str, Awaitable[Any]]] = [
-            # Denial type depends on denial and diagnosis
-            ("diagnosis", cls.extract_set_denial_and_diagnosis(denial_id)),
-            ("type of denial", cls.extract_set_denialtype(denial_id)),
-            ("....", asyncio.sleep(0, result="")),
-        ]
-
-        async def waitAndReturnExtraction(
-            a: Awaitable, timeout: float = 15.0, name: str = "Unknown"
-        ) -> str:
+        # Define a wrapper function that returns both the name and result
+        async def named_task(awaitable: Awaitable[Any], name: str) -> tuple[str, Any]:
             try:
-                # Add timeout to prevent hanging
-                await asyncio.wait_for(a, timeout=timeout)
-                return f"Extracted {name}\n"
-            except asyncio.TimeoutError:
-                logger.warning(f"Timeout processing {name} after {timeout} seconds")
-                return f"Timeout extracting {name}\n"
+                result = await awaitable
+                return name, result
             except Exception as e:
-                logger.opt(exception=True).warning(f"Failed to process {name}: {e}")
-                return f"Failed extracting {name}: {str(e)}\n"
+                logger.opt(exception=True).warning(f"Failed in task {name}: {e}")
+                return name, None
 
-        # Create tasks for all optional operations with timeouts
-        formatted_optional = [
-            waitAndReturnExtraction(a, name=i)
-            for i, a in optional_async
+        # Best effort extractions
+        optional_awaitables: list[Awaitable[tuple[str, Any]]] = [
+            named_task(cls.extract_set_fax_number(denial_id), "fax"),
+            named_task(
+                cls.extract_set_insurance_company(denial_id), "insurance company"
+            ),
+            named_task(cls.extract_set_plan_id(denial_id), "plan id"),
+            named_task(cls.extract_set_claim_id(denial_id), "claim id"),
+            named_task(cls.extract_set_date_of_service(denial_id), "date of service"),
         ]
-        # Create tasks for all required operations
-        formatted_required = [
-            waitAndReturnExtraction(a, name=i) for i, a in enumerate(asyncs)
+
+        required_awaitables: list[Awaitable[tuple[str, Any]]] = [
+            # Denial type depends on denial and diagnosis
+            named_task(cls.extract_set_denial_and_diagnosis(denial_id), "diagnosis"),
+            named_task(cls.extract_set_denialtype(denial_id), "type of denial"),
         ]
 
-        # Combine both types of tasks: TODO: Make optional non-blocking
-        all_tasks = formatted_optional + formatted_required
+        async def just_the_name(task: Awaitable[tuple[str, Any]]) -> str:
+            try:
+                name, _ = await task
+                return f"Extracted {name}\n"
+            except Exception as e:
+                logger.opt(exception=True).warning(f"Failed to process task: {e}")
+                return f"Failed extracting task: {str(e)}\n"
 
-        # Fix: Convert tasks to an async generator instead of using iter directly
-        async def task_generator() -> AsyncIterator[str]:
-            for task in all_tasks:
-                yield await task
+        # First create task objects for the required tasks.
+        required_tasks = [
+            asyncio.create_task(just_the_name(task)) for task in required_awaitables
+        ]
 
-        # Create a proper AsyncIterator from our generator
-        formatted: AsyncIterator[str] = task_generator()
+        # Create Task objects for all optional operations
+        optional_tasks = [
+            asyncio.create_task(just_the_name(task)) for task in optional_awaitables
+        ]
+        # We create both sets of tasks at the same time since they're mostly independent and having
+        # the optional ones running at the same time gives us a chance to get more done.
 
-        # StreamingHttpResponse needs a synchronous iterator otherwise it blocks.
-        interleaved: AsyncIterator[str] = interleave_iterator_for_keep_alive(formatted)
-        return interleaved
+        # First, execute required tasks (no timeout)
+        for task in asyncio.as_completed(required_tasks):
+            result: str = await task
+            # Yield each result immediately for streaming
+            yield result
+
+        # Now we see what optional tasks we can wrap up in the last 30 seconds.
+        try:
+            for task in asyncio.as_completed(optional_tasks, timeout=30):
+                result = await task
+                yield result
+        except Exception as e:
+            logger.opt(exception=True).debug(f"Error processing optional tasks: {e}")
+            yield f"Error processing optional tasks: {str(e)}\n"
+
+        yield "Extraction completed\n"
 
     @classmethod
     async def extract_set_denial_and_diagnosis(cls, denial_id: int):
@@ -1233,7 +1240,7 @@ class AppealsBackendHelper:
     regex_denial_processor = ProcessDenialRegex()
 
     @classmethod
-    async def generate_appeals(cls, parameters):
+    async def generate_appeals(cls, parameters) -> AsyncIterator[str]:
         denial_id = parameters["denial_id"]
         email = parameters["email"]
         semi_sekret = parameters["semi_sekret"]
@@ -1392,4 +1399,5 @@ class AppealsBackendHelper:
         interleaved: AsyncIterator[str] = interleave_iterator_for_keep_alive(
             subbed_appeals_json
         )
-        return interleaved
+        async for i in interleaved:
+            yield i
