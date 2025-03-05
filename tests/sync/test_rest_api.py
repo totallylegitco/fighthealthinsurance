@@ -620,7 +620,6 @@ class InviteProviderTest(APITestCase):
         self.patient_user.save()
         self.patient = PatientUser.objects.create(
             user=self.patient_user,
-            date_of_birth="1990-01-01",
         )
 
         # Create a denial
