@@ -1,7 +1,7 @@
 
 You have been invited to join your healthcare professional in appealing (another) health insurance denial you have received.
 
-    To make sure your in the same group when you signup make sure to use the practice phone number {{ practice_number }}.
+    To make sure you're in the same group when you sign up, make sure to use the practice phone number {{ practice_number }}.
 
     If you’ve got any questions, please feel free to reach out to us at <a href="mailto:support42@fighthealthinsurance.com">support42@fighthealthinsurance.com</a> :) We are also planning on conducting some user studies the end of this month if your willing to share feedback with us on the new workflow before we release it drop us an e-mail at <a href="mailto:support42@fighthealthinsurance.com">support42@fighthealthinsurance.com</a> :)
 
