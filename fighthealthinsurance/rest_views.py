@@ -96,7 +96,6 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
     serializer_class = serializers.DenialFormSerializer
 
     def get_serializer_class(self):
-        print(self.action)
         if self.action == "create":
             return serializers.DenialFormSerializer
         else:
@@ -294,7 +293,6 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
     def notify_patient(self, request: Request) -> Response:
         serializer = self.deserialize(request.data)
         if not serializer.is_valid():
-            print(serializer.errors)
             return Response(
                 serializers.ErrorSerializer({"error": serializer.errors}).data,
                 status=status.HTTP_400_BAD_REQUEST,
@@ -363,7 +361,6 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         serializer = self.deserialize(data=request.data)
         serializer.is_valid(raise_exception=True)
         appeal_id = serializer.validated_data["appeal_id"]
-        print(f"Looking up for {appeal_id}")
         appeal = get_object_or_404(
             Appeal.filter_to_allowed_appeals(current_user), pk=appeal_id
         )
