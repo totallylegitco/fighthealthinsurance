@@ -4,7 +4,7 @@ from loguru import logger
 from typing import *
 
 from django.conf import settings
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect, render, get_object_or_404
 from django.urls import reverse
 from django.views import View, generic
 from django.http import HttpResponse
@@ -43,7 +43,6 @@ class StageFaxView(generic.FormView):
     def form_valid(self, form):
         form_data = form.cleaned_data
         # Get all of the articles the user wants to send
-        logger.debug(f"Items {list(self.request.POST.items())}")
         pubmed_checkboxes = [
             key[len("pubmed_") :]
             for key, value in self.request.POST.items()
@@ -51,12 +50,18 @@ class StageFaxView(generic.FormView):
         ]
         form_data["pubmed_ids_parsed"] = pubmed_checkboxes
         logger.debug(f"Staging fax with {form_data}")
+
+        semi_sekret = form_data.get("semi_sekret")
+        denial_id = form_data.get("denial_id")
+        
         # Make sure the denial secret is present
-        denial = Denial.objects.filter(semi_sekret=form_data["semi_sekret"]).get(
-            denial_id=form_data["denial_id"]
+        get_object_or_404(
+            Denial,
+            semi_sekret=semi_sekret,
+            denial_id=denial_id
         )
         form_data["company_name"] = (
-            "Fight Health Insurance -- a service of Totally Legit Co"
+            "Fight Health Insurance Inc"
         )
         appeal = common_view_logic.AppealAssemblyHelper().create_or_update_appeal(
             **form_data

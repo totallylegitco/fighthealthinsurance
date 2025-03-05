@@ -239,12 +239,11 @@ class ShareAppealView(View):
             denial_id = form.cleaned_data["denial_id"]
             hashed_email = models.Denial.get_hashed_email(form.cleaned_data["email"])
 
-            # Update the denial
-            denial = models.Denial.objects.filter(
+            denial = get_object_or_404(
+                models.Denial,
                 denial_id=denial_id,
-                # Include the hashed e-mail so folks can't brute force denial_id
                 hashed_email=hashed_email,
-            ).get()
+            )
             logger.debug(form.cleaned_data)
             denial.appeal_text = form.cleaned_data["appeal_text"]
             denial.save()
@@ -339,7 +338,8 @@ class FindNextSteps(View):
 class ChooseAppeal(View):
     def post(self, request):
         form = core_forms.ChooseAppealForm(request.POST)
-
+        semi_sekret = form.cleaned_data.get("semi_sekret", "")
+        
         if not form.is_valid():
             logger.debug(form)
             return
@@ -355,7 +355,7 @@ class ChooseAppeal(View):
             initial={
                 "denial_id": form.cleaned_data["denial_id"],
                 "email": form.cleaned_data["email"],
-                "semi_sekret": form.cleaned_data["semi_sekret"],
+                "semi_sekret": semi_sekret,
                 "fax_phone": appeal_fax_number,
                 "insurance_company": insurance_company,
             }
