@@ -283,12 +283,17 @@ class AppealGenerator(object):
             r"[Ss]ervice(?:\s*(?:date|period))?\s*[:=]?\s*([A-Za-z]+\s+\d{1,2},?\s*\d{2,4})",
         ]
 
-        return await self._extract_entity_with_regexes_and_model(
+        result = await self._extract_entity_with_regexes_and_model(
             denial_text=denial_text,
             patterns=date_patterns,
             use_external=use_external,
             model_method_name="get_date_of_service",
         )
+        # For some reason we keep extracting false.
+        if "false" in result.lower():
+            return None
+        else:
+            return result
 
     async def get_procedure_and_diagnosis(
         self, denial_text=None, use_external=False
