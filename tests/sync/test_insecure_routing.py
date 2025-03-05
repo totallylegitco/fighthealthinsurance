@@ -82,7 +82,7 @@ class SessionRequiredMixinTest(TestCase):
         response = view(request)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(int(request.session["denial_uuid"]), 12345)
+        self.assertEqual(int(request.session["denial_id"]), 12345)
 
 
 class EntityExtractViewTest(TestCase):
@@ -104,7 +104,7 @@ class EntityExtractViewTest(TestCase):
     def test_view_with_session(self):
         """Test that the view works with a session."""
         session = self.client.session
-        session["denial_uuid"] = 12345
+        session["denial_id"] = 12345
         session.save()
 
         response = self.client.get(reverse("eev"))
@@ -133,7 +133,7 @@ class PlanDocumentsViewTest(TestCase):
     def test_view_with_session(self):
         """Test that the view works with a session."""
         session = self.client.session
-        session["denial_uuid"] = 12345
+        session["denial_id"] = 12345
         session.save()
 
         response = self.client.get(reverse("hh"))
@@ -163,7 +163,7 @@ class DenialCollectedViewTest(TestCase):
         """Test that the view works with a session."""
 
         session = self.client.session
-        session["denial_uuid"] = 12345
+        session["denial_id"] = 12345
         session.save()
 
         response = self.client.get(reverse("dvc"))
