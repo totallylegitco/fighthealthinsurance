@@ -434,6 +434,7 @@ class Denial(ExportModelOperationsMixin("Denial"), models.Model):  # type: ignor
                     patient_visible=True,
                 )
         except PatientUser.DoesNotExist:
+            print(f"Failed to get patient for {current_user}")
             pass
 
         # Providers can view appeals they created or were added to as a provider
@@ -565,7 +566,9 @@ class Appeal(ExportModelOperationsMixin("Appeal"), models.Model):  # type: ignor
                     patient_user=patient_user,
                     patient_visible=True,
                 )
+                print(f"Adding patient query set {query_set}")
         except PatientUser.DoesNotExist:
+            print(f"Failed to get patient for {current_user}")
             pass
 
         # Providers can view appeals they created or were added to as a provider

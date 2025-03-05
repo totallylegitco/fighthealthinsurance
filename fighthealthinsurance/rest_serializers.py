@@ -383,6 +383,7 @@ class SendFax(serializers.Serializer):
 class InviteProviderSerializer(serializers.Serializer):
     professional_id = serializers.IntegerField(required=False)
     email = serializers.EmailField(required=False)
+    appeal_id = serializers.IntegerField(required=True)
 
     def validate(self, data: dict) -> dict:
         if not data.get("professional_id") and not data.get("email"):

@@ -481,7 +481,8 @@ class SendFaxTest(APITestCase):
         self.patient_user.is_active = True
         self.patient_user.save()
         self.patient = PatientUser.objects.create(
-            user=self.patient_user
+            user=self.patient_user,
+            active=True,
         )
 
         # Create a denial with appeal text
@@ -492,6 +493,7 @@ class SendFaxTest(APITestCase):
             patient_user=self.patient,
             hashed_email=Denial.get_hashed_email(self.patient_user.email),
             appeal_fax_number="5551234567",
+            patient_visible=True,
         )
 
         # Create an appeal with text
@@ -501,7 +503,8 @@ class SendFaxTest(APITestCase):
             patient_user=self.patient,
             primary_professional=self.professional,
             creating_professional=self.professional,
-            appeal_text="This is a test appeal letter",
+            appeal_text="!This is a test appeal letter",
+            patient_visible=True,
         )
 
         # Set up session for professional
@@ -527,7 +530,7 @@ class SendFaxTest(APITestCase):
         self.assertEqual(updated_appeal.pending_patient, False)
         self.assertEqual(updated_appeal.pending_professional, False)
 
-    def test_send_fax_patient_to_professional(self):
+    def test_send_fax_aspatient_no_permissions(self):
         # Login as patient
         self.client.logout()
         self.client.login(username="patientuser", password="patientpass")
@@ -547,15 +550,45 @@ class SendFaxTest(APITestCase):
             content_type="application/json",
         )
 
-        # This should raise an exception that's caught by the API view
-        # The test will still pass if the view handles the exception properly
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("Pending", response.json()["message"])
+
 
         # Verify the pending flags were updated correctly
         updated_appeal = Appeal.objects.get(id=self.appeal.id)
         self.assertEqual(updated_appeal.pending, True)
         self.assertEqual(updated_appeal.pending_patient, False)
         self.assertEqual(updated_appeal.pending_professional, True)
+
+    def test_send_fax_aspatient_with_permissions(self):
+        # Login as patient
+        self.client.logout()
+        self.client.login(username="patientuser", password="patientpass")
+        session = self.client.session
+        session["domain_id"] = str(self.domain.id)
+        session.save()
+
+        # Set the appeal to allow the patient to finish
+        self.denial.professional_to_finish = False
+        self.denial.save()
+
+        url = reverse("appeals-send-fax")
+
+        response = self.client.post(
+            url,
+            json.dumps({"appeal_id": self.appeal.id, "fax_number": "5559876543"}),
+            content_type="application/json",
+        )
+
+        # This should raise an exception that's caught by the API view
+        # The test will still pass if the view handles the exception properly
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+
+        self.assertEqual(updated_appeal.pending, False)
+
+
+
+
 
 
 class InviteProviderTest(APITestCase):
@@ -649,11 +682,11 @@ class InviteProviderTest(APITestCase):
         session.save()
 
     def test_invite_existing_provider_by_id(self):
-        url = reverse("appeals-invite-provider", args=[self.appeal.id])
+        url = reverse("appeals-invite-provider")
 
         response = self.client.post(
             url,
-            json.dumps({"professional_id": self.secondary_professional.id}),
+            json.dumps({"professional_id": self.secondary_professional.id, "appeal_id": self.appeal.id}),
             content_type="application/json",
         )
 
@@ -668,11 +701,11 @@ class InviteProviderTest(APITestCase):
         self.assertTrue(relation)
 
     def test_invite_existing_provider_by_email(self):
-        url = reverse("appeals-invite-provider", args=[self.appeal.id])
+        url = reverse("appeals-invite-provider")
 
         response = self.client.post(
             url,
-            json.dumps({"email": "secondary@example.com"}),
+            json.dumps({"email": "secondary@example.com", "appeal_id": self.appeal.id}),
             content_type="application/json",
         )
 
@@ -687,12 +720,12 @@ class InviteProviderTest(APITestCase):
         self.assertTrue(relation)
 
     def test_invite_new_provider_by_email(self):
-        url = reverse("appeals-invite-provider", args=[self.appeal.id])
+        url = reverse("appeals-invite-provider")
         new_provider_email = "new_provider@example.com"
 
         response = self.client.post(
             url,
-            json.dumps({"email": new_provider_email}),
+            json.dumps({"email": new_provider_email, "appeal_id": self.appeal.id}),
             content_type="application/json",
         )
 
