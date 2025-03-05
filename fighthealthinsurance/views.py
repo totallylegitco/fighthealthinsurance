@@ -1,3 +1,5 @@
+import os
+
 import json
 import stripe
 from stripe import error as stripe_error
@@ -512,14 +514,14 @@ class SessionRequiredMixin(View):
     def dispatch(self, request, *args, **kwargs):
         print(request.session)
         # Don't enforce this rule for now in prod we want to wait for everyone to have a session
-        if settings.DEBUG and not request.session.get("denial_uuid"):
+        force_session = settings.DEBUG or os.environ.get("TESTING", False)
+        if force_session and not request.session.get("denial_uuid"):
             print("Huzzah doing le check")
             denial_id = request.POST.get("denial_id") or request.GET.get("denial_id")
             if denial_id:
                 request.session["denial_id"] = denial_id
             else:
                 return redirect("process")
-        print(f"No check")
         return super().dispatch(request, *args, **kwargs)  # type: ignore
 
 
