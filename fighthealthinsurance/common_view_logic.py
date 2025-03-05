@@ -703,6 +703,8 @@ class DenialResponseInfo:
     appeal_id: Optional[int]
     claim_id: Optional[str]
     date_of_service: Optional[str]
+    insurance_company: Optional[str]
+    plan_id: Optional[str]
 
 
 class PatientNotificationHelper:
@@ -1206,7 +1208,7 @@ class DenialCreatorHelper:
             appeal_id = Appeal.objects.get(for_denial=denial).id
         else:
             logger.debug("Could not find appeal for {denial}")
-        return DenialResponseInfo(
+        r = DenialResponseInfo(
             selected_denial_type=denial.denial_type.all(),
             all_denial_types=cls.all_denial_types(),
             uuid=denial.uuid,
@@ -1218,9 +1220,13 @@ class DenialCreatorHelper:
             semi_sekret=denial.semi_sekret,
             appeal_fax_number=denial.appeal_fax_number,
             appeal_id=appeal_id,
-            claim_id=None,
-            date_of_service=None,
+            claim_id=denial.claim_id,
+            date_of_service=denial.date_of_service,
+            insurance_company=denial.insurance_company,
+            plan_id=denial.plan_id,
         )
+        print(f"Formatting {denial} as {r}")
+        return r
 
 
 class AppealsBackendHelper:

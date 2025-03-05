@@ -506,7 +506,7 @@ class InitialProcessView(generic.FormView):
         )
 
 
-class SessionRequiredMixin(View):
+class SessionRequiredMixin:
     """Verify that the current user has an active session."""
 
     def dispatch(self, request, *args, **kwargs):
@@ -518,10 +518,10 @@ class SessionRequiredMixin(View):
                 request.session["denial_id"] = denial_id
             else:
                 return redirect("process")
-        return super().dispatch(request, *args, **kwargs)
+        return super().dispatch(request, *args, **kwargs) # type: ignore
 
 
-class EntityExtractView(SessionRequiredMixin, View):
+class EntityExtractView(SessionRequiredMixin, generic.FormView):
     form_class = core_forms.EntityExtractForm
     template_name = "entity_extract.html"
 
@@ -539,6 +539,10 @@ class EntityExtractView(SessionRequiredMixin, View):
                 "procedure": denial_response.procedure,
                 "diagnosis": denial_response.diagnosis,
                 "semi_sekret": denial_response.semi_sekret,
+                "insurance_company": denial_response.insurance_company,
+                "plan_id": denial_response.plan_id,
+                "claim_id": denial_response.claim_id,
+                "date_of_service": denial_response.date_of_service,
             }
         )
 
@@ -552,7 +556,7 @@ class EntityExtractView(SessionRequiredMixin, View):
         )
 
 
-class PlanDocumentsView(SessionRequiredMixin, View):
+class PlanDocumentsView(SessionRequiredMixin, generic.FormView):
     form_class = core_forms.HealthHistory
     template_name = "health_history.html"
 
@@ -579,7 +583,7 @@ class PlanDocumentsView(SessionRequiredMixin, View):
         )
 
 
-class DenialCollectedView(SessionRequiredMixin, View):
+class DenialCollectedView(SessionRequiredMixin, generic.FormView):
     form_class = core_forms.PlanDocumentsForm
     template_name = "plan_documents.html"
 
