@@ -262,6 +262,8 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
             return serializers.AssembleAppealRequestSerializer
         elif self.action == "notify_patient":
             return serializers.NotifyPatientRequestSerializer
+        elif self.action == "invite_provider":
+            return serializers.InviteProviderSerializer
         else:
             return None
 
