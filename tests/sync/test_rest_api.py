@@ -359,14 +359,13 @@ class NotifyPatientTest(APITestCase):
             username="patientuser",
             password="patientpass",
             email="patient@example.com",
+            first_name="Test",
+            last_name="Patient"
         )
         self.patient_user.is_active = True
         self.patient_user.save()
         self.patient = PatientUser.objects.create(
-            user=self.patient_user,
-            first_name="Test",
-            last_name="Patient",
-            date_of_birth="1990-01-01",
+            user=self.patient_user
         )
 
         # Create a denial
@@ -476,14 +475,13 @@ class SendFaxTest(APITestCase):
             username="patientuser",
             password="patientpass",
             email="patient@example.com",
+            first_name="Test",
+            last_name="Patient",
         )
         self.patient_user.is_active = True
         self.patient_user.save()
         self.patient = PatientUser.objects.create(
-            user=self.patient_user,
-            first_name="Test",
-            last_name="Patient",
-            date_of_birth="1990-01-01",
+            user=self.patient_user
         )
 
         # Create a denial with appeal text
@@ -615,13 +613,13 @@ class InviteProviderTest(APITestCase):
             username="patientuser",
             password="patientpass",
             email="patient@example.com",
+            first_name="Test",
+            last_name="Patient",
         )
         self.patient_user.is_active = True
         self.patient_user.save()
         self.patient = PatientUser.objects.create(
             user=self.patient_user,
-            first_name="Test",
-            last_name="Patient",
             date_of_birth="1990-01-01",
         )
 
