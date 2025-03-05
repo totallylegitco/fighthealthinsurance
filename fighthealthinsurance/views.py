@@ -506,7 +506,7 @@ class InitialProcessView(generic.FormView):
         )
 
 
-class SessionRequiredMixin:
+class SessionRequiredMixin(View):
     """Verify that the current user has an active session."""
 
     def dispatch(self, request, *args, **kwargs):
