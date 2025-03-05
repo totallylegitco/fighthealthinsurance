@@ -515,7 +515,11 @@ class SessionRequiredMixin(View):
         print(request.session)
         # Don't enforce this rule for now in prod we want to wait for everyone to have a session
         force_session = settings.DEBUG or os.environ.get("TESTING", False)
-        if force_session and not request.session.get("denial_uuid"):
+        if (
+            force_session
+            and not request.session.get("denial_uuid")
+            and not request.session.get("denial_id")
+        ):
             print("Huzzah doing le check")
             denial_id = request.POST.get("denial_id") or request.GET.get("denial_id")
             if denial_id:
