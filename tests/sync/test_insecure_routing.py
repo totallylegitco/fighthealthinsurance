@@ -54,7 +54,7 @@ class SessionRequiredMixinTest(TestCase):
         """Test that the mixin allows the request when session exists."""
         request = self.factory.get("/test-url/")
         self._add_session_to_request(request)
-        request.session["denial_uuid"] = 12345
+        request.session["denial_id"] = 12345
 
         view = MockView.as_view()
         response = view(request)
@@ -71,7 +71,7 @@ class SessionRequiredMixinTest(TestCase):
         response = view(request)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(int(request.session["denial_uuid"]), 12345)
+        self.assertEqual(int(request.session["denial_id"]), 12345)
 
     def test_proceed_with_denial_id_in_post(self):
         """Test that the mixin sets session when denial_id is in POST data."""
