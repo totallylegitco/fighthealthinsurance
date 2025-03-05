@@ -43,7 +43,6 @@ class StageFaxView(generic.FormView):
     def form_valid(self, form):
         form_data = form.cleaned_data
         # Get all of the articles the user wants to send
-        logger.debug(f"Items {list(self.request.POST.items())}")
         pubmed_checkboxes = [
             key[len("pubmed_") :]
             for key, value in self.request.POST.items()
@@ -52,7 +51,6 @@ class StageFaxView(generic.FormView):
         form_data["pubmed_ids_parsed"] = pubmed_checkboxes
         logger.debug(f"Staging fax with {form_data}")
 
-        # Validate the semi_sekret before using it to fetch the denial
         semi_sekret = form_data.get("semi_sekret")
         denial_id = form_data.get("denial_id")
         
@@ -63,7 +61,7 @@ class StageFaxView(generic.FormView):
             denial_id=denial_id
         )
         form_data["company_name"] = (
-            "Fight Health Insurance -- a service of Totally Legit Co"
+            "Fight Health Insurance Inc"
         )
         appeal = common_view_logic.AppealAssemblyHelper().create_or_update_appeal(
             **form_data
