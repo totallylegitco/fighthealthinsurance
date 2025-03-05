@@ -52,7 +52,7 @@ class AppealGenerator(object):
         use_external: bool = False,
         model_method_name: Optional[str] = None,
         prompt_template: Optional[str] = None,
-        find_in_denial = True,
+        find_in_denial=True,
     ) -> Optional[str]:
         """
         Common base function for extracting entities using regex patterns first,
@@ -87,15 +87,22 @@ class AppealGenerator(object):
                     while c < 3:
                         await asyncio.sleep(1)
                         c = c + 1
-                        extracted: Optional[str] = await method(denial_text)  # type:ignore
+                        extracted: Optional[str] = await method(
+                            denial_text
+                        )  # type:ignore
                         if extracted is not None:
                             extracted_lowered = extracted.lower()
-                            if ("unknown" not in extracted_lowered
+                            if (
+                                "unknown" not in extracted_lowered
                                 and extracted_lowered != "false"
                                 # Since this occurs often in our training set it can be bad
-                                and "independent medical review" not in extracted_lowered
+                                and "independent medical review"
+                                not in extracted_lowered
                             ):
-                                if not find_in_denial or extracted_lowered in denial_lowered:
+                                if (
+                                    not find_in_denial
+                                    or extracted_lowered in denial_lowered
+                                ):
                                     return extracted
         return None
 
@@ -129,7 +136,7 @@ class AppealGenerator(object):
             flags=re.IGNORECASE | re.DOTALL,
             use_external=use_external,
             model_method_name="get_fax_number",
-            find_in_denial=False, # Since we might have -s or other formatting
+            find_in_denial=False,  # Since we might have -s or other formatting
         )
 
     async def get_insurance_company(
@@ -177,8 +184,8 @@ class AppealGenerator(object):
             "WellCare",
             "CVS Health",
             # These are often mentioned even when not the insurer
-            #"Medicare",
-            #"Medicaid",
+            # "Medicare",
+            # "Medicaid",
         ]
 
         for company in known_companies:

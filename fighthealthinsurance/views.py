@@ -511,14 +511,14 @@ class SessionRequiredMixin:
 
     def dispatch(self, request, *args, **kwargs):
         print(request.session)
-        # Don't enforce this rule for now.
-        if False and not request.session.get("denial_uuid"):
+        # Don't enforce this rule for now in prod we want to wait for everyone to have a session
+        if not settings.DEBUG and not request.session.get("denial_uuid"):
             denial_id = request.POST.get("denial_id") or request.GET.get("denial_id")
             if denial_id:
                 request.session["denial_id"] = denial_id
             else:
                 return redirect("process")
-        return super().dispatch(request, *args, **kwargs) # type: ignore
+        return super().dispatch(request, *args, **kwargs)  # type: ignore
 
 
 class EntityExtractView(SessionRequiredMixin, generic.FormView):
