@@ -416,7 +416,7 @@ class Denial(ExportModelOperationsMixin("Denial"), models.Model):  # type: ignor
     patient_visible = models.BooleanField(default=True)
     professional_to_finish = models.BooleanField(default=False)
     # Date of service can be many things which are not a simple date.
-    date_of_service = models.CharField(null=True, max_length=300)
+    date_of_service = models.CharField(null=True, max_length=300, default="")
 
     @classmethod
     def filter_to_allowed_denials(cls, current_user: User):
