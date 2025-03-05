@@ -290,7 +290,7 @@ class AppealGenerator(object):
             model_method_name="get_date_of_service",
         )
         # For some reason we keep extracting false.
-        if "false" in result.lower():
+        if result and "false" in result.lower():
             return None
         else:
             return result
