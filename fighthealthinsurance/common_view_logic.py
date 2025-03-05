@@ -915,23 +915,23 @@ class DenialCreatorHelper:
     @classmethod
     async def extract_entity(cls, denial_id: int) -> AsyncIterator[str]:
         # Best effort extractions
-        optional_async: list[Awaitable[Any]] = [
-            cls.extract_set_fax_number(denial_id),
-            cls.extract_set_insurance_company(denial_id),
-            cls.extract_set_plan_id(denial_id),
-            cls.extract_set_claim_id(denial_id),
-            cls.extract_set_date_of_service(denial_id),
-            asyncio.sleep(0, result=""),
+        optional_async: list[tuple[str, Awaitable[Any]]] = [
+            ("fax", cls.extract_set_fax_number(denial_id)),
+            ("insurance company", cls.extract_set_insurance_company(denial_id)),
+            ("plan id", cls.extract_set_plan_id(denial_id)),
+            ("claim id", cls.extract_set_claim_id(denial_id)),
+            ("date of service", cls.extract_set_date_of_service(denial_id)),
+            ("....", asyncio.sleep(0, result="")),
         ]
 
-        asyncs: list[Awaitable[Any]] = [
+        asyncs: list[tuple[str, Awaitable[Any]]] = [
             # Denial type depends on denial and diagnosis
-            cls.extract_set_denial_and_diagnosis(denial_id),
-            cls.extract_set_denialtype(denial_id),
-            asyncio.sleep(0, result=""),
+            ("diagnosis", cls.extract_set_denial_and_diagnosis(denial_id)),
+            ("type of denial", cls.extract_set_denialtype(denial_id)),
+            ("....", asyncio.sleep(0, result="")),
         ]
 
-        async def waitAndReturnNewline(
+        async def waitAndReturnExtraction(
             a: Awaitable, timeout: float = 15.0, name: str = "Unknown"
         ) -> str:
             try:
@@ -947,12 +947,12 @@ class DenialCreatorHelper:
 
         # Create tasks for all optional operations with timeouts
         formatted_optional = [
-            waitAndReturnNewline(a, name=f"optional_{i}")
-            for i, a in enumerate(optional_async)
+            waitAndReturnExtraction(a, name=i)
+            for i, a in optional_async
         ]
         # Create tasks for all required operations
         formatted_required = [
-            waitAndReturnNewline(a, name=f"required_{i}") for i, a in enumerate(asyncs)
+            waitAndReturnExtraction(a, name=i) for i, a in enumerate(asyncs)
         ]
 
         # Combine both types of tasks: TODO: Make optional non-blocking
