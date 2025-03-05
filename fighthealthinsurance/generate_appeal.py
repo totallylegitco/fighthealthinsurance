@@ -296,11 +296,7 @@ class AppealGenerator(object):
             use_external=use_external,
             model_method_name="get_date_of_service",
         )
-        # For some reason we keep extracting false.
-        if result and "false" in result.lower():
-            return None
-        else:
-            return result
+        return result
 
     async def get_procedure_and_diagnosis(
         self, denial_text=None, use_external=False
