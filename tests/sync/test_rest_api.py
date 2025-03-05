@@ -555,10 +555,10 @@ class SendFaxTest(APITestCase):
 
 
         # Verify the pending flags were updated correctly
-        updated_appeal = Appeal.objects.get(id=self.appeal.id)
-        self.assertEqual(updated_appeal.pending, True)
-        self.assertEqual(updated_appeal.pending_patient, False)
-        self.assertEqual(updated_appeal.pending_professional, True)
+        self.appeal.refresh_from_db()
+        self.assertEqual(self.appeal.pending, True)
+        self.assertEqual(self.appeal.pending_patient, False)
+        self.assertEqual(self.appeal.pending_professional, True)
 
     def test_send_fax_aspatient_with_permissions(self):
         # Login as patient
@@ -580,11 +580,9 @@ class SendFaxTest(APITestCase):
             content_type="application/json",
         )
 
-        # This should raise an exception that's caught by the API view
-        # The test will still pass if the view handles the exception properly
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-
-        self.assertEqual(updated_appeal.pending, False)
+        self.appeal.refresh_from_db()
+        self.assertEqual(self.appeal.pending, False)
 
 
 
