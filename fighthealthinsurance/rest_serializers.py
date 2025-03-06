@@ -329,7 +329,7 @@ class AppealFullSerializer(serializers.ModelSerializer):
     @extend_schema_field(auth_serializers.FullProfessionalSerializer(allow_null=True))
     def get_primary_professional(self, obj: Appeal):
         if obj.primary_professional:
-            ser_data: Dict[str, Any] = auth_serializers.FullProfessionalSerializer(
+            ser_data = auth_serializers.FullProfessionalSerializer(
                 obj.primary_professional
             )
             return ser_data
