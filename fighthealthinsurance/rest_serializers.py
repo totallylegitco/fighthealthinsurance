@@ -33,6 +33,7 @@ class DictionaryListField(serializers.ListField):
 class NextStepInfoSerizableSerializer(serializers.Serializer):
     outside_help_details = StringListField()
     combined_form = DictionaryListField()
+    combined_form_defaults = DictionaryListField()
     semi_sekret = serializers.CharField()
 
 
@@ -305,7 +306,7 @@ class AppealFullSerializer(serializers.ModelSerializer):
         model = Appeal
         exclude: list[str] = []
 
-    @extend_schema_field(serializers.CharField)
+    @extend_schema_field(serializers.CharField(allow_null=True))
     def get_appeal_pdf_url(self, obj: Appeal) -> Optional[str]:
         # Generate a URL for downloading the appeal PDF
         if obj.document_enc:
@@ -313,26 +314,29 @@ class AppealFullSerializer(serializers.ModelSerializer):
             return reverse("appeal_file_view", kwargs={"appeal_uuid": obj.uuid})
         return None
 
-    def get_denial(self, obj: Appeal) -> Optional[Dict[str, Any]]:
+    @extend_schema_field(DenialModelSerializer(allow_null=True))
+    def get_denial(self, obj: Appeal):
         if obj.for_denial:
-            return DenialModelSerializer(obj.for_denial).data  # type: ignore
-        return None
+            return DenialModelSerializer(obj.for_denial)
+        return None  # type: ignore
 
-    def get_in_userdomain(self, obj: Appeal) -> Optional[Dict[str, Any]]:
+    @extend_schema_field(auth_serializers.UserDomainSerializer(allow_null=True))
+    def get_in_userdomain(self, obj: Appeal):
         if obj.domain:
-            return auth_serializers.UserDomainSerializer(obj.domain).data  # type: ignore
-        return None
+            return auth_serializers.UserDomainSerializer(obj.domain)  # type: ignore
+        return None  # type: ignore
 
-    def get_primary_professional(self, obj: Appeal) -> Optional[Dict[str, Any]]:
+    @extend_schema_field(auth_serializers.FullProfessionalSerializer(allow_null=True))
+    def get_primary_professional(self, obj: Appeal):
         if obj.primary_professional:
             ser_data: Dict[str, Any] = auth_serializers.FullProfessionalSerializer(
                 obj.primary_professional
-            ).data  # type: ignore
+            )
             return ser_data
         if obj.creating_professional:
             ser_data = auth_serializers.FullProfessionalSerializer(
                 obj.creating_professional
-            ).data  # type: ignore
+            )
             return ser_data
         return None
 

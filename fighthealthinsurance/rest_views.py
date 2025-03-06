@@ -570,7 +570,10 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
 
         # Get current period statistics
         current_appeals = Appeal.filter_to_allowed_appeals(user).filter(
-            creation_date__range=(current_period_start.date(), current_period_end.date())
+            creation_date__range=(
+                current_period_start.date(),
+                current_period_end.date(),
+            )
         )
         current_total = current_appeals.count()
         current_pending = current_appeals.filter(pending=True).count()
@@ -587,7 +590,10 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
 
         # Get previous period statistics
         previous_appeals = Appeal.filter_to_allowed_appeals(user).filter(
-            creation_date__range=(previous_period_start.date(), previous_period_end.date())
+            creation_date__range=(
+                previous_period_start.date(),
+                previous_period_end.date(),
+            )
         )
         previous_total = previous_appeals.count()
         previous_pending = previous_appeals.filter(pending=True).count()
@@ -659,7 +665,7 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         successful_appeals = all_appeals.filter(success=True).count()
         with_response = all_appeals.exclude(response_date=None).count()
         success_rate = (
-                (successful_appeals / with_response * 100) if with_response > 0 else 0.0
+            (successful_appeals / with_response * 100) if with_response > 0 else 0.0
         )
 
         # Set estimated payment value to None for now
