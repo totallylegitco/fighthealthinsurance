@@ -858,7 +858,7 @@ class StatisticsTest(APITestCase):
             for_denial=self.current_denial1,
             pending=False,
             sent=True,
-            patient_user=self.patient1,
+            patient_user=self.patient2,
             primary_professional=self.professional,
             creating_professional=self.professional,
             domain=self.domain,
@@ -970,7 +970,7 @@ class StatisticsTest(APITestCase):
 
         # Verify patient counts - should now be total patients in domain
         self.assertEqual(data["current_total_patients"], 2)
-        self.assertEqual(data["previous_total_patients"], 2)
+        self.assertEqual(data["previous_total_patients"], 1)
 
     def test_absolute_statistics_endpoint(self):
         """Test the absolute statistics endpoint."""
