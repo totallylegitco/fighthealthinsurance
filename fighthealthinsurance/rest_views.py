@@ -572,7 +572,6 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         current_appeals = Appeal.filter_to_allowed_appeals(user).filter(
             creation_date__range=(current_period_start.date(), current_period_end.date())
         )
-        print(f"Current appeals {current_appeals} range is {current_period_start.date()} to {current_period_end.date()}")
         current_total = current_appeals.count()
         current_pending = current_appeals.filter(pending=True).count()
         current_sent = current_appeals.filter(sent=True).count()
@@ -590,7 +589,6 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         previous_appeals = Appeal.filter_to_allowed_appeals(user).filter(
             creation_date__range=(previous_period_start.date(), previous_period_end.date())
         )
-        print(f"Previous appeals {current_appeals} range is {previous_period_start.date()} to {previous_period_end.date()}")
         previous_total = previous_appeals.count()
         previous_pending = previous_appeals.filter(pending=True).count()
         previous_sent = previous_appeals.filter(sent=True).count()
@@ -663,7 +661,6 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         success_rate = (
                 (successful_appeals / with_response * 100) if with_response > 0 else 0.0
         )
-        print(f"{all_appeals} {pending_appeals} {sent_appeals} {successful_appeals} {with_response} Rate: {success_rate}")
 
         # Set estimated payment value to None for now
         estimated_payment_value = None
