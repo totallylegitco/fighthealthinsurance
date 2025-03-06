@@ -533,17 +533,16 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         user: User = request.user  # type: ignore
         delta = request.GET.get("delta", "MoM")  # Default to Month over Month
 
-        # Define current period (current month)
-        current_period_start = now.replace(
-            day=1, hour=0, minute=0, second=0, microsecond=0
-        )
+        current_period_start = now
         current_period_end = now
 
         # Define previous period based on delta parameter
         if delta == "MoM":  # Month over Month
+            current_period_start = current_period_start - relativedelta(months=1)
             previous_period_start = current_period_start - relativedelta(months=1)
             previous_period_end = current_period_start - relativedelta(microseconds=1)
         elif delta == "YoY":  # Year over Year
+            current_period_start = current_period_start - relativedelta(years=1)
             previous_period_start = current_period_start - relativedelta(years=1)
             previous_period_end = (
                 previous_period_start
@@ -551,10 +550,12 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
                 - relativedelta(microseconds=1)
             )
         elif delta == "QoQ":  # Quarter over Quarter
+            current_period_start = current_period_start - relativedelta(months=3)
             previous_period_start = current_period_start - relativedelta(months=3)
             previous_period_end = current_period_start - relativedelta(microseconds=1)
         else:
             # Default to Month over Month if invalid delta
+            current_period_start = current_period_start - relativedelta(months=1)
             previous_period_start = current_period_start - relativedelta(months=1)
             previous_period_end = current_period_start - relativedelta(microseconds=1)
 
@@ -569,8 +570,9 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
 
         # Get current period statistics
         current_appeals = Appeal.filter_to_allowed_appeals(user).filter(
-            mod_date__range=(current_period_start.date(), current_period_end.date())
+            creation_date__range=(current_period_start.date(), current_period_end.date())
         )
+        print(f"Current appeals {current_appeals} range is {current_period_start.date()} to {current_period_end.date()}")
         current_total = current_appeals.count()
         current_pending = current_appeals.filter(pending=True).count()
         current_sent = current_appeals.filter(sent=True).count()
@@ -586,8 +588,9 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
 
         # Get previous period statistics
         previous_appeals = Appeal.filter_to_allowed_appeals(user).filter(
-            mod_date__range=(previous_period_start.date(), previous_period_end.date())
+            creation_date__range=(previous_period_start.date(), previous_period_end.date())
         )
+        print(f"Previous appeals {current_appeals} range is {previous_period_start.date()} to {previous_period_end.date()}")
         previous_total = previous_appeals.count()
         previous_pending = previous_appeals.filter(pending=True).count()
         previous_sent = previous_appeals.filter(sent=True).count()
