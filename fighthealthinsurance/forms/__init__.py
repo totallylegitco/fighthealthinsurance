@@ -129,7 +129,9 @@ class PostInferedForm(DenialRefForm):
     denial_id = forms.IntegerField(required=True, widget=forms.HiddenInput())
     email = forms.CharField(required=True, widget=forms.HiddenInput())
     denial_type = forms.ModelMultipleChoiceField(
-        queryset=DenialTypes.objects.all(), required=False
+        queryset=DenialTypes.objects.all(),
+        required=False,
+        label="Denial type (if known)",
     )
     denial_type_text = forms.CharField(
         required=False,

@@ -607,6 +607,8 @@ class FindNextStepsHelper:
         appeal_fax_number: Optional[str] = None,
         patient_health_history: Optional[str] = None,
         date_of_service: Optional[str] = None,
+        in_network: Optional[bool] = None,
+        single_case: Optional[bool] = None,
     ) -> NextStepInfo:
         hashed_email = Denial.get_hashed_email(email)
         # Update the denial
@@ -618,6 +620,12 @@ class FindNextStepsHelper:
         ).get()
         if denial_date:
             denial.denial_date = denial_date
+        if date_of_service:
+            denial.date_of_service = date_of_service
+        if in_network:
+            denial.in_network = in_network
+        if single_case:
+            denial.single_case = single_case
 
         if procedure is not None and len(procedure) < 200:
             denial.procedure = procedure
@@ -685,7 +693,11 @@ class FindNextStepsHelper:
                 new_form = new_form(initial={"medical_reason": dt.appeal_text})
                 question_forms.append(new_form)
         combined_form = magic_combined_form(question_forms)
-        return NextStepInfo(outside_help_details, combined_form, semi_sekret)
+        return NextStepInfo(
+            outside_help_details=outside_help_details,
+            combined_form=combined_form,
+            semi_sekret=semi_sekret,
+        )
 
 
 @dataclass

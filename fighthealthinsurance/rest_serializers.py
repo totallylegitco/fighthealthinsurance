@@ -33,7 +33,6 @@ class DictionaryListField(serializers.ListField):
 class NextStepInfoSerizableSerializer(serializers.Serializer):
     outside_help_details = StringListField()
     combined_form = DictionaryListField()
-    combined_form_defaults = DictionaryListField(required=False)
     semi_sekret = serializers.CharField()
 
 
@@ -99,6 +98,9 @@ class PostInferedFormSerializer(FormSerializer):
     """
     Confirm the details we inferred about the denial.
     """
+
+    single_case = serializers.BooleanField(required=False)
+    in_network = serializers.BooleanField(required=False)
 
     class Meta(object):
         form = core_forms.PostInferedForm

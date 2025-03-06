@@ -95,7 +95,8 @@ class UserSignupSerializer(serializers.Serializer):
     first_name = serializers.CharField(required=True)
     last_name = serializers.CharField(required=True)
     password = serializers.CharField(required=True, write_only=True)
-    email = serializers.EmailField(required=True)
+    # We'll make a "fake" e-mail on the backend if no e-mail provided
+    email = serializers.EmailField(required=False, allow_blank=True)
 
     def validate_password(self, value):
         if len(value) < 8:
