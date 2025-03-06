@@ -33,7 +33,7 @@ class DictionaryListField(serializers.ListField):
 class NextStepInfoSerizableSerializer(serializers.Serializer):
     outside_help_details = StringListField()
     combined_form = DictionaryListField()
-    combined_form_defaults = DictionaryListField()
+    combined_form_defaults = DictionaryListField(required=False)
     semi_sekret = serializers.CharField()
 
 
@@ -87,6 +87,9 @@ class ChooseAppealFormSerializer(FormSerializer):
 
 
 class DenialFormSerializer(FormSerializer):
+    # Only used during updates
+    denial_id = serializers.IntegerField(required=False)
+
     class Meta(object):
         form = core_forms.DenialForm
         exclude = ("plan_documents",)
@@ -342,11 +345,11 @@ class AppealFullSerializer(serializers.ModelSerializer):
 
 
 class AssembleAppealRequestSerializer(serializers.Serializer):
-    denial_uuid = serializers.CharField(required=False)
-    denial_id = serializers.CharField(required=False)
+    denial_uuid = serializers.CharField(required=False, allow_blank=True)
+    denial_id = serializers.CharField(required=False, allow_blank=True)
     completed_appeal_text = serializers.CharField(required=True)
     insurance_company = serializers.CharField(required=False, allow_blank=True)
-    fax_phone = serializers.CharField(required=False)
+    fax_phone = serializers.CharField(required=False, allow_blank=True)
     pubmed_articles_to_include = serializers.ListField(
         child=serializers.CharField(), required=False
     )

@@ -78,8 +78,6 @@ class DenialForm(forms.Form):
     patient_id = forms.CharField(required=False)
     insurance_company = forms.CharField(required=False)
     patient_visible = forms.BooleanField(required=False)
-    # Only used during updates
-    denial_id = forms.IntegerField(required=False, widget=forms.HiddenInput())
 
 
 class DenialRefForm(forms.Form):
