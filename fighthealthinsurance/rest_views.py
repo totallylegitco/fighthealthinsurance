@@ -661,7 +661,7 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         successful_appeals = all_appeals.filter(success=True).count()
         with_response = all_appeals.exclude(response_date=None).count()
         success_rate = (
-                ((100.0 * successful_appeals) / with_response) if with_response > 0 else 0.0
+                (successful_appeals / with_response * 100) if with_response > 0 else 0.0
         )
         print(f"{all_appeals} {pending_appeals} {sent_appeals} {successful_appeals} {with_response} Rate: {success_rate}")
 
