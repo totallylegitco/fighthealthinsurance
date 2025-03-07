@@ -119,7 +119,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta(object):
         model = User
-        include = ("first_name", "last_name", "email", "username", "is_active")
+        fields = ("first_name", "last_name", "email")
 
 
 class UserDomainSerializer(serializers.ModelSerializer):
@@ -334,6 +334,7 @@ class PatientUserSerializer(serializers.ModelSerializer):
     """
 
     user_contact_info = serializers.SerializerMethodField()
+    user = serializers.SerializerMethodField()
 
     class Meta:
         model = PatientUser
@@ -348,6 +349,12 @@ class PatientUserSerializer(serializers.ModelSerializer):
                     UserContactInfo.objects.get(user=obj.user)
                 ).data
             return None
+
+    @extend_schema_field(UserSerializer(allow_null=True))
+    def get_user(self, obj):
+        if obj.user:
+            return UserSerializer(obj.user).data
+        return None
 
 
 class StatusResponseSerializer(serializers.Serializer):
