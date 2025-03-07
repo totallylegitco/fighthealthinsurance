@@ -551,12 +551,12 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         elif delta == "QoQ":  # Quarter over Quarter
             current_period_start = current_period_start - relativedelta(months=3)
             previous_period_start = current_period_start - relativedelta(months=3)
-        else: # MoM
+        else:  # MoM
             # Default to Month over Month if invalid delta
             current_period_start = current_period_start - relativedelta(months=1)
             previous_period_start = current_period_start - relativedelta(months=1)
         # Regardless end the previous period one microsend before the start of the current
-        previous_period_end = (current_period_start - relativedelta(microseconds=1))
+        previous_period_end = current_period_start - relativedelta(microseconds=1)
 
         # Get user domain to calculate patients
         domain_id = request.session.get("domain_id")
