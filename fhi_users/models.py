@@ -3,11 +3,13 @@ import time
 import datetime
 import typing
 import re
-from django.db import models
+from enum import Enum
+
+from django.db import models, transaction, IntegrityError
+from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from django.db.models.signals import pre_save
 from django.dispatch import receiver
-from enum import Enum
 
 if typing.TYPE_CHECKING:
     from django.contrib.auth.models import User
@@ -15,12 +17,10 @@ else:
     User = get_user_model()
 
 
-# Define user role enum
 class UserRole(str, Enum):
     """
     Enum representing possible user roles in the system, in order of increasing permissions.
     """
-
     NONE = "none"
     PATIENT = "patient"
     PROFESSIONAL = "professional"
@@ -28,7 +28,7 @@ class UserRole(str, Enum):
 
     @classmethod
     def get_highest_role(cls, is_patient, is_professional, is_admin):
-        """Determine the highest role a user has"""
+        """Determine the highest role a user has."""
         if is_admin:
             return cls.ADMIN
         elif is_professional:
@@ -39,8 +39,18 @@ class UserRole(str, Enum):
             return cls.NONE
 
 
-# Auth-ish-related models
 class UserDomain(models.Model):
+    """
+    Domain model representing a user domain.
+
+    Note: The 'visible_phone_number' field is declared unique at the database level,
+    but is intended to be unique only among active domains. To help mitigate potential
+    concurrency and thread-safety issues, the clean() method checks for uniqueness
+    among active domains and save() wraps the process in an atomic transaction.
+    
+    The 'internal_phone_number' field is not unique and caution should be taken when
+    using it for lookups.
+    """
     id = models.CharField(
         max_length=300,
         primary_key=True,
@@ -48,25 +58,14 @@ class UserDomain(models.Model):
         editable=False,
         unique=True,
     )
-    # Money
     stripe_subscription_id = models.CharField(max_length=300, null=True)
-    # Info
-    # https://docs.djangoproject.com/en/5.1/ref/models/fields/#django.db.models.Field.null
     name = models.CharField(blank=True, null=True, max_length=300, unique=True)
     active = models.BooleanField()
-    # Business name can be blank, we'll use display name then.
     business_name = models.CharField(max_length=300, null=True)
     display_name = models.CharField(max_length=300, null=False)
     professionals = models.ManyToManyField("ProfessionalUser", through="ProfessionalDomainRelation")  # type: ignore
-    # The visible phone number should be unique... ish? Maybe?
-    # We _could_ allow users to log in with visible phone number IFF
-    # it's unique among active domains. We're going to TRY and have it
-    # be unique and hope we don't have to remove this. The real world is
-    # tricky.
     visible_phone_number = models.CharField(max_length=150, null=False, unique=True)
-    internal_phone_number = models.CharField(
-        max_length=150, null=True, unique=False, blank=True
-    )
+    internal_phone_number = models.CharField(max_length=150, null=True, blank=True)
     office_fax = models.CharField(max_length=150, null=True, blank=True)
     country = models.CharField(max_length=150, default="USA")
     state = models.CharField(max_length=50, null=False)
@@ -74,21 +73,46 @@ class UserDomain(models.Model):
     address1 = models.CharField(max_length=200, null=False)
     address2 = models.CharField(max_length=200, null=True, blank=True)
     zipcode = models.CharField(max_length=20, null=False)
-    # Customize the defaults
-    default_procedure = models.CharField(
-        blank=False, null=True, max_length=300, unique=False
-    )
+    default_procedure = models.CharField(blank=False, null=True, max_length=300)
     cover_template_string = models.CharField(max_length=5000, null=True)
 
+    def clean(self):
+        """
+        Validate that if the domain is active, no other active domain has the same
+        visible_phone_number. This extra check is performed in an atomic block using
+        select_for_update to reduce race conditions.
+        """
+        if self.active:
+            qs = UserDomain.objects.select_for_update().filter(
+                visible_phone_number=self.visible_phone_number, active=True
+            )
+            if self.pk:
+                qs = qs.exclude(pk=self.pk)
+            if qs.exists():
+                raise ValidationError(
+                    "An active domain with this visible phone number already exists."
+                )
+        # Note: internal_phone_number is not validated for uniqueness as per current requirements.
+
     def save(self, *args, **kwargs):
-        # Strip URL prefixes from name if it's set
+        """
+        Override save to ensure name is cleaned and validations (including uniqueness
+        among active domains) are run. The save operation is wrapped in a transaction to
+        help mitigate concurrency issues.
+        """
         if self.name:
             self.name = self._clean_name(self.name)
-        super().save(*args, **kwargs)
+        try:
+            with transaction.atomic():
+                self.full_clean()
+                super().save(*args, **kwargs)
+        except IntegrityError as e:
+            # Optionally log the error before re-raising
+            raise e
 
     @staticmethod
     def _clean_name(name: str) -> str:
-        """Strip URL prefixes from name string"""
+        """Strip URL prefixes from name string."""
         if name:
             # Remove http://, https://, and www.
             return re.sub(r"^https?://(?:www\.)?|^www\.", "", name)
@@ -96,32 +120,20 @@ class UserDomain(models.Model):
 
     @classmethod
     def find_by_name(cls, name: typing.Optional[str]) -> models.QuerySet["UserDomain"]:
-        """Find domains by name, cleaning the input name first"""
+        """
+        Find domains by name, cleaning the input name first.
+        """
         if name:
             cleaned_name = cls._clean_name(name)
             return cls.objects.filter(name=cleaned_name)
         return cls.objects.none()
 
     def get_professional_users(self, **relation_filters):
-        from .models import (
-            ProfessionalDomainRelation,
-        )  # local import to avoid circular dependencies
-
-        relations = ProfessionalDomainRelation.objects.filter(
-            domain=self, **relation_filters
-        )
+        from .models import ProfessionalDomainRelation  # local import to avoid circular dependencies
+        relations = ProfessionalDomainRelation.objects.filter(domain=self, **relation_filters)
         return [relation.professional for relation in relations]
 
-    # Maybe include:
-    # List of common procedures
-    # Common appeal templates
-    # Extra model prompt
 
-
-# As its set up a user can be in multiple domains & pro & patient
-# however (for now) the usernames & domains are scoped so that we can
-# allow admin to reset passwords within the domain. But we can later
-# add "global" users that aggregate multiple sub-users. Maybe. idk
 class GlobalUserRelation(models.Model):
     id = models.AutoField(primary_key=True)
     parent_user = models.ForeignKey(
@@ -178,7 +190,6 @@ class ProfessionalUser(models.Model):
     active = models.BooleanField()
     provider_type = models.CharField(blank=True, null=True, max_length=300)
     most_common_denial = models.CharField(blank=True, null=True, max_length=300)
-    # Override the professional domain fax number
     fax_number = models.CharField(blank=True, null=True, max_length=40)
     domains = models.ManyToManyField("UserDomain", through="ProfessionalDomainRelation")  # type: ignore
     display_name = models.CharField(max_length=400, null=True)
@@ -205,7 +216,6 @@ class ProfessionalUser(models.Model):
 class ProfessionalDomainRelation(models.Model):
     professional = models.ForeignKey("ProfessionalUser", on_delete=models.CASCADE)
     domain = models.ForeignKey(UserDomain, on_delete=models.CASCADE)
-    # Is the relation "active" (note: we should move this to a function)
     active = models.BooleanField(default=False)
     admin = models.BooleanField(default=False)
     read_only = models.BooleanField(default=False)
@@ -216,13 +226,11 @@ class ProfessionalDomainRelation(models.Model):
 
 
 @receiver(pre_save, sender=ProfessionalDomainRelation)
-def professional_domain_relation_presave(
-    sender: type, instance: ProfessionalDomainRelation, **kwargs: dict
-) -> None:
-    """Dynamically set the active field based on pending/suspended/rejected."""
-    instance.active = (
-        not instance.pending and not instance.suspended and not instance.rejected
-    )
+def professional_domain_relation_presave(sender: type, instance: ProfessionalDomainRelation, **kwargs: dict) -> None:
+    """
+    Dynamically set the 'active' field based on pending, suspended, and rejected statuses.
+    """
+    instance.active = not (instance.pending or instance.suspended or instance.rejected)
 
 
 class PatientDomainRelation(models.Model):
@@ -233,7 +241,7 @@ class PatientDomainRelation(models.Model):
 class ExtraUserProperties(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     email_verified = models.BooleanField(default=False)
-    # Add any other extra properties here
+    # Additional extra properties can be added here.
 
 
 class VerificationToken(models.Model):
