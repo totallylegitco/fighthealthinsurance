@@ -31,42 +31,28 @@ class TestCommonViewLogic(TestCase):
         mock_denial_objects.filter.return_value.delete.assert_called()
 
     @pytest.mark.django_db
-    @patch("fighthealthinsurance.common_view_logic.Denial.objects.get")
-    @patch("fighthealthinsurance.common_view_logic.DenialTypes.objects.get")
-    def test_find_next_steps(self, mock_denial_types_get, mock_denial_get):
-        # Create mock denial types
-        mock_denial_type1 = MagicMock()
-        mock_denial_type1.name = "Insurance Company"
-        mock_denial_type1.id = 1
+    def test_find_next_steps(self):
+        # Create real DenialTypes objects
+        insurance_company_type = DenialTypes.objects.get(name="Insurance Company")
+        medically_necessary_type = DenialTypes.objects.get(name="Medically Necessary")
 
-        mock_denial_type2 = MagicMock()
-        mock_denial_type2.name = "Medically Necessary"
-        mock_denial_type2.id = 2
-
-        # Set up denial types mock to return our mock objects
-        mock_denial_types_get.side_effect = lambda name: {
-            "Insurance Company": mock_denial_type1,
-            "Medically Necessary": mock_denial_type2,
-        }.get(name)
-
-        # Create mock denial
-        mock_denial = MagicMock()
-        mock_denial.semi_sekret = "sekret"
-        mock_denial.hashed_email = Denial.get_hashed_email("test@example.com")
-
-        # Mock denial type relationship
-        mock_denial_types = MagicMock()
-        mock_denial_types.all.return_value = [mock_denial_type1, mock_denial_type2]
-        mock_denial.denial_type = mock_denial_types
-
-        # Set up denial get mock to return our mock denial
-        mock_denial_get.return_value = mock_denial
-
-        # Call the function being tested
-        next_steps = FindNextStepsHelper.find_next_steps(
+        # Create a real Denial object
+        email = "test@example.com"
+        denial = Denial.objects.create(
             denial_id=1,
-            email="test@example.com",
             semi_sekret="sekret",
+            hashed_email=Denial.get_hashed_email(email),
+        )
+
+        # Add denial types to the denial
+        denial.denial_type.add(insurance_company_type)
+        denial.denial_type.add(medically_necessary_type)
+
+        # Call the function being tested with real objects
+        next_steps = FindNextStepsHelper.find_next_steps(
+            denial_id=denial.denial_id,
+            email=email,
+            semi_sekret=denial.semi_sekret,
             procedure="prep",
             plan_id="1",
             denial_type=None,
@@ -76,7 +62,11 @@ class TestCommonViewLogic(TestCase):
             claim_id=7,
         )
 
+        # Verify the result
         self.assertIsInstance(next_steps, NextStepInfo)
+
+        # Clean up the test data
+        denial.delete()
 
     @pytest.mark.django_db
     @patch("fighthealthinsurance.common_view_logic.appealGenerator")
