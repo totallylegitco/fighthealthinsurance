@@ -23,13 +23,11 @@ from django.db import connections
 
 
 import uszipcode
-from fighthealthinsurance import forms as core_forms
 from fighthealthinsurance.fax_actor_ref import fax_actor_ref
 from fighthealthinsurance.fax_utils import flexible_fax_magic
 from fighthealthinsurance.form_utils import *
 from fighthealthinsurance.generate_appeal import *
 from fighthealthinsurance.models import *
-from fighthealthinsurance.forms import questions as question_forms
 from fighthealthinsurance.utils import interleave_iterator_for_keep_alive
 from fhi_users.models import ProfessionalUser, UserDomain
 from .pubmed_tools import PubMedTools
@@ -686,7 +684,7 @@ class FindNextStepsHelper:
         if denial_date is not None:
             denial.denial_date = denial_date
             if "denial date" not in existing_answers:
-                existing_answers["denial date"] = denial_date
+                existing_answers["denial date"] = str(denial_date)
         if date_of_service is not None:
             denial.date_of_service = date_of_service
             if "date of service" not in existing_answers:
