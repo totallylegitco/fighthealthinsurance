@@ -46,7 +46,7 @@ from fhi_users.models import (
 from stopit import ThreadingTimeout as Timeout
 from .common_view_logic import AppealAssemblyHelper
 from .utils import is_convertible_to_int
-
+import json
 
 if typing.TYPE_CHECKING:
     from django.contrib.auth.models import User
@@ -210,13 +210,12 @@ class QAResponseViewSet(viewsets.ViewSet, CreateMixin):
                     question=key,
                     text_answer=value,
                 )
-        qa_context = ""
+        qa_context = {}
         for key, value in DenialQA.objects.filter(denial=denial).values_list(
             "question", "text_answer"
         ):
-            # Use 🐼 as a reserved seperator
-            qa_context += f"{key}: {value}🐼"
-        denial.qa_context = qa_context
+            qa_context[key] = value
+        denial.qa_context = json.dumps(qa_context)
         denial.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 

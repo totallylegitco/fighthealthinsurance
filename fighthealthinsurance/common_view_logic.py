@@ -1356,7 +1356,11 @@ class AppealsBackendHelper:
 
         # Add the context to the denial
         if medical_context is not None:
-            denial.qa_context = " ".join(medical_context)
+            qa_context = {}
+            if denial.qa_context is not None:
+                qa_context = json.loads(denial.qa_context)
+            qa_context["medical_context"] = " ".join(medical_context)
+            denial.qa_context = json.dumps(qa_context)
         if plan_context is not None:
             denial.plan_context = " ".join(set(plan_context))
         await denial.asave()
