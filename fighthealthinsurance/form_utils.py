@@ -29,7 +29,7 @@ def magic_combined_form(
             # Add new fields to the combined form
             if field_name not in combined_form.fields:
                 combined_form.fields[field_name] = field
-
+                print(f"Looking for {field_name} in {existing_answers}")
                 # Check if this field has a value in existing_answers
                 if field_name in existing_answers:
                     value = existing_answers[field_name]

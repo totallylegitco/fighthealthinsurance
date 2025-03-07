@@ -99,11 +99,8 @@ class PostInferedFormSerializer(FormSerializer):
     Confirm the details we inferred about the denial.
     """
 
-    single_case = serializers.BooleanField(required=False)
-    in_network = serializers.BooleanField(required=False)
-
     class Meta(object):
-        form = core_forms.PostInferedForm
+        form = core_forms.ProPostInferedForm
 
 
 class FollowUpFormSerializer(FormSerializer):

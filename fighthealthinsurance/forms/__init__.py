@@ -127,7 +127,7 @@ class FaxResendForm(forms.Form):
     hashed_email = forms.CharField(required=True, widget=forms.HiddenInput)
 
 
-class PostInferedForm(DenialRefForm):
+class BasePostInferedForm(DenialRefForm):
     """The form to double check what we inferred. This leads to our next steps /
     FindNextSteps."""
 
@@ -168,6 +168,8 @@ class PostInferedForm(DenialRefForm):
         + 'including things like "high risk homosexual behavior" (yeah that\'s a real one)',
         required=False,
     )
+
+class PostInferedForm(BasePostInferedForm):
     captcha = forms.CharField(required=False, widget=forms.HiddenInput())
     # Instead of the default behaviour we skip the recaptcha field entirely for dev.
     if "RECAPTCHA_PUBLIC_KEY" in os.environ and (
@@ -176,6 +178,9 @@ class PostInferedForm(DenialRefForm):
     ):
         captcha = ReCaptchaField(widget=ReCaptchaV2Checkbox())
 
+class ProPostInferedForm(BasePostInferedForm):
+    single_case = forms.BooleanField(required=False)
+    in_network = forms.BooleanField(required=False)
 
 class FollowUpTestForm(forms.Form):
     email = forms.CharField(required=True)

@@ -680,20 +680,21 @@ class FindNextStepsHelper:
         if denial.qa_context is not None:
             existing_answers = json.loads(denial.qa_context)
 
+        print(f"Setting with {in_network}")
         if your_state:
             denial.state = your_state
-        if denial_date:
+        if denial_date is not None:
             denial.denial_date = denial_date
             if "denial date" not in existing_answers:
                 existing_answers["denial date"] = denial_date
-        if date_of_service:
+        if date_of_service is not None:
             denial.date_of_service = date_of_service
             if "date of service" not in existing_answers:
                 existing_answers["date of service"] = date_of_service
         if in_network is not None:
             denial.provider_in_network = in_network
-            if "In-network visit" not in existing_answers:
-                existing_answers["In-network visit"] = str(in_network)
+            if "in_network" not in existing_answers:
+                existing_answers["in_network"] = str(in_network)
         if single_case is not None:
             denial.single_case = single_case
 
