@@ -613,7 +613,9 @@ class PatientUserViewSet(ViewSet, CreateMixin):
             lname=serializer.validated_data["last_name"],
         )
         print(f"User is {user}")
-        response_serializer = serializers.PatientReferenceSerializer({"id": user.id})
+        response_serializer = serializers.PatientReferenceSerializer(
+            {"id": user.id, "email": user.email}
+        )
         return Response(response_serializer.data)
 
 

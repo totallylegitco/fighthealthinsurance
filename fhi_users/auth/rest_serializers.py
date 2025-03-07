@@ -232,10 +232,11 @@ class GetOrCreatePendingPatientSerializer(serializers.Serializer):
 
 class PatientReferenceSerializer(serializers.Serializer):
     """
-    Return the patient id
+    Return the patient id and email.
     """
 
     id = serializers.IntegerField()
+    email = serializers.CharField()
 
 
 class CreatePatientUserSerializer(serializers.ModelSerializer):

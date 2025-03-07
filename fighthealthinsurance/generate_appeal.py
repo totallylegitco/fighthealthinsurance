@@ -491,7 +491,7 @@ class AppealGenerator(object):
 
         medical_context = ""
         if denial.qa_context is not None:
-            medical_context += denial.qa_context
+            medical_context += denial.qa_context.replace("🐼", "\n")
         if denial.health_history is not None:
             medical_context += denial.health_history
         plan_context = denial.plan_context

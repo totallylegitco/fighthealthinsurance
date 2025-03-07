@@ -64,7 +64,7 @@ class ShareAppealForm(forms.Form):
     appeal_text = forms.CharField(required=True)
 
 
-class DenialForm(forms.Form):
+class BaseDenialForm(forms.Form):
     zip = forms.CharField(required=False)
     pii = forms.BooleanField(required=True)
     tos = forms.BooleanField(required=True)
@@ -73,7 +73,14 @@ class DenialForm(forms.Form):
     use_external_models = forms.BooleanField(required=False)
     denial_text = forms.CharField(required=True)
     email = forms.EmailField(required=True)
-    # Only used in pro
+
+
+class DenialForm(BaseDenialForm):
+    pass
+
+
+class ProDenialForm(BaseDenialForm):
+    # In pro we can fetch email from the patient object
     primary_professional = forms.CharField(required=False)
     patient_id = forms.CharField(required=False)
     insurance_company = forms.CharField(required=False)

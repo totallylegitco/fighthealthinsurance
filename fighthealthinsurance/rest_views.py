@@ -103,6 +103,7 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
 
     @extend_schema(responses=serializers.DenialResponseInfoSerializer)
     def create(self, request: Request) -> Response:
+        print(f"Create called..")
         return super().create(request)
 
     @extend_schema(responses=serializers.DenialResponseInfoSerializer)
@@ -121,6 +122,7 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
 
     @extend_schema(responses=serializers.DenialResponseInfoSerializer)
     def perform_create(self, request: Request, serializer):
+        print(f"Performing...")
         current_user: User = request.user  # type: ignore
         creating_professional = ProfessionalUser.objects.get(user=current_user)
         serializer = self.deserialize(data=request.data)
@@ -153,6 +155,12 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
             patient_id = serializer_data.pop("patient_id")
             if patient_id:
                 serializer_data["patient_user"] = PatientUser.objects.get(id=patient_id)
+            if (
+                "email" not in serializer_data
+                or serializer_data["email"] is None
+                or len(serializer_data["email"]) == 0
+            ):
+                serializer_data["email"] = serializer_data["patient_user"].user.email
         denial_response_info = (
             common_view_logic.DenialCreatorHelper.create_or_update_denial(
                 denial=denial,
@@ -206,7 +214,8 @@ class QAResponseViewSet(viewsets.ViewSet, CreateMixin):
         for key, value in DenialQA.objects.filter(denial=denial).values_list(
             "question", "text_answer"
         ):
-            qa_context += f"{key}: {value}\n"
+            # Use 🐼 as a reserved seperator
+            qa_context += f"{key}: {value}🐼"
         denial.qa_context = qa_context
         denial.save()
         return Response(status=status.HTTP_204_NO_CONTENT)

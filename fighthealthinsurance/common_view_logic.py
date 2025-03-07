@@ -618,14 +618,6 @@ class FindNextStepsHelper:
             hashed_email=hashed_email,
             semi_sekret=semi_sekret,
         ).get()
-        if denial_date:
-            denial.denial_date = denial_date
-        if date_of_service:
-            denial.date_of_service = date_of_service
-        if in_network:
-            denial.in_network = in_network
-        if single_case:
-            denial.single_case = single_case
 
         if procedure is not None and len(procedure) < 200:
             denial.procedure = procedure
@@ -683,16 +675,37 @@ class FindNextStepsHelper:
             denial.denial_type_text = denial_type_text
         if denial_type:
             denial.denial_type.set(denial_type)
+
+        existing_answers: dict[str, str] = {}
+        if denial.qa_context is not None:
+            existing_answers = json.loads(denial.qa_context)
+
         if your_state:
             denial.state = your_state
+        if denial_date:
+            denial.denial_date = denial_date
+            if "denial date" not in existing_answers:
+                existing_answers["denial date"] = denial_date
+        if date_of_service:
+            denial.date_of_service = date_of_service
+            if "date of service" not in existing_answers:
+                existing_answers["date of service"] = date_of_service
+        if in_network is not None:
+            denial.provider_in_network = in_network
+            if "In-network visit" not in existing_answers:
+                existing_answers["In-network visit"] = str(in_network)
+        if single_case is not None:
+            denial.single_case = single_case
+
         denial.save()
+
         question_forms = []
         for dt in denial.denial_type.all():
             new_form = dt.get_form()
             if new_form is not None:
                 new_form = new_form(initial={"medical_reason": dt.appeal_text})
                 question_forms.append(new_form)
-        combined_form = magic_combined_form(question_forms)
+        combined_form = magic_combined_form(question_forms, existing_answers)
         return NextStepInfo(
             outside_help_details=outside_help_details,
             combined_form=combined_form,

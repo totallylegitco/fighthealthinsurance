@@ -90,7 +90,7 @@ class DenialFormSerializer(FormSerializer):
     denial_id = serializers.IntegerField(required=False)
 
     class Meta(object):
-        form = core_forms.DenialForm
+        form = core_forms.ProDenialForm
         exclude = ("plan_documents",)
 
 
