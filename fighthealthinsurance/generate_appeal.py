@@ -491,11 +491,14 @@ class AppealGenerator(object):
 
         medical_context = ""
         if denial.qa_context is not None:
+import json
+
             try:
                 qa_context = json.loads(denial.qa_context)
                 formatted = "\n".join(f"{k}:{v}" for k, v in qa_context.items())
                 medical_context += formatted
-            except:
+            except (json.JSONDecodeError, TypeError) as e:
+                # Fall back to original string if JSON parsing fails
                 medical_context += denial.qa_context
         if denial.health_history is not None:
             medical_context += denial.health_history
