@@ -19,6 +19,7 @@ from .pubmed_tools import PubMedTools
 
 import json
 
+
 class AppealTemplateGenerator(object):
     def __init__(self, prefaces: list[str], main: list[str], footer: list[str]):
         self.prefaces = prefaces

@@ -303,6 +303,7 @@ class AppealFullSerializer(serializers.ModelSerializer):
     denial = serializers.SerializerMethodField()
     in_userdomain = serializers.SerializerMethodField()
     primary_professional = serializers.SerializerMethodField()
+    patient = serializers.SerializerMethodField()
 
     class Meta:
         model = Appeal
@@ -319,13 +320,13 @@ class AppealFullSerializer(serializers.ModelSerializer):
     @extend_schema_field(DenialModelSerializer(allow_null=True))
     def get_denial(self, obj: Appeal):
         if obj.for_denial:
-            return DenialModelSerializer(obj.for_denial)
+            return DenialModelSerializer(obj.for_denial).data
         return None  # type: ignore
 
     @extend_schema_field(auth_serializers.UserDomainSerializer(allow_null=True))
     def get_in_userdomain(self, obj: Appeal):
         if obj.domain:
-            return auth_serializers.UserDomainSerializer(obj.domain)  # type: ignore
+            return auth_serializers.UserDomainSerializer(obj.domain).data  # type: ignore
         return None  # type: ignore
 
     @extend_schema_field(auth_serializers.FullProfessionalSerializer(allow_null=True))
@@ -333,12 +334,19 @@ class AppealFullSerializer(serializers.ModelSerializer):
         if obj.primary_professional:
             ser_data = auth_serializers.FullProfessionalSerializer(
                 obj.primary_professional
-            )
+            ).data
             return ser_data
         if obj.creating_professional:
             ser_data = auth_serializers.FullProfessionalSerializer(
                 obj.creating_professional
-            )
+            ).data
+            return ser_data
+        return None
+
+    @extend_schema_field(auth_serializers.PatientUserSerializer(allow_null=True))
+    def get_patient(self, obj: Appeal):
+        if obj.patient_user:
+            ser_data = auth_serializers.PatientUserSerializer(obj.patient_user).data
             return ser_data
         return None
 

@@ -18,6 +18,9 @@ from fhi_users.auth.auth_utils import (
 from typing import Any, Optional
 import re
 
+# Add missing import for extend_schema_field
+from drf_spectacular.utils import extend_schema_field
+
 if typing.TYPE_CHECKING:
     from django.contrib.auth.models import User
 else:
@@ -312,6 +315,39 @@ class CreatePatientUserSerializer(serializers.ModelSerializer):
         )
 
         return user
+
+
+# Define UserContactInfoSerializer before PatientUserSerializer
+class UserContactInfoSerializer(serializers.ModelSerializer):
+    """
+    Serializer for user contact information.
+    """
+
+    class Meta:
+        model = UserContactInfo
+        exclude: list[str] = []
+
+
+class PatientUserSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the patient user model.
+    """
+
+    user_contact_info = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PatientUser
+        exclude: list[str] = []
+
+    @extend_schema_field(UserContactInfoSerializer(allow_null=True))
+    def get_user_contact_info(self, obj):
+        if obj.user:
+            # Fix: Use objects.filter instead of filter and reference obj.user instead of undefined user
+            if UserContactInfo.objects.filter(user=obj.user).exists():
+                return UserContactInfoSerializer(
+                    UserContactInfo.objects.get(user=obj.user)
+                ).data
+            return None
 
 
 class StatusResponseSerializer(serializers.Serializer):

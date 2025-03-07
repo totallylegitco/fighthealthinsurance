@@ -169,6 +169,7 @@ class BasePostInferedForm(DenialRefForm):
         required=False,
     )
 
+
 class PostInferedForm(BasePostInferedForm):
     captcha = forms.CharField(required=False, widget=forms.HiddenInput())
     # Instead of the default behaviour we skip the recaptcha field entirely for dev.
@@ -178,9 +179,11 @@ class PostInferedForm(BasePostInferedForm):
     ):
         captcha = ReCaptchaField(widget=ReCaptchaV2Checkbox())
 
+
 class ProPostInferedForm(BasePostInferedForm):
     single_case = forms.BooleanField(required=False)
     in_network = forms.BooleanField(required=False)
+
 
 class FollowUpTestForm(forms.Form):
     email = forms.CharField(required=True)

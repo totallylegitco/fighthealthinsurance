@@ -548,27 +548,18 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         current_period_end = now
 
         # Define previous period based on delta parameter
-        if delta == "MoM":  # Month over Month
-            current_period_start = current_period_start - relativedelta(months=1)
-            previous_period_start = current_period_start - relativedelta(months=1)
-            previous_period_end = current_period_start - relativedelta(microseconds=1)
-        elif delta == "YoY":  # Year over Year
+        if delta == "YoY":  # Year over Year
             current_period_start = current_period_start - relativedelta(years=1)
             previous_period_start = current_period_start - relativedelta(years=1)
-            previous_period_end = (
-                previous_period_start
-                + relativedelta(months=1)
-                - relativedelta(microseconds=1)
-            )
         elif delta == "QoQ":  # Quarter over Quarter
             current_period_start = current_period_start - relativedelta(months=3)
             previous_period_start = current_period_start - relativedelta(months=3)
-            previous_period_end = current_period_start - relativedelta(microseconds=1)
-        else:
+        else: # MoM
             # Default to Month over Month if invalid delta
             current_period_start = current_period_start - relativedelta(months=1)
             previous_period_start = current_period_start - relativedelta(months=1)
-            previous_period_end = current_period_start - relativedelta(microseconds=1)
+        # Regardless end the previous period one microsend before the start of the current
+        previous_period_end = (current_period_start - relativedelta(microseconds=1))
 
         # Get user domain to calculate patients
         domain_id = request.session.get("domain_id")
@@ -606,6 +597,7 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
                 previous_period_end.date(),
             )
         )
+        print(f"Previous appeals looking at {previous_period_start.date()} to {previous_period_end.date()}")
         previous_total = previous_appeals.count()
         previous_pending = previous_appeals.filter(pending=True).count()
         previous_sent = previous_appeals.filter(sent=True).count()

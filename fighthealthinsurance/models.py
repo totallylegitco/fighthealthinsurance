@@ -205,7 +205,7 @@ class DenialTypes(models.Model):
 
             try:
                 return getattr(
-                    sys.modules["fighthealthinsurance.forms.questionss"], self.form
+                    sys.modules["fighthealthinsurance.forms.questions"], self.form
                 )
             except Exception as e:
                 logger.opt(exception=True).debug(f"Error loading form {self.form}: {e}")
