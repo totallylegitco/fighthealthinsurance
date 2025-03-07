@@ -201,12 +201,14 @@ class DenialTypes(models.Model):
             else:
                 return None
         else:
+            import fighthealthinsurance.forms.questions
+
             try:
                 return getattr(
-                    sys.modules["fighthealthinsurance.forms.questions"], self.form
+                    sys.modules["fighthealthinsurance.forms.questionss"], self.form
                 )
             except Exception as e:
-                logger.debug(f"Error loading form {e}")
+                logger.opt(exception=True).debug(f"Error loading form {self.form}: {e}")
                 return None
 
     def __str__(self):
