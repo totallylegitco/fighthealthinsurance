@@ -103,7 +103,6 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
 
     @extend_schema(responses=serializers.DenialResponseInfoSerializer)
     def create(self, request: Request) -> Response:
-        print(f"Create called..")
         return super().create(request)
 
     @extend_schema(responses=serializers.DenialResponseInfoSerializer)
@@ -122,7 +121,6 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
 
     @extend_schema(responses=serializers.DenialResponseInfoSerializer)
     def perform_create(self, request: Request, serializer):
-        print(f"Performing...")
         current_user: User = request.user  # type: ignore
         creating_professional = ProfessionalUser.objects.get(user=current_user)
         serializer = self.deserialize(data=request.data)
@@ -138,7 +136,6 @@ class DenialViewSet(viewsets.ViewSet, CreateMixin):
             )
             serializer_data["primary_professional"] = primary_professional
         denial: Optional[Denial] = None
-        print("Serializer data", serializer_data)
         if "denial_id" in serializer_data:
             if serializer_data["denial_id"] and is_convertible_to_int(
                 serializer_data["denial_id"]
@@ -597,7 +594,6 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
                 previous_period_end.date(),
             )
         )
-        print(f"Previous appeals looking at {previous_period_start.date()} to {previous_period_end.date()}")
         previous_total = previous_appeals.count()
         previous_pending = previous_appeals.filter(pending=True).count()
         previous_sent = previous_appeals.filter(sent=True).count()

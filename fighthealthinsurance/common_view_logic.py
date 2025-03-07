@@ -341,7 +341,7 @@ class AppealAssemblyHelper:
         # Render the cover content
         if cover_template_string and len(cover_template_string) > 0:
             cover_content = Template(cover_template_string).substitute(cover_context)
-            print(
+            logger.debug(
                 f"Rendering cover letter from string {cover_template_string} and got {cover_content}"
             )
         else:
@@ -349,7 +349,7 @@ class AppealAssemblyHelper:
                 cover_template_path,
                 context=cover_context,
             )
-            print(
+            logger.debug(
                 f"Rendering cover letter from path {cover_template_path} and got {cover_content}"
             )
         files_for_fax: list[str] = []
@@ -678,7 +678,6 @@ class FindNextStepsHelper:
         if denial.qa_context is not None:
             existing_answers = json.loads(denial.qa_context)
 
-        print(f"Setting with {in_network}")
         if your_state:
             denial.state = your_state
         if denial_date is not None:
@@ -1256,7 +1255,6 @@ class DenialCreatorHelper:
             insurance_company=denial.insurance_company,
             plan_id=denial.plan_id,
         )
-        print(f"Formatting {denial} as {r}")
         return r
 
 
