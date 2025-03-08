@@ -42,11 +42,6 @@ class UserRole(str, Enum):
 class UserDomain(models.Model):
     """
     Domain model representing a user domain.
-
-    Note: The 'visible_phone_number' field is declared unique at the database level,
-    but is intended to be unique only among active domains. To help mitigate potential
-    concurrency and thread-safety issues, the clean() method checks for uniqueness
-    among active domains and save() wraps the process in an atomic transaction.
     
     The 'internal_phone_number' field is not unique and caution should be taken when
     using it for lookups.
@@ -76,23 +71,6 @@ class UserDomain(models.Model):
     default_procedure = models.CharField(blank=False, null=True, max_length=300, unique=False)
     cover_template_string = models.CharField(max_length=5000, null=True)
 
-    def clean(self):
-        """
-        Validate that if the domain is active, no other active domain has the same
-        visible_phone_number. This extra check is performed in an atomic block using
-        select_for_update to reduce race conditions.
-        """
-        if self.active:
-            qs = UserDomain.objects.select_for_update().filter(
-                visible_phone_number=self.visible_phone_number, active=True
-            )
-            if self.pk:
-                qs = qs.exclude(pk=self.pk)
-            if qs.exists():
-                raise ValidationError(
-                    "An active domain with this visible phone number already exists."
-                )
-        # Note: internal_phone_number is not validated for uniqueness as per current requirements.
 
     def save(self, *args, **kwargs):
         """
