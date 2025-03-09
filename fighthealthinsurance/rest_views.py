@@ -421,6 +421,21 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         current_user: User = request.user  # type: ignore
         serializer = self.deserialize(data=request.data)
         serializer.is_valid(raise_exception=True)
+
+        # Check if an appeal_id is provided to update an existing appeal
+        appeal = None
+        if (
+            "appeal_id" in serializer.validated_data
+            and serializer.validated_data["appeal_id"]
+        ):
+            appeal_id = serializer.validated_data["appeal_id"]
+            try:
+                appeal = Appeal.filter_to_allowed_appeals(current_user).get(
+                    id=appeal_id
+                )
+            except Appeal.DoesNotExist:
+                pass
+
         # Make sure the user has permission to this denial
         denial_uuid: Optional[str] = None
         denial_opt: Optional[Denial] = None
@@ -435,19 +450,25 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
             denial_opt = Denial.filter_to_allowed_denials(current_user).get(
                 denial_id=denial_id
             )
+
         if denial_opt is None:
             raise Exception("Denial not found")
+
         denial: Denial = denial_opt  # type: ignore
-        appeal = None
-        try:
-            appeal = Appeal.filter_to_allowed_appeals(current_user).get(
-                for_denial=denial, pending=True
-            )
-        except Appeal.DoesNotExist:
-            pass
+
+        # If no explicit appeal_id was provided, try to find a pending appeal
+        if appeal is None:
+            try:
+                appeal = Appeal.filter_to_allowed_appeals(current_user).get(
+                    for_denial=denial, pending=True
+                )
+            except Appeal.DoesNotExist:
+                pass
+
         patient_user = denial.patient_user
         if patient_user is None:
             raise Exception("Patient user not found on denial")
+
         user_domain = UserDomain.objects.get(id=request.session["domain_id"])
         completed_appeal_text = serializer.validated_data["completed_appeal_text"]
         insurance_company = serializer.validated_data["insurance_company"] or ""
@@ -455,22 +476,26 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
         if "fax_phone" in serializer.validated_data:
             fax_phone = serializer.validated_data["fax_phone"]
         if fax_phone is None:
-            fax_phone = denial.fax_phone
+            fax_phone = denial.appeal_fax_number
+
         pubmed_articles_to_include = []
         if "pubmed_articles_to_include" in serializer.validated_data:
             pubmed_articles_to_include = serializer.validated_data[
                 "pubmed_articles_to_include"
             ]
+
         # TODO: Collect this
         include_provided_health_history = False
         if "include_provided_health_history" in serializer.validated_data:
             include_provided_health_history = serializer.validated_data[
                 "include_provided_health_history"
             ]
+
         patient_user = denial.patient_user
-        patient_name: str = "unkown"
+        patient_name: str = "unknown"
         if patient_user is not None:
             patient_name = patient_user.get_combined_name()
+
         appeal = self.appeal_assembly_helper.create_or_update_appeal(
             appeal=appeal,
             name=patient_name,
@@ -492,6 +517,7 @@ class AppealViewSet(viewsets.ViewSet, SerializerMixin):
             patient_user=patient_user,
         )
         appeal.save()
+
         return Response(
             serializers.AssembleAppealResponseSerializer({"appeal_id": appeal.id}).data,
             status=status.HTTP_201_CREATED,

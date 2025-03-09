@@ -244,6 +244,8 @@ class AppealAssemblyHelper:
         health_history: Optional[str] = None
         if include_provided_health_history:
             health_history = denial.health_history
+
+        # Regular processing for all cases
         with tempfile.NamedTemporaryFile(
             suffix=".pdf", prefix="alltogether", mode="w+b", delete=False
         ) as t:

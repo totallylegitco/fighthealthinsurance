@@ -111,8 +111,7 @@ class DenialLongEmployerName(APITestCase):
         login_result = self.client.login(username=self.username, password=self.password)
         denial_text = "Group Name: "
         for a in range(0, 300):
-            denial_text += str(a)
-        denial_text += "INC "
+            denial_text += "INC "
         url = reverse("denials-list")
         email = "timbit@fighthealthinsurance.com"
         hashed_email = hashlib.sha512(email.encode("utf-8")).hexdigest()
@@ -140,6 +139,142 @@ class DenialLongEmployerName(APITestCase):
             hashed_email=hashed_email,
         ).count()
         assert denials_for_user_count == 1
+
+
+class AssembleAppealTest(APITestCase):
+    """Test the assemble_appeal endpoint."""
+
+    fixtures = ["./fighthealthinsurance/fixtures/initial.yaml"]
+
+    def setUp(self):
+        # Create a domain for testing
+        self.domain = UserDomain.objects.create(
+            name="testdomain",
+            visible_phone_number="1234567890",
+            internal_phone_number="0987654321",
+            active=True,
+            display_name="Test Domain",
+            business_name="Test Business",
+            country="USA",
+            state="CA",
+            city="Test City",
+            address1="123 Test St",
+            zipcode="12345",
+        )
+
+        # Create a professional user
+        self.user = User.objects.create_user(
+            username=f"testuser🐼{self.domain.id}",
+            password="testpass",
+            email="test@example.com",
+        )
+        self.username = f"testuser🐼{self.domain.id}"
+        self.password = "testpass"
+        self.prouser = ProfessionalUser.objects.create(
+            user=self.user, active=True, npi_number="1234567890"
+        )
+        self.user.is_active = True
+        self.user.save()
+        ExtraUserProperties.objects.create(user=self.user, email_verified=True)
+
+        # Create a patient user
+        self.patient_user_django = User.objects.create_user(
+            username="patient_user",
+            password="patient_pass",
+            email="patient@example.com",
+            first_name="Patient",
+            last_name="User",
+        )
+        self.patient_user = PatientUser.objects.create(
+            user=self.patient_user_django, active=True
+        )
+
+        # Add the domain ID to the session
+        self.client.login(username=self.username, password=self.password)
+        session = self.client.session
+        session["domain_id"] = str(self.domain.id)
+        session.save()
+
+        # Create a denial for testing
+        self.email = "test@example.com"
+        self.hashed_email = hashlib.sha512(self.email.encode("utf-8")).hexdigest()
+        self.denial = Denial.objects.create(
+            denial_text="This is a test denial",
+            hashed_email=self.hashed_email,
+            insurance_company="Test Insurance",
+            claim_id="12345",
+            patient_user=self.patient_user,
+            primary_professional=self.prouser,
+            creating_professional=self.prouser,
+            appeal_fax_number="123-456-7890",
+        )
+
+    def test_create_appeal(self):
+        """Test creating a new appeal"""
+        url = reverse("appeals-assemble-appeal")
+
+        data = {
+            "denial_id": str(self.denial.denial_id),
+            "completed_appeal_text": "This is a new appeal text",
+            "insurance_company": "Test Insurance",
+            "fax_phone": "123-456-7890",
+        }
+
+        response = self.client.post(
+            url, json.dumps(data), content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # Extract the appeal ID from the response
+        appeal_id = response.data.get("appeal_id")
+        self.assertIsNotNone(appeal_id)
+
+        # Verify the appeal was created with the right text
+        appeal = Appeal.objects.get(id=appeal_id)
+        self.assertEqual(appeal.appeal_text, "This is a new appeal text")
+        self.assertEqual(appeal.for_denial, self.denial)
+
+        return appeal_id  # Return the appeal ID for the update test
+
+    def test_update_appeal(self):
+        """Test updating an existing appeal"""
+        # First create an appeal
+        appeal_id = self.test_create_appeal()
+
+        # Now try to update it
+        url = reverse("appeals-assemble-appeal")
+
+        updated_data = {
+            "appeal_id": appeal_id,
+            "denial_id": str(self.denial.denial_id),
+            "completed_appeal_text": "This is the UPDATED appeal text",
+            "insurance_company": "Test Insurance Updated",
+            "fax_phone": "987-654-3210",
+        }
+
+        response = self.client.post(
+            url, json.dumps(updated_data), content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+        # Verify the appeal was updated, not a new one created
+        new_appeal_id = response.data.get("appeal_id")
+        self.assertEqual(
+            int(new_appeal_id), int(appeal_id), "Appeal ID should remain the same"
+        )
+
+        # Check if the appeal text was updated
+        updated_appeal = Appeal.objects.get(id=appeal_id)
+        self.assertEqual(updated_appeal.appeal_text, "This is the UPDATED appeal text")
+        self.assertEqual(updated_appeal.for_denial, self.denial)
+
+        # Count the number of appeals - should still be just one
+        appeal_count = Appeal.objects.filter(for_denial=self.denial).count()
+        self.assertEqual(
+            appeal_count, 1, "No new appeal should be created during update"
+        )
 
 
 class DenialEndToEnd(APITestCase):
