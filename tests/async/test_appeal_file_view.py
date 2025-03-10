@@ -55,7 +55,7 @@ class AppealFileViewTest(TestCase):
         # Create a second provider user in same domain (should not have access)
         data = {
             "user_signup_info": {
-                "username": "newprouser_unrelated",
+                "username": "newprouser_unrelated@example.com",
                 "password": self.user_password,
                 "email": "newprouser_unrelated@example.com",
                 "first_name": "New",
@@ -281,7 +281,7 @@ class AppealFileViewTest(TestCase):
         self.assertEqual(response.status_code, 404)
         # For different non-domain admin provider
         self.do_login(
-            username="newprouser_unrelated",
+            username="newprouser_unrelated@example.com",
             password=self.user_password,
         )
         response = self.client.get(
