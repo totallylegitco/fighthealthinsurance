@@ -452,7 +452,7 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
             )
 
         user_domain: UserDomain = UserDomain.find_by_name(name=domain_name).get()
-        raw_username: str = user_signup_info["username"]  # type: ignore
+        raw_username: str = user_signup_info["email"]  # type: ignore
         email: str = user_signup_info["email"]  # type: ignore
         password: str = user_signup_info["password"]  # type: ignore
         first_name: str = user_signup_info["first_name"]  # type: ignore
