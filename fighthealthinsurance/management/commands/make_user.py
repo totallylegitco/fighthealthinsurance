@@ -53,11 +53,6 @@ class Command(BaseCommand):
         visible_phone_number = options.get("visible_phone_number", "0")
         is_provider = options.get("is_provider", True)
 
-        if not re.match(r"^\w+$", username_raw):
-            raise CommandError(
-                "Invalid username. Only alphanumeric characters and underscores are allowed."
-            )
-
         try:
             validate_email(email)
         except ValidationError:
