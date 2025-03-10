@@ -5,7 +5,13 @@ from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from fhi_users.auth.auth_utils import combine_domain_and_username
-from fhi_users.models import UserDomain, PatientUser, PatientDomainRelation, ProfessionalUser, ProfessionalDomainRelation
+from fhi_users.models import (
+    UserDomain,
+    PatientUser,
+    PatientDomainRelation,
+    ProfessionalUser,
+    ProfessionalDomainRelation,
+)
 
 
 class Command(BaseCommand):
@@ -120,7 +126,7 @@ class Command(BaseCommand):
                     domain=user_domain,
                     active=True,
                     pending=False,
-                    admin=True
+                    admin=True,
                 )
         elif is_provider:
             puser = ProfessionalUser.objects.create(user=user, active=True)
@@ -129,7 +135,7 @@ class Command(BaseCommand):
                 domain=user_domain,
                 active=True,
                 pending=False,
-                admin=True
+                admin=True,
             )
         elif PatientUser.objects.filter(user=user).exists():
             self.stdout.write(
