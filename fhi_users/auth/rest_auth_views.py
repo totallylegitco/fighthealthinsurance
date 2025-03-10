@@ -386,7 +386,7 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
                         visible_phone_number=visible_phone_number
                     )
                 except:
-                    logger.opt(exception=e).error(
+                    logger.opt(exception=True).error(
                         f"Error finding domain {domain_name} / {visible_phone_number}"
                     )
                     return Response(

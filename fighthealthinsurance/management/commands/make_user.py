@@ -116,22 +116,22 @@ class Command(BaseCommand):
             self.stdout.write(
                 f"ProfessionalUser with user '{user.username}' already exists."
             )
-            puser = ProfessionalUser.objects.filter(user=user).get()
+            pro_user = ProfessionalUser.objects.filter(user=user).get()
             if not ProfessionalDomainRelation.objects.filter(
-                professional=puser,
+                professional=pro_user,
                 domain=user_domain,
             ).exists():
                 ProfessionalDomainRelation.objects.create(
-                    professional=puser,
+                    professional=pro_user,
                     domain=user_domain,
                     active=True,
                     pending=False,
                     admin=True,
                 )
         elif is_provider:
-            puser = ProfessionalUser.objects.create(user=user, active=True)
+            pro_user = ProfessionalUser.objects.create(user=user, active=True)
             ProfessionalDomainRelation.objects.create(
-                professional=puser,
+                professional=pro_user,
                 domain=user_domain,
                 active=True,
                 pending=False,
@@ -142,8 +142,8 @@ class Command(BaseCommand):
                 f"PatientUser with user '{user.username}' already exists."
             )
         else:
-            puser = PatientUser.objects.create(user=user, active=True)
+            patient_user = PatientUser.objects.create(user=user, active=True)
             PatientDomainRelation.objects.create(
-                patient=puser,
+                patient=patient_user,
                 domain=user_domain,
             )
