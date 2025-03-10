@@ -12,3 +12,4 @@ easyocr
 daphne
 pytest-asyncio
 types-python-dateutil
+django-redis

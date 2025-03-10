@@ -26,6 +26,11 @@ from fighthealthinsurance import models
 from fighthealthinsurance import followup_emails
 from django.template import loader
 from django.http import HttpResponseForbidden
+from django.views.generic import View
+from django.http import JsonResponse
+from django.utils import timezone
+import platform
+import django
 
 
 def render_ocr_error(request: HttpRequest, text: str) -> HttpResponseBase:
@@ -691,3 +696,53 @@ class StripeWebhookView(View):
                 logger.error(f"Unknown payment type: {payment_type}")
 
         return HttpResponse(status=200)
+
+
+class SecurityScanView(View):
+    """View for security scan results and monitoring."""
+    template_name = "security_scan.html"
+    
+    def get(self, request, *args, **kwargs):
+        """Return security scan information and detected threats."""
+        security_patterns = {
+            'xss_attempts': r'(?i)(<|%3C)script',
+            'sql_injection': r'(?i)(union\s+select|insert\s+into|drop\s+table|delete\s+from)',
+            'path_traversal': r'(?i)(/\.\./|\.\./)',
+            'code_injection': r'(?i)(exec\s+|eval\s*\()',
+            'php_injection': r'(?i)(file|system|phpinfo)\s*\('
+        }
+
+        context = {
+            'status': 'ok',
+            'timestamp': timezone.now().isoformat(),
+            'server_info': {
+                'django_version': django.get_version(),
+                'python_version': platform.python_version(),
+            },
+            'security_patterns': security_patterns,
+            'rate_limit': {
+                'requests': 30,
+                'time_window_seconds': 300
+            }
+        }
+
+        return render(request, self.template_name, context)
+
+    def post(self, request, *args, **kwargs):
+        """Handle security scan reports."""
+        try:
+            scan_data = json.loads(request.body)
+            context = {
+                'status': 'received',
+                'timestamp': timezone.now().isoformat(),
+                'scan_data_size': len(str(scan_data))
+            }
+        except json.JSONDecodeError:
+            context = {
+                'status': 'error',
+                'message': 'Invalid JSON data',
+                'timestamp': timezone.now().isoformat()
+            }
+            return render(request, self.template_name, context, status=400)
+
+        return render(request, self.template_name, context)
