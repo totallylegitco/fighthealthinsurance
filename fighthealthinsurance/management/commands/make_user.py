@@ -23,7 +23,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--username",
             required=True,
-            help="User's username (alphanumeric characters and underscores only).",
+            help="User's username (generally same as e-mail).",
         )
         parser.add_argument(
             "--email", required=True, help="User's valid email address."

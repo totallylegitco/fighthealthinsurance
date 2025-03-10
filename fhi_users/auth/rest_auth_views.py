@@ -29,8 +29,6 @@ from django.views.decorators.cache import cache_control
 from django.views.decorators.vary import vary_on_cookie
 from django.utils.decorators import method_decorator
 
-from loguru import logger
-
 import stripe
 
 from fhi_users.models import (
@@ -385,7 +383,7 @@ class ProfessionalUserViewSet(viewsets.ViewSet, CreateMixin):
                     user_domain_opt = UserDomain.objects.get(
                         visible_phone_number=visible_phone_number
                     )
-                except:
+                except UserDomain.DoesNotExist:
                     logger.opt(exception=True).error(
                         f"Error finding domain {domain_name} / {visible_phone_number}"
                     )
