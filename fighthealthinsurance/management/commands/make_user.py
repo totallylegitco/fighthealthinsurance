@@ -5,7 +5,7 @@ from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
 from fhi_users.auth.auth_utils import combine_domain_and_username
-from fhi_users.models import UserDomain
+from fhi_users.models import UserDomain, PatientUser, PatientDomainRelation, ProfessionalUser, ProfessionalDomainRelation
 
 
 class Command(BaseCommand):
@@ -105,3 +105,39 @@ class Command(BaseCommand):
                 )
             except Exception as e:
                 raise CommandError(f"Failed to create user: {str(e)}")
+        user = User.objects.get(username=combined_username)
+        if ProfessionalUser.objects.filter(user=user).exists():
+            self.stdout.write(
+                f"ProfessionalUser with user '{user.username}' already exists."
+            )
+            puser = ProfessionalUser.objects.filter(user=user).get()
+            if not ProfessionalDomainRelation.objects.filter(
+                professional=puser,
+                domain=user_domain,
+            ).exists():
+                ProfessionalDomainRelation.objects.create(
+                    professional=puser,
+                    domain=user_domain,
+                    active=True,
+                    pending=False,
+                    admin=True
+                )
+        elif is_provider:
+            puser = ProfessionalUser.objects.create(user=user, active=True)
+            ProfessionalDomainRelation.objects.create(
+                professional=puser,
+                domain=user_domain,
+                active=True,
+                pending=False,
+                admin=True
+            )
+        elif PatientUser.objects.filter(user=user).exists():
+            self.stdout.write(
+                f"PatientUser with user '{user.username}' already exists."
+            )
+        else:
+            puser = PatientUser.objects.create(user=user, active=True)
+            PatientDomainRelation.objects.create(
+                patient=puser,
+                domain=user_domain,
+            )
