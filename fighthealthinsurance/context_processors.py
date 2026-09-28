@@ -117,6 +117,22 @@ def agent_docs_context(request):
     return {"markdown_twin_url": agent_docs.twin_path_for(request.path)}
 
 
+def denial_watch_context(request):
+    """Whether to show the links to Denial Watch, and the home strip's number.
+
+    Nothing links to the page until DENIAL_WATCH_PAGE_ENABLED is on, the same
+    flag that stops the page itself from serving. Reading the numbers only
+    happens once the flag is on, and is cached per process.
+    """
+    from fighthealthinsurance.utils import denial_watch_page_enabled
+
+    if not denial_watch_page_enabled():
+        return {"denial_watch_enabled": False}
+    from fighthealthinsurance.views import denial_watch_teaser
+
+    return {"denial_watch_enabled": True, "denial_watch_teaser": denial_watch_teaser()}
+
+
 def advanced_ocr_context(request):
     """Whether the upload page offers the on-device advanced OCR option.
 

@@ -231,3 +231,36 @@ class TestDenialWatchPriorAuth(TestCase):
     def test_builder_reads_the_curated_file(self):
         rows = _load_builder().build_prior_auth()
         self.assertEqual(rows, DATA["prior_auth"])
+
+
+class TestDenialWatchIsEasyToFind(TestCase):
+    """Once the page is live it is one click from everywhere; before, nowhere."""
+
+    def _pages(self):
+        return {
+            name: Client().get(reverse(name)).content.decode()
+            for name in ("root", "explain_denial", "about")
+        }
+
+    @override_settings(DENIAL_WATCH_PAGE_ENABLED=True)
+    def test_every_page_links_to_it_when_live(self):
+        link = f'href="{reverse("denial-watch")}"'
+        for name, html in self._pages().items():
+            self.assertIn(link, html, f"{name} has no link to Denial Watch")
+
+    @override_settings(DENIAL_WATCH_PAGE_ENABLED=True)
+    def test_the_home_strip_states_the_latest_number(self):
+        latest = DATA["trend"][-1]
+        html = Client().get(reverse("root")).content.decode()
+        self.assertIn(
+            f"about 1 in {round(1 / latest['in_rate'])} in-network claims on "
+            f"HealthCare.gov plans were denied in {latest['year']}",
+            html,
+        )
+
+    @override_settings(DENIAL_WATCH_PAGE_ENABLED=False)
+    def test_nothing_links_to_it_before_launch(self):
+        link = f'href="{reverse("denial-watch")}"'
+        for name, html in self._pages().items():
+            self.assertNotIn(link, html, f"{name} links to an unlaunched page")
+            self.assertNotIn("Denial Watch", html, name)

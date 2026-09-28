@@ -637,6 +637,14 @@ def _denial_watch_data() -> dict:
     return data
 
 
+@functools.lru_cache(maxsize=1)
+def denial_watch_teaser() -> dict[str, typing.Any]:
+    """The one number the home strip shows: the latest year's in-network
+    denial rate on HealthCare.gov plans, as "1 in N", with its year."""
+    latest = _denial_watch_data()["trend"][-1]
+    return {"one_in": round(1 / latest["in_rate"]), "year": latest["year"]}
+
+
 class DenialWatchView(StaticIshView):
     """Denial Watch: maps and trends of denials, appeals, coverage and costs.
 
