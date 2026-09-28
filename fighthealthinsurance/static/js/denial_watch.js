@@ -11,6 +11,7 @@ const NAMES={AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California'
 const BYNAME=Object.fromEntries(Object.entries(NAMES).map(([k,v])=>[v,k]));
 const GRID=[['AK',0,0],['ME',0,11],['VT',1,10],['NH',1,11],['WA',2,1],['ID',2,2],['MT',2,3],['ND',2,4],['MN',2,5],['IL',2,6],['WI',2,7],['MI',2,8],['NY',2,9],['RI',2,10],['MA',2,11],['OR',3,1],['NV',3,2],['WY',3,3],['SD',3,4],['IA',3,5],['IN',3,6],['OH',3,7],['PA',3,8],['NJ',3,9],['CT',3,10],['CA',4,1],['UT',4,2],['CO',4,3],['NE',4,4],['MO',4,5],['KY',4,6],['WV',4,7],['VA',4,8],['MD',4,9],['DE',4,10],['AZ',5,2],['NM',5,3],['KS',5,4],['AR',5,5],['TN',5,6],['NC',5,7],['SC',5,8],['DC',5,9],['OK',6,4],['LA',6,5],['MS',6,6],['AL',6,7],['GA',6,8],['HI',7,0],['TX',7,4],['FL',7,9]];
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const safeUrl=u=>/^https:\/\//.test(String(u))?esc(u):'#';
 const fmt=n=>Math.round(n).toLocaleString('en-US');
 const pct=(x,d=1)=>(x*100).toFixed(d)+'%';
 const big=n=>n>=1e9?(n/1e9).toFixed(1)+' billion':n>=1e6?(n/1e6).toFixed(1)+' million':fmt(n);
@@ -111,31 +112,32 @@ $('ttable').innerHTML='<thead><tr><th>Year</th><th class="r">Denied</th><th clas
 
 /* reasons */
 const rmax=D.reasons[0].v, rtot=D.reasons.reduce((a,r)=>a+r.v,0);
-$('reasons').innerHTML=D.reasons.map(r=>`<div class="bar ${/medically|Experimental/.test(r.k)?'hl':''}"><div class="nm"><span>${r.k}</span><span class="note num">${big(r.v)}</span></div><div class="track"><div class="fill" style="width:${r.v/rmax*100}%"></div></div><div class="val num">${r.v/rtot<0.01?'&lt;1%':pct(r.v/rtot,0)}</div></div>`).join('');
+$('reasons').innerHTML=D.reasons.map(r=>`<div class="bar ${/medically|Experimental/.test(r.k)?'hl':''}"><div class="nm"><span>${esc(r.k)}</span><span class="note num">${big(r.v)}</span></div><div class="track"><div class="fill" style="width:${r.v/rmax*100}%"></div></div><div class="val num">${r.v/rtot<0.01?'&lt;1%':pct(r.v/rtot,0)}</div></div>`).join('');
 
 /* insurers */
 const IS=D.issuers;const states=[...new Set(IS.map(i=>i.s))].sort((a,b)=>NAMES[a].localeCompare(NAMES[b]));
-$('istate').innerHTML='<option value="">All states: highest and lowest 10</option>'+states.map(s=>`<option value="${s}">${NAMES[s]}</option>`).join('');
+$('istate').innerHTML='<option value="">All states: highest and lowest 10</option>'+states.map(s=>`<option value="${esc(s)}">${esc(NAMES[s]||s)}</option>`).join('');
 function iDraw(){const s=$('istate').value;let rows;
   if(s){rows=IS.filter(i=>i.s===s).sort((a,b)=>b.r-a.r);$('icount').textContent=rows.length+' insurers';}
   else{const all=[...IS].sort((a,b)=>b.r-a.r);rows=[...all.slice(0,10),null,...all.slice(-10)];$('icount').textContent=IS.length+' insurers in '+states.length+' states';}
   const mx=Math.max(...IS.map(i=>i.r));
   $('itable').innerHTML='<thead><tr><th>Insurer</th><th>State</th><th>Denial rate</th><th class="r">Claims</th><th class="r">Appeals won</th></tr></thead><tbody>'+
-   rows.map(i=>i?`<tr><td>${esc(i.n)}</td><td>${i.s}</td><td class="num" style="white-space:nowrap"><span class="mini" style="width:${Math.max(2,i.r/mx*90)}px"></span>${pct(i.r)}</td><td class="r num">${big(i.c)}</td><td class="r num">${i.a!=null?pct(i.o/i.a,0)+' <span class="note">('+fmt(i.o)+' of '+fmt(i.a)+')</span>':'<span class="note">too few</span>'}</td></tr>`:'<tr><td colspan="5" class="note" style="text-align:center">···</td></tr>').join('')+'</tbody>';}
+   rows.map(i=>i?`<tr><td>${esc(i.n)}</td><td>${esc(i.s)}</td><td class="num" style="white-space:nowrap"><span class="mini" style="width:${Math.max(2,i.r/mx*90)}px"></span>${pct(i.r)}</td><td class="r num">${big(i.c)}</td><td class="r num">${i.a!=null?pct(i.o/i.a,0)+' <span class="note">('+fmt(i.o)+' of '+fmt(i.a)+')</span>':'<span class="note">too few</span>'}</td></tr>`:'<tr><td colspan="5" class="note" style="text-align:center">···</td></tr>').join('')+'</tbody>';}
 $('istate').onchange=iDraw;iDraw();
 
 /* prior authorization */
 const PA=D.prior_auth||[];
 const PAN={ma:'Medicare Advantage: share of standard (non-urgent) requests denied, by contract or plan.',mcd:'Medicaid managed care plans: share of standard requests denied, by state.',mkt:'HealthCare.gov insurers: share of standard requests denied, by state.',ffs:'State-run Medicaid (fee-for-service): share of standard requests denied.'};
-function paDraw(k){const rows=PA.filter(r=>r.line===k&&r.std!=null).sort((a,b)=>b.std-a.std);if(!rows.length){$('pabars').innerHTML='';return;}
-  const mx=rows[0].std;
-  $('panote').textContent=PAN[k]+' '+rows.length+' reports, from '+pct(rows[rows.length-1].std)+' to '+pct(rows[0].std)+'.';
-  $('pabars').innerHTML=rows.map(r=>`<div class="bar"><div class="nm"><span><b>${esc(r.n)}</b> <span class="note">${esc(r.where)}${r.req?' · '+fmt(r.req)+' requests':''}${r.exp_posted?' · urgent requests: '+esc(r.exp_posted)+'% denied':''} · <a href="${esc(r.url)}" rel="noopener">source</a>${r.note?'<br>'+esc(r.note):''}</span></span></div><div class="track"><div class="fill" style="width:${Math.max(1,r.std/mx*100)}%"></div></div><div class="val num">${esc(r.std_posted)}%</div></div>`).join('');}
+function paDraw(k){const rows=PA.filter(r=>r.line===k&&r.std!=null).sort((a,b)=>b.std-a.std);
+  if(!rows.length){$('panote').textContent=PAN[k]+' No reports in this group yet.';$('pabars').innerHTML='';return;}
+  const mx=rows[0].std||1;
+  $('panote').textContent=PAN[k]+' '+rows.length+' reports, from '+pct(rows[rows.length-1].std)+' to '+pct(rows[0].std)+'. Most count requests; any that count differently say so.';
+  $('pabars').innerHTML=rows.map(r=>`<div class="bar"><div class="nm"><span><b>${esc(r.n)}</b> <span class="note">${esc(r.where)}${r.req?' · '+fmt(r.req)+' '+esc(r.unit||'requests'):''}${r.exp_posted?' · urgent requests: '+esc(r.exp_posted)+'% denied':''} · <a href="${safeUrl(r.url)}" rel="noopener">source</a>${r.note?'<br>'+esc(r.note):''}</span></span></div><div class="track"><div class="fill" style="width:${Math.max(1,r.std/mx*100)}%"></div></div><div class="val num">${esc(r.std_posted)}%</div></div>`).join('');}
 document.querySelectorAll('#pamode button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#pamode button').forEach(x=>x.setAttribute('aria-pressed',x===b));paDraw(b.dataset.m);});
 paDraw('ma');
 
 /* IMR */
-$('imrbars').innerHTML=D.imr_cat.map(r=>`<div class="bar hl"><div class="nm"><span>${r.k}</span><span class="note num">${fmt(r.n)} reviews</span></div><div class="track"><div class="fill" style="width:${r.r*100}%"></div></div><div class="val num">${pct(r.r,0)}</div></div>`).join('');
+$('imrbars').innerHTML=D.imr_cat.map(r=>`<div class="bar hl"><div class="nm"><span>${esc(r.k)}</span><span class="note num">${fmt(r.n)} reviews</span></div><div class="track"><div class="fill" style="width:${r.r*100}%"></div></div><div class="val num">${pct(r.r,0)}</div></div>`).join('');
 
 /* coverage map */
 const SA=D.sahie, PL=D.places;
@@ -171,7 +173,7 @@ const DGM={
   cheap:{note:'Lowest average total cost per prescription fill, 2024, among drugs taken by at least 2 million Medicare patients.',v:d=>d.Avg_Spnd_Per_Clm_2024,l:d=>money(d.Avg_Spnd_Per_Clm_2024),sub:d=>fmt(d.Tot_Benes_2024)+' people',low:true}
 };
 function dgDraw(k){const m=DGM[k],rows=DG[k];const mx=Math.max(...rows.map(m.v));$('dgnote').textContent=m.note;
-  $('dgbars').innerHTML=rows.map(d=>`<div class="bar ${m.low?'low':''}"><div class="nm"><span><b>${d.Brnd_Name}</b> <span class="note">${d.Gnrc_Name.toLowerCase()}</span></span><span class="note num">${m.sub(d)}</span></div><div class="track"><div class="fill" style="width:${m.v(d)/mx*100}%"></div></div><div class="val num">${m.l(d)}</div></div>`).join('');}
+  $('dgbars').innerHTML=rows.map(d=>`<div class="bar ${m.low?'low':''}"><div class="nm"><span><b>${esc(d.Brnd_Name)}</b> <span class="note">${esc(String(d.Gnrc_Name).toLowerCase())}</span></span><span class="note num">${m.sub(d)}</span></div><div class="track"><div class="fill" style="width:${m.v(d)/mx*100}%"></div></div><div class="val num">${m.l(d)}</div></div>`).join('');}
 document.querySelectorAll('#dgmode button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#dgmode button').forEach(x=>x.setAttribute('aria-pressed',x===b));dgDraw(b.dataset.m);});
 dgDraw('top');
 

@@ -323,6 +323,7 @@ def build_prior_auth(path=PRIOR_AUTH_CSV):
                 exp=float(r["exp_denied_pct"]) / 100 if r["exp_denied_pct"] else None,
                 std_posted=r["std_denied_pct"] or None, exp_posted=r["exp_denied_pct"] or None,
                 req=int(r["std_requests"]) if r["std_requests"] else None,
+                unit=r["unit"],
                 note=r["note"], url=r["source_url"],
             ))
     return rows

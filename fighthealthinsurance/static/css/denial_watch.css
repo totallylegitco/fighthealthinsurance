@@ -63,7 +63,7 @@
 .dw .seg button{font:inherit;font-size:13px;font-weight:600;padding:7px 12px;border:0;background:transparent;color:var(--ink2);cursor:pointer}
 .dw .seg button+button{border-left:1px solid var(--rule)}
 .dw .seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
-.dw .row{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
+.dw .dw-controls{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
 
 /* tile map */
 .dw .map{width:100%;height:auto;display:block}

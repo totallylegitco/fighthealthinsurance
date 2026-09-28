@@ -88,6 +88,19 @@ class TestDenialWatchCopyMatchesData(TestCase):
             self.content,
         )
 
+    def test_share_of_denials_appealed_in_the_steps(self):
+        latest = DATA["trend"][-1]
+        ratio = latest["denied"] / latest["appeals_all"]
+        self.assertIn(f"about 1 in {round(ratio, -1):.0f} denials", self.content)
+
+    def test_2021_denial_share_in_the_trend(self):
+        y2021 = next(t for t in DATA["trend"] if t["year"] == 2021)
+        self.assertIn(f"from {_pct(y2021['rate'])} in 2021", self.content)
+
+    def test_california_rate_in_the_steps(self):
+        by_year = {r["y"]: r["r"] for r in DATA["imr_trend"]}
+        self.assertIn(f"in {_pct(by_year[2025])} of the cases they decided in 2025", self.content)
+
     def test_correlations(self):
         corr = DATA["corr"]
         self.assertIn(f"correlation {corr['fair_poor_health']:.2f}", self.content)
@@ -205,6 +218,15 @@ class TestDenialWatchPriorAuth(TestCase):
             self.assertIn(r["line"], {"ma", "mcd", "mkt", "ffs"}, r["n"])
             if r["std"] is not None:
                 self.assertTrue(0 <= r["std"] <= 1, r["n"])
+
+    def test_every_row_says_what_it_counts(self):
+        for r in DATA["prior_auth"]:
+            self.assertIn(r["unit"], {"requests", "procedure codes"}, r["n"])
+
+    def test_source_links_are_https_only(self):
+        # The page refuses any other scheme too; this keeps the data honest.
+        for r in DATA["prior_auth"]:
+            self.assertRegex(r["url"], r"^https://[^\s\"<>]+$", r["n"])
 
     def test_builder_reads_the_curated_file(self):
         rows = _load_builder().build_prior_auth()
