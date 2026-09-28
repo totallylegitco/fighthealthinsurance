@@ -212,6 +212,9 @@ class Base(Configuration):
     # it only to try the flow against a local server, for example
     # http://127.0.0.1:8000, since a link only opens on the server that made it.
     MCP_HANDOFF_ORIGIN = os.getenv("MCP_HANDOFF_ORIGIN", "")
+    # Denial Watch, the public-data trends page. Off by default until launch:
+    # the page serves 404 and stays out of the sitemap. Dev/Test enable it.
+    DENIAL_WATCH_PAGE_ENABLED = _env_flag("DENIAL_WATCH_PAGE_ENABLED")
 
     # --- Temporal (durable workflow execution) ---
     # Off by default: fax sending stays on the Ray fax actor until
@@ -1016,6 +1019,8 @@ class Dev(Base):
     MCP_SERVER_ENABLED = _env_flag("MCP_SERVER_ENABLED", "1")
     MCP_HANDOFF_V2_ENABLED = _env_flag("MCP_HANDOFF_V2_ENABLED", "1")
     MCP_DRAFT_IN_CHAT_ENABLED = _env_flag("MCP_DRAFT_IN_CHAT_ENABLED", "1")
+    # Keep the (pre-launch) Denial Watch page routable locally and in tests.
+    DENIAL_WATCH_PAGE_ENABLED = True
     CSRF_TRUSTED_ORIGINS = [
         "https://fightpaperwork.com",
         "https://localhost:3000",

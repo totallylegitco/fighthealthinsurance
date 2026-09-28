@@ -2380,6 +2380,15 @@ def medicaid_eligibility_page_enabled() -> bool:
     return bool(getattr(settings, "MEDICAID_ELIGIBILITY_PAGE_ENABLED", False))
 
 
+def denial_watch_page_enabled() -> bool:
+    """Whether the Denial Watch public-data page is live.
+
+    The view and the sitemap both ask here, for the same reason as
+    medicaid_eligibility_page_enabled: one flag, read in one place.
+    """
+    return bool(getattr(settings, "DENIAL_WATCH_PAGE_ENABLED", False))
+
+
 def strip_internal_keys(parameters: dict) -> dict:
     """Return a copy of ``parameters`` without underscore-prefixed keys.
 

@@ -1,0 +1,91 @@
+line,insurer,parent,where,std_denied_pct,exp_denied_pct,std_requests,note,source_url,accessed
+ma,Alignment Health Plan,Alignment Healthcare,Contract H3815,2.14,2.87,837729,,https://www.alignmenthealthplan.com/providers/prior-authorization/prior-authorization-for-medical-items-and-services,2026-09-28
+ma,Blue Care Network of Michigan,Blue Cross Blue Shield of Michigan,BCN Advantage HMO (MI),4.46,15.11,175680,,https://www.bcbsm.com/important-information/prior-auth-approval-rates/,2026-09-28
+ma,Blue Cross Blue Shield of Michigan,Blue Cross Blue Shield of Michigan,Medicare Plus Blue PPO (MI),4.22,14.28,800694,,https://www.bcbsm.com/important-information/prior-auth-approval-rates/,2026-09-28
+ma,Blue Cross NC,Blue Cross and Blue Shield of North Carolina,Medicare Advantage HMO (NC),2.97,4.13,,,https://www.bluecrossnc.com/providers/prior-authorization/metrics,2026-09-28
+ma,Blue Cross NC,Blue Cross and Blue Shield of North Carolina,Medicare Advantage PPO (NC),2.98,2.83,,,https://www.bluecrossnc.com/providers/prior-authorization/metrics,2026-09-28
+ma,Aetna Medicare,CVS Health,Contract H1609,10.36,11.78,,,https://www.aetna.com/medicare/documents/individual/website/2025_PA_Metric_Report.pdf,2026-09-28
+ma,Aetna Medicare,CVS Health,Contract H3312,7.31,14.60,,,https://www.aetna.com/medicare/documents/individual/website/2025_PA_Metric_Report.pdf,2026-09-28
+ma,Aetna Medicare,CVS Health,Contract H5521,7.86,10.87,,,https://www.aetna.com/medicare/documents/individual/website/2025_PA_Metric_Report.pdf,2026-09-28
+ma,CareFirst,CareFirst,"Contract H7379, PPO",1.72,9.91,4877,,https://individual.carefirst.com/carefirst-resources/pdf/2026-ma-prior-authorization-metrics-report-english.pdf,2026-09-28
+ma,CareFirst DualPrime,CareFirst,"Contract H8854, special needs plan",4.34,9.52,2463,,https://individual.carefirst.com/carefirst-resources/pdf/2026-dualprime-prior-authorization-metrics-report-english.pdf,2026-09-28
+ma,Wellcare by Health Net,Centene,Contract H0562,1.94,2.87,184541,,https://www.healthnet.com/content/dam/centene/healthnet/pdfs/provider/ca/provider-library/wcbhn-provider-26-395-prior-auth-metrics-h0562.pdf,2026-09-28
+ma,Wellcare by Health Net,Centene,Contract H3561,1.98,3.03,290257,,https://www.healthnet.com/content/dam/centene/healthnet/pdfs/provider/ca/provider-library/wcbhn-provider-26-396-prior-auth-metrics-h3561.pdf,2026-09-28
+ma,Wellcare (Centene),Centene,Contract H0908 (OH),15.00,13.16,19207,,https://www.buckeyehealthplan.com/content/dam/centene/medicare/pdfs/national/provider/prior-authorization-requirements-metrics/OH_Wellcare_Medicare_H0908_MetricsSummary_R.pdf,2026-09-28
+ma,Wellcare by Allwell (Centene),Centene,Contract H5294 (TX),24.55,13.42,46737,,https://www.superiorhealthplan.com/content/dam/centene/medicare/pdfs/national/provider/prior-authorization-requirements-metrics/TX_WellcareByAllwell_Medicare_H5294_MetricsSummary_R.pdf,2026-09-28
+ma,Devoted Health,Devoted Health,Contract H1290,15.90,8.76,43724,,https://assets.devoted.com/UM/2025/um-metrics,2026-09-28
+ma,Devoted Health,Devoted Health,All contracts combined,4.9,9.3,,,https://www.devoted.com/um-metrics/,2026-09-28
+ma,Anthem Blue Cross and Blue Shield,Elevance Health,Contract H3447,5.0,3.1,,,https://www.anthem.com/content/dam/digital/docs/anthem/medicare-2-0/medicare-advantage/H3447-medicare-prior-auths-metrics.pdf,2026-09-28
+ma,Anthem Blue Cross and Blue Shield,Elevance Health,Contract H4036,5.2,5.1,,,https://www.anthem.com/content/dam/digital/docs/anthem/medicare-2-0/medicare-advantage/H4036-medicare-prior-auths-metrics.pdf,2026-09-28
+ma,Anthem Blue Cross and Blue Shield,Elevance Health,Contract H3655 (OH),6.3,2.0,,,https://www.anthem.com/content/dam/digital/docs/anthem/medicare-2-0/medicare-advantage/H3655-medicare-prior-auths-metrics.pdf,2026-09-28
+ma,Wellpoint (Elevance),Elevance Health,Contract H8849 (TX),7.0,3.1,,,https://www.wellpoint.com/content/dam/digital/wellpoint/documents/medicare/medicare-advantage/H8849-medicare-prior-auths-metrics.pdf,2026-09-28
+ma,Florida Blue,GuideWell (Florida Blue),"Contract H1035, HMO (FL)",9,8,,,https://www.floridablue.com/members/tools-resources/prior-authorization-medical-services/metrics,2026-09-28
+ma,Florida Blue,GuideWell (Florida Blue),"Contract H5434, PPO (FL)",8,6,,,https://www.floridablue.com/members/tools-resources/prior-authorization-medical-services/metrics,2026-09-28
+ma,Blue Cross Medicare Advantage (HCSC),HCSC,Contract H3822,10,13,,,https://www.bcbsil.com/content/dam/bcbs-new/il/documents/medicare/mapd/2026/mapd-interop-report-il-2026.pdf,2026-09-28
+ma,HealthSpring,"HCSC (HealthSpring acquired from Cigna, March 2025)",All contracts combined,5,10,,,https://www.healthspring.com/static/docs/providers/prior-authorization-report-2025.pdf,2026-09-28
+ma,Highmark,Highmark Health,Contract H3916,4,8,463352,,https://providers.highmark.com/content/dam/highmark/en/providerresourcecenter/pdfs/all/documents/pdfs/authorization/prior-authorization-metrics/prior-authorization-metrics.pdf,2026-09-28
+ma,Humana,Humana,Contract H1036,7.02,17.36,1303837,,https://assets.humana.com/is/content/humana/Humana_H1036_Prior_Auth_Metrics_PlanYear2025pdf,2026-09-28
+ma,Humana,Humana,Contract H5216,6.87,10.20,4238164,,https://assets.humana.com/is/content/humana/Humana_H5216_Prior_Auth_Metrics_PlanYear2025pdf,2026-09-28
+ma,Humana,Humana,Contract H5619,5.09,3.72,1239541,,https://assets.humana.com/is/content/humana/Humana_H5619_Prior_Auth_Metrics_PlanYear2025pdf,2026-09-28
+ma,Kaiser Permanente,Kaiser Permanente,Contract H5050 (WA),6.14,8.54,184918,,https://healthy.kaiserpermanente.org/content/dam/kporg/legal/prior-authorization-metrics-report-wa-en.pdf,2026-09-28
+ma,Kaiser Permanente,Kaiser Permanente,"Contract H0524, Northern California",10.53,7.46,144514,,https://healthy.kaiserpermanente.org/content/dam/kporg/legal/prior-authorization-metrics-report-ncal-en.pdf,2026-09-28
+ma,Kaiser Permanente,Kaiser Permanente,"Contract H0524, Southern California",19.48,3.65,143690,,https://healthy.kaiserpermanente.org/content/dam/kporg/legal/prior-authorization-metrics-report-scal-en.pdf,2026-09-28
+ma,L.A. Care,L.A. Care Health Plan (public agency),Medicare Plus special needs plan (CA),1.03,2.06,284406,,https://lacare.org/sites/default/files/la7598_dsnp_cms57f_pa_report_202603.pdf,2026-09-28
+ma,Molina Healthcare,Molina Healthcare,Contract H5810 (CA),2,4,,,https://www.molinahealthcare.com/providers/common/medicare/medicare,2026-09-28
+ma,Molina Healthcare,Molina Healthcare,Contract H7678 (TX),11,20,,,https://www.molinahealthcare.com/providers/common/medicare/medicare,2026-09-28
+ma,SCAN Health Plan,SCAN Group,All plans combined,1.85,2.21,2070236,Posted as 1.85% in one place and 1.89% in another.,https://scan-q-002.sitecorecontenthub.cloud/api/public/content/SCAN-prior-authorization-data-2025-report-revised-041026?v=882d458e,2026-09-28
+ma,UPMC for Life,UPMC,Contract H3907,3.2,4.8,93522,,https://upmc.widen.net/view/pdf/zovvcggcxw/CMS_Final_Rule-Prior_Auth_Metrics-Medicare_web.xlsx?t.download=true&u=6vmvhg,2026-09-28
+ma,UnitedHealthcare,UnitedHealth Group,Contract H0543,1.8,2.7,1780998,,https://www.uhc.com/content/dam/uhcdotcom/en/Legal/PDF/CMS-Interoperability-Medicare-Advantage-2025.pdf,2026-09-28
+ma,UnitedHealthcare,UnitedHealth Group,Contract H0609,7.3,3.3,801389,,https://www.uhc.com/content/dam/uhcdotcom/en/Legal/PDF/CMS-Interoperability-Medicare-Advantage-2025.pdf,2026-09-28
+ma,UnitedHealthcare,UnitedHealth Group,Contract H2001,23.4,11.5,1928959,,https://www.uhc.com/content/dam/uhcdotcom/en/Legal/PDF/CMS-Interoperability-Medicare-Advantage-2025.pdf,2026-09-28
+mcd,Aetna Better Health,CVS Health,Maryland,23.21,30.55,17578,,https://www.aetnabetterhealth.com/content/dam/aetna/pdfs/2025_ABHMD_CMS_Web_Metrics-Provider.pdf,2026-09-28
+mcd,Aetna Better Health,CVS Health,Michigan,22.13,18.45,19476,,https://www.aetnabetterhealth.com/content/dam/aetna/medicaid/michigan/pdf/abhmi_2025_cms_web_metrics_provider.pdf,2026-09-28
+mcd,Aetna Better Health,CVS Health,Virginia,17.15,14.70,146401,,https://www.aetnabetterhealth.com/content/dam/aetna/pdfs/2025_ABHVA_CMS_Web_Metrics-Member%20and%20Provider.pdf,2026-09-28
+mcd,CareSource,CareSource,Ohio,20,26,603377,,https://dam.assets.ohio.gov/image/upload/medicaid.ohio.gov/Providers/Billing/PriorAuthorization/Managed_Care-FinalPDF.pdf,2026-09-28
+mcd,CareSource,CareSource,Georgia,19,10,,,https://www.caresource.com/documents/ga-med-p-4922803-2025-interoperability-prior-authorizations-metrics-report.pdf,2026-09-28
+mcd,CareSource,CareSource,Indiana (Healthy Indiana Plan),16,8,,,https://www.caresource.com/documents/combined-2025-interoperability-pa-reports-in-med-p-5660001.pdf,2026-09-28
+mcd,Health Net,Centene,California (Medi-Cal),2.45,4.32,3096168,,https://www.healthnet.com/content/dam/centene/healthnet/pdfs/provider/ca/provider-library/hn-provider-26-404-prior-auth-metrics.pdf,2026-09-28
+mcd,Oklahoma Complete Health (Centene),Centene,Oklahoma,32.43,22.33,72761,,https://www.oklahomacompletehealth.com/content/dam/centene/medicaid/pdfs/provider/prior-authorization-requirements-metrics/OK_OKCH_Medicaid_SSP_MetricsSummary_R.pdf,2026-09-28
+mcd,Peach State Health Plan (Centene),Centene,Georgia,16.90,16.15,215415,,https://www.pshpgeorgia.com/content/dam/centene/medicaid/pdfs/provider/prior-authorization-requirements-metrics/GA_PeachStateHP_Medicaid_4_MetricsSummary_R.pdf,2026-09-28
+mcd,Sunshine Health (Centene),Centene,Florida,18.31,13.57,418298,,https://www.sunshinehealth.com/content/dam/centene/medicaid/pdfs/provider/prior-authorization-requirements-metrics/FL_SunshnHlth_Medicaid_MMA_MetricsSummary_R.pdf,2026-09-28
+mcd,Superior HealthPlan (Centene),Centene,Texas,22.21,17.69,315901,,https://www.superiorhealthplan.com/content/dam/centene/medicaid/pdfs/provider/prior-authorization-requirements-metrics/TX_SHP_B_Medicaid_189_MetricsSummary_R.pdf,2026-09-28
+mcd,Anthem HealthKeepers Plus,Elevance Health,Virginia (Medicaid and CHIP),11.1,7.0,,,https://www.anthem.com/content/dam/digital/docs/anthem/medicaid/va/va_medicaid_chip_priorauthsmetrics.pdf,2026-09-28
+mcd,Simply Healthcare (Elevance),Elevance Health,Florida,12.0,10.4,,,https://www.simplyhealthcareplans.com/florida-medicaid/fl_medicaid_priorauthsmetrics.pdf,2026-09-28
+mcd,Wellpoint (Elevance),Elevance Health,Texas (Medicaid and CHIP),8.6,5.5,,,https://www.wellpoint.com/content/dam/digital/wellpoint/documents/medicaid/texas/tx_medicaid_chip_priorauthsmetrics.pdf,2026-09-28
+mcd,Blue Cross Community Health Plans,HCSC,Illinois,13,20,,,https://www.bcbsil.com/content/dam/bcbs-new/il/documents/medicaid/medicaid-pa-stats-report-il.pdf,2026-09-28
+mcd,Blue Cross and Blue Shield of Texas,HCSC,Texas (Medicaid and CHIP),11,23,,,https://www.bcbstx.com/content/dam/bcbs-new/tx/documents/medicaid/medicaid-pa-stats-report-tx.pdf,2026-09-28
+mcd,Humana Healthy Horizons,Humana,Florida,2.56,40.86,746974,,https://assets.humana.com/is/content/humana/Humana_FL_Prior_Auth_Metrics_PlanYear2025pdf,2026-09-28
+mcd,Humana Healthy Horizons,Humana,Kentucky,12.79,2.13,185535,,https://assets.humana.com/is/content/humana/Humana_KY_Prior_Auth_Metrics_PlanYear2025pdf,2026-09-28
+mcd,AmeriHealth Caritas,Independence Health Group (AmeriHealth Caritas),Pennsylvania,25.5,21.1,278855,,https://www.amerihealthcaritaspa.com/member/info/prior-authorization-reporting,2026-09-28
+mcd,Kaiser Permanente,Kaiser Permanente,"California (Medi-Cal), Southern California",6.39,2.58,56689,,https://healthy.kaiserpermanente.org/content/dam/kporg/legal/prior-authorization-metrics-report-scal-en.pdf,2026-09-28
+mcd,L.A. Care,L.A. Care Health Plan (public agency),California (Medi-Cal),1.86,3.78,2152883,,https://lacare.org/sites/default/files/la7598_mcla_cms57f_pa_report_202603.pdf,2026-09-28
+mcd,Molina Healthcare,Molina Healthcare,California (Medi-Cal),2,2,,,https://www.molinahealthcare.com/providers/ca/medicaid/forms/fuf.aspx,2026-09-28
+mcd,Molina Healthcare,Molina Healthcare,Texas (STAR),17,9,,,https://www.molinahealthcare.com/providers/tx/medicaid/forms/PA.aspx,2026-09-28
+mcd,Molina Healthcare,Molina Healthcare,Texas (STAR+PLUS),6,14,,,https://www.molinahealthcare.com/providers/tx/medicaid/forms/PA.aspx,2026-09-28
+mcd,UnitedHealthcare Community Plan,UnitedHealth Group,New Jersey,15.5,8.6,294910,,https://www.uhc.com/content/dam/uhcdotcom/en/Legal/PDF/CMS-Interoperability-Medicaid-2025.pdf,2026-09-28
+mcd,UnitedHealthcare Community Plan,UnitedHealth Group,North Carolina,5.7,7.1,163821,,https://www.uhc.com/content/dam/uhcdotcom/en/Legal/PDF/CMS-Interoperability-Medicaid-2025.pdf,2026-09-28
+mkt,Blue Care Network of Michigan,Blue Cross Blue Shield of Michigan,Michigan (individual HMO),6.57,5.00,53252,,https://www.bcbsm.com/important-information/prior-auth-approval-rates/,2026-09-28
+mkt,Blue Cross Blue Shield of Michigan,Blue Cross Blue Shield of Michigan,Michigan (individual PPO),6.34,4.37,31549,,https://www.bcbsm.com/important-information/prior-auth-approval-rates/,2026-09-28
+mkt,Blue Cross NC,Blue Cross and Blue Shield of North Carolina,North Carolina,17.54,11.8,,,https://www.bluecrossnc.com/providers/prior-authorization/metrics,2026-09-28
+mkt,CareSource,CareSource,Ohio,28,22,,,https://www.caresource.com/documents/oh-exc-p-4793850-2025-interoperability-prior-authorizations-metrics-report.pdf,2026-09-28
+mkt,Ambetter (Centene),Centene,Florida,21.00,20.38,419452,,https://www.ambetterhealth.com/content/dam/centene/Sunshine/Ambetter/PDFs/FL_MKT_AH_49004_MetricsSummary_R.pdf,2026-09-28
+mkt,Ambetter (Centene),Centene,Texas,32.94,23.74,218062,,https://www.ambetterhealth.com/content/dam/centene/Superior/Ambetter/PDFs/TX_MKT_ABSuperiorHealthPlan_29418_MetricsSummary_R.pdf,2026-09-28
+mkt,Anthem Blue Cross and Blue Shield,Elevance Health,Ohio,10.8,20.1,,,https://www.anthem.com/content/dam/digital/docs/anthem/individual-and-family/oh-QHP-prior-auths-metrics.pdf,2026-09-28
+mkt,Florida Blue,GuideWell (Florida Blue),Florida (PPO and EPO),5,4,,,https://www.floridablue.com/members/tools-resources/prior-authorization-medical-services/metrics,2026-09-28
+mkt,Florida Blue,GuideWell (Florida Blue),Florida (HMO),1,2,,,https://www.floridablue.com/members/tools-resources/prior-authorization-medical-services/metrics,2026-09-28
+mkt,Blue Cross and Blue Shield of Montana,HCSC,Montana,8,2,,,https://www.bcbsmt.com/content/dam/bcbs-new/mt/documents/individual/ifm-pa-stats-report-mt.pdf,2026-09-28
+mkt,Blue Cross and Blue Shield of Oklahoma,HCSC,Oklahoma,8,19,,,https://www.bcbsok.com/content/dam/bcbs-new/ok/documents/individual/ifm-pa-stats-report-ok.pdf,2026-09-28
+mkt,Blue Cross and Blue Shield of Texas,HCSC,Texas,6,10,,,https://www.bcbstx.com/content/dam/bcbs-new/tx/documents/individual/ifm-pa-stats-report-tx.pdf,2026-09-28
+mkt,Highmark,Highmark Health,West Virginia,12,9,25350,,https://providers.highmark.com/content/dam/highmark/en/providerresourcecenter/pdfs/all/documents/pdfs/authorization/prior-authorization-metrics/prior-authorization-metrics.pdf,2026-09-28
+mkt,AmeriHealth Caritas Next,Independence Health Group (AmeriHealth Caritas),North Carolina,10.34,8.24,17375,,https://www.amerihealthcaritasnext.com/nc/members/rights-and-legal-notices/prior-authorization-reporting,2026-09-28
+mkt,Kaiser Permanente,Kaiser Permanente,Hawaii,4.83,1.65,2486,,https://healthy.kaiserpermanente.org/content/dam/kporg/legal/prior-authorization-metrics-report-hi-en.pdf,2026-09-28
+mkt,Oscar Health,Oscar Health,North Carolina,17.07,34.72,,Counts partial denials as denials.,https://cdn.sanity.io/files/jnbz686p/hioscar_production/76a66871e38fd20794887c9ba22b7f5262708129.pdf,2026-09-28
+mkt,Oscar Health,Oscar Health,Tennessee,11.89,26.66,,Counts partial denials as denials.,https://cdn.sanity.io/files/jnbz686p/hioscar_production/d89b38812ac53e9f612b30c05115d24568650829.pdf,2026-09-28
+mkt,Oscar Health,Oscar Health,Texas,22.71,30.33,,Counts partial denials as denials.,https://cdn.sanity.io/files/jnbz686p/hioscar_production/b6aa5547cf00ee28f014ef5945fe6e77b3f34f4c.pdf,2026-09-28
+mkt,UnitedHealthcare,UnitedHealth Group,Alabama,17.7,8.3,39090,,https://www.uhc.com/content/dam/uhcdotcom/en/Legal/PDF/CMS-Interoperability-IFP-2025.pdf,2026-09-28
+mkt,UnitedHealthcare,UnitedHealth Group,Texas,23.6,12.3,79872,,https://www.uhc.com/content/dam/uhcdotcom/en/Legal/PDF/CMS-Interoperability-IFP-2025.pdf,2026-09-28
+ffs,Alabama Medicaid,State of Alabama,Alabama,10,19,260902,"Counts each procedure code, not each request.",https://www.medicaid.alabama.gov/documents/2.0_Newsroom/2.9_CMS_Required_Reports/2.9.1_Prior_Authorization_Metrics/2.9.1_PA_Metrics_CY25_3-30-26.pdf,2026-09-28
+ffs,Alaska Medicaid,State of Alaska,Alaska,2.10,1.13,430236,Alaska's written totals don't match its table.,https://health.alaska.gov/en/education/service-authorizations/2025-prior-authorization-metrics/,2026-09-28
+ffs,Health First Colorado,State of Colorado (Dept. of Health Care Policy & Financing),Colorado,22.30,27.55,1746685,"Combines medical, dental, behavioral health, long-term care and transport, whose rates range from 2% to 63%.",https://hcpf.colorado.gov/cms-interoperability-and-prior-authorization-final-rule-cms-0057-f,2026-09-28
+ffs,Mississippi Medicaid,State of Mississippi,Mississippi,10.16,15.38,60252,Reports partial denials separately.,https://medicaid.ms.gov/wp-content/uploads/2026/03/FFS-CY2025-Prior-Authorization-Metrics_MS_3.31.26.pdf,2026-09-28
+ffs,NJ FamilyCare,State of New Jersey,New Jersey,.27,0,889627,,https://www.nj.gov/humanservices/dmahs/documents/news/metrix/CY-2025-FFS-Prior-Authorization-Metrics-Report.pdf,2026-09-28
