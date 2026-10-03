@@ -524,9 +524,17 @@ class AboutView(StaticIshView):
 
 
 class AboutAIView(StaticIshView):
-    """About our AI page."""
+    """About our AI page: which models write appeal letters and how we
+    tested them, from the data files in static/model_transparency/."""
 
     template_name = "about_ai.html"
+
+    def get_context_data(self, **kwargs):
+        from fighthealthinsurance.model_transparency import load
+
+        context = super().get_context_data(**kwargs)
+        context["ai"] = load()
+        return context
 
 
 class HowToHelpView(StaticIshView):
