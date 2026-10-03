@@ -24,7 +24,7 @@ We also search <a href="https://pubmed.ncbi.nlm.nih.gov/" target="_blank" rel="n
 </table>
 </div>
 <div class="fhi-notice fhi-notice-info" role="note">
-  <strong>Our own trained models.</strong> We also run models we trained ourselves. We're testing them again, and their results will appear here when that's done.
+  <strong>Our own trained models.</strong> We also run models we trained ourselves. Their results aren't shown here yet.
 </div>
 
 {% with run=ai.latest_run %}
@@ -64,18 +64,28 @@ Each setup wrote a letter for every case, and AI judges scored every letter on f
 </div>
 
 <h2 id="judges">Who judges the letters</h2>
-<p>AI judges read every test letter. Judges disagree a lot, so a person blind-read 20 letters and we compared. The two judges we use matched the person on 19 of the 20. No judge scores its own letters.</p>
-<div class="scroll-x">
-<table class="simple-table">
-  <thead><tr><th scope="col">Judge</th><th scope="col" class="num">Agreed with the person (of 20 letters)</th><th scope="col">How strict</th><th scope="col" class="num">Letters it flagged for made-up facts</th><th scope="col">Do we use it?</th></tr></thead>
-  <tbody>
-  {% for j in run.judges %}
-    <tr><td>{{ j.name }}</td><td class="num">{{ j.agreed_of_20 }}</td><td>{{ j.strictness|capfirst }}</td><td class="num">{{ j.flagged_text }}</td><td>{% if j.in_use %}Yes{% else %}Tested{% endif %}</td></tr>
-  {% endfor %}
-  </tbody>
-</table>
+<p>AI judges read and score every test letter. Judges disagree a lot, so a person blind-read 20 letters and we kept the judges that matched that person best. We use these now:</p>
+<ul>
+{% for j in ai.judges %}<li><strong>{{ j.name }}</strong>, made by {{ j.made_by }}. {{ j.why }}</li>{% endfor %}
+</ul>
+<div class="fhi-accordion">
+  <details class="fhi-accordion-item" name="judges">
+    <summary><h3 class="fhi-accordion-question">Every judge we tested in our {{ run.title }}</h3></summary>
+    <div class="fhi-accordion-body">
+      <div class="scroll-x">
+      <table class="simple-table">
+        <thead><tr><th scope="col">Judge</th><th scope="col" class="num">Agreed with the person (of 20 letters)</th><th scope="col">How strict</th><th scope="col" class="num">Letters it flagged for made-up facts</th></tr></thead>
+        <tbody>
+        {% for j in run.judges %}
+          <tr><td>{{ j.name }}</td><td class="num">{{ j.agreed_of_20 }}</td><td>{{ j.strictness|capfirst }}</td><td class="num">{{ j.flagged_text }}</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      <p>The strict judges often flagged good advocacy, like explaining why care is urgent, as made-up facts. Twenty letters is a small read, and no judge scores its own letters.</p>
+    </div>
+  </details>
 </div>
-<p>The strict judges often flagged good advocacy, like explaining why care is urgent, as made-up facts. Twenty letters is a small read, so next we check the judges against 150 letters that two people read.</p>
 
 <h2 id="how-we-test">How we test</h2>
 <div class="fhi-accordion">
@@ -94,7 +104,7 @@ Each setup wrote a letter for every case, and AI judges scored every letter on f
 <p>Each test, oldest first. Results only line up when two tests used the same cases and judges.</p>
 <ul>{% for r in ai.runs %}<li>{{ r.title }}</li>{% endfor %}</ul>
 {% else %}
-<p>One test so far. When we run the next one with the same cases and judges, its results will show here next to this one.</p>
+<p>One test so far. Results from different tests only line up when they used the same cases and judges.</p>
 {% endif %}
 {% endif %}
 {% endwith %}

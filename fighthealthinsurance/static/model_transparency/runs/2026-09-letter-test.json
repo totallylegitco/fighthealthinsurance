@@ -18,7 +18,7 @@
   "notes": [
    "Claude Opus 4.8 never judges its own letters, so its Opus score is an estimate from how the other judges scored it.",
    "GPT-5.5's price wasn't recorded during the test. Its cost assumes $5 per million input tokens and $30 per million output tokens.",
-   "Our own trained models were tested too. Their results are left out here while we test them again."
+   "Our own trained models were tested too and are left out of this table."
   ],
   "summary": "We chose Gemma 4 26B with a two-sentence prompt change. It scored near the top, wrote a letter in under 4 seconds, the fastest setup we tested, and fits on one server we run ourselves, so your letter doesn't have to leave us. The site still uses the original prompt while we test the new one against it."
  },
@@ -420,48 +420,42 @@
    "agreed_of_20": 19,
    "strictness": "lenient",
    "letters_scored": 18326,
-   "flagged_made_up_facts": 0.017,
-   "in_use": true
+   "flagged_made_up_facts": 0.017
   },
   {
    "name": "DeepSeek V4-Pro",
    "agreed_of_20": 19,
    "strictness": "lenient",
    "letters_scored": 18326,
-   "flagged_made_up_facts": 0.039,
-   "in_use": false
+   "flagged_made_up_facts": 0.039
   },
   {
    "name": "Jev (TypeSafe)",
    "agreed_of_20": 19,
    "strictness": "lenient",
    "letters_scored": 18780,
-   "flagged_made_up_facts": null,
-   "in_use": true
+   "flagged_made_up_facts": null
   },
   {
    "name": "Kimi K3",
    "agreed_of_20": 17,
    "strictness": "lenient",
    "letters_scored": 3135,
-   "flagged_made_up_facts": 0.043,
-   "in_use": false
+   "flagged_made_up_facts": 0.043
   },
   {
    "name": "GPT-5.5",
    "agreed_of_20": 9,
    "strictness": "strict",
    "letters_scored": 8211,
-   "flagged_made_up_facts": 0.317,
-   "in_use": false
+   "flagged_made_up_facts": 0.317
   },
   {
    "name": "GPT-5.6",
    "agreed_of_20": 7,
    "strictness": "strict",
    "letters_scored": 1264,
-   "flagged_made_up_facts": 0.377,
-   "in_use": false
+   "flagged_made_up_facts": 0.377
   }
  ]
 }

@@ -1,5 +1,5 @@
 {
- "about": "The models behind Fight Health Insurance's appeal letters, for the About Our AI page. Add a model with a new entry; retire one by setting retired and retired_reason, never by deleting it. Totals only: no letters, denials or patient details.",
+ "about": "The models behind Fight Health Insurance's appeal letters, for the About Our AI page. Add a model or judge with a new entry; retire one by setting retired and retired_reason, never by deleting it. Totals only: no letters, denials or patient details.",
  "models": [
   {
    "id": "gemma-4-26b",
@@ -78,6 +78,18 @@
   {
    "date": "2026-09-19",
    "what": "Tested 28 models in 35 setups on 632 appeal decisions, and chose Gemma 4 26B as our main letter writer."
+  }
+ ],
+ "judges": [
+  {
+   "name": "Jev (TypeSafe)",
+   "made_by": "TypeSafe",
+   "why": "Agreed with a person's read on 19 of 20 letters in our September test, and scores a letter quickly and at low cost."
+  },
+  {
+   "name": "Claude Opus 4.8",
+   "made_by": "Anthropic",
+   "why": "Agreed with a person's read on 19 of 20 letters in our September test. It never judges its own letters."
   }
  ]
 }

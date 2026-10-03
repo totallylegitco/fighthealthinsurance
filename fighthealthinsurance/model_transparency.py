@@ -4,7 +4,8 @@ and what each test of them found.
 Two kinds of files in static/model_transparency/, so the page changes by
 editing data, never page code:
 
-* ``models.json``: one entry per model, with what it does and where it runs.
+* ``models.json``: one entry per model, with what it does and where it runs,
+  and the judges we use now.
   A model is retired by setting ``retired`` (a date) and ``retired_reason``;
   entries are never deleted, so the page can always say what changed.
 * ``runs/<id>.json``: one file per test run, never edited after it is
@@ -62,9 +63,9 @@ JUDGE_FIELDS = frozenset(
         "strictness",
         "letters_scored",
         "flagged_made_up_facts",
-        "in_use",
     }
 )
+CURRENT_JUDGE_FIELDS = frozenset({"name", "made_by", "why"})
 METHOD_FIELDS = frozenset(
     {
         "cases",
@@ -153,7 +154,6 @@ class Judge:
     strictness: str
     letters_scored: int
     flagged_made_up_facts: Optional[float]
-    in_use: bool
 
     @property
     def flagged_text(self) -> str:
@@ -202,10 +202,18 @@ class Model:
 
 
 @dataclass(frozen=True)
+class CurrentJudge:
+    name: str
+    made_by: str
+    why: str
+
+
+@dataclass(frozen=True)
 class Transparency:
     models: List[Model]
     changes: List[Dict[str, str]]
     runs: List[Run] = field(default_factory=list)
+    judges: List[CurrentJudge] = field(default_factory=list)
 
     @property
     def in_use(self) -> List[Model]:
@@ -262,5 +270,11 @@ def load() -> Transparency:
     models = [
         Model(**_only(MODEL_FIELDS, m, "models.json")) for m in data.get("models", [])
     ]
+    judges = [
+        CurrentJudge(**_only(CURRENT_JUDGE_FIELDS, j, "models.json judge"))
+        for j in data.get("judges", [])
+    ]
     runs = sorted((parse_run(_read(name)) for name in RUN_FILES), key=lambda r: r.date)
-    return Transparency(models=models, changes=data.get("changes", []), runs=runs)
+    return Transparency(
+        models=models, changes=data.get("changes", []), runs=runs, judges=judges
+    )

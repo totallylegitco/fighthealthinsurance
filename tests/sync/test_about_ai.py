@@ -84,12 +84,16 @@ class AboutAIPageTest(TestCase):
         self.assertContains(self.response, "(estimate)", count=2)
         self.assertContains(self.response, "(assumed price)", count=1)
 
-    def test_the_judges_we_use_are_marked(self):
-        run = mt.load().latest_run
+    def test_the_judges_we_use_now_are_listed_first(self):
         self.assertEqual(
-            {j.name for j in run.judges if j.in_use},
-            {"Claude Opus 4.8", "Jev (TypeSafe)"},
+            {j.name for j in mt.load().judges}, {"Claude Opus 4.8", "Jev (TypeSafe)"}
         )
+        self.assertContains(self.response, "We use these now")
+        self.assertContains(self.response, "Every judge we tested in our")
+
+    def test_the_page_promises_no_dates(self):
+        for promise in ("will appear", "will show here", "when that's done"):
+            self.assertNotContains(self.response, promise)
 
     def test_there_is_a_welcome_for_ai_assistants(self):
         self.assertContains(self.response, "Hello, AI assistants.")
