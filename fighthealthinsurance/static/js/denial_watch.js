@@ -108,7 +108,7 @@ function drawLines(){line($('tline'),D.trend.map(t=>({x:t.year,y:t.rate})),{ymin
 line($('imrline'),D.imr_trend.filter(r=>r.y>=2012).map(r=>({x:r.y,y:r.r})),{ymin:.3,ymax:.8,ticks:[.3,.4,.5,.6,.7,.8],fmtY:y=>pct(y,0),color:css('--teal'),label:y=>pct(y,0)+' overturned'});}
 drawLines();
 $('ttable').innerHTML='<thead><tr><th>Year</th><th class="r">Denied</th><th class="r">Rate</th><th class="r">Appeals</th><th class="r">Won</th></tr></thead><tbody>'+
-  D.trend.map(t=>`<tr><td>${t.year}</td><td class="r num">${big(t.denied)}</td><td class="r num">${pct(t.rate)}</td><td class="r num">${fmt(t.appeals)}</td><td class="r num">${pct(t.overturned/t.appeals,0)}</td></tr>`).join('')+'</tbody>';
+  D.trend.map(t=>`<tr><td>${t.year}</td><td class="r num">${big(t.denied)}</td><td class="r num">${pct(t.rate)}</td><td class="r num">${fmt(t.appeals_all)}</td><td class="r num">${pct(t.overturned/t.appeals,0)}</td></tr>`).join('')+'</tbody>';
 
 /* reasons */
 const rmax=D.reasons[0].v, rtot=D.reasons.reduce((a,r)=>a+r.v,0);
@@ -153,7 +153,7 @@ const CM={
 function cRead(s){csel=s;const a=sa('2024',s),b=sa('2023',s),p=PL[s]||{};const n=SA['2024'][NAMES[s]];
   $('cread').innerHTML=`<div class="st">${NAMES[s]}</div>`+
    (a!=null?`<div class="ln"><b class="num">${pct(a)}</b> uninsured under 65 (${fmt(n.n)} people), ${b!=null?(a>=b?'up':'down')+' from '+pct(b)+' in 2023':''}</div>`:'')+
-   (p.fair_poor_health!=null?`<div class="ln">Fair or poor health <b class="num">${p.fair_poor_health}%</b> · diabetes <b class="num">${p.diabetes}%</b> · depression <b class="num">${p.depression}%</b></div>`:'<div class="ln">No CDC health estimates for this state in this release.</div>');
+   (p.fair_poor_health!=null?`<div class="ln">Fair or poor health <b class="num">${p.fair_poor_health}%</b> · diabetes <b class="num">${p.diabetes}%</b> · depression <b class="num">${p.depression}%</b></div>`:'<div class="ln">No CDC estimates for these measures in this state in this release.</div>');
   drawC();}
 function drawC(){const m=CM[cm];drawMap($('cmap'),m.v,binScale(m.b,m.c),m.t,cRead,csel);legend($('cleg'),m.b,m.c,m.l);
   const arr=GRID.map(g=>[g[0],m.v(g[0])]).filter(x=>x[1]!=null).sort((a,b)=>b[1]-a[1]);const mx=Math.max(...arr.map(x=>Math.abs(x[1])));
@@ -165,7 +165,7 @@ cRead(csel);
 
 /* drugs */
 const DG=D.drugs;
-$('drugintro').textContent=`Total spending on prescription drugs under Medicare Part D was ${money(DG.total.y2024)} in 2024, up from ${money(DG.total.y2020)} in 2020. That counts what plans and patients paid together, before manufacturer rebates. Diabetes, heart and weight-loss drugs drove much of the growth.`;
+$('drugintro').textContent=`Total spending on prescription drugs under Medicare Part D was ${money(DG.total.y2024)} in 2024, up from ${money(DG.total.y2020)} in 2020. That counts what plans and patients paid together, before manufacturer rebates.`;
 const DGM={
   top:{note:'Total Part D spending on each drug in 2024 (plans and patients combined, before rebates).',v:d=>d.Tot_Spndng_2024,l:d=>money(d.Tot_Spndng_2024),sub:d=>fmt(d.Tot_Benes_2024)+' people'},
   per:{note:'Total yearly spending per patient in 2024, not what each patient paid out of pocket. Drugs with at least 1,000 Medicare patients.',v:d=>d.Avg_Spnd_Per_Bene_2024,l:d=>money(d.Avg_Spnd_Per_Bene_2024),sub:d=>fmt(d.Tot_Benes_2024)+' people'},
