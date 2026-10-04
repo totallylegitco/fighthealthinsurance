@@ -72,7 +72,9 @@ class TestDenialWatchCopyMatchesData(TestCase):
     def test_state_range_headline(self):
         rates = [s["rate"] for s in DATA["states"].values()]
         self.assertIn(
-            f"Denial rates run from {_pct(min(rates))} to {_pct(max(rates))}",
+            # "about": the lowest state (South Dakota, 6.55%) rounds to 7% on the
+            # map legend but shows as 6.5% in its tooltip.
+            f"Denial rates run from about {_pct(min(rates))} to {_pct(max(rates))}",
             self.content,
         )
 

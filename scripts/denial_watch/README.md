@@ -27,7 +27,7 @@ nothing here runs in the app.
    ```
 
 3. Compare the printed figures with the page's copy. The headline sentences in
-   `templates/denial_watch.html` name some numbers, such as the 7% to 27% state
+   `templates/denial_watch.html` name some numbers, such as the about 7% to 27% state
    range, 72% in California, and the correlations. When a new year arrives, adding
    it means extending `CLAIMS_YEAR` and `LATEST_PY`, then rereading the copy.
 

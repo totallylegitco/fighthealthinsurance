@@ -226,6 +226,9 @@ def build_drugs():
         for t in df[cols].itertuples(index=False):
             out.append({k: (None if isinstance(v, float) and math.isnan(v)
                             else v.strip().rstrip("*") if isinstance(v, str) else float(v))
+                        # CMS puts "*" on a brand name when its spending per dosage
+                        # unit mixes routes of administration (data dictionary).
+                        # Nothing here shows a per-unit figure, so the mark is dropped.
                         for k, v in zip(cols, t)})
         return out
 
