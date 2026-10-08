@@ -264,7 +264,8 @@ def build_places():
     import pandas as pd
 
     d = pd.read_csv(RAW / "places_county.csv", dtype=str)
-    d["p"] = pd.to_numeric(d.TotalPop18plus, errors="coerce")
+    # The v3 export writes populations with thousands commas.
+    d["p"] = pd.to_numeric(d.TotalPop18plus.str.replace(",", ""), errors="coerce")
     res = {}
     for st, g in d.groupby("StateAbbr"):
         res[st] = {}
@@ -340,7 +341,7 @@ SOURCES = [
     dict(name="Census Small Area Health Insurance Estimates", years="2023-2024",
          url="https://www.census.gov/programs-surveys/sahie.html"),
     dict(name="CDC PLACES county data", years="2025 release",
-         url="https://www.cdc.gov/places/"),
+         url="https://data.cdc.gov/d/i46a-9kgh"),
     dict(name="Insurers' and states' own prior-authorization reports (CMS-0057-F)", years="2025",
          url="https://www.cms.gov/initiatives/burden-reduction/overview/interoperability/policies-regulations/cms-interoperability-prior-authorization-final-rule-cms-0057-f"),
     dict(name="CMS Medicare Part D Spending by Drug", years="2020-2024",

@@ -30,8 +30,8 @@ ma,Kaiser Permanente,Kaiser Permanente,Contract H5050 (WA),6.14,8.54,184918,,htt
 ma,Kaiser Permanente,Kaiser Permanente,"Contract H0524, Northern California",10.53,7.46,144514,,https://healthy.kaiserpermanente.org/content/dam/kporg/legal/prior-authorization-metrics-report-ncal-en.pdf,2026-09-28,requests
 ma,Kaiser Permanente,Kaiser Permanente,"Contract H0524, Southern California",19.48,3.65,143690,,https://healthy.kaiserpermanente.org/content/dam/kporg/legal/prior-authorization-metrics-report-scal-en.pdf,2026-09-28,requests
 ma,L.A. Care,L.A. Care Health Plan (public agency),Medicare Plus special needs plan (CA),1.03,2.06,284406,,https://lacare.org/sites/default/files/la7598_dsnp_cms57f_pa_report_202603.pdf,2026-09-28,requests
-ma,Molina Healthcare,Molina Healthcare,Contract H5810 (CA),2,4,,,https://www.molinahealthcare.com/providers/common/medicare/medicare,2026-09-28,requests
-ma,Molina Healthcare,Molina Healthcare,Contract H7678 (TX),11,20,,,https://www.molinahealthcare.com/providers/common/medicare/medicare,2026-09-28,requests
+ma,Molina Healthcare,Molina Healthcare,Contract H5810 (CA),2,4,,,https://www.molinahealthcare.com/providers/ca/prior-auth,2026-09-28,requests
+ma,Molina Healthcare,Molina Healthcare,Contract H7678 (TX),11,20,,,https://www.molinahealthcare.com/providers/tx/prior-auth,2026-09-28,requests
 ma,SCAN Health Plan,SCAN Group,All plans combined,1.85,2.21,2070236,Posted as 1.85% in one place and 1.89% in another.,https://scan-q-002.sitecorecontenthub.cloud/api/public/content/SCAN-prior-authorization-data-2025-report-revised-041026?v=882d458e,2026-09-28,requests
 ma,UPMC for Life,UPMC,Contract H3907,3.2,4.8,93522,,https://upmc.widen.net/view/pdf/zovvcggcxw/CMS_Final_Rule-Prior_Auth_Metrics-Medicare_web.xlsx?t.download=true&u=6vmvhg,2026-09-28,requests
 ma,UnitedHealthcare,UnitedHealth Group,Contract H0543,1.8,2.7,1780998,,https://www.uhc.com/content/dam/uhcdotcom/en/Legal/PDF/CMS-Interoperability-Medicare-Advantage-2025.pdf,2026-09-28,requests
@@ -58,9 +58,9 @@ mcd,Humana Healthy Horizons,Humana,Kentucky,12.79,2.13,185535,,https://assets.hu
 mcd,AmeriHealth Caritas,Independence Health Group (AmeriHealth Caritas),Pennsylvania,25.5,21.1,278855,,https://www.amerihealthcaritaspa.com/member/info/prior-authorization-reporting,2026-09-28,requests
 mcd,Kaiser Permanente,Kaiser Permanente,"California (Medi-Cal), Southern California",6.39,2.58,56689,,https://healthy.kaiserpermanente.org/content/dam/kporg/legal/prior-authorization-metrics-report-scal-en.pdf,2026-09-28,requests
 mcd,L.A. Care,L.A. Care Health Plan (public agency),California (Medi-Cal),1.86,3.78,2152883,,https://lacare.org/sites/default/files/la7598_mcla_cms57f_pa_report_202603.pdf,2026-09-28,requests
-mcd,Molina Healthcare,Molina Healthcare,California (Medi-Cal),2,2,,,https://www.molinahealthcare.com/providers/ca/medicaid/forms/fuf.aspx,2026-09-28,requests
-mcd,Molina Healthcare,Molina Healthcare,Texas (STAR),17,9,,,https://www.molinahealthcare.com/providers/tx/medicaid/forms/PA.aspx,2026-09-28,requests
-mcd,Molina Healthcare,Molina Healthcare,Texas (STAR+PLUS),6,14,,,https://www.molinahealthcare.com/providers/tx/medicaid/forms/PA.aspx,2026-09-28,requests
+mcd,Molina Healthcare,Molina Healthcare,California (Medi-Cal),2,2,,,https://www.molinahealthcare.com/providers/ca/prior-auth,2026-09-28,requests
+mcd,Molina Healthcare,Molina Healthcare,Texas (STAR),17,9,,,https://www.molinahealthcare.com/providers/tx/prior-auth,2026-09-28,requests
+mcd,Molina Healthcare,Molina Healthcare,Texas (STAR+PLUS),6,14,,,https://www.molinahealthcare.com/providers/tx/prior-auth,2026-09-28,requests
 mcd,UnitedHealthcare Community Plan,UnitedHealth Group,New Jersey,15.5,8.6,294910,,https://www.uhc.com/content/dam/uhcdotcom/en/Legal/PDF/CMS-Interoperability-Medicaid-2025.pdf,2026-09-28,requests
 mcd,UnitedHealthcare Community Plan,UnitedHealth Group,North Carolina,5.7,7.1,163821,,https://www.uhc.com/content/dam/uhcdotcom/en/Legal/PDF/CMS-Interoperability-Medicaid-2025.pdf,2026-09-28,requests
 mkt,Blue Care Network of Michigan,Blue Cross Blue Shield of Michigan,Michigan (individual HMO),6.57,5.00,53252,,https://www.bcbsm.com/important-information/prior-auth-approval-rates/,2026-09-28,requests

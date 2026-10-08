@@ -17,7 +17,7 @@ nothing here runs in the app.
    | `imr.csv` | CSV on the [DMHC IMR dataset page](https://data.chhs.ca.gov/dataset/independent-medical-review-imr-determinations-trend) |
    | `partd.csv` | "Medicare Part D Spending by Drug" CSV from [data.cms.gov](https://data.cms.gov/summary-statistics-on-use-and-payments/medicare-medicaid-spending-by-drug/medicare-part-d-spending-by-drug) |
    | `sahie_2023.csv`, `sahie_2024.csv` | `https://www2.census.gov/programs-surveys/sahie/datasets/time-series/estimates-acs/sahie-<YEAR>-csv.zip` (the Census API now needs a key; the zips don't) |
-   | `places_county.csv` | `https://data.cdc.gov/api/views/i46a-9kgh/rows.csv?accessType=DOWNLOAD` |
+   | `places_county.csv` | `https://data.cdc.gov/api/v3/views/i46a-9kgh/export.csv` (the old `rows.csv?accessType=DOWNLOAD` link was retired in October 2026) |
 
 2. Build:
 
