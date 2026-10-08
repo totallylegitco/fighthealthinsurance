@@ -9,6 +9,7 @@ that the copy still agrees with the data after a refresh.
 import importlib.util
 import json
 import pathlib
+import re
 
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
@@ -30,6 +31,15 @@ def _load_builder():
 
 def _pct(x: float) -> str:
     return f"{round(x * 100)}%"
+
+
+def _millions(x: float) -> str:
+    return f"{x / 1e6:.1f} million"
+
+
+def _without_data(html: str) -> str:
+    """The page as a reader sees it, without the embedded JSON."""
+    return re.sub(r'<script id="dw-data".*?</script>', "", html, flags=re.S)
 
 
 class TestDenialWatchPage(TestCase):
@@ -57,8 +67,14 @@ class TestDenialWatchPage(TestCase):
         self.assertIn("An illustration, not a live count", self.content)
 
     def test_page_names_its_sources(self):
+        # Checked outside the embedded JSON, which carries every URL anyway.
+        visible = _without_data(self.content)
         for source in DATA["sources"]:
-            self.assertIn(source["url"], self.content)
+            self.assertIn(f'href="{source["url"]}"', visible)
+
+    def test_page_sits_on_the_wide_column_without_its_own_stylesheet(self):
+        self.assertIn('class="fhi-page-wide dw"', self.content)
+        self.assertNotIn("denial_watch.css", self.content)
 
 
 class TestDenialWatchCopyMatchesData(TestCase):
@@ -92,8 +108,51 @@ class TestDenialWatchCopyMatchesData(TestCase):
 
     def test_share_of_denials_appealed_in_the_steps(self):
         latest = DATA["trend"][-1]
-        ratio = latest["denied"] / latest["appeals_all"]
-        self.assertIn(f"about 1 in {round(ratio, -1):.0f} denials", self.content)
+        ratio = latest["in_denied"] / latest["appeals_all"]
+        self.assertIn(
+            f"about 1 appeal for every {round(ratio, -1):.0f} in-network denials",
+            self.content,
+        )
+
+    def test_headline_counts_in_network_claims(self):
+        # One basis for the headline: in-network, as KFF and the map count.
+        latest = DATA["trend"][-1]
+        self.assertEqual(round(1 / latest["in_rate"]), 5)
+        self.assertIn(
+            "about one in five in-network claims in 2024, "
+            f"{_millions(latest['in_denied'])} in all",
+            self.content,
+        )
+
+    def test_method_note_gives_both_counting_bases(self):
+        latest = DATA["trend"][-1]
+        ratio = latest["in_denied"] / latest["appeals_all"]
+        self.assertIn(
+            f"{_millions(latest['in_denied'])} denials in 2024, "
+            f"{_pct(latest['in_rate'])} of in-network claims, and "
+            f"{latest['appeals_all']:,.0f} internal appeals, "
+            f"about 1 for every {round(ratio, -1):.0f} of those denials",
+            self.content,
+        )
+        self.assertIn(
+            f"({latest['denied'] / 1e6:.0f} million denials, "
+            f"{_pct(latest['rate'])}, in 2024)",
+            self.content,
+        )
+
+    def test_trend_text_names_the_all_claims_figures(self):
+        latest = DATA["trend"][-1]
+        self.assertIn(
+            f"puts 2024 at {latest['denied'] / 1e6:.0f} million denials and "
+            f"{_pct(latest['rate'])}, a little above the in-network "
+            f"{_pct(latest['in_rate'])}",
+            self.content,
+        )
+
+    def test_trend_years_without_an_in_network_split(self):
+        # Why the trend chart counts all claims.
+        split = {t["year"]: "in_denied" in t for t in DATA["trend"]}
+        self.assertFalse(split[2020] or split[2021])
 
     def test_2021_denial_share_in_the_trend(self):
         y2021 = next(t for t in DATA["trend"] if t["year"] == 2021)
@@ -255,7 +314,7 @@ class TestDenialWatchIsEasyToFind(TestCase):
         latest = DATA["trend"][-1]
         html = Client().get(reverse("root")).content.decode()
         self.assertIn(
-            f"about 1 in {round(1 / latest['in_rate'])} in-network claims on "
+            f"About 1 in {round(1 / latest['in_rate'])} in-network claims on "
             f"HealthCare.gov plans were denied in {latest['year']}",
             html,
         )
