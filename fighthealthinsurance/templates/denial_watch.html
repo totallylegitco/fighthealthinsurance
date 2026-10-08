@@ -11,9 +11,9 @@
   .dw {
     --dw-red: #c8321e; --dw-blue: #1f5fa8; --dw-teal: #11796b; --dw-purple: #6a449c;
     --dw-d0: #fdecdf; --dw-d1: #f9c7a8; --dw-d2: #f09a72; --dw-d3: #dc6445; --dw-d4: #b8321f; --dw-d5: #7f1a12;
-    --dw-u0: #e6eef8; --dw-u1: #bcd1ec; --dw-u2: #88afdb; --dw-u3: #4f86c4; --dw-u4: #255fa4; --dw-u5: #123d73;
-    --dw-h0: #efe9f6; --dw-h1: #d6c7ea; --dw-h2: #b69dd7; --dw-h3: #8f6cbd; --dw-h4: #6a449c; --dw-h5: #43256b;
-    --dw-na: #e3e6ea; --dw-na-ink: #5f6a74; --dw-track: #eef1f4;
+    --dw-u0: #e6eef8; --dw-u1: #bcd1ec; --dw-u2: #88afdb; --dw-u3: #4677ae; --dw-u4: #255fa4; --dw-u5: #123d73;
+    --dw-h0: #efe9f6; --dw-h1: #d6c7ea; --dw-h2: #b69dd7; --dw-h3: #8665b1; --dw-h4: #6a449c; --dw-h5: #43256b;
+    --dw-na: #e3e6ea; --dw-na-ink: #5d6771; --dw-track: #eef1f4;
   }
   .dw section { scroll-margin-top: 80px; }
   .dw-num { font-variant-numeric: tabular-nums; }
@@ -23,6 +23,8 @@
   .dw-ticker-count { font-size: clamp(2.5rem, 7vw, 4.25rem); font-weight: 800; line-height: 1; }
   .dw-ticker-rate { text-align: right; }
   .dw-ticker-rate b { display: block; font-size: 1.6rem; }
+  .dw-ticker .dw-pause { border-color: #fff; color: #fff; }
+  .dw-ticker .dw-pause:hover, .dw-ticker .dw-pause:focus { background-color: #fff; color: var(--fhi-ink); }
   .dw-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: var(--fhi-space-4); }
   .dw-stat { display: grid; gap: var(--fhi-space-1); align-content: start; padding-top: var(--fhi-space-3); border-top: 3px solid var(--fhi-ink); }
   .dw-stat b { font-size: 2rem; line-height: 1.1; }
@@ -35,8 +37,8 @@
   .dw-controls .fhi-field { width: auto; max-width: 100%; }
   .dw-note { font-size: var(--fhi-text-small); color: var(--fhi-muted); }
   .dw-map, .dw-chart { display: block; width: 100%; height: auto; }
-  .dw-map text { font-size: 13px; font-weight: 700; pointer-events: none; }
-  .dw-map text.dw-v { font-size: 10.5px; font-weight: 500; }
+  .dw-map text { font-size: 14px; font-weight: 700; pointer-events: none; }
+  .dw-map text.dw-v { font-size: 12px; font-weight: 500; }
   .dw-map rect { cursor: pointer; stroke: #fff; stroke-width: 2; }
   .dw-map g.dw-sel rect { stroke: var(--fhi-ink); stroke-width: 2.5; }
   .dw-map g:focus-visible { outline: 3px solid var(--fhi-green-deep); }
@@ -67,6 +69,11 @@
   @media (max-width: 860px) {
     .dw-two { grid-template-columns: minmax(0, 1fr); }
   }
+  /* Two columns on a narrow laptop leave the map too small for tile values. */
+  @media (min-width: 861px) and (max-width: 1100px) {
+    .dw-map text.dw-v { display: none; }
+    .dw-map text.dw-code { transform: translateY(8px); }
+  }
   @media (max-width: 560px) {
     .dw-ticker { grid-template-columns: minmax(0, 1fr); }
     .dw-ticker-rate { text-align: left; }
@@ -90,7 +97,10 @@
                 <p class="dw-ticker-count dw-num" id="tick">0</p>
                 <p>An illustration, not a live count: if 2024's in-network HealthCare.gov denials were spread evenly over the year, this many would have happened since midnight. Employer plans, Medicaid, Medicare and state-run marketplaces aren't included.</p>
             </div>
-            <p class="dw-ticker-rate"><b class="dw-num" id="perday">0</b>per day, on average</p>
+            <div class="fhi-stack">
+                <p class="dw-ticker-rate"><b class="dw-num" id="perday">0</b>per day, on average</p>
+                <button type="button" class="fhi-button fhi-button-small dw-pause" id="tickpause" aria-controls="tick">Pause the counter</button>
+            </div>
         </div>
 
         <div class="dw-stats" id="stats"></div>

@@ -17,14 +17,23 @@ const pct=(x,d=1)=>(x*100).toFixed(d)+'%';
 const big=n=>n>=1e9?(n/1e9).toFixed(1)+' billion':n>=1e6?(n/1e6).toFixed(1)+' million':fmt(n);
 const money=n=>n>=1e9?'$'+(n/1e9).toFixed(1)+'B':n>=1e6?'$'+(n/1e6).toFixed(0)+'M':'$'+n.toLocaleString('en-US',{maximumFractionDigits:n<100?2:0});
 const css=v=>getComputedStyle(ROOT).getPropertyValue(v).trim();
-const lum=hex=>{const m=hex.replace('#','');if(m.length<6)return 1;const r=parseInt(m.substr(0,2),16),g=parseInt(m.substr(2,2),16),b=parseInt(m.substr(4,2),16);return (0.299*r+0.587*g+0.114*b)/255};
+/* WCAG relative luminance, to pick the tile label ink with the higher contrast. */
+const lin=c=>{c/=255;return c<=0.03928?c/12.92:Math.pow((c+0.055)/1.055,2.4)};
+const relLum=hex=>{const m=hex.replace('#','');if(m.length<6)return 1;return 0.2126*lin(parseInt(m.substr(0,2),16))+0.7152*lin(parseInt(m.substr(2,2),16))+0.0722*lin(parseInt(m.substr(4,2),16))};
+const DARK_INK='#15202b';
+const inkOn=bg=>{const l=relLum(bg);return (1.05/(l+0.05))>=((l+0.05)/(relLum(DARK_INK)+0.05))?'#ffffff':DARK_INK};
 
 /* ticker */
 const T=D.trend[D.trend.length-1];
 const perDay=T.in_denied/T.days, perMs=perDay/86400000;
 $('perday').textContent=fmt(perDay);
 function tick(){const n=new Date();const mid=new Date(n.getFullYear(),n.getMonth(),n.getDate());$('tick').textContent=fmt((n-mid)*perMs);}
-tick();setInterval(tick,250);
+tick();
+/* Pausable (WCAG 2.2.2); starts paused for anyone who asks for reduced motion. */
+let timer=null;const pauseBtn=$('tickpause');
+function run(on){if(on&&!timer)timer=setInterval(tick,250);if(!on&&timer){clearInterval(timer);timer=null;}if(pauseBtn)pauseBtn.textContent=on?'Pause the counter':'Start the counter';}
+run(!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches));
+if(pauseBtn)pauseBtn.addEventListener('click',()=>run(!timer));
 
 /* stats */
 const inRate=T.in_rate, apShare=T.appeals_all/T.in_denied, won=T.overturned/T.appeals;
@@ -53,7 +62,7 @@ function drawMap(svg,valueOf,scale,labelOf,onPick,sel){
   svg._pick=onPick;
   svg.querySelectorAll('g').forEach(g=>{
     const st=g.dataset.s, v=valueOf(st), col=v==null?css('--dw-na'):scale(v);
-    const ink=v==null?css('--dw-na-ink'):(lum(col)<0.55?'#ffffff':'#15202b');
+    const ink=v==null?css('--dw-na-ink'):inkOn(col);
     g.classList.toggle('dw-sel',st===sel);
     g.querySelector('rect').setAttribute('fill',col);
     const [t1,t2]=g.querySelectorAll('text');t1.style.fill=ink;t2.style.fill=ink;t2.textContent=v==null?'':labelOf(v);

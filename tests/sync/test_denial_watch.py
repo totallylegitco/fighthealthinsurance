@@ -310,6 +310,18 @@ class TestDenialWatchIsEasyToFind(TestCase):
             self.assertIn(link, html, f"{name} has no link to Denial Watch")
 
     @override_settings(DENIAL_WATCH_PAGE_ENABLED=True)
+    def test_each_place_links_to_it_when_live(self):
+        # One check per place, so the footer can't stand in for the others.
+        href = reverse("denial-watch")
+        about = Client().get(reverse("about")).content.decode()
+        home = Client().get(reverse("root")).content.decode()
+        explain = Client().get(reverse("explain_denial")).content.decode()
+        self.assertIn(f'<a href="{href}" class="fhi-nav-link" id="denialwatchlink">', about)
+        self.assertIn(f'<a href="{href}">Denial Watch</a>', about)
+        self.assertRegex(home, rf'(?s)id="denial-watch-home".*?href="{href}"')
+        self.assertIn(f'<a href="{href}">See how often, on Denial Watch</a>', explain)
+
+    @override_settings(DENIAL_WATCH_PAGE_ENABLED=True)
     def test_the_home_strip_states_the_latest_number(self):
         latest = DATA["trend"][-1]
         html = Client().get(reverse("root")).content.decode()
@@ -325,3 +337,24 @@ class TestDenialWatchIsEasyToFind(TestCase):
         for name, html in self._pages().items():
             self.assertNotIn(link, html, f"{name} links to an unlaunched page")
             self.assertNotIn("Denial Watch", html, name)
+
+
+class TestDenialWatchScriptCountsInNetwork(TestCase):
+    """The tests above never run the script, so read which fields it uses."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.js = (
+            REPO / "fighthealthinsurance" / "static" / "js" / "denial_watch.js"
+        ).read_text()
+
+    def test_counter_spreads_in_network_denials(self):
+        self.assertIn("const perDay=T.in_denied/T.days", self.js)
+
+    def test_appeal_ratio_uses_in_network_denials(self):
+        self.assertIn("apShare=T.appeals_all/T.in_denied", self.js)
+
+    def test_counter_can_be_paused(self):
+        self.assertIn("prefers-reduced-motion", self.js)
+        self.assertIn('id="tickpause"', Client().get(reverse("denial-watch")).content.decode())
