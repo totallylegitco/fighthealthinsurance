@@ -153,7 +153,9 @@ class TestLeaseGovernsGenerators(_JourneyTestBase):
     def test_interactive_steal_mid_run_stops_the_journey_quietly(self, mock_gen):
         """A human arrives while the journey generates: the interactive
         steal moves the epoch, the journey stops with what it has and does
-        NOT raise JourneyIncomplete (no retry storm)."""
+        NOT raise JourneyIncomplete (no retry storm). Short of the target,
+        it reports the site is generating, so the workflow waits on the
+        page rather than ending with no letters."""
         denial = _make_denial(9207)
 
         def stealing_make_appeals(*args, **kwargs):
@@ -166,10 +168,10 @@ class TestLeaseGovernsGenerators(_JourneyTestBase):
 
         mock_gen.make_appeals.side_effect = stealing_make_appeals
         stored = appeal_journey_core.generate_and_store_appeals(denial)
+        assert stored == appeal_journey_core.SITE_IS_GENERATING
         # Exactly the pre-steal draft persisted: every later insert is
         # fenced at the write boundary (save_appeal), not just skipped by
         # the per-frame check.
-        assert stored == 1
         assert (
             ProposedAppeal.objects.filter(for_denial=denial, speculative=False).count()
             == 1

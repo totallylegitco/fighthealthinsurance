@@ -285,8 +285,7 @@ async def agenerate_and_store_appeals(denial) -> int:
                     if await generation_lease.acurrent_epoch(denial) != lease.epoch:
                         # Fencing token moved: an interactive run stole the
                         # lease. Stop quietly with what is stored; the user is
-                        # being served live and the retry's baseline check will
-                        # see their drafts.
+                        # being served live.
                         stolen = True
                         break
                     # Distinct fingerprints, not row ids: duplicate rows are one
@@ -314,6 +313,12 @@ async def agenerate_and_store_appeals(denial) -> int:
             f"Appeal journey: lease stolen mid-run for denial {denial.uuid}; "
             "deferring to the interactive generator"
         )
+        if len(after) < TARGET_APPEALS:
+            # The site's page is writing the letters now. Waiting, as when
+            # it held the lease from the start, means letters it stores end
+            # the journey and a page left before then is generated for here;
+            # returning the count would end the journey with no letters.
+            return SITE_IS_GENERATING
         return stored
     if len(after) < TARGET_APPEALS:
         raise JourneyIncomplete(
