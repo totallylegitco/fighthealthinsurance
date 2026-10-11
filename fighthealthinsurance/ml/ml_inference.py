@@ -45,11 +45,15 @@ async def infer_with_fallback(
     for model in models:
         try:
             with llm_usage.llm_task(task):
+                # The timeout goes to the transport too: cancelled from
+                # outside alone, a hung backend records no timeout against
+                # itself and is tried first again by the next caller.
                 result = await asyncio.wait_for(
                     model._infer_no_context(
                         system_prompts=system_prompts,
                         prompt=prompt,
                         temperature=temperature,
+                        timeout=timeout,
                     ),
                     timeout=timeout,
                 )

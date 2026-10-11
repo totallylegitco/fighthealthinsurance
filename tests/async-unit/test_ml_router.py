@@ -525,6 +525,23 @@ class TestMLRouterAppealOnlyBackends(unittest.TestCase):
         pool = self.router.general_purpose_internal_models()
         self.assertEqual(pool, [self.general])
 
+    def test_general_purpose_internal_models_leaves_out_a_backend_the_sweep_found_down(
+        self,
+    ):
+        """The default pool of the one-shot inference helpers is health
+        gated like every other pool: a vLLM the last sweep marked down is
+        not tried first by every document and extraction helper."""
+        from fighthealthinsurance.ml.health_status import health_status
+
+        down = self._internal(quality=150, general=True)
+        down.health_checked_live = False
+        self.router.internal_models_by_cost = [self.appeal_only, down, self.general]
+        with patch.object(
+            health_status, "model_ok", side_effect=lambda m: m is not down
+        ):
+            pool = self.router.general_purpose_internal_models()
+        self.assertEqual(pool, [self.general])
+
     def test_entity_extraction_excludes_the_appeal_only_backend(self):
         self.assertNotIn(
             self.appeal_only, self.router.entity_extract_backends(use_external=False)

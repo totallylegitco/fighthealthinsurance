@@ -1166,11 +1166,14 @@ class MLRouter(object):
         """Internal backends that follow instructions, cheapest-first.
 
         The default pool for one-shot inference helpers (entity extraction,
-        document/policy parsing, chat synthesis). Fails open, so it is never
-        empty when ``internal_models_by_cost`` isn't.
+        document/policy parsing, chat synthesis). Backends the sweep found
+        down go last, as in every other pool, so a hung one is not tried
+        first by every helper. Fails open, so it is never empty when
+        ``internal_models_by_cost`` isn't.
         """
         return self._general_purpose_only(
-            self.internal_models_by_cost, "internal-inference"
+            self._filter_available(self.internal_models_by_cost, "internal-inference"),
+            "internal-inference",
         )
 
     def best_internal_model(
