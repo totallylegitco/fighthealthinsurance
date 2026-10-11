@@ -55,14 +55,16 @@ _LETTER_REQUEST_RE = re.compile(
 # yet", "I'll write my own appeal", "I don't think you should write the
 # appeal"). A negation in the request itself always counts. One before the
 # verb counts unless a new ask starts between them ("so", "but", "can you",
-# "please"...): that is a denial described with "not" ("my MRI was not
-# approved can you write an appeal?", "they would not cover it so please
-# draft the letter"), not a refusal. "Please draft the letter, don't forget
-# my diagnosis" still counts.
+# "please", "help me", "I need"...): that is a denial described with "not"
+# ("my MRI was not approved can you write an appeal?", "they would not
+# cover it so please draft the letter", "they never responded help me write
+# the appeal"), not a refusal. "Please draft the letter, don't forget my
+# diagnosis" still counts.
 _NEGATION = r"\b(?:don['’]?t|do\s+not|not|never|won['’]?t|stop)\b"
 _DECLINED_RE = re.compile(_NEGATION + r"|\bmy\s+own\b", re.IGNORECASE)
 _NEW_ASK_RE = re.compile(
-    r"\b(?:so|but|then|please|and\s+i|(?:can|could|would|will)\s+you)\b",
+    r"\b(?:so|but|then|please|and\s+i|(?:can|could|would|will)\s+you"
+    r"|help\s+me|i\s+need|i\s+want|i(?:['’]?d|\s+would)\s+like)\b",
     re.IGNORECASE,
 )
 
