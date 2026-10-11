@@ -167,6 +167,12 @@ class StateHelpSitemap(Sitemap):
 
 class GlossarySitemap(Sitemap):
     """Sitemap for the glossary index and per-term pages."""
+class WorstInsuranceSitemap(Sitemap):
+    """Sitemap for the monthly worst-insurance rankings pages.
+
+    Empty (pages unpublished) until a report has been ingested; state pages
+    are only listed for states with actual rankings.
+    """
 
     priority = 0.6
     changefreq = "monthly"
@@ -186,6 +192,29 @@ class GlossarySitemap(Sitemap):
         if item == "index":
             return reverse("glossary_index")
         return reverse("glossary_term", kwargs={"slug": item})
+        try:
+            from fighthealthinsurance.state_help import get_state_help_by_abbreviation
+            from fighthealthinsurance.worst_insurance import get_latest_report
+
+            report = get_latest_report()
+            if report is None:
+                return []
+            slugs = []
+            for state in sorted(set(report.rankings.values_list("state", flat=True))):
+                state_help = get_state_help_by_abbreviation(state)
+                if state_help:
+                    slugs.append(state_help.slug)
+            return ["index", "methodology", *slugs]
+        except Exception as e:
+            logger.warning(f"Could not load worst-insurance rankings for sitemap: {e}")
+            return []
+
+    def location(self, item: str) -> str:
+        if item == "index":
+            return reverse("worst_insurance_index")
+        if item == "methodology":
+            return reverse("worst_insurance_methodology")
+        return reverse("worst_insurance_state", kwargs={"slug": item})
 
 
 # Dictionary mapping sitemap section names to sitemap classes
@@ -195,6 +224,7 @@ sitemaps = {
     "microsites": MicrositeSitemap,
     "state_help": StateHelpSitemap,
     "glossary": GlossarySitemap,
+    "worst_insurance": WorstInsuranceSitemap,
 }
 
 
