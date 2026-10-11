@@ -145,6 +145,8 @@ class TestStatePage:
         content = response.content.decode()
         # 0.31 denial rate renders as 31.0% with its numerator/denominator.
         assert "31.0%" in content
+        # Covered member-months carry thousands separators.
+        assert "1,200,000" in content
 
     def test_state_page_shows_estimated_hours_headline(self, client):
         load_sample_report()

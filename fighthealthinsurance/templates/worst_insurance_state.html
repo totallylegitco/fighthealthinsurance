@@ -34,7 +34,7 @@
         <h2>{{ state.name }} rankings &mdash; worst first</h2>
         <p class="fhi-hint">Higher score = worse performance on the public metrics available for {{ state.name }}. Scores are only comparable within this state.</p>
         <div class="scroll-x">
-            <table class="simple-table">
+            <table class="simple-table worst-insurance-table">
                 <thead>
                     <tr>
                         <th scope="col">#</th>
@@ -64,7 +64,7 @@
                             {% endif %}
                         </td>
                         {% endfor %}
-                        <td>{% if row.ranking.member_months %}{{ row.ranking.member_months|floatformat:0 }}{% else %}<span class="fhi-hint">&mdash;</span>{% endif %}</td>
+                        <td>{% if row.member_months_display %}{{ row.member_months_display }}{% else %}<span class="fhi-hint">&mdash;</span>{% endif %}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

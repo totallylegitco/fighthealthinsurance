@@ -186,5 +186,14 @@ def build_ranking_table(rankings: List[WorstInsuranceRanking]) -> RankingTable:
             )
             for col in columns
         ]
-        rows.append({"ranking": ranking, "cells": cells})
+        member_months = ranking.member_months
+        rows.append(
+            {
+                "ranking": ranking,
+                "cells": cells,
+                "member_months_display": (
+                    f"{int(member_months):,}" if member_months else None
+                ),
+            }
+        )
     return RankingTable(columns=columns, rows=rows)
