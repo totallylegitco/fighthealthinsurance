@@ -11,13 +11,13 @@ ml/llm_usage.py adds to three tables through here:
 
 Off the request path like spend.py's ledger: record_llm_usage adds to this
 process's pending totals in memory, and one daemon thread per process
-writes them every WRITE_EVERY_SECONDS (subtracting only what a write
-stored, so a failed write is retried, never lost, and holds back no other
-row) on its own connection, closed after each pass. Pending totals are one
-entry per row, capped at MAX_PENDING; past the cap new entries are
-dropped, keyed ones first, and counted in
-fhi_llm_usage_ledger_dropped_total. A process that exits loses at most
-its last few seconds.
+writes them every WRITE_EVERY_SECONDS on its own connection, closed after
+each pass. It subtracts only what a write stored, so a failed write is
+retried, never lost. A row that can't be stored holds back no other row; a
+database that can't be reached ends the pass. Pending totals are one entry
+per row, capped at MAX_PENDING; past the cap new entries are dropped,
+keyed ones first, and counted in fhi_llm_usage_ledger_dropped_total. A
+process that exits loses at most its last few seconds.
 
 Unlike the Prometheus series, these also count the calls made on the Ray
 actors, whose registries nothing scrapes.
@@ -29,6 +29,7 @@ from dataclasses import dataclass, fields
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from django.conf import settings
+from django.db import DataError
 from loguru import logger
 from prometheus_client import Counter
 
@@ -206,11 +207,15 @@ class _Ledger:
                 else:
                     try:
                         _store(table, key, amounts)
-                    except Exception as e:
-                        # This row stays pending for the next pass; the rows
-                        # after it are still written in this one.
+                    except DataError as e:
+                        # A value this one row can't store: it stays pending
+                        # and the rows after it are still written. Any other
+                        # failure (the database unreachable, read-only, or
+                        # missing its tables) fails every row alike, so it
+                        # ends the pass in _tick instead of being tried
+                        # once per pending row.
                         logger.warning(
-                            f"LLM usage ledger write failed for {table}: "
+                            f"LLM usage ledger row not stored in {table}: "
                             f"{type(e).__name__}"
                         )
                         continue
