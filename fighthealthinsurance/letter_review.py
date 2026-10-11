@@ -31,7 +31,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from django.db import transaction
-from django.db.models import Q, QuerySet
+from django.db.models import Count, F, Q, QuerySet
 from django.http import Http404
 from django.utils import timezone
 from django.views.decorators.debug import sensitive_variables
@@ -698,14 +698,28 @@ def reader_letters(reader: LetterReviewReader) -> List[Dict[str, Any]]:
 
 
 def packet_finished(packet: LetterReviewPacket) -> bool:
-    """True once every reader on the packet has labeled every letter of theirs."""
-    return all(
-        labeled >= assigned
-        for labeled, assigned in (
-            progress(reader)
-            for reader in LetterReviewReader.objects.filter(packet=packet)
-        )
+    """True once every reader on the packet has labeled every letter of theirs.
+
+    Asked on every page of the review and on every label write, so it is two
+    queries for the packet rather than two per reader: how many letters each
+    reader holds, and how many of those each has finished (the same counts
+    ``progress`` gives for one reader).
+    """
+    assigned = dict(
+        LetterReviewReader.objects.filter(packet=packet)
+        .annotate(n=Count("items"))
+        .values_list("pk", "n")
     )
+    labeled = dict(
+        LetterReviewLabel.objects.filter(
+            reader__packet=packet, item__readers=F("reader")
+        )
+        .filter(complete(packet))
+        .values("reader_id")
+        .annotate(n=Count("pk"))
+        .values_list("reader_id", "n")
+    )
+    return all(labeled.get(pk, 0) >= n for pk, n in assigned.items())
 
 
 def labels_frozen(packet: LetterReviewPacket) -> bool:
