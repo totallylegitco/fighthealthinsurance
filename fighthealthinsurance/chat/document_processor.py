@@ -105,6 +105,7 @@ async def _try_internal_models(
         model_count=SUMMARY_MODEL_ATTEMPTS,
         min_length=min_length,
         label="doc chunk summary",
+        task="doc_summary",
     )
 
 

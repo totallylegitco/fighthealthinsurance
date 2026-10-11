@@ -31,6 +31,7 @@ from fighthealthinsurance.escalation_addresses import (
 )
 from fighthealthinsurance.context_utils import truncate_at_boundary
 from fighthealthinsurance.env_utils import get_env_variable
+from fighthealthinsurance.ml import llm_usage
 from fighthealthinsurance.ml.ml_models import RemoteModelLike, attempt_deadline
 from fighthealthinsurance.ml.ml_router import ml_router
 
@@ -329,6 +330,7 @@ def _letter_outside_models() -> list[RemoteModelLike]:
     return best
 
 
+@llm_usage.for_denial(task="regulator_letter")
 async def generate_regulator_letter(
     denial: Any,
     recipient: EscalationRecipient,

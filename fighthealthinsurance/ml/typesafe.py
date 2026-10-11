@@ -33,7 +33,7 @@ from django.conf import settings
 from loguru import logger
 
 from fighthealthinsurance.env_utils import get_env_variable
-from fighthealthinsurance.ml import spend
+from fighthealthinsurance.ml import llm_usage, spend
 
 # The pinned Jev release, used when TYPESAFE_MODEL is unset or empty. A pinned
 # id rather than the "jev-latest" alias, because TypeSafe can repoint an alias
@@ -293,6 +293,7 @@ async def ask(
     *,
     timeout_seconds: float,
     use: str = spend.OTHER,
+    task: str = "other",
 ) -> typing.Any:
     """POST one state and a set of typed questions; return the raw JSON.
 
@@ -306,7 +307,8 @@ async def ask(
     (CONNECT_TIMEOUT_STREAK; a connect bound under
     MIN_COUNTED_CONNECT_SECONDS never counts) starts the cooldown: until it
     ends every use is refused with TypeSafeCoolingDown before anything is
-    sent.
+    sent. ``task`` is what the LLM usage metrics count the
+    answer as (ml/llm_usage.py TASKS).
 
     Raises TypeSafeError on a non-200, a spent budget or a cooldown, and
     lets aiohttp/asyncio errors propagate: callers decide what a failure
@@ -392,4 +394,10 @@ async def ask(
         spend.record(
             spend.TYPESAFE, use, spend.typesafe_cost_micro(usage.get("input_tokens"))
         )
+    llm_usage.record_llm_usage(
+        model=f"typesafe/{reported_model(payload)}",
+        tier=llm_usage.EXTERNAL,
+        usage=usage,
+        task=task,
+    )
     return payload

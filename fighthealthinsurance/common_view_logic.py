@@ -106,7 +106,7 @@ from fighthealthinsurance.medical_code_extractor import (
     extract_procedure_codes,
 )
 from fighthealthinsurance.ml import denial_triage, letter_quality
-from fighthealthinsurance.ml import spend
+from fighthealthinsurance.ml import llm_usage, spend
 from fighthealthinsurance.ml.bad_output_utils import strip_boilerplate_service
 from fighthealthinsurance.ml.serving_registry import aserving_id_for
 from fighthealthinsurance.reliability_events import capture_reliability_event
@@ -3385,8 +3385,25 @@ class DenialCreatorHelper:
         it, so the letter is actually read again, and spends one of the
         letter's attempts so the button cannot be pressed forever.
         """
+        # The body notes the case's LLM usage origin once it has loaded the
+        # Denial; scoped here, like generate_appeals, so no caller keeps it.
+        agen = cast(
+            AsyncGenerator[dict, None], cls._extract_entity_body(denial_id, retry)
+        )
+        try:
+            with llm_usage.origin_scope():
+                async for record in agen:
+                    yield record
+        finally:
+            await agen.aclose()
 
+    @classmethod
+    async def _extract_entity_body(
+        cls, denial_id: int, retry: bool
+    ) -> AsyncIterator[dict]:
+        """extract_entity's steps (see there)."""
         denial = await Denial.objects.filter(denial_id=denial_id).aget()
+        await llm_usage.anote_denial(denial)
         # Read the budget before anything clears it: a retry already over the
         # cap must reach the out-of-attempts branch below.
         attempts = denial.extract_attempts or 0
@@ -5045,8 +5062,9 @@ class AppealsBackendHelper:
             AsyncGenerator[str, None], cls._generate_appeals_body(parameters, lease_ref)
         )
         try:
-            # The body marks the channel once it has loaded the Denial.
-            with spend.channel_scope():
+            # The body marks the channel (and the LLM usage origin) once it
+            # has loaded the Denial.
+            with spend.channel_scope(), llm_usage.origin_scope():
                 async for chunk in agen:
                     yield chunk
         finally:
@@ -5176,6 +5194,7 @@ class AppealsBackendHelper:
         )
         denial = await denial_query.aget()
         spend.set_channel_of(denial)
+        await llm_usage.anote_denial(denial)
         if not background:
             # Form completed: the durable intent is recorded the moment the
             # authenticated lookup succeeds -- before any yield, enrichment,

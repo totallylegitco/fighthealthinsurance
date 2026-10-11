@@ -28,6 +28,7 @@ from django.utils import timezone
 from channels.db import database_sync_to_async
 from loguru import logger
 
+from fighthealthinsurance.ml import llm_usage
 from fighthealthinsurance.ml.ml_metrics import ml_call_purpose_override
 from fighthealthinsurance.ml.ml_router import ml_router
 from fighthealthinsurance.ml.model_identity import (
@@ -767,6 +768,9 @@ async def _generate_batch_tasks(
     return ready
 
 
+# Every chooser generation path (the refill actor, the prefill thread, the
+# REST next-task fallback) comes through here: synthetic data, no person.
+@llm_usage.system_entry("chooser")
 async def _generate_single_task(task_type: str) -> bool:
     """
     Generate a single ChooserTask with candidates; returns whether it came
