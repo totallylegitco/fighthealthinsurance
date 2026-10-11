@@ -96,6 +96,29 @@ class TestGenerateAndStoreAppeals(_JourneyTestBase):
             == 3
         )
 
+    def test_an_error_reading_the_answers_leaves_the_lease_free(self):
+        """The assistant's answers are read before the lease is taken: a
+        database error there must not leave a lease held with nothing to
+        renew or release it, which every retry inside its TTL would find
+        held."""
+        from asgiref.sync import async_to_sync
+        from django.db import OperationalError
+
+        from fighthealthinsurance import generation_lease
+
+        denial = _make_denial(9104)
+        with patch(
+            "fighthealthinsurance.assistant_drafts.answers_for_generation",
+            side_effect=OperationalError("connection lost"),
+        ):
+            with pytest.raises(OperationalError):
+                appeal_journey_core.generate_and_store_appeals(denial)
+        lease = async_to_sync(generation_lease.aacquire)(
+            denial, holder=generation_lease.new_holder("journey")
+        )
+        assert lease.acquired
+        async_to_sync(generation_lease.arelease)(denial, lease.epoch)
+
     @patch("fighthealthinsurance.common_view_logic.appealGenerator")
     def test_empty_stream_raises_journey_incomplete(self, mock_gen):
         """A generator that produces nothing must surface as a retryable
