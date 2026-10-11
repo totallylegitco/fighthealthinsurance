@@ -152,6 +152,18 @@ class TermsPageTest(TermsTestBase):
         self.assertTemplateUsed(page, "scrub.html")
         self.assertEqual(AssistantHandoff.objects.count(), 0)
 
+    def test_a_chat_link_pressed_without_its_binder_opens_the_site_form_and_says_so(
+        self,
+    ):
+        """A page served before the flag flip never bound the link: the press
+        opens the site's form, and the assistant hears on_site rather than
+        waiting for an agreement that is not coming."""
+        code, draft = chat_link()
+        page = self.client.post(LANDING, {"token": code})
+        self.assertTemplateUsed(page, "scrub.html")
+        draft.refresh_from_db()
+        self.assertEqual(draft.status, assistant_drafts.ON_SITE)
+
     def test_a_site_link_still_opens_the_site_form(self):
         handoff = create_handoff(LETTER, kind="site")
         self.client.post(LANDING, {"token": handoff.code, "bind": "1"})
