@@ -723,6 +723,19 @@ def intro_wording_problem(text: Optional[str]) -> Optional[str]:
     return None
 
 
+_HONORIFICS = frozenset({"dr", "mr", "mrs", "ms", "mx", "miss", "prof"})
+
+
+def _first_name(name: str) -> Optional[str]:
+    """The first word of a display name, honorifics aside: "Rebecca" for
+    "Rebecca Lee" and "Dr. Rebecca Lee", "Lee" for "Lee, Rebecca".
+    Punctuation is no part of it, so a whole-word search for it can match
+    ("Dr." or "Lee," never can)."""
+    words = re.findall(r"\w+", name)
+    named = [word for word in words if word.lower() not in _HONORIFICS]
+    return (named or words or [None])[0]
+
+
 def new_signup_body_problem(body: Optional[str]) -> Optional[str]:
     """Reason an (edited) new-signup body can't go out as is, or ``None``.
 
@@ -740,8 +753,10 @@ def new_signup_body_problem(body: Optional[str]) -> Optional[str]:
     name = _cofactor_intro_contact_name()
     if not name:
         return None
-    first_name = name.split()[0]
-    if re.search(rf"\b{re.escape(first_name)}\b", body or "", re.IGNORECASE):
+    first_name = _first_name(name)
+    if not first_name or re.search(
+        rf"\b{re.escape(first_name)}\b", body or "", re.IGNORECASE
+    ):
         return None
     return (
         f"This introduction is CC'd to {name} at Cofactor AI, but the email "
