@@ -363,12 +363,18 @@ class ReplyGate:
             return None
         return max(0, int((time.monotonic() - self._started) * 1000))
 
-    def finish(self) -> None:
+    def finish(self, *, verdict_seen: bool = True) -> None:
         """Settle the outcome once the fan-out is done with the check.
 
         A check the fan-out cut off (the hold ran out first) is a timeout;
         a gate that held the outside calls but never judged a reply (none of
-        ours was usable in time) is skipped.
+        ours was usable in time) is skipped. ``verdict_seen`` False says the
+        fan-out decided without the verdict: Jev answered, but only after
+        the hold ran out (utils.best_two_within_timelimit ignores a verdict
+        that lands after the delay), and the outside calls went out as
+        after a delay. That is the check the hold cut off, a timeout, with
+        no answer of Jev's to act on; recorded as its verdict, the row
+        would say a pass or a fail on a turn whose outside calls were sent.
         """
         if not self.used:
             return
@@ -376,6 +382,14 @@ class ReplyGate:
         if self._started is None:
             self.outcome = chat_gate.SKIPPED
             return
+        if not verdict_seen and self.outcome in (
+            chat_gate.PASS,
+            chat_gate.BORDERLINE,
+            chat_gate.FAIL,
+        ):
+            self.outcome = chat_gate.TIMEOUT
+            self.scores = None
+            self.crucial = False
         if not self.outcome:
             self.outcome = chat_gate.TIMEOUT
         if self.ms is None:

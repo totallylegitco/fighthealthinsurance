@@ -1017,7 +1017,11 @@ class ChatInterface:
                 else:
                     turn.set_external_start(STAGE_IMMEDIATE, 0.0)
             if turn is not None and gate is not None:
-                gate.finish()
+                # The race sets check_passed when it acted on the verdict; a
+                # verdict that landed after the hold ran out was not seen.
+                gate.finish(
+                    verdict_seen=stage is None or stage.check_passed is not None
+                )
                 gate_scores = gate.scores
                 turn.set_gate(
                     gate.outcome,
