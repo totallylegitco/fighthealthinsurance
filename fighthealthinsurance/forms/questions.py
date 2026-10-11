@@ -1,6 +1,8 @@
 import re
 import urllib
+from typing import Dict, Iterable, Optional
 
+from asgiref.sync import sync_to_async
 from django import forms
 
 from fighthealthinsurance.form_utils import StyledWidgetsMixin
@@ -9,8 +11,47 @@ import requests
 from bs4 import BeautifulSoup
 from loguru import logger
 
-from fighthealthinsurance.models import Denial, PlanDocuments
-from fighthealthinsurance.utils import extract_file_text
+from fighthealthinsurance.ml.ml_plan_doc_helper import MLPlanDocHelper
+from fighthealthinsurance.models import Denial
+
+# A mention of WPATH, and the Standards of Care version near one: "Standards
+# of Care ..., Version 7" or "SOC-8". Gaps are bounded and the version is
+# looked for only near a mention: the open-ended
+# WPATH.*?Standards of.*?Care.*?Version.*?(\d+) this replaces backtracked
+# polynomially over a long document that mentions WPATH but no version.
+_WPATH_MENTION_RE = re.compile(r"WPATH", re.IGNORECASE)
+_SOC_VERSION_RE = re.compile(
+    r"Standards\s+of\s+Care\b[^.;]{0,160}?\bVersion\s*(\d{1,2})\b"
+    r"|\bSOC[\s\-\u2010-\u2015]?v?(\d{1,2})\b",
+    re.IGNORECASE,
+)
+_WPATH_WINDOW_CHARS = 400
+
+# The HRC lookup runs while an appeal is generated; without a timeout a
+# slow hrc.org held the appeal for as long as requests cared to wait.
+HRC_TIMEOUT_SECONDS = 10
+
+
+def wpath_version_in(texts: Iterable[str]) -> Optional[str]:
+    """The WPATH Standards of Care version plan documents cite.
+
+    Its number when a mention of WPATH has one near it, "" when WPATH is
+    mentioned without one, None when no document mentions it. Every
+    document is read: the first one uploaded is often the summary of
+    benefits, not the policy that cites the standards.
+    """
+    found: Optional[str] = None
+    for text in texts:
+        for mention in _WPATH_MENTION_RE.finditer(text):
+            window = text[
+                max(0, mention.start() - _WPATH_WINDOW_CHARS) : mention.end()
+                + _WPATH_WINDOW_CHARS
+            ]
+            version = _SOC_VERSION_RE.search(window)
+            if version:
+                return version.group(1) or version.group(2)
+            found = ""
+    return found
 
 
 class InsuranceQuestions(StyledWidgetsMixin, forms.Form):
@@ -301,7 +342,13 @@ class PriorAuthQuestions(InsuranceQuestions):
 class GenderAffirmingCareQuestions(InsuranceQuestions):
     """Generic questions for gender affirming care."""
 
-    def plan_context(self, denial: Denial):
+    async def plan_context(self, denial: Denial) -> str:
+        """What the appeal should know about the plan and the employer.
+
+        Async, called through common_view_logic.form_plan_context: it reads
+        the plan documents and asks hrc.org, and neither may run on the
+        event loop of the appeal generator that calls it.
+        """
         response = ""
         if denial.state == "CA":
             response += (
@@ -323,7 +370,12 @@ class GenderAffirmingCareQuestions(InsuranceQuestions):
             )
 
         if denial.employer_name is not None:
-            if self.employer_hrc_lookup(denial.employer_name):
+            # Network only, no ORM: plain asgiref sync_to_async, on its own
+            # thread rather than the thread-sensitive one the ORM shares,
+            # which up to two slow hrc.org requests would otherwise hold.
+            if await sync_to_async(self.employer_hrc_lookup, thread_sensitive=False)(
+                denial.employer_name
+            ):
                 response += (
                     "The employer has stated to the Human Rights Campaign "
                     "(HRC) that it will cover transgender health care. Should "
@@ -331,7 +383,7 @@ class GenderAffirmingCareQuestions(InsuranceQuestions):
                     "both HR and the HRC."
                 )
 
-        wpath_version = self.wpath_version(denial)
+        wpath_version = await self.wpath_version(denial)
         if wpath_version is not None:
             response += (
                 "As stated in the plan documents the plan must follow the "
@@ -339,34 +391,21 @@ class GenderAffirmingCareQuestions(InsuranceQuestions):
             )
         return response
 
-    def wpath_version(self, denial):
-        return self._wpath_version(
-            map(
-                lambda doc: doc.plan_document.path,
-                PlanDocuments.objects.filter(denial=denial),
-            )
+    async def wpath_version(self, denial: Denial) -> Optional[str]:
+        """The WPATH version the denial's plan documents cite (see
+        wpath_version_in), read once per denial for this form.
+
+        Read decrypted through MLPlanDocHelper.load_plan_documents: uploads
+        are stored encrypted, and the unencrypted field this used to open
+        is empty for every one of them.
+        """
+        versions: Dict[int, Optional[str]] = self.__dict__.setdefault(
+            "_wpath_versions", {}
         )
-
-    def _wpath_version(self, plan_paths):
-        # Do we have plan documents and do they reference WPATH?
-        wpath_version = None
-        for path in plan_paths:
-            contents = extract_file_text(path)
-            soc_version_re = re.compile(
-                "WPATH.*?Standards of.*?Care.*?Version.*?(\\d+).*",
-                re.IGNORECASE | re.MULTILINE | re.DOTALL,
-            )
-            m = re.search(soc_version_re, contents)
-            if m is not None:
-                wpath_version = m.group(1)
-                # Exit as soon as we find any WPATH SOC version
-                return wpath_version
-            if "WPATH" in contents:
-                if wpath_version is None:
-                    # We don't know the version but it is refed
-                    wpath_version = ""
-
-            return wpath_version
+        if denial.denial_id not in versions:
+            documents = await MLPlanDocHelper.load_plan_documents(denial.denial_id)
+            versions[denial.denial_id] = wpath_version_in(doc.text for doc in documents)
+        return versions[denial.denial_id]
 
     def employer_hrc_lookup(self, employer):
         # Check and see if the employer is listed in the HRC equality index
@@ -375,7 +414,7 @@ class GenderAffirmingCareQuestions(InsuranceQuestions):
             employer_search_string = (
                 f"https://www.hrc.org/resources/employers/search?q={safe_employer_name}"
             )
-            r = requests.get(employer_search_string)
+            r = requests.get(employer_search_string, timeout=HRC_TIMEOUT_SECONDS)
             if "No results found for" not in r.text:
                 soup = BeautifulSoup(r.text, "html.parser")
                 link_re = re.compile("https://www.hrc.org/resources/buyers-guide/.*")
@@ -383,7 +422,7 @@ class GenderAffirmingCareQuestions(InsuranceQuestions):
                 text = ""
                 for bs_link in links:
                     if employer.lower() in bs_link.getText().lower():
-                        r = requests.get(bs_link["href"])
+                        r = requests.get(bs_link["href"], timeout=HRC_TIMEOUT_SECONDS)
                         text = r.text
                         break
                 # Very hacky check to see if the employer should cover by HRC
@@ -398,14 +437,14 @@ class GenderAffirmingCareQuestions(InsuranceQuestions):
 
 
 class GenderAffirmingCareBreastAugmentationQuestions(GenderAffirmingCareQuestions):
-    def plan_context(self, denial: Denial):
-        if self.wpath_version(denial) == "7":
+    async def plan_context(self, denial: Denial) -> str:
+        if await self.wpath_version(denial) == "7":
             return """The plan references version 7 of the WPATH SOC. As covered on P59 of the WPATH 7 SOC the only requirements for breast augmentation is 1. Persistent, well-documented gender dysphoria;
             2. Capacity to make a fully informed decision and to consent for treatment;
             3. Age of majority in a given country (if younger, follow the SOC for children and adolescents);
             4. If significant medical or mental health concerns are present, they must be reasonably well
             controlled."""
-        return super().plan_context(denial)
+        return await super().plan_context(denial)
 
 
 class PreventiveCareQuestions(InsuranceQuestions):

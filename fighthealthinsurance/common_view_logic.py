@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import html
+import inspect
 import json
 import os
 import re
@@ -23,6 +24,7 @@ from typing import (
     Optional,
     Tuple,
     AsyncGenerator,
+    Callable,
     cast,
 )
 
@@ -2318,6 +2320,24 @@ EXTRACTION_RUN_LABELS: dict[str, str] = {
 # Continue button at 20 seconds can start a second overlapping run --
 # see claim_generated_questions.
 QUESTION_GENERATION_DEADLINE_SECONDS = 130
+
+
+async def form_plan_context(
+    plan_context: Callable[["Denial"], Any], denial: "Denial"
+) -> Optional[str]:
+    """Run a denial-type form's plan_context hook from async code.
+
+    A coroutine hook is awaited. A plain one runs off the event loop through
+    database_sync_to_async: the hooks read the denial's plan documents and
+    other rows, and called inline from the appeal generator the ORM raised
+    SynchronousOnlyOperation, which was logged at DEBUG and dropped -- so
+    the gender-affirming-care plan context never reached an appeal.
+    """
+    if inspect.iscoroutinefunction(plan_context):
+        result: Optional[str] = await plan_context(denial)
+        return result
+    sync_result: Optional[str] = await database_sync_to_async(plan_context)(denial)
+    return sync_result
 
 
 def stored_questions_are_current(denial: "Denial") -> bool:
@@ -5978,12 +5998,17 @@ class AppealsBackendHelper:
                     op = getattr(parsed, "plan_context", None)
                     if op is not None and callable(op):
                         try:
-                            pc = parsed.plan_context(denial)
+                            pc = await form_plan_context(op, denial)
                             if pc is not None:
                                 plan_context.add(pc)
                         except Exception as e:
-                            logger.debug(
-                                f"Error {e} processing form {form} for plan context"
+                            # WARNING, not DEBUG: a failing hook drops the
+                            # plan context from the appeal, and at DEBUG it
+                            # went unnoticed for every gender-affirming-care
+                            # denial.
+                            logger.opt(exception=True).warning(
+                                f"plan_context failed for form {form.__name__}: "
+                                f"{type(e).__name__}"
                             )
                     # See if we have a provided medical reason
                     if (
