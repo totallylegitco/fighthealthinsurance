@@ -1,14 +1,16 @@
 """Generate-appeal-letter tool handler for the chat interface.
 
-Handles ``**generate_appeal_letter {...}**`` calls from the LLM. Instead of
-the chat model writing a full appeal letter inline (the longest and most
-failure-prone chat generation -- see the "Please go ahead and draft a
-letter." total-failure incidents), the model emits this small call with the
-denial details it knows and the dedicated appeal-generation pipeline
-(appeal-tuned models, curated specialized templates, the shed ladder) writes
-the letter. The tool creates/updates the chat-linked Appeal + Denial from
-the same payload, saves the drafted letter to the appeal, and replaces the
-call with the letter text plus a link.
+Handles ``**generate_appeal_letter {...}**`` calls from the LLM. Rather than
+write a full appeal letter inline (the longest and most failure-prone chat
+generation -- see the "Please go ahead and draft a letter." total-failure
+incidents), the model can emit this small call with the denial details it
+knows, and the dedicated appeal-generation pipeline (appeal-tuned models,
+curated specialized templates, the shed ladder) writes the letter. The chat
+prompt leaves the choice to the model: it still writes the letter itself,
+saved through create_or_update_appeal, when the conversation holds context
+the call's fields can't carry. The tool creates/updates the chat-linked
+Appeal + Denial from the same payload, saves the drafted letter to the
+appeal, and replaces the call with the letter text plus a link.
 """
 
 import json
