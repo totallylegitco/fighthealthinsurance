@@ -2972,6 +2972,34 @@ class NewSignupBodyProblemTest(TestCase):
         # Rebecca, but the send would CC someone else.
         self.assertIsNotNone(new_signup_body_problem("I've cc'd Rebecca here."))
 
+    @override_settings(
+        COFACTOR_INTRO_CONTACT="Dr. Rebecca Lee Crumpler <rebecca@cofactorai.com>"
+    )
+    def test_approved_email_passes_for_a_contact_with_an_honorific(self):
+        self.assertIsNone(
+            new_signup_body_problem(build_new_signup_intro_email(_make_pro()))
+        )
+
+    @override_settings(
+        COFACTOR_INTRO_CONTACT='"Crumpler, Rebecca" <rebecca@cofactorai.com>'
+    )
+    def test_approved_email_passes_for_a_last_name_first_contact(self):
+        self.assertIsNone(
+            new_signup_body_problem(build_new_signup_intro_email(_make_pro()))
+        )
+
+    @override_settings(
+        COFACTOR_INTRO_CONTACT='"Crumpler, Rebecca" <rebecca@cofactorai.com>'
+    )
+    def test_rewording_by_first_name_passes_for_a_last_name_first_contact(self):
+        self.assertIsNone(new_signup_body_problem("I've cc'd Rebecca here."))
+
+    @override_settings(
+        COFACTOR_INTRO_CONTACT='"Rebecca Lee Crumpler, MD" <rebecca@cofactorai.com>'
+    )
+    def test_a_credential_after_a_comma_is_not_a_first_name(self):
+        self.assertIsNotNone(new_signup_body_problem("Ask your MD about it."))
+
     @override_settings(COFACTOR_INTRO_CONTACT="someone@cofactorai.com")
     def test_bare_address_contact_has_no_name_to_check(self):
         self.assertIsNone(new_signup_body_problem("No contact named here."))

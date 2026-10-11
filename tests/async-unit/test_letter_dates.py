@@ -172,6 +172,18 @@ class DateLineTest(SimpleTestCase):
                 letter = f"{subject}\nMarch 3, 2026\n\nDear Example Health,\n"
                 self.assertEqual(date_the_letter(letter, TODAY), letter)
 
+    def test_a_labeled_date_line_in_a_memo_header_becomes_today(self):
+        letter = (
+            "To: Aetna Appeals Department\nFrom: Jane Doe\n"
+            "Re: Appeal of Claim 123\nDate: [Date]\n\nDear Aetna,\nbody"
+        )
+        self.assertIn(f"Date: {TODAY}\n", date_the_letter(letter, TODAY))
+
+    def test_a_labeled_date_line_under_a_long_sender_block_becomes_today(self):
+        sender = "".join(f"Line {n}\n" for n in range(1, 14))
+        letter = f"{sender}Date: [Date]\n\nDear Example Health,\nbody"
+        self.assertIn(f"Date: {TODAY}\n", date_the_letter(letter, TODAY))
+
     def test_a_date_under_a_date_of_birth_label_is_untouched(self):
         letter = (
             "Jane Doe\nDate of Birth:\n01/02/1980\n\nDear Example Health,\n"

@@ -133,12 +133,12 @@ _LABEL_ONLY = re.compile(
     rf"[ \t\r]*",
     re.IGNORECASE,
 )
-# Where the letter turns to its reader or names its subject: the date line
-# sits above these, and nothing at or below them is read.
-_BODY_STARTS = re.compile(
-    r"[\W_]*(?:dear\b|to\s+whom\b|(?:re|subject|regarding)[*_ \t]*:)",
-    re.IGNORECASE,
-)
+# Where the letter turns to its reader: nothing at or below it is read.
+_SALUTATION = re.compile(r"[\W_]*(?:dear\b|to\s+whom\b)", re.IGNORECASE)
+# Where the letter names its subject. The date line usually sits above it,
+# but a memo-style header ("To:", "From:", "Re:", "Date:") may put it below,
+# so below it only a date line carrying the letter's own label is taken.
+_SUBJECT = re.compile(r"[\W_]*(?:re|subject|regarding)[*_ \t]*:", re.IGNORECASE)
 # A line naming the value under it: a label ("Date of Birth:", "Dates of
 # Service", "DOB") ...
 _LABEL = re.compile(r":[*_ \t\r]*$|\b(?:dates?|dos|dob)\b", re.IGNORECASE)
@@ -192,8 +192,14 @@ def _names_the_line_under_it(line: str) -> bool:
 
 def _find_date_line(lines: list[str]) -> Optional[tuple[int, re.Match[str]]]:
     """Where the letter's own date line is, and its match: the first date
-    line above the salutation and subject line."""
+    line above the salutation and subject line, or, below the subject line
+    or a long header, the first one labeled as the letter's date ("Date:
+    [Date]") above the salutation."""
     seen = 0
+    # Past the subject line or the usual header length: only a date line
+    # with the letter's own label counts, until the salutation or twice the
+    # header length.
+    labeled_only = False
     # Whether the next date line is the value a line above names, and
     # whether that line has had its value yet: a blank line ends a list of
     # dates under a label, but not the wait for the first one.
@@ -205,9 +211,15 @@ def _find_date_line(lines: list[str]) -> Optional[tuple[int, re.Match[str]]]:
                 named = False
             continue
         seen += 1
-        if seen > HEADER_LINES or _BODY_STARTS.match(line):
+        if seen > 2 * HEADER_LINES or _SALUTATION.match(line):
             break
+        if seen > HEADER_LINES or _SUBJECT.match(line):
+            labeled_only = True
         match = _DATE_LINE.fullmatch(line)
+        if labeled_only:
+            if match is not None and match.group("label"):
+                return index, match
+            continue
         if match is None:
             named = _names_the_line_under_it(line)
             answered = False
@@ -229,9 +241,9 @@ def letter_date(content: str) -> Optional[str]:
 
 def date_the_letter(content: str, today: Optional[str] = None) -> str:
     """The letter with its date line set to ``today`` (today's date in
-    Pacific time when not given). Only the first date line above the
-    salutation and subject line is replaced; a letter without one is
-    returned unchanged."""
+    Pacific time when not given). Only the letter's own date line
+    (_find_date_line) is replaced; a letter without one is returned
+    unchanged."""
     if not content:
         return content
     lines = content.split("\n")

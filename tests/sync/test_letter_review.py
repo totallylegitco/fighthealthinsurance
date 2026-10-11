@@ -1988,6 +1988,11 @@ class HighlightTests(SimpleTestCase):
             ["First line\nsame paragraph.", "Second paragraph 42."],
         )
 
+    def test_nested_fill_ins_show_the_letter_text_once(self):
+        letter = "Dear [Patient [Name]], thanks"
+        paras = letter_review_highlight.paragraphs(letter, "")
+        self.assertEqual(["".join(seg.text for seg in para) for para in paras], [letter])
+
     def test_the_same_letter_always_gets_the_same_marks(self):
         letter = "Dr. Mary Walker saw her on 2026-01-02 for 45 minutes."
         self.assertEqual(

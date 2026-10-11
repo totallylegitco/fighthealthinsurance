@@ -724,6 +724,27 @@ def intro_wording_problem(text: Optional[str]) -> Optional[str]:
     return None
 
 
+# Words of a display name that are no one's first name.
+_NOT_NAMES = frozenset(
+    {"dr", "mr", "mrs", "ms", "mx", "miss", "prof", "md", "do", "phd", "rn", "np"}
+    | {"pa", "jr", "sr", "ii", "iii", "iv"}
+)
+
+
+def _first_names(name: str) -> list[str]:
+    """What a display name's first name may be, as words: "Rebecca" for
+    "Rebecca Lee", "Dr. Rebecca Lee" and "Rebecca Lee, MD", and either word
+    for "Lee, Rebecca", where the comma may put the last name first.
+    Punctuation is no part of a word, so a whole-word search for one can
+    match ("Dr." or "Lee," never can)."""
+    candidates: list[str] = []
+    for part in name.split(",", 1):
+        words = [w for w in re.findall(r"\w+", part) if w.lower() not in _NOT_NAMES]
+        if words and words[0] not in candidates:
+            candidates.append(words[0])
+    return candidates
+
+
 def new_signup_body_problem(body: Optional[str]) -> Optional[str]:
     """Reason an (edited) new-signup body can't go out as is, or ``None``.
 
@@ -741,9 +762,13 @@ def new_signup_body_problem(body: Optional[str]) -> Optional[str]:
     name = _cofactor_intro_contact_name()
     if not name:
         return None
-    first_name = name.split()[0]
-    if re.search(rf"\b{re.escape(first_name)}\b", body or "", re.IGNORECASE):
+    first_names = _first_names(name)
+    if not first_names or any(
+        re.search(rf"\b{re.escape(first)}\b", body or "", re.IGNORECASE)
+        for first in first_names
+    ):
         return None
+    first_name = first_names[-1]
     return (
         f"This introduction is CC'd to {name} at Cofactor AI, but the email "
         f"doesn't mention {first_name}. Keep the introduction (or mention "

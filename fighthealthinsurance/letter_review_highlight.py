@@ -266,7 +266,8 @@ def _supported(
 
 @sensitive_variables()
 def _spans(letter: str, prompt: str) -> List[Tuple[int, int, str]]:
-    """(start, end, kind) for each highlight, in order and never overlapping."""
+    """(start, end, kind) for each highlight, in order. Fill-ins can
+    overlap one another when brackets nest; paragraphs() clips them."""
     taken: List[Tuple[int, int, str]] = [
         (start, end, FILL_IN) for start, end in find_placeholder_spans(letter)
     ]
@@ -299,9 +300,11 @@ def paragraphs(letter: str, prompt: str) -> List[List[Segment]]:
         segments: List[Segment] = []
         at = start
         for s_start, s_end, kind in spans:
-            if s_end <= start or s_start >= end:
+            # Nested fill-ins ("[Patient [Name]]") give overlapping spans:
+            # what an earlier one already showed is never shown again.
+            if s_end <= max(start, at) or s_start >= end:
                 continue
-            s_start, s_end = max(s_start, start), min(s_end, end)
+            s_start, s_end = max(s_start, start, at), min(s_end, end)
             if s_start > at:
                 segments.append(Segment(letter[at:s_start]))
             segments.append(Segment(letter[s_start:s_end], kind))
