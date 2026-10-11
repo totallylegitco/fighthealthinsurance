@@ -13,7 +13,7 @@ from django.db.models import F, Q, QuerySet, Sum
 from django.utils import timezone
 
 from fighthealthinsurance import client_network
-from fighthealthinsurance.ml import llm_usage
+from fighthealthinsurance.ml import llm_usage, llm_usage_ledger
 
 _TOKENS = F("prompt_tokens") + F("completion_tokens")
 _EXTERNAL = Q(tier=llm_usage.EXTERNAL)
@@ -92,33 +92,27 @@ def week_concentration(now: Optional[datetime.datetime] = None) -> Dict[str, Any
 
     now = now or timezone.now()
     week = client_network.week_start(_today(now))
-    per_network = (
-        LLMUsageNetworkWeek.objects.filter(week_start=week)
-        .values("key")
-        .order_by()
-        .annotate(calls_sum=Sum("calls"), tokens_sum=Sum(_TOKENS))
+    # One read, so every figure comes from the same rows: the ledger writes
+    # while the page renders, and figures from separate queries could add
+    # up to more than 100%. The rollup's own arithmetic, so the live week
+    # matches the summary it becomes.
+    rows = LLMUsageNetworkWeek.objects.filter(week_start=week).values(
+        *llm_usage_ledger.ROW_FIELDS
     )
-    networks = per_network.count()
-    totals = LLMUsageNetworkWeek.objects.filter(week_start=week).aggregate(
-        calls=Sum("calls"), tokens=Sum(_TOKENS)
+    figures = llm_usage_ledger.concentration(rows).get(
+        (llm_usage_ledger.ALL, llm_usage_ledger.ALL), {}
     )
-    calls = int(totals["calls"] or 0)
-    tokens = int(totals["tokens"] or 0)
-    top_tokens = [
-        int(r["tokens_sum"] or 0) for r in per_network.order_by("-tokens_sum")[:10]
-    ]
-    top_calls = [
-        int(r["calls_sum"] or 0) for r in per_network.order_by("-calls_sum")[:10]
-    ]
+    calls = figures.get("calls", 0)
+    tokens = figures.get("tokens", 0)
     return {
         "week_start": week,
-        "networks": networks,
+        "networks": figures.get("networks", 0),
         "calls": calls,
         "tokens": tokens,
-        "top1_token_percent": _percent(top_tokens[0] if top_tokens else 0, tokens),
-        "top10_token_percent": _percent(sum(top_tokens), tokens),
-        "top1_call_percent": _percent(top_calls[0] if top_calls else 0, calls),
-        "top10_call_percent": _percent(sum(top_calls), calls),
+        "top1_token_percent": _percent(figures.get("top1_tokens"), tokens),
+        "top10_token_percent": _percent(figures.get("top10_tokens"), tokens),
+        "top1_call_percent": _percent(figures.get("top1_calls"), calls),
+        "top10_call_percent": _percent(figures.get("top10_calls"), calls),
     }
 
 

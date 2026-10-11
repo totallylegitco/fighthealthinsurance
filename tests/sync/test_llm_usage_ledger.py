@@ -101,6 +101,24 @@ class LedgerTest(TestCase):
             llm_usage_ledger._ledger.pending_for_tests(llm_usage_ledger.DAILY), {}
         )
 
+    def test_a_request_counted_while_its_row_is_written_stays_pending(self):
+        key = (DAY, "site", "other", "m", "internal", "isp")
+        llm_usage_ledger.add_daily(*key, _one())
+        real_store = llm_usage_ledger._store
+
+        def store_then_add(table, row_key, amounts):
+            real_store(table, row_key, amounts)
+            # Another request for the same row lands mid-write.
+            llm_usage_ledger.add_daily(*key, _one(prompt=5, completion=0))
+
+        with patch.object(llm_usage_ledger, "_store", side_effect=store_then_add):
+            llm_usage_ledger._ledger._write_pending()
+        pending = llm_usage_ledger._ledger.pending_for_tests(llm_usage_ledger.DAILY)
+        self.assertEqual((pending[key].calls, pending[key].prompt_tokens), (1, 5))
+        llm_usage_ledger._ledger.flush_sync_for_tests()
+        row = LLMUsageDaily.objects.get()
+        self.assertEqual((row.calls, row.prompt_tokens), (2, 15))
+
     def test_a_keyed_entry_for_a_closed_week_is_dropped(self):
         long_ago = MONDAY - datetime.timedelta(days=14)
         llm_usage_ledger.add_week(long_ago, "k" * 64, "site", "isp", _one())

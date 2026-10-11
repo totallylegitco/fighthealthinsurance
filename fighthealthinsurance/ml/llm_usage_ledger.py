@@ -190,7 +190,13 @@ class _Ledger:
         now = _now()
         for table in _TABLES:
             with self._lock:
-                batch = list(self._pending[table].items())
+                # Copies: add() grows the pending objects in place, and what
+                # it adds while _store runs must stay pending, not be
+                # subtracted as if stored.
+                batch = [
+                    (key, Amounts(**amounts.as_dict()))
+                    for key, amounts in self._pending[table].items()
+                ]
             for key, amounts in batch:
                 if table == WEEK and _week_closed(key[0], now):
                     # Its week is rolled up (or about to be): a row written
@@ -318,7 +324,7 @@ def concentration(
     return {name: group.summary() for name, group in groups.items()}
 
 
-_ROW_FIELDS = (
+ROW_FIELDS = (
     "key",
     "surface",
     "network_class",
@@ -368,7 +374,7 @@ def rollup_and_sweep(now: Optional[datetime.datetime] = None) -> Dict[str, int]:
                 rows = list(
                     LLMUsageNetworkWeek.objects.select_for_update()
                     .filter(week_start=week)
-                    .values(*_ROW_FIELDS)
+                    .values(*ROW_FIELDS)
                 )
                 if LLMUsageNetworkWeekSummary.objects.filter(week_start=week).exists():
                     out["late_rows_deleted"] += len(rows)
