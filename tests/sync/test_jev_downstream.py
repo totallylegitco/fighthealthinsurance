@@ -26,6 +26,7 @@ from fighthealthinsurance.common_view_logic import (
 from fighthealthinsurance.form_utils import magic_combined_form
 from fighthealthinsurance.ml import denial_triage as dt
 from fighthealthinsurance.ml import research_judging as rj
+from fighthealthinsurance.ml import spend, typesafe
 from fighthealthinsurance.rest_serializers import DenialModelSerializer
 from fighthealthinsurance.views import GenerateAppeal, add_pubmed_article_fields
 from tests.sync.test_back_url_token import EMAIL
@@ -400,6 +401,24 @@ class JevDashboardPanelTest(TestCase):
         self.assertTrue(all(r["level"] == "off" for r in panel["rows"]))
         self.assertContains(response, "Jev (TypeSafe)")
 
+    def test_an_off_use_says_whether_the_key_or_its_switch_is_missing(self):
+        _response, panel = self.panel()
+        self.assertEqual(self.row(panel, rj.SERVICE)["skip"], typesafe.NO_KEY)
+        with self.settings(TYPESAFE_API_KEY="k"):
+            response, panel = self.panel()
+        self.assertEqual(
+            self.row(panel, rj.SERVICE)["skip"], "TYPESAFE_RESEARCH_JUDGING_ENABLED is off"
+        )
+        self.assertContains(response, "TYPESAFE_RESEARCH_JUDGING_ENABLED is off")
+
+    def test_an_on_use_this_pod_sends_nothing_reads_as_skipped(self):
+        with self.settings(**TRIAGE_ON), patch.object(spend, "paused", return_value=True):
+            response, panel = self.panel()
+        row = self.row(panel, dt.SERVICE)
+        self.assertEqual(row["level"], "skipped")
+        self.assertIn("refused for credit or quota", row["skip"])
+        self.assertContains(response, "refused for credit or quota")
+
     def test_a_fresh_failure_reads_as_failing_with_its_hint(self):
         models.ExternalServiceHealth.objects.create(
             service=dt.SERVICE,
@@ -454,13 +473,59 @@ class JevDashboardPanelTest(TestCase):
 
 
 class ModelBackendStatusTypeSafeRowTest(TestCase):
-    def test_the_status_page_lists_typesafe(self):
+    """The status page says when this pod skips Jev, and why: no key, a
+    spent or paused budget, a cooldown, or a use's switch off."""
+
+    def setUp(self):
         get_user_model().objects.create_user(
             username="staff", password="pw123", is_staff=True
         )
         self.client.login(username="staff", password="pw123")
+
+    def page(self):
         response = self.client.get(reverse("model_backend_status"))
         self.assertEqual(response.status_code, 200)
         row = next(r for r in response.context["rows"] if r["provider"] == "typesafe")
+        return response, row
+
+    def test_without_a_key_jev_is_skipped_and_the_page_says_why(self):
+        response, row = self.page()
         self.assertEqual(row["config_category"], "NOT_CONFIGURED")
         self.assertFalse(row["enabled"])
+        self.assertTrue(row["live_skipped"])
+        self.assertEqual(row["live_problem"], typesafe.NO_KEY)
+        self.assertTrue(all(u["skip"] == typesafe.NO_KEY for u in row["jev_uses"]))
+        cell = BeautifulSoup(response.content, "html.parser").find(
+            string="skipped"
+        )
+        self.assertIsNotNone(cell)
+        self.assertContains(response, "TYPESAFE_API_KEY is not set")
+
+    def test_a_credit_pause_is_a_live_skip(self):
+        with self.settings(TYPESAFE_API_KEY="k"), patch.object(
+            spend, "paused", return_value=True
+        ):
+            response, row = self.page()
+        self.assertTrue(row["enabled"])
+        self.assertTrue(row["live_skipped"])
+        self.assertIn("refused for credit or quota", row["live_problem"])
+        self.assertGreaterEqual(response.context["live_failing_count"], 1)
+
+    def test_with_a_key_and_nothing_in_the_way_nothing_is_flagged(self):
+        with self.settings(TYPESAFE_API_KEY="k"):
+            response, row = self.page()
+        self.assertIsNone(row["live_problem"])
+        self.assertTrue(row["live_known"])
+        self.assertContains(response, "n/a (answers questions; writes no letters)")
+
+    def test_each_use_is_listed_on_or_skipped_with_its_switch(self):
+        with self.settings(**TRIAGE_ON):
+            response, row = self.page()
+        uses = {u["label"]: u["skip"] for u in row["jev_uses"]}
+        self.assertIsNone(uses["Denial triage"])
+        self.assertEqual(
+            uses["Research judging"], "TYPESAFE_RESEARCH_JUDGING_ENABLED is off"
+        )
+        self.assertContains(
+            response, "skipped, TYPESAFE_RESEARCH_JUDGING_ENABLED is off"
+        )

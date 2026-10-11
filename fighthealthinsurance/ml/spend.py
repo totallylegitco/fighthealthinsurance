@@ -697,6 +697,12 @@ def paused(provider: str, use: str) -> bool:
     return view.day_total(counter(PAUSED, name), _today()) > 0
 
 
+def loaded() -> bool:
+    """Whether this process holds a fresh copy of the ledger; until it does,
+    TypeSafe and assistant work are refused (allows). Never waits."""
+    return _ledger.snapshot().loaded
+
+
 def allows(provider: str, use: str) -> bool:
     """Whether ``provider`` may be asked now for ``use``. Never waits on the
     database (see the module docstring for what an unread ledger means)."""

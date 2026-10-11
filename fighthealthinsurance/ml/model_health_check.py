@@ -902,9 +902,16 @@ TYPESAFE_PROBE_QUESTIONS = {
 TYPESAFE_LEDGER_WAIT_SECONDS = 10.0
 
 
+def skipped(reason: str) -> str:
+    """How a TypeSafe probe that sent nothing reads, on the status page and
+    in the alert e-mail: "skipped: " and why (typesafe.skip_reason)."""
+    return f"skipped: {reason}"
+
+
 def typesafe_entry() -> BackendCheckResult:
     """TypeSafe as a row of the check, classified from configuration: not
-    configured without TYPESAFE_API_KEY, otherwise waiting on the probe.
+    configured (and so skipped) without TYPESAFE_API_KEY, otherwise waiting
+    on the probe.
     "Registered" holds trivially: there is no selection UI or usage
     registry for it to be missing from."""
     from fighthealthinsurance.ml import typesafe
@@ -916,7 +923,7 @@ def typesafe_entry() -> BackendCheckResult:
         internal_name=typesafe.model_name(),
         category=CATEGORY_OTHER if configured else CATEGORY_NOT_CONFIGURED,
         enabled=configured,
-        error="" if configured else "TYPESAFE_API_KEY is not set",
+        error="" if configured else skipped(typesafe.NO_KEY),
         ui_registered=True,
         reporting_registered=True,
     )
@@ -971,9 +978,13 @@ async def check_typesafe(
     result: BackendCheckResult, timeout: float = DEFAULT_TIMEOUT_SECONDS
 ) -> BackendCheckResult:
     """Ask TypeSafe the canned question once and categorize the outcome, as
-    check_backend does for a model. The error is what every Jev feature
-    records (letter_quality.failure_summary: an HTTP status, "timeout" or a
-    class name); the staff pages say what it means. Counted under the
+    check_backend does for a model. When TypeSafe answered or could not be
+    reached, the error is what every Jev feature records
+    (letter_quality.failure_summary: an HTTP status, "timeout" or a class
+    name); the staff pages say what it means. When nothing was sent (a spent
+    or paused budget, a cooldown, a refused setting, an unloaded ledger), it
+    is "skipped: " and why, and the category is still the failure's, so a
+    spent budget alerts as FAIL_BILLING. Counted under the
     "other" TypeSafe use, and as a "probe" in the LLM usage metrics."""
     from fighthealthinsurance.ml import letter_quality, spend, typesafe
 
@@ -991,7 +1002,7 @@ async def check_typesafe(
     if not loaded:
         # ask() would refuse it as a spent budget, which it is not.
         result.category = CATEGORY_OTHER
-        result.error = "not sent: the spend ledger did not load (ml/spend.py)"
+        result.error = skipped("the spend ledger did not load (ml/spend.py)")
         return result
     start = time.monotonic()
     try:
@@ -1003,9 +1014,13 @@ async def check_typesafe(
             task="probe",
         )
     except Exception as e:
-        result.latency_ms = int((time.monotonic() - start) * 1000)
         result.category = _typesafe_category(e)
-        result.error = letter_quality.failure_summary(e)
+        if typesafe.refused_before_sending(e):
+            # Our own refusal: its message names no host and no text.
+            result.error = skipped(typesafe.skip_reason(spend.OTHER) or str(e))
+        else:
+            result.latency_ms = int((time.monotonic() - start) * 1000)
+            result.error = letter_quality.failure_summary(e)
         return result
     result.latency_ms = int((time.monotonic() - start) * 1000)
     try:

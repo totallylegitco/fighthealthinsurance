@@ -60,6 +60,11 @@
     this pod's memory, so another pod can differ, and cleared on its own
     after a while), or the provider paused on every pod for credit or quota
     until 00:00 UTC.
+    TypeSafe (Jev) is not a model backend: its row shows
+    <em>skipped</em> and why when this pod sends Jev nothing (no
+    <code>TYPESAFE_API_KEY</code>, a spent or paused budget, a cooldown), lists
+    which of its uses are on or skipped, and its deploy check reads
+    &ldquo;skipped: &hellip;&rdquo; when the probe sent nothing.
     &ldquo;Registered in router&rdquo; means the router loaded the model; it
     does not mean any request path picks it, which the Routing column shows.
     &ldquo;In reporting&rdquo; means usage reporting records the name on
@@ -199,6 +204,11 @@
           {% elif not r.ui_registered %}<div class="sub muted">not registered in router</div>
           {% elif not r.reporting_registered %}<div class="sub muted">not in reporting</div>{% endif %}
           {% if r.config_detail and not r.retired %}{% if not r.show_check or r.config_detail != r.last_check.error %}<div class="err">{{ r.config_detail }}</div>{% endif %}{% endif %}
+          {% if r.jev_uses %}
+            {# Jev's uses, each on or skipped on this pod, and why. #}
+            {% for u in r.jev_uses %}<div class="sub">{{ u.label }}: {% if u.skip %}<span class="muted">skipped, {{ u.skip }}</span>{% else %}on{% endif %}</div>{% endfor %}
+            <div class="sub"><a href="{% url 'model_usage_dashboard' %}#jev">Each use's last answer and failure</a></div>
+          {% endif %}
         </td>
         <td>
           {% for leg in r.serving %}
@@ -242,7 +252,8 @@
           {% endif %}
         </td>
         <td>
-          {% if r.live_problem %}<span class="pill pill-fail">failing</span><div class="err">{{ r.live_problem }}</div>
+          {% if r.live_skipped %}<span class="pill pill-warn">skipped</span><div class="err">{{ r.live_problem }}</div>
+          {% elif r.live_problem %}<span class="pill pill-fail">failing</span><div class="err">{{ r.live_problem }}</div>
           {% elif r.live_known %}<span class="muted">nothing flagged</span>
           {% else %}<span class="muted">not registered</span>{% endif %}
         </td>
@@ -250,6 +261,7 @@
           {% if r.last_generation %}{{ r.last_generation|date:"Y-m-d H:i" }} UTC
           {% elif r.context_only %}<span class="muted">n/a (citations only)</span>
           {% elif r.chat_only %}<span class="muted">n/a (chat only)</span>
+          {% elif r.jev %}<span class="muted">n/a (answers questions; writes no letters)</span>
           {% else %}<span class="muted">none recorded</span>{% endif %}
         </td>
       </tr>

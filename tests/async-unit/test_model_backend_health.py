@@ -1568,6 +1568,7 @@ class TestTypeSafeProbe:
         entry = mhc.typesafe_entry()
         assert entry.category == mhc.CATEGORY_NOT_CONFIGURED
         assert not entry.enabled and not entry.failed
+        assert entry.error == "skipped: TYPESAFE_API_KEY is not set"
         assert entry.provider == mhc.TYPESAFE_PROVIDER
 
     def test_a_probability_passes(self):
@@ -1606,19 +1607,53 @@ class TestTypeSafeProbe:
         assert result.category == category and result.failed
         assert result.error == f"HTTP {status}"
 
-    def test_a_refused_url_or_model_is_a_client_init_failure(self):
-        from fighthealthinsurance.ml import typesafe
+    @staticmethod
+    def _probe_unsent(**overrides):
+        """The probe through the real typesafe.ask, which refuses before a
+        session exists in every case these tests set up."""
+        from django.test import override_settings
 
-        result = self._probe(AsyncMock(side_effect=typesafe.TypeSafeError("bad url")))
+        from fighthealthinsurance.ml import spend, typesafe
+
+        conf = {**TestTypeSafeProbe.KEY, **overrides}
+        with override_settings(**conf), patch.object(
+            typesafe.aiohttp, "ClientSession", side_effect=AssertionError("sent")
+        ), patch.object(spend._ledger, "wait_until_loaded", return_value=True):
+            return asyncio.run(mhc.check_typesafe(mhc.typesafe_entry(), timeout=5))
+
+    def test_a_refused_url_is_skipped_as_a_client_init_failure(self):
+        result = self._probe_unsent(TYPESAFE_API_URL="http://typesafe.invalid/v1")
         assert result.category == mhc.CATEGORY_CLIENT_INIT
-        assert result.error == "TypeSafeError"
+        assert result.error == "skipped: TYPESAFE_API_URL must use https"
+        assert result.latency_ms is None
 
-    def test_a_spent_or_paused_budget_is_billing(self):
+    def test_a_spent_budget_is_skipped_and_still_billing(self):
+        from fighthealthinsurance.ml import spend
+
+        with patch.object(spend, "allows", return_value=False):
+            result = self._probe_unsent()
+        assert result.category == mhc.CATEGORY_BILLING
+        assert result.error.startswith("skipped: TypeSafe's budget is spent")
+
+    def test_a_credit_pause_is_skipped_and_still_billing(self):
+        from fighthealthinsurance.ml import spend
+
+        with patch.object(spend, "paused", return_value=True):
+            result = self._probe_unsent()
+        assert result.category == mhc.CATEGORY_BILLING
+        assert "refused for credit or quota" in result.error
+
+    def test_a_cooldown_is_skipped_and_says_what_started_it(self):
         from fighthealthinsurance.ml import typesafe
 
-        result = self._probe(AsyncMock(side_effect=typesafe.TypeSafeBudgetSpent("x")))
-        assert result.category == mhc.CATEGORY_BILLING
-        assert result.error == "TypeSafeBudgetSpent"
+        typesafe._start_cooldown("could not be reached", None, cap=60)
+        try:
+            result = self._probe_unsent()
+        finally:
+            typesafe.reset_cooldown_for_tests()
+        assert result.category == mhc.CATEGORY_NETWORK
+        assert result.error.startswith("skipped: cooling down")
+        assert "after a failed connection" in result.error
 
     def test_a_cooldown_reads_as_what_started_it(self):
         from fighthealthinsurance.ml import typesafe
@@ -1653,7 +1688,7 @@ class TestTypeSafeProbe:
             result = asyncio.run(mhc.check_typesafe(mhc.typesafe_entry(), timeout=5))
         ask.assert_not_awaited()
         assert result.category == mhc.CATEGORY_OTHER
-        assert "spend ledger" in result.error
+        assert result.error == "skipped: the spend ledger did not load (ml/spend.py)"
 
     def test_a_timeout(self):
         result = self._probe(AsyncMock(side_effect=asyncio.TimeoutError()))

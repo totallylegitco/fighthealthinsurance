@@ -103,6 +103,7 @@ from fighthealthinsurance.ml import (
     letter_quality,
     model_query,
     research_judging,
+    spend,
     typesafe,
 )
 from fighthealthinsurance.ml.health_status import live_problem
@@ -2647,6 +2648,67 @@ def _partial_start(
     return None
 
 
+def _jev_skip_reason(use: str = spend.OTHER) -> Optional[str]:
+    """typesafe.skip_reason for a staff page, which must load when Jev is
+    broken: an unreadable state reads as such instead of raising."""
+    try:
+        return typesafe.skip_reason(use)
+    except Exception as e:
+        logger.opt(exception=True).warning("TypeSafe skip state unreadable")
+        return f"state unreadable ({type(e).__name__})"
+
+
+def _jev_uses() -> List[Dict[str, Any]]:
+    """Every use of TypeSafe's Jev: its label, health-row service, switch
+    and spend use, whether it is on, and ``skip``: why this pod is skipping
+    it right now (no API key, its switch off, or what typesafe.ask would
+    refuse before sending, typesafe.skip_reason), or None. Settings and
+    in-process state only; never calls TypeSafe and never raises."""
+    uses = (
+        (
+            "Letter ranking",
+            letter_quality,
+            "TYPESAFE_LETTER_RANKING_ENABLED",
+            spend.LETTERS,
+        ),
+        (
+            "Denial triage",
+            denial_triage,
+            "TYPESAFE_DENIAL_TRIAGE_ENABLED",
+            spend.TRIAGE,
+        ),
+        ("Chat reply check", chat_gate, "FHI_CHAT_JEV_GATE_ENABLED", spend.CHAT),
+        ("Chat shadow scores", chat_shadow, "TYPESAFE_CHAT_SHADOW_ENABLED", spend.CHAT),
+        (
+            "Research judging",
+            research_judging,
+            "TYPESAFE_RESEARCH_JUDGING_ENABLED",
+            spend.RESEARCH,
+        ),
+    )
+    rows: List[Dict[str, Any]] = []
+    for label, feature, flag, use in uses:
+        # Every feature's enabled() is the key and its switch.
+        on = feature.enabled()
+        skip: Optional[str]
+        if not typesafe.configured():
+            skip = typesafe.NO_KEY
+        elif not on:
+            skip = f"{flag} is off"
+        else:
+            skip = _jev_skip_reason(use)
+        rows.append(
+            {
+                "label": label,
+                "service": feature.SERVICE,
+                "flag": flag,
+                "on": on,
+                "skip": skip,
+            }
+        )
+    return rows
+
+
 class ModelUsageDashboardView(generic.TemplateView):
     """Staff dashboard showing which ML models users pick most often.
 
@@ -3001,62 +3063,28 @@ class ModelUsageDashboardView(generic.TemplateView):
     @classmethod
     def _jev_panel(cls) -> Dict[str, Any]:
         """Is Jev working: every use of TypeSafe's Jev on one panel, each
-        with its switch, the last success and failure its health row
-        recorded, and a level from those; then the newest deploy-time probe
+        with its switch, why it is skipped now if it is (_jev_uses), the
+        last success and failure its health row recorded, and a level from
+        those; then the newest deploy-time probe
         (ml/model_health_check.check_typesafe) and the staff tally of triage
         deadlines, which decides when readers may be told them
         (TYPESAFE_DEADLINE_SHOW_ENABLED). TypeSafe's spend and any pause are
         in the chat routing policy panel's spend rows.
 
-        Reads rows and settings only; never calls TypeSafe. Each part fails
-        on its own: an unreadable part reads as an error, not a blank page.
+        Reads rows, settings and this pod's state only; never calls
+        TypeSafe. Each part fails on its own: an unreadable part reads as an
+        error, not a blank page.
         """
         since = timezone.now() - cls.JEV_WINDOW
-        uses = (
-            (
-                "Letter ranking",
-                letter_quality.SERVICE,
-                letter_quality.enabled(),
-                "TYPESAFE_LETTER_RANKING_ENABLED",
-            ),
-            (
-                "Denial triage",
-                denial_triage.SERVICE,
-                denial_triage.enabled(),
-                "TYPESAFE_DENIAL_TRIAGE_ENABLED",
-            ),
-            (
-                "Chat reply check",
-                chat_gate.SERVICE,
-                chat_gate.enabled(),
-                "FHI_CHAT_JEV_GATE_ENABLED",
-            ),
-            (
-                "Chat shadow scores",
-                chat_shadow.SERVICE,
-                chat_shadow.enabled(),
-                "TYPESAFE_CHAT_SHADOW_ENABLED",
-            ),
-            (
-                "Research judging",
-                research_judging.SERVICE,
-                research_judging.enabled(),
-                "TYPESAFE_RESEARCH_JUDGING_ENABLED",
-            ),
-        )
         rows: List[Dict[str, Any]] = []
-        for label, service, on, flag in uses:
-            row: Dict[str, Any] = {
-                "label": label,
-                "service": service,
-                "flag": flag,
-                "on": on,
-                **cls._service_health(service),
-            }
+        for use in _jev_uses():
+            row: Dict[str, Any] = {**use, **cls._service_health(use["service"])}
             success_at = row["last_success_at"]
             failure_at = row["last_failure_at"]
-            if not on:
+            if not row["on"]:
                 row["level"] = "off"
+            elif row["skip"]:
+                row["level"] = "skipped"
             elif (
                 failure_at
                 and failure_at >= since
@@ -4049,9 +4077,13 @@ class ModelBackendStatusView(generic.TemplateView):
         # can say a row came from an earlier deploy.
         deployment_is_versioned = mhc.is_versioned_deployment_id(current_deployment)
 
+        # TypeSafe's row says which uses this pod skips and why.
+        jev_uses = _jev_uses()
+
         rows: List[Dict[str, Any]] = []
         for r in entries:
             check = latest_checks.get(r.model_name)
+            is_jev = r.provider == mhc.TYPESAFE_PROVIDER
             # Static category from configuration classification (e.g.
             # NOT_CONFIGURED / DISABLED / FAIL_MISSING_CREDENTIALS); empty for
             # backends that need a live probe to judge.
@@ -4088,6 +4120,10 @@ class ModelBackendStatusView(generic.TemplateView):
                 if r.router_instance is not None
                 else None
             )
+            if is_jev:
+                # No router instance: whether this pod would skip Jev now,
+                # and why (no key, a spent or paused budget, a cooldown).
+                live_now = _jev_skip_reason()
             rows.append(
                 {
                     "provider": r.provider,
@@ -4122,7 +4158,10 @@ class ModelBackendStatusView(generic.TemplateView):
                     "stale_environment": stale_environment,
                     "config_changed": check is not None and check.enabled != r.enabled,
                     "live_problem": live_now,
-                    "live_known": r.router_instance is not None,
+                    "live_known": r.router_instance is not None or is_jev,
+                    "live_skipped": is_jev and live_now is not None,
+                    "jev": is_jev,
+                    "jev_uses": jev_uses if is_jev else [],
                     "last_generation": last_generation.get(r.model_name),
                     # Citations only: never a generation candidate, so its
                     # empty "Last stored generation" is not a symptom. Read
