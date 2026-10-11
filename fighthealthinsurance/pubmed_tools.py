@@ -1088,7 +1088,7 @@ class PubMedTools(object):
 
         if articles:
             articles = await self._judged_for_context(
-                denial, articles, searched=searched
+                denial, articles, searched=searched, selected=selected_pmids
             )
 
         # Format the articles for context
@@ -1189,12 +1189,16 @@ class PubMedTools(object):
         articles: list[PubMedArticleSummarized],
         *,
         searched: bool,
+        selected: Optional[list[str]] = None,
     ) -> list[PubMedArticleSummarized]:
         """The articles to quote, ordered by how strongly Jev finds each
         supports the treatment. Articles our search found that Jev finds off
         topic or against the treatment are left out, and the row's article
         list is rewritten to match; a selection already on the row (possibly
-        the person's own) is only reordered, never cut. Waits at most
+        the person's own) is only reordered, never cut. ``selected`` is the
+        list written to the row for this build: an id in it whose article
+        was not fetched in time (the fetch is cut by the timeout) was never
+        judged, so it stays on the row. Waits at most
         JUDGING_BUDGET_SECONDS; past that, or on any failure, the articles
         go on as they are."""
         try:
@@ -1214,15 +1218,28 @@ class PubMedTools(object):
         )
         if not searched:
             return kept + dropped
+        selection = list(
+            dict.fromkeys(
+                pmid
+                for pmid in (
+                    selected if selected is not None else [a.pmid for a in articles]
+                )
+                if pmid
+            )
+        )
         kept_pmids = [a.pmid for a in kept]
-        if kept_pmids != [a.pmid for a in articles]:
+        judged = set(kept_pmids) | {a.pmid for a in dropped}
+        # The kept articles first, then the selected ids no article was
+        # fetched for: dropping those would lose them from the row for good.
+        rewritten = kept_pmids + [pmid for pmid in selection if pmid not in judged]
+        if rewritten != selection:
             if dropped:
                 logger.debug(
                     f"PubMed context for denial {denial.denial_id}: left out "
                     f"{len(dropped)} article(s) judged off topic or against "
                     "the treatment"
                 )
-            await self._this_letter(denial).aupdate(pubmed_ids_json=kept_pmids)
+            await self._this_letter(denial).aupdate(pubmed_ids_json=rewritten)
         return kept
 
     @staticmethod
