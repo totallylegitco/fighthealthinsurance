@@ -132,6 +132,7 @@ def match_insurance_company(issuer_name: str) -> Optional[InsuranceCompany]:
 
 
 def _parse_iso_date(raw: object) -> Optional[date]:
+    """Parse an ISO ``YYYY-MM-DD`` value, or None if absent/malformed."""
     if not raw:
         return None
     try:
@@ -141,6 +142,7 @@ def _parse_iso_date(raw: object) -> Optional[date]:
 
 
 def _parse_iso_datetime(raw: object) -> Optional[datetime]:
+    """Parse an ISO-8601 timestamp (``Z`` suffix ok), or None if absent/malformed."""
     if not raw:
         return None
     try:
@@ -184,7 +186,7 @@ def load_report_dict(data: Dict, source_url: str = "") -> Tuple[int, int, int, i
         report, _ = WorstInsuranceReport.objects.update_or_create(
             period=str(data["period"]),
             defaults={
-                "methodology_version": str(data.get("methodology_version", "")),
+                "methodology_version": str(data.get("methodology_version") or ""),
                 "generated_at": _parse_iso_datetime(data.get("generated_at")),
                 "window_start": _parse_iso_date(window.get("start")),
                 "window_end": _parse_iso_date(window.get("end")),

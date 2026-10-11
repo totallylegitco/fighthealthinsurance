@@ -473,6 +473,7 @@ urlpatterns: List[Union[URLPattern, URLResolver]] = [
         "glossary/<slug:slug>/",
         views.GlossaryView.as_view(),
         name="glossary_term",
+    ),
     # Monthly worst-insurance rankings; views 404 until a report is ingested
     # so these stay unpublished until data is present. Cached via
     # StaticIshView.as_view like the glossary routes above.

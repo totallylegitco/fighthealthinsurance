@@ -4196,6 +4196,9 @@ class GlossaryView(StaticIshView):
         # render_json_ld escapes <, >, & so a term's definition/aliases can't
         # break out of the <script type="application/ld+json"> block.
         context["json_ld"] = render_json_ld([defined_term, breadcrumbs])
+        return context
+
+
 class WorstInsuranceIndexView(StaticIshView):
     """Monthly worst-insurance-company-by-state rankings index.
 
@@ -4249,6 +4252,7 @@ class WorstInsuranceStateView(StaticIshView):
         from fighthealthinsurance.worst_insurance import (
             build_ranking_table,
             get_state_rankings,
+            time_burden_summary,
         )
 
         context = super().get_context_data(**kwargs)
@@ -4262,6 +4266,11 @@ class WorstInsuranceStateView(StaticIshView):
         context["report"] = report
         context["rankings"] = rankings
         context["table"] = build_ranking_table(rankings)
+        # Headline estimate for the worst issuer; None when it wasn't ranked
+        # on the hours metric so the hero doesn't mislabel another metric.
+        context["top_time_burden"] = (
+            time_burden_summary(rankings[0]) if rankings else None
+        )
         context["status"] = "ok" if rankings else "insufficient_data"
         context["reason"] = str(status_block.get("reason", "no_data"))
         context["notes"] = status_block.get("notes", [])

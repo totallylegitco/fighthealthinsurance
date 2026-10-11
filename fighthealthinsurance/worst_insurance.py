@@ -1,7 +1,8 @@
 """Data helpers for the public worst-insurance-by-state pages.
 
 DB-backed analog of ``state_help.py`` (deliberately no lru_cache: the data
-changes on ingest and the URL-layer ``cache_page`` already absorbs load).
+changes on ingest and the views' ``StaticIshView`` whole-response cache
+already absorbs load).
 Pages stay dark — views 404 and the sitemap stays empty — until a report
 has been ingested.
 """
@@ -21,14 +22,17 @@ class StateRankingRow:
     status: str  # "ok" | "insufficient_data"
     reason: str
     worst: Optional[WorstInsuranceRanking]
-    worst_est_hours: Optional[int] = None
+    # Formatted estimated-hours cell for ``worst`` (see ``time_burden_summary``).
+    worst_time_burden: Optional[dict] = None
 
     @property
     def slug(self) -> str:
+        """URL slug of the state, e.g. ``"new-york"``."""
         return self.state_help.slug
 
     @property
     def name(self) -> str:
+        """Display name of the state."""
         return self.state_help.name
 
 
@@ -56,7 +60,7 @@ def get_index_rows(report: WorstInsuranceReport) -> List[StateRankingRow]:
                     status="ok",
                     reason="",
                     worst=worst,
-                    worst_est_hours=estimated_hours(worst),
+                    worst_time_burden=time_burden_summary(worst),
                 )
             )
         else:
@@ -75,6 +79,7 @@ def get_index_rows(report: WorstInsuranceReport) -> List[StateRankingRow]:
 def get_state_rankings(
     report: WorstInsuranceReport, abbreviation: str
 ) -> List[WorstInsuranceRanking]:
+    """All ranked issuers for one state, worst (rank 1) first."""
     return list(report.rankings.filter(state=abbreviation.upper()).order_by("rank"))
 
 
@@ -107,20 +112,8 @@ METRIC_COLUMNS = [
 ]
 
 
-def estimated_hours(ranking: "WorstInsuranceRanking") -> Optional[int]:
-    """The plan's estimated hours-wasted-per-year, or None if not computed."""
-    metric = (ranking.metrics or {}).get("time_burden")
-    if not metric:
-        return None
-    detail = metric.get("detail") or {}
-    hours = detail.get("estimated_hours_per_year", metric.get("value"))
-    try:
-        return int(hours)
-    except (TypeError, ValueError):
-        return None
-
-
 def _format_metric(key: str, metric: dict) -> dict:
+    """Format one metric dict as ``{"display": ..., "detail": ...}`` strings."""
     # ``.get(k, 0)`` returns None when the key exists with a null value, so
     # coalesce with ``or 0`` — a metric dict carrying nulls must render a dash,
     # not 500 the page.
@@ -151,6 +144,19 @@ def _format_metric(key: str, metric: dict) -> dict:
     return {"display": display, "detail": detail}
 
 
+def time_burden_summary(ranking: WorstInsuranceRanking) -> Optional[dict]:
+    """The plan's formatted estimated-hours cell, or None if not computed.
+
+    Used for the headline on the index cards and state hero, which must not
+    assume the hours metric is present: a state may be ranked on other
+    metrics alone (e.g. enforcement actions only).
+    """
+    metric = (ranking.metrics or {}).get("time_burden")
+    if not metric:
+        return None
+    return _format_metric("time_burden", metric)
+
+
 @dataclass
 class RankingTable:
     """Pre-formatted ranking table for a state page."""
@@ -160,6 +166,7 @@ class RankingTable:
 
 
 def build_ranking_table(rankings: List[WorstInsuranceRanking]) -> RankingTable:
+    """Columns for the metrics any issuer has, and a formatted row per issuer."""
     present: set[str] = set()
     for ranking in rankings:
         present.update((ranking.metrics or {}).keys())

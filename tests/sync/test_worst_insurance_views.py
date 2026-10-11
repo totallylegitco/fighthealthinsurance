@@ -114,6 +114,13 @@ class TestIndexPage:
         response = client.get(reverse("worst_insurance_index"))
         assert "Insufficient public data" in response.content.decode()
 
+    def test_index_card_shows_estimated_hours_with_thousands_separators(self, client):
+        load_sample_report()
+        response = client.get(reverse("worst_insurance_index"))
+        content = response.content.decode()
+        assert "est. ~250,000 hrs/yr" in content
+        assert "250000" not in content
+
 
 @pytest.mark.django_db
 class TestStatePage:
@@ -150,6 +157,21 @@ class TestStatePage:
         assert "10,000 from overturned appeals" in content
         # Framed as an estimate, not a fact.
         assert "estimate" in content.lower()
+
+    def test_state_hero_omits_hours_when_top_issuer_lacks_time_burden(self, client):
+        """California's worst issuer is ranked on enforcement actions only;
+        the hero must not present that metric as "hours"."""
+        load_sample_report()
+        response = client.get(
+            reverse("worst_insurance_state", kwargs={"slug": "california"})
+        )
+        assert response.status_code == 200
+        content = response.content.decode()
+        assert "Evil Health Insurance ranks worst in California" in content
+        assert "4.4 hours" not in content
+        assert "denials cost California" not in content
+        # The enforcement metric still renders in the table itself.
+        assert "4 actions, $250,000 in penalties" in content
 
     def test_known_state_without_rankings_shows_insufficient_data(self, client):
         load_sample_report()
@@ -199,3 +221,22 @@ class TestSitemap:
         assert "/worst-insurance/texas/" in content
         # Wyoming has no rankings, so its thin page stays out of the sitemap.
         assert "/worst-insurance/wyoming/" not in content
+
+
+class TestCaching:
+    def test_pages_are_cached_like_the_site_s_other_content_pages(self):
+        """On StaticIshView, so they follow the site's caching rules (and its
+        per-visitor context scrubbing) rather than a second copy of them."""
+        from fighthealthinsurance.views import (
+            StaticIshView,
+            WorstInsuranceIndexView,
+            WorstInsuranceMethodologyView,
+            WorstInsuranceStateView,
+        )
+
+        for view in (
+            WorstInsuranceIndexView,
+            WorstInsuranceStateView,
+            WorstInsuranceMethodologyView,
+        ):
+            assert issubclass(view, StaticIshView)

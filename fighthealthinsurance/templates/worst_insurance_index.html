@@ -62,8 +62,8 @@
                                 <p class="card-text mb-1">
                                     <span class="text-danger fw-bold">{{ row.worst.issuer_name }}</span>
                                 </p>
-                                {% if row.worst_est_hours %}
-                                <small class="d-block text-muted mb-1">est. ~{{ row.worst_est_hours|floatformat:0 }} hrs/yr of people's time</small>
+                                {% if row.worst_time_burden %}
+                                <small class="d-block text-muted mb-1">est. {{ row.worst_time_burden.display }} hrs/yr of people's time</small>
                                 {% endif %}
                                 <small class="text-muted">
                                     Score {{ row.worst.composite_score|floatformat:0 }}/100
