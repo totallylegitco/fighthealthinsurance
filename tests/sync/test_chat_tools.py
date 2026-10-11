@@ -1737,6 +1737,45 @@ class TestDocFetcherExecute(TestCase):
         # Tool call should be stripped from response
         self.assertNotIn("fetch_doc", response)
 
+    def _fetch_context(self, text, chat=None, store=None):
+        """The context a fetch of ``text`` hands the model."""
+        tool = DocFetcherTool(AsyncMock(), chat=chat)
+        tool.fetcher = MagicMock()
+        tool.fetcher.fetch_and_extract_text = AsyncMock(return_value=(text, "pdf"))
+        call = '**fetch_doc {"url": "https://www.example.com/policy.pdf"}**'
+        with (
+            patch(
+                "fighthealthinsurance.chat.tools.doc_fetcher_tool.validate_url",
+                new=AsyncMock(return_value=None),
+            ),
+            patch(
+                "fighthealthinsurance.chat.tools.doc_fetcher_tool.process_uploaded_document",
+                new=store or AsyncMock(),
+            ),
+        ):
+            _, context = self._run(tool.execute(tool.detect(call), call, ""))
+        return context
+
+    def test_cut_off_stored_document_points_to_the_search_tool(self):
+        context = self._fetch_context("policy " * 4000, chat=MagicMock())
+        self.assertIn("search it with the search_documents tool", context)
+
+    def test_cut_off_document_says_how_much_was_shown(self):
+        context = self._fetch_context("policy " * 4000, chat=MagicMock())
+        self.assertIn("Only the first 15,000 of its 28,000 characters", context)
+
+    def test_cut_off_document_that_failed_to_store_names_no_search(self):
+        context = self._fetch_context(
+            "policy " * 4000,
+            chat=MagicMock(),
+            store=AsyncMock(side_effect=RuntimeError("db down")),
+        )
+        self.assertNotIn("search_documents", context)
+
+    def test_whole_document_gets_no_cut_note(self):
+        context = self._fetch_context("Short policy text.", chat=MagicMock())
+        self.assertNotIn("Only the first", context)
+
 
 class TestUSPSTFLookupPattern(TestCase):
     """Pattern matching for USPSTF_LOOKUP_REGEX."""

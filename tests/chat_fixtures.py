@@ -7,7 +7,8 @@ Defining them once keeps every suite testing the same shapes, and means a
 change to ``RemoteModelLike.generate_chat_response`` only has to be mirrored
 in one place -- the mock signature is what guards against real TypeErrors.
 
-Also home to the failed-turn plumbing (``llm_call_fails``,
+Also home to ``ScriptedModel`` (the real chat prompt path over a scripted
+backend), the failed-turn plumbing (``llm_call_fails``,
 ``make_professional_chat``, ``FrameRecorder``) and
 ``discard_background_task``: ``tests/async`` is not an importable package
 name (``async`` is a keyword), so helpers shared between its modules have
@@ -17,6 +18,8 @@ to live outside it.
 import contextlib
 from typing import Optional
 from unittest.mock import AsyncMock, patch
+
+from fighthealthinsurance.ml.ml_models import RemoteOpenLike
 
 # The reply from the observed production loop: the assistant re-sent this
 # verbatim after the user answered "CA".
@@ -128,6 +131,50 @@ class RecordingChatModel:
         if self._anti_repeat_marker in (current_message_for_llm or ""):
             return (self._fresh_reply, "mock context summary")
         return (self._looped_reply, "mock context summary")
+
+
+class ScriptedModel(RemoteOpenLike):
+    """RemoteOpenLike whose _infer plays back a scripted list of replies.
+
+    Unlike RecordingChatModel it runs the real generate_chat_response, so
+    ``infer_calls`` holds the exact system prompt and message a backend
+    would send.
+    """
+
+    def __init__(self, replies):
+        super().__init__(
+            api_base="http://example.invalid",
+            token="test-token",
+            model="test-model",
+            system_prompts_map={},
+        )
+        self._replies = list(replies)
+        self.infer_calls = []
+
+    async def _infer(
+        self,
+        system_prompts,
+        prompt,
+        patient_context=None,
+        plan_context=None,
+        pubmed_context=None,
+        ml_citations_context=None,
+        history=None,
+        temperature=0.7,
+        raise_http_errors: bool = False,
+        timeout=None,
+        raise_on_unavailable: bool = False,
+    ):
+        self.infer_calls.append(
+            {
+                "prompt": prompt,
+                "temperature": temperature,
+                "system_prompts": list(system_prompts or []),
+            }
+        )
+        if not self._replies:
+            return None
+        return (self._replies.pop(0), None)
 
 
 @contextlib.contextmanager

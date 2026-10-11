@@ -1691,6 +1691,9 @@ class ChatInterface:
             # name the document that exists (sanitized -- legacy rows may
             # predate the name sanitization).
             doc_name = sanitize_document_name(uploaded_doc.document_name) or doc_name
+            # The variants tell the model how to read the upload, by the name
+            # it is stored under.
+            document_name = doc_name
 
             user_message = (
                 f"I've uploaded a document: {doc_name} ({char_count:,} characters). "

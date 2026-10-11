@@ -13,6 +13,7 @@ Verifies end-to-end (through the WebSocket consumer) that:
 """
 
 import asyncio
+import re
 from itertools import pairwise
 from unittest.mock import AsyncMock, patch
 
@@ -26,6 +27,7 @@ from fighthealthinsurance.chat.message_preprocessor import (
     DIRECT_CHAT_SOFT_LIMIT_CHARS,
     TAIL_PREVIEW_CHARS,
     build_long_paste_marker,
+    stored_document_note,
 )
 from fighthealthinsurance.models import ChatDocument, ChatTurn
 from fighthealthinsurance.websockets import OngoingChatConsumer
@@ -33,6 +35,16 @@ from tests.chat_fixtures import (
     RecordingChatModel,
     discard_background_task,
     make_professional_chat,
+)
+from tests.policy_fixtures import (
+    APPEAL_RULE,
+    EXCEPTION_RULE,
+    MEMBERS_WORD_FOR_STEP_THERAPY,
+    PASTED_POLICY_WITH_QUESTION,
+    POLICY_TEXT,
+    QUANTITY_LIMIT_RULE,
+    STEP_THERAPY_RULE,
+    squash,
 )
 from tests.sync.mock_chat_model import MockChatModel
 
@@ -57,23 +69,74 @@ class VaryingChatModel(RecordingChatModel):
 SEARCH_RESULT_MARKER = "Result of your search of the user's stored documents"
 
 
-class DocumentSearchingModel(RecordingChatModel):
-    """Searches the stored documents for ``query`` first, then answers
-    ``answer`` once the search results come back."""
+_SEARCHED_FOR_RE = re.compile(r'^Search of the stored documents for "(.*)":$', re.M)
+_PASSAGE_LABEL_RE = re.compile(r"^\[.+?, section (\d+) of \d+, line [\d,]+\]$", re.M)
+_SECTION_READ_RE = re.compile(r"^Section \d+ of \d+ of ", re.M)
 
-    def __init__(self, query: str, answer: str):
+
+class SearchingAgentModel(RecordingChatModel):
+    """A model that works stored documents the way the prompts teach.
+
+    It searches for ``queries[0]``; while a search finds nothing it tries
+    the next query ("try other words"); with ``read_sections`` it then reads
+    the section the best passage names; and once it has a passage it
+    answers ``answer``. ``together`` sends every query in one reply instead.
+    A message ``answer_directly`` accepts gets a plain reply, which differs
+    per call so later turns aren't rejected as repeats. Each step is read
+    off the message it is sent, never kept as state, since a pass may ask
+    it more than once.
+    """
+
+    def __init__(
+        self,
+        queries,
+        answer,
+        *,
+        read_sections=True,
+        together=False,
+        answer_directly=lambda message: False,
+    ):
         super().__init__()
-        self._query = query
+        self._queries = list(queries)
         self._answer = answer
+        self._read_sections = read_sections
+        self._together = together
+        self._answer_directly = answer_directly
+
+    @staticmethod
+    def _search(*queries):
+        calls = "\n".join(f'**search_documents {{"query": "{q}"}}**' for q in queries)
+        return calls, "Summary: searching the stored policy."
 
     async def generate_chat_response(self, current_message_for_llm, **kwargs):
         await super().generate_chat_response(current_message_for_llm, **kwargs)
-        if SEARCH_RESULT_MARKER in (current_message_for_llm or ""):
-            return self._answer, "Summary: answered from the stored policy."
-        return (
-            f'**search_documents {{"query": "{self._query}"}}**',
-            "Summary: searching the stored policy.",
-        )
+        message = current_message_for_llm or ""
+        if SEARCH_RESULT_MARKER not in message:
+            if self._answer_directly(message):
+                return (
+                    f"Reply number {len(self.calls)} about your policy.",
+                    "Summary: discussing the policy.",
+                )
+            return self._search(*(self._queries if self._together else self._queries[:1]))
+        searched = _SEARCHED_FOR_RE.search(message)
+        if searched and not self._together:
+            if "Nothing matched" in message:
+                tried = self._queries.index(searched.group(1))
+                if tried + 1 < len(self._queries):
+                    return self._search(self._queries[tried + 1])
+            elif self._read_sections:
+                label = _PASSAGE_LABEL_RE.search(message)
+                if label:
+                    return (
+                        f'**search_documents {{"section": {label.group(1)}}}**',
+                        "Summary: reading the section.",
+                    )
+        return self._answer, "Summary: answered from the stored policy."
+
+
+def _search_results(model: RecordingChatModel) -> list[str]:
+    """The follow-up messages that carried search results, in order."""
+    return [m for m in _messages_sent(model) if SEARCH_RESULT_MARKER in m]
 
 
 def _failing_model() -> MockChatModel:
@@ -469,7 +532,9 @@ class LongPasteDocumentSearchTest(ChatTurnTestCase):
         start = self.BIG.index(self.NEEDLE)
         self.assertGreater(start, DIRECT_CHAT_HARD_LIMIT_CHARS)
         self.assertLess(start + len(self.NEEDLE), len(self.BIG) - TAIL_PREVIEW_CHARS)
-        self.model = DocumentSearchingModel("exception criteria", self.ANSWER)
+        self.model = SearchingAgentModel(
+            ["exception criteria"], self.ANSWER, read_sections=False
+        )
 
     async def test_reply_is_written_from_the_search_results(self):
         _, response = await self.paste_big()
@@ -494,6 +559,174 @@ class LongPasteDocumentSearchTest(ChatTurnTestCase):
         context = self.model.calls[0]["context"]
         self.assertIn(DOCUMENT_LISTING_HEADER, context)
         self.assertNotIn("Relevant sections", context)
+
+
+POLICY_ANSWER = (
+    "Yes -- the policy's step therapy section says you must first try two "
+    "preferred biosimilars, Hyrimoz and Idacio, for 12 weeks each."
+)
+
+
+class PastedPolicySearchTest(ChatTurnTestCase):
+    """A member pastes a long plan policy with their question at the end.
+    The agent works it as the prompts teach -- search, read the section the
+    best passage names, answer -- all on the paste's own turn, against the
+    real stored (still unanalyzed) paste."""
+
+    BIG = PASTED_POLICY_WITH_QUESTION
+
+    def setUp(self):
+        super().setUp()
+        self.model = SearchingAgentModel(["step therapy"], POLICY_ANSWER)
+
+    async def test_the_member_gets_the_answer_written_from_the_policy(self):
+        _, response = await self.paste_big()
+        self.assertEqual(response.get("content"), POLICY_ANSWER)
+
+    async def test_the_section_read_hands_the_model_the_whole_rule(self):
+        await self.paste_big()
+        reads = [m for m in _search_results(self.model) if _SECTION_READ_RE.search(m)]
+        self.assertEqual(len(reads), 1)
+        self.assertIn(squash(STEP_THERAPY_RULE), squash(reads[0]))
+
+    async def test_only_the_tool_shows_the_model_the_rule(self):
+        await self.paste_big()
+        for call in self.model.calls:
+            if SEARCH_RESULT_MARKER not in call["message"]:
+                self.assertNotIn(squash(STEP_THERAPY_RULE), squash(call["message"]))
+                self.assertNotIn(
+                    squash(STEP_THERAPY_RULE), squash(call["context"] or "")
+                )
+
+    async def test_the_section_read_quotes_the_members_question_once(self):
+        # The second follow-up names the user's message, not the first
+        # search's results a second time.
+        await self.paste_big()
+        (read,) = [m for m in _search_results(self.model) if _SECTION_READ_RE.search(m)]
+        self.assertEqual(read.count("Search of the stored documents for"), 0)
+        self.assertEqual(read.count("does this policy make me try other drugs"), 1)
+
+    async def test_the_turn_counts_the_search_and_the_section_read(self):
+        chat, _ = await self.paste_big()
+        row = await ChatTurn.objects.filter(chat=chat).aget()
+        self.assertEqual(row.tool_passes, 2)
+
+
+class PastedPolicyRetryTest(ChatTurnTestCase):
+    """The member's word for the rule is not the policy's: the agent's first
+    search finds nothing, and it searches again in the policy's words."""
+
+    BIG = PASTED_POLICY_WITH_QUESTION
+
+    def setUp(self):
+        super().setUp()
+        self.model = SearchingAgentModel(
+            [MEMBERS_WORD_FOR_STEP_THERAPY, "step therapy"], POLICY_ANSWER
+        )
+
+    async def test_the_first_search_tells_the_model_nothing_matched(self):
+        await self.paste_big()
+        self.assertIn("Nothing matched", _search_results(self.model)[0])
+
+    async def test_the_retry_in_the_policys_words_finds_the_rule(self):
+        await self.paste_big()
+        later = squash(" ".join(_search_results(self.model)[1:]))
+        self.assertIn(squash(STEP_THERAPY_RULE), later)
+
+    async def test_the_retry_still_ends_in_the_answer(self):
+        _, response = await self.paste_big()
+        self.assertEqual(response.get("content"), POLICY_ANSWER)
+
+
+class PastedPolicyManySearchesTest(ChatTurnTestCase):
+    """Several searches in one reply come back in one follow-up."""
+
+    BIG = PASTED_POLICY_WITH_QUESTION
+
+    def setUp(self):
+        super().setUp()
+        self.model = SearchingAgentModel(
+            ["quantity limit", "internal appeal"], POLICY_ANSWER, together=True
+        )
+
+    async def test_one_follow_up_carries_every_search(self):
+        await self.paste_big()
+        (results,) = _search_results(self.model)
+        self.assertIn(squash(QUANTITY_LIMIT_RULE), squash(results))
+        self.assertIn(squash(APPEAL_RULE), squash(results))
+
+
+class PastedPolicyLaterTurnTest(ChatTurnTestCase):
+    """The policy was pasted on an earlier turn; the question comes later,
+    before the paste's analysis has finished (it is discarded here, so the
+    stored row stays unanalyzed)."""
+
+    QUESTION = "Can I get an exception to that rule?"
+
+    async def paste_then_ask(self, question):
+        user, chat = await self.new_chat()
+        _, response = await self.run_turns(
+            user,
+            {"chat_id": str(chat.id), "content": PASTED_POLICY_WITH_QUESTION},
+            {"chat_id": str(chat.id), "content": question},
+        )
+        return response
+
+    async def test_a_later_question_brings_its_rule_into_context(self):
+        self.model = VaryingChatModel()
+        await self.paste_then_ask("What is the quantity limit on the pens?")
+        asked = [c for c in self.model.calls if "quantity limit on the pens" in c["message"]]
+        self.assertTrue(asked)
+        self.assertIn(squash(QUANTITY_LIMIT_RULE), squash(asked[-1]["context"]))
+
+    async def test_the_agent_searches_the_earlier_paste(self):
+        self.model = SearchingAgentModel(
+            ["step therapy exception"],
+            POLICY_ANSWER,
+            answer_directly=lambda message: self.QUESTION not in message,
+        )
+        response = await self.paste_then_ask(self.QUESTION)
+        self.assertEqual(response.get("content"), POLICY_ANSWER)
+        self.assertIn(
+            squash(EXCEPTION_RULE), squash(" ".join(_search_results(self.model)))
+        )
+
+
+class UploadedPolicySearchTest(ChatTurnTestCase):
+    """An uploaded policy: the model is shown none of it, is told how to
+    read it, and reads it before answering."""
+
+    NAME = "example_policy.txt"
+
+    def setUp(self):
+        super().setUp()
+        self.model = SearchingAgentModel(["internal appeal"], POLICY_ANSWER)
+
+    async def upload(self):
+        user, chat = await self.new_chat()
+        response = await self.send(
+            user, chat, POLICY_TEXT, is_document=True, document_name=self.NAME
+        )
+        await chat.arefresh_from_db()
+        return chat, response
+
+    async def test_upload_turn_tells_the_model_how_to_read_it(self):
+        await self.upload()
+        self.assertIn(stored_document_note(self.NAME), self.model.calls[0]["message"])
+
+    async def test_upload_history_keeps_the_bare_marker(self):
+        chat, _ = await self.upload()
+        self.assertNotIn("search_documents", chat.chat_history[0]["content"])
+
+    async def test_the_search_reads_the_uploaded_policy(self):
+        await self.upload()
+        self.assertIn(
+            squash(APPEAL_RULE), squash(" ".join(_search_results(self.model)))
+        )
+
+    async def test_the_member_gets_the_answer(self):
+        _, response = await self.upload()
+        self.assertEqual(response.get("content"), POLICY_ANSWER)
 
 
 class NormalMessagePrimaryPathTest(ChatTurnTestCase):

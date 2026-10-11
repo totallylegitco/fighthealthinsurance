@@ -585,6 +585,25 @@ Explicit uploads take the same storage path under their own marker.
   number means the same text before and after the document is analyzed,
   and an unanalyzed document -- a long paste always is, mid-turn -- is
   searched whole rather than by its opening.
+* **Telling the model.** A tool the model is never told about never runs,
+  so every way a document is stored says how to read it. The system
+  prompt's Document Search Tool entry gives the syntax, says to search in
+  the same reply as the question, to read the section a passage names when
+  a list runs on, and to retry in the document's own words after a miss
+  ("step therapy", not "fail first"). A long paste's preview says only its
+  beginning and end are shown; an upload's turn adds a note after the
+  marker, for the model only (history keeps the bare marker), that none of
+  its text is shown; and a fetch_doc result cut at 15,000 characters says
+  so and that the rest is stored. A search followed by another (a retry or
+  a section read) is a follow-up of a follow-up: its prompt quotes the
+  user's own message, not the earlier follow-up prompt, whose results are
+  already in the history -- quoting it labelled stale results as the
+  user's and invited the model to act on them again.
+  tests/async-unit/test_document_search_prompts.py pins these texts to what
+  the handler accepts; tests/async/test_chat_long_message.py drives whole
+  turns over tests/policy_fixtures.py, a 46k-char policy whose rules sit
+  past every preview, with a scripted agent that searches, retries, reads
+  sections and answers.
 
 * **Dedupe.** Identical content re-submitted to the same chat (the user
   re-pasting after a failed turn) reuses the newest stored copy -- compared

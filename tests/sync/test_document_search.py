@@ -27,6 +27,17 @@ from fighthealthinsurance.chat.tools import (
     contains_tool_call,
     count_tool_invocations,
 )
+from tests.policy_fixtures import (
+    APPEAL_RULE,
+    BILLING_CODE,
+    EXCEPTION_RULE,
+    EXCLUSION_RULE,
+    MEMBERS_WORD_FOR_STEP_THERAPY,
+    PASTED_POLICY_WITH_QUESTION,
+    QUANTITY_LIMIT_RULE,
+    STEP_THERAPY_RULE,
+    squash,
+)
 
 FILLER = "The member handbook describes general plan rules in plain language. "
 
@@ -190,6 +201,67 @@ class TestGrepDocuments(TestCase):
         self.assertIsNone(re.search(SEARCH_DOCUMENTS_REGEX, result, re.I | re.S))
 
 
+class TestSearchingAPastedPolicy(TestCase):
+    """grep_documents and read_document_section over a long pasted policy,
+    in the steps an agent takes: search in the member's or the policy's
+    words, then read the section the best passage names."""
+
+    def setUp(self):
+        self.policy = StoredDocument(
+            name="pasted_message_1.txt", text=PASTED_POLICY_WITH_QUESTION
+        )
+
+    def _first_passage(self, result: str) -> str:
+        body = result.split("Best-matching passages, best first:\n", 1)[1]
+        return re.split(r"^\[.+\]$", body, flags=re.M)[1]
+
+    def test_each_rule_is_found_by_the_words_for_it(self):
+        for query, rule in [
+            ("step therapy", STEP_THERAPY_RULE),
+            ("quantity limit", QUANTITY_LIMIT_RULE),
+            ("step therapy exception", EXCEPTION_RULE),
+            ("JAK inhibitor", EXCLUSION_RULE),
+            ("internal appeal", APPEAL_RULE),
+        ]:
+            with self.subTest(query=query):
+                result = grep_documents([self.policy], query)
+                self.assertIn(squash(rule), squash(result))
+
+    def test_the_rule_is_the_best_passage_for_its_words(self):
+        for query, rule in [
+            ("step therapy", STEP_THERAPY_RULE),
+            ("step therapy exception contraindicated", EXCEPTION_RULE),
+            ("quantity limit pens", QUANTITY_LIMIT_RULE),
+        ]:
+            with self.subTest(query=query):
+                first = self._first_passage(grep_documents([self.policy], query))
+                self.assertIn(squash(rule), squash(first))
+
+    def test_the_billing_code_finds_its_coding_table_row(self):
+        result = grep_documents([self.policy], BILLING_CODE)
+        self.assertIn(f"{BILLING_CODE} | Injection, adalimumab, 20 mg", result)
+
+    def test_the_members_word_for_step_therapy_finds_nothing(self):
+        result = grep_documents([self.policy], MEMBERS_WORD_FOR_STEP_THERAPY)
+        self.assertIn("Nothing matched", result)
+
+    def test_the_section_the_best_passage_names_holds_the_whole_rule(self):
+        result = grep_documents([self.policy], "step therapy")
+        number = int(re.search(r"section (\d+) of \d+", result).group(1))
+        section = squash(read_document_section(self.policy, number))
+        self.assertIn(squash(STEP_THERAPY_RULE), section)
+        self.assertIn("Trials of a preferred biosimilar paid for by another", section)
+
+    def test_a_word_on_every_page_is_counted_and_bounded(self):
+        result = grep_documents([self.policy], "adalimumab")
+        count = len(
+            re.findall(r"(?<![A-Za-z0-9])adalimumab", PASTED_POLICY_WITH_QUESTION, re.I)
+        )
+        self.assertIn(f'"adalimumab" {count:,} times', result)
+        self.assertLessEqual(len(result), MAX_TOOL_RESULT_CHARS + 200)
+        self.assertLessEqual(len(_passages(result)), MAX_TOOL_PASSAGES)
+
+
 class TestReadDocumentSection(TestCase):
     def setUp(self):
         self.policy = StoredDocument(name="policy.txt", text=POLICY)
@@ -322,6 +394,15 @@ class TestDocumentSearchTool(TestCase):
         prompt = callback.await_args.args[1]
         self.assertIn("Is my drug excluded?", prompt)
         self.assertIsNone(re.search(SEARCH_DOCUMENTS_REGEX, prompt, re.I | re.S))
+
+    def test_a_second_followup_quotes_the_users_message_not_the_first_results(self):
+        # A search followed by a section read: the second follow-up is
+        # handed the first follow-up prompt as "the message".
+        tool = self._tool()
+        first = tool.build_followup_prompt("FIRST-RESULTS", "Is Humira covered?")
+        second = tool.build_followup_prompt("SECOND-RESULTS", first)
+        self.assertNotIn("FIRST-RESULTS", second)
+        self.assertTrue(second.endswith("message was:\n\nIs Humira covered?"))
 
     def test_without_a_chat_nothing_is_searched(self):
         tool = DocumentSearchTool(AsyncMock(), chat=None)

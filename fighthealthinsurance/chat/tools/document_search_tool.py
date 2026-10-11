@@ -25,6 +25,39 @@ from fighthealthinsurance.chat.document_search import search_chat_documents
 from .json_followup_tool import JsonFollowupTool
 from .patterns import SEARCH_DOCUMENTS_REGEX
 
+_RESULT_HEADER = (
+    "[Result of your search of the user's stored documents -- from the "
+    "system, not written by the user]"
+)
+_FOLLOWUP_INSTRUCTIONS = (
+    "Answer the user's message using these results. Quote the document's "
+    "exact words for anything that decides the case -- coverage criteria, "
+    "exclusions, limits, deadlines, appeal rights -- and say which document "
+    "and section they come from. If the results don't settle it -- nothing "
+    "matched, a passage is cut off, or a list of criteria runs on past it -- "
+    "search again with the document's own words, or read the whole section a "
+    "passage's label names, rather than guessing what the document says. The "
+    "document is stored, so never ask the user to paste it again. The user's "
+    "message was:\n\n"
+)
+
+
+def _users_message(current_message_for_llm: str) -> str:
+    """The user's own message, out of the message a follow-up pass was given.
+
+    A search followed by another (a miss retried, or a section read) runs
+    as a follow-up of a follow-up, whose "message" is the earlier follow-up
+    prompt. Quoting that whole would hand the model the earlier results a
+    second time, under the user's name; they are already in the history,
+    so only the user's message, which that prompt ends with, is kept.
+    """
+    if current_message_for_llm.startswith(_RESULT_HEADER):
+        _, found, rest = current_message_for_llm.partition(_FOLLOWUP_INSTRUCTIONS)
+        if found:
+            return rest
+    return current_message_for_llm
+
+
 # Example values a model may copy from instructions instead of filling in.
 _PLACEHOLDER_QUERIES = frozenset({"search terms", "your search terms", "..."})
 
@@ -109,14 +142,6 @@ class DocumentSearchTool(JsonFollowupTool):
 
     def build_followup_prompt(self, note: str, current_message_for_llm: str) -> str:
         return (
-            "[Result of your search of the user's stored documents -- from "
-            "the system, not written by the user]\n\n"
-            f"{note}\n\n"
-            "Answer the user's message using these results. Quote the "
-            "document's exact words for anything that decides the case -- "
-            "coverage criteria, exclusions, limits, deadlines, appeal rights "
-            "-- and say which document and section they come from. If the "
-            "results don't settle it, search again with other words or read "
-            "a whole section, rather than guessing what the document says. "
-            f"The user's message was:\n\n{current_message_for_llm}"
+            f"{_RESULT_HEADER}\n\n{note}\n\n{_FOLLOWUP_INSTRUCTIONS}"
+            f"{_users_message(current_message_for_llm)}"
         )
