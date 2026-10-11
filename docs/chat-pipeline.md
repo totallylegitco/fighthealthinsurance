@@ -24,6 +24,9 @@ ChatInterface.handle_chat_message (chat_interface.py)
   │  prepare_history_for_llm (context_manager.py): truncate to last 20,
   │    summarize dropped prefix once per 10-message band, bound the
   │    accreted summary to FHI_CHAT_MAX_SUMMARY_CHARS (6000)
+  │  long paste (> 8000 chars): full text stored as a ChatDocument first
+  │    (document_processor.py); history + scoring then use a compact
+  │    marker -- see "Stored-content turns" in §6
   │  prepare_user_message_variants (message_preprocessor.py)
   │  state hint injected into the summary context as an UNCONFIRMED guess
   ▼
@@ -166,13 +169,17 @@ leaves the loop broken:
    busts upstream response caches) and samples at 0.85.
 6. **Last-resort delivery**: the retry scorer penalizes repeats by -1e6
    (finite) instead of -inf — a repeat beats an error frame, but only when
-   literally nothing else came back.
+   literally nothing else came back. A stored-content turn (long paste or
+   upload, §6) has a better last resort than either: the delivered
+   repeat is swapped for the turn's stored-content acknowledgment, since
+   the "repeat" there is the user's own marker, or our previous reply,
+   echoed back.
 7. **Terse-reply bridge**: a short user reply (<= 60 chars) right after an
    assistant question gets a bridging note telling the model the reply
    answers that question — the "CA" case that models previously ignored.
 8. **Metrics** (ml_metrics.py): fhi_chat_repeated_responses_total
-   {action=rejected_candidates|delivered_repeat} makes the ladder's
-   behavior observable in production.
+   {action=rejected_candidates|delivered_repeat|replaced_by_stored_content_ack}
+   makes the ladder's behavior observable in production.
 
 ## 4. Model selection (and why external models are now default-on)
 
@@ -184,8 +191,12 @@ get_chat_backends_with_fallback builds the fan-out:
   every pod picks the same one. The lead is chosen per backend, not per
   name: when two backends share a name (alpha and the May fine-tune set to
   the same model path), only the stronger leads and the other takes an
-  ordinary internal slot. Each step fails open like the other
-  filters: with every fhi backend marked down the strongest still leads.
+  ordinary internal slot. With every fhi backend marked down, the
+  strongest still leads only when no outside model in the turn can
+  answer (outside models off, or every roster model down or out of
+  budget). Otherwise our marked-down backends are left out of the lead
+  and the internal slots, and the outside models answer
+  (`MLRouter.get_chat_backends`, `fail_open`).
   With alpha and the May fine-tune both registered, alpha leads with two
   calls and the May fine-tune gets one. The lead used to be whichever fhi
   name sorted first, which put the May fine-tune in front of the stronger
@@ -295,9 +306,14 @@ rule.
   key is set, the person allowed outside models (Jev reads the text), the
   message was typed (not a document upload or a stored long paste), one of
   our models is selectable, TypeSafe's chat budget (`ml/spend.py`) allows a
-  request, and the pass has outside calls to hold back and calls of ours to
-  start first. With the budget spent the turn routes by our own rules, as
-  with the check off. It does not depend on
+  request, TypeSafe is not cooling down, and the pass has outside calls to
+  hold back and calls of ours to start first. TypeSafe cools down
+  (`ml/typesafe.py`) after an HTTP 401, 403, 404 or 410, or after its
+  endpoint cannot be reached (a refused or failed connect, or two connect
+  timeouts in a row within 60s). For `FHI_TYPESAFE_COOLDOWN_SECONDS` (900s;
+  at most 120s after a connect failure) every TypeSafe use in the process
+  is then held back. With the budget spent or TypeSafe cooling down, the
+  turn routes by our own rules, as with the check off. It does not depend on
   `FHI_CHAT_POLICY_APPLY`. Tool passes and the retry pass are never
   checked.
 * **The hold.** The outside calls wait until our first usable reply is
@@ -497,7 +513,9 @@ the four into one composite score for the agreement table.
   (the model that answered and the rubric version) and an outcome (scored,
   failed, timeout) are stored; the texts are never stored or logged.
 * Nothing starts for a document upload or a stored long paste, for a reply
-  a tool rewrote, or for the canned data-deletion reply.
+  a tool rewrote, for the canned data-deletion reply, or while TypeSafe is
+  cooling down (see the reply check above): no score, outcome or health
+  note is written for those turns.
 * It fails closed: any error, timeout or unexpected answer stores no
   scores, and the outcome goes on the `typesafe-chat` ExternalServiceHealth
   row.
@@ -530,6 +548,55 @@ in, as for draft quality.
 * Summarization is hard-bounded at 90s and degrades to "keep existing
   context" — it must never stall the interactive turn.
 
+### Stored-content turns (long pastes and uploads)
+
+A message over DIRECT_CHAT_SOFT_LIMIT_CHARS (8000) that is not an explicit
+upload is a *long paste* (the production failure that motivated this was
+a ~19k-char paste that errored on every model). Its full text is stored as
+a ChatDocument BEFORE the message variants are built, and from then on
+history and scoring use a one-line marker ("You pasted a long message
+(~N chars). It has been stored for reference as NAME."). The models get a
+preferred head+tail preview variant plus a lower-scored last resort
+truncated to DIRECT_CHAT_HARD_LIMIT_CHARS (24000): a paste over that limit
+is never sent whole, though one between the two limits still is, in the
+last-resort variant. Later turns reach the stored text through document
+search. Explicit uploads take the same storage path under their own marker.
+
+* **Dedupe.** Identical content re-submitted to the same chat (the user
+  re-pasting after a failed turn) reuses the newest stored copy -- compared
+  in the database, returning only bookkeeping columns -- unless that copy
+  was abandoned mid-analysis: still PROCESSING past its abandonment window
+  (the longest a worker waits for its release, 600s, +
+  max_summarization_seconds(text) + a minute of slack), it has no live
+  worker (typically a pod restart took its fire-and-forget thread), so a
+  fresh copy is stored and analyzed instead. A PENDING or FAILED copy is
+  reused and handed a new worker.
+* **Analysis after the turn.** Storing a document dispatches a background
+  worker (`_summarize_when_released`), unless the copy it reused is
+  already being, or done being, analyzed. A long paste's worker waits for
+  its turn to be over before summarizing, so the chunk-summary fan-out
+  never competes with the user's own turn for the same backends:
+  handle_chat_message sets a `threading.Event` in its outermost `finally`,
+  which every ending of the turn passes through, and after 600s the
+  worker starts regardless. Uploads and fetched documents start at once,
+  as before. The worker then claims the document atomically (a
+  conditional UPDATE from PENDING/FAILED to PROCESSING), so the workers of
+  a re-submitted document never summarize it twice at once. Storage is
+  `asyncio.shield`-ed, so a consumer cancelled on disconnect can't leave a
+  stored row with no worker. A worker's runtime is bounded by
+  max_summarization_seconds: SUMMARY_MODEL_ATTEMPTS x (batches x
+  SUMMARIZE_TIMEOUT + OVERALL_SUMMARY_TIMEOUT).
+* **No reply is not an error.** When every model fails -- or the ladder's
+  last resort would deliver a repeat -- a stored-content turn sends an
+  acknowledgment instead (the content is stored and being analyzed; say
+  what to do with it), persisted after the marker so replays read as a
+  coherent exchange. "All models are experiencing issues, try again" read
+  as "your paste was lost", and a re-paste only duplicated the failure.
+  The repeat case is still an "ok" turn, like any delivered repeat: the
+  models did answer, so it raises no failure metric or reliability event,
+  and its ChatTurn row says "ok". A total failure keeps its "failed" count
+  and row; only the frame the user sees changes.
+
 ## 7. Debuggability
 
 Three levels, in increasing detail:
@@ -537,8 +604,9 @@ Three levels, in increasing detail:
 1. **Always-on INFO log line per LLM pass**: picked backend + score,
    runner-up + score + tied?, candidate count, rejected-repeat count,
    retry usage, elapsed ms. This is the production triage record.
-2. **Prometheus metrics**: repeats (rejected/delivered), alternates
-   offered, answer feedback, turn outcomes.
+2. **Prometheus metrics**: repeats (rejected/delivered/replaced by the
+   stored-content acknowledgment), alternates offered, answer feedback,
+   turn outcomes.
 3. **ChatTurn rows** (one per turn that reached the models and was
    counted in fhi_chat_turns_total, in the admin and on the staff ML Model
    Usage Dashboard): the backends asked, each call's model, pass, history
@@ -550,7 +618,9 @@ Three levels, in increasing detail:
    (scored, repeat or empty) or, when its pass stopped comparing answers
    first, is unscored; either way it keeps its time. Only a call still
    running when its pass stopped waiting is late, with no time, and a
-   held-back outside call that was never sent is skipped. An exception
+   held-back outside call that was never sent is skipped. A call to a
+   provider that could not be asked or reached (an outage, a refused key,
+   a cooldown) is an error, and its time stays out of the medians. An exception
    escaping a turn after the models were asked counts it failed, in the row
    and the metric alike; a turn cancelled before it was counted gets
    neither.
@@ -631,6 +701,20 @@ Three levels, in increasing detail:
   and send nothing, so a reply they reject fails even when Jev is
   unreachable. Only its numbers, outcome, scorer, time and the judged
   model's label are kept.
+* A document is summarized only by a worker holding its atomic claim
+  (`_claim_document_for_processing`), and nothing ever claims FROM
+  PROCESSING: a PROCESSING -> PROCESSING UPDATE still MATCHES, so the
+  database reports a successful claim to every concurrent caller. An
+  abandoned PROCESSING document is not reclaimed; dedupe stores a fresh
+  copy instead.
+* Message variants are built around the document name storage resolved
+  to. Never string-replace a name through built variants: the truncated
+  variant's text IS the user's raw paste, and a client-supplied name that
+  occurs in it would be rewritten inside the message sent to the model.
+* The stored-content marker gets no exemption from the repeat ladder: a
+  reply that nearly copies it is exactly the echo the ladder exists to
+  catch (substantive acknowledgments of the paste don't trip it). A
+  stored-content turn's last resort is its acknowledgment, never a repeat.
 * `user_requested_repeat` is the master switch that disables the whole
   ladder, so it must match an explicit REQUEST ("repeat that", "say that
   again"), never the topic. "repeat MRI", "repeat colonoscopy", "repeat
