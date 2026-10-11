@@ -15,17 +15,29 @@ Two ways in:
 Section numbers are chunk_document's chunks, 1-based. Summarization stores
 the same chunks' offsets, so a section number means the same text before and
 after a document's analysis finishes.
+
+The matching and passage ranking are document_grep's, shared with the appeal
+flow's plan-document helper; what is here is the chat's side of it.
 """
 
-import bisect
 import hashlib
-import re
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from loguru import logger
 
 from fighthealthinsurance.chat.document_processor import chunk_document
+from fighthealthinsurance.document_grep import (
+    QUOTED_RE,
+    STOPWORDS,
+    WORD_RE,
+    line_number,
+    match_counts,
+    passage_text,
+    plural,
+    query_needles,
+    select_passages,
+)
 from fighthealthinsurance.models import ChatDocument
 
 MAX_SEARCH_RESULTS = 5
@@ -41,166 +53,23 @@ DOCUMENT_LISTING_HEADER = (
     "answering a question about what one says):"
 )
 
-# search_documents: context kept on each side of a hit, the most passages one
-# search returns, and the size of everything it returns.
-SNIPPET_RADIUS_CHARS = 300
+# search_documents: the most passages one search returns, and the size of
+# everything it returns.
 MAX_TOOL_PASSAGES = 8
 MAX_TOOL_RESULT_CHARS = 8000
-# The model writes a tool query on purpose, so short codes and abbreviations
-# ("PT", "IV") count there, unlike in the automatic search.
-MIN_TOOL_TERM_LENGTH = 2
-MAX_TOOL_TERMS = 12
 # Longer than any real search. A model pasting a whole passage back as its
 # query would otherwise get a phrase too long for any passage to fit.
 MAX_TOOL_QUERY_CHARS = 300
-# Hit positions kept per search term. Counts stay exact past it; only the
-# passages are drawn from the first ones.
-MAX_HITS_PER_NEEDLE = 500
-# A hit on the whole query or a quoted phrase outweighs a single word's.
-PHRASE_WEIGHT = 3.0
-TERM_WEIGHT = 1.0
-# How far a snippet edge may move to land on a line break, or a space.
-_SNAP_TO_LINE_CHARS = 80
-_SNAP_TO_SPACE_CHARS = 30
-
-# Words excluded from query term extraction. Includes common English stopwords
-# plus conversational filler that isn't meaningful for document search.
-_STOPWORDS = frozenset(
-    {
-        "a",
-        "an",
-        "the",
-        "is",
-        "are",
-        "was",
-        "were",
-        "be",
-        "been",
-        "being",
-        "have",
-        "has",
-        "had",
-        "do",
-        "does",
-        "did",
-        "will",
-        "would",
-        "could",
-        "should",
-        "may",
-        "might",
-        "can",
-        "shall",
-        "to",
-        "of",
-        "in",
-        "for",
-        "on",
-        "with",
-        "at",
-        "by",
-        "from",
-        "as",
-        "into",
-        "through",
-        "during",
-        "before",
-        "after",
-        "above",
-        "below",
-        "between",
-        "out",
-        "off",
-        "over",
-        "under",
-        "again",
-        "further",
-        "then",
-        "once",
-        "here",
-        "there",
-        "when",
-        "where",
-        "why",
-        "how",
-        "all",
-        "both",
-        "each",
-        "few",
-        "more",
-        "most",
-        "other",
-        "some",
-        "such",
-        "no",
-        "nor",
-        "not",
-        "only",
-        "own",
-        "same",
-        "so",
-        "than",
-        "too",
-        "very",
-        "just",
-        "about",
-        "what",
-        "which",
-        "who",
-        "this",
-        "that",
-        "these",
-        "those",
-        "it",
-        "its",
-        "my",
-        "your",
-        "his",
-        "her",
-        "our",
-        "their",
-        "me",
-        "him",
-        "us",
-        "them",
-        "i",
-        "you",
-        "he",
-        "she",
-        "we",
-        "they",
-        "and",
-        "but",
-        "or",
-        "if",
-        "up",
-        "also",
-        "tell",
-        "say",
-        "says",
-        "said",
-        "please",
-        "thank",
-        "thanks",
-        "hi",
-        "hello",
-        "document",
-        "file",
-        "uploaded",
-        "page",
-    }
-)
-
-_WORD_RE = re.compile(r"[a-zA-Z0-9]+(?:[-'][a-zA-Z0-9]+)*")
-_QUOTED_RE = re.compile(r'"([^"]+)"')
+# A passage's label ("[name, section N of M, line L]") and separators.
+_PASSAGE_LABEL_CHARS = 80
 
 
 def _extract_search_terms(query: str) -> List[str]:
     """Extract meaningful search terms from a user query."""
-    words = _WORD_RE.findall(query.lower())
-    terms = [w for w in words if w not in _STOPWORDS and len(w) >= MIN_QUERY_LENGTH]
+    words = WORD_RE.findall(query.lower())
+    terms = [w for w in words if w not in STOPWORDS and len(w) >= MIN_QUERY_LENGTH]
     terms.extend(
-        q.lower() for q in _QUOTED_RE.findall(query) if len(q) >= MIN_QUERY_LENGTH
+        q.lower() for q in QUOTED_RE.findall(query) if len(q) >= MIN_QUERY_LENGTH
     )
     return terms
 
@@ -229,10 +98,6 @@ def _summary_preview_for_document(doc: ChatDocument, max_chars: int = 200) -> st
     if doc.summary:
         return doc.summary[:max_chars]
     return f"({doc.processing_status})"
-
-
-def _plural(count: int, noun: str) -> str:
-    return f"{count:,} {noun}{'' if count == 1 else 's'}"
 
 
 async def get_document_context_for_message(
@@ -265,7 +130,7 @@ async def get_document_context_for_message(
         summary_preview = _summary_preview_for_document(doc)
         summary_entries.append(
             f"- {doc.document_name} ({doc.char_count:,} chars, "
-            f"{_plural(len(sections), 'section')}, {doc.processing_status}): "
+            f"{plural(len(sections), 'section')}, {doc.processing_status}): "
             f"{summary_preview}"
         )
 
@@ -333,133 +198,12 @@ class StoredDocument:
         return chunk_document(self.text)
 
 
-@dataclass(frozen=True)
-class _Needle:
-    """One thing a search looks for."""
-
-    label: str
-    weight: float
-    pattern: "re.Pattern[str]"
-
-
-def _needle_pattern(needle: str) -> "re.Pattern[str]":
-    """A literal, case-insensitive pattern for ``needle``.
-
-    It matches at the start of a word, so a stem finds its forms ("authoriz"
-    finds "authorization") while "age" stays out of "coverage", and any run
-    of whitespace stands for a space, since a paste wraps its lines
-    mid-phrase. Only escaped text is compiled: the query is model-written, so
-    none of it may act as regex syntax, nor cost any backtracking.
-    """
-    body = r"\s+".join(re.escape(word) for word in needle.split())
-    return re.compile(r"(?<![A-Za-z0-9])" + body, re.IGNORECASE)
-
-
-def _tool_needles(query: str) -> List[_Needle]:
-    """What a query looks for: its quoted phrases and, for a query of more
-    than one word, the whole query as a phrase (both weighted higher), then
-    each of its words that is not a stopword. A query of nothing but
-    stopwords is looked for as written."""
-    needles: List[_Needle] = []
-    seen: set = set()
-
-    def add(text: str, weight: float) -> None:
-        label = " ".join(text.lower().split())
-        if label and label not in seen:
-            seen.add(label)
-            needles.append(_Needle(label, weight, _needle_pattern(label)))
-
-    for phrase in _QUOTED_RE.findall(query):
-        add(phrase, PHRASE_WEIGHT)
-    unquoted = query.replace('"', " ")
-    if len(unquoted.split()) > 1:
-        add(unquoted, PHRASE_WEIGHT)
-    terms = [
-        word
-        for word in _WORD_RE.findall(unquoted.lower())
-        if word not in _STOPWORDS and len(word) >= MIN_TOOL_TERM_LENGTH
-    ]
-    for term in terms[:MAX_TOOL_TERMS]:
-        add(term, TERM_WEIGHT)
-    if not needles:
-        add(unquoted, TERM_WEIGHT)
-    return needles
-
-
-def _needle_hits(text: str, needle: _Needle) -> Tuple[int, List[Tuple[int, int]]]:
-    """How often ``needle`` occurs in ``text``, and the spans of its first
-    MAX_HITS_PER_NEEDLE occurrences."""
-    count = 0
-    spans: List[Tuple[int, int]] = []
-    for match in needle.pattern.finditer(text):
-        count += 1
-        if len(spans) < MAX_HITS_PER_NEEDLE:
-            spans.append(match.span())
-    return count, spans
-
-
-def _snap_start(text: str, pos: int) -> int:
-    """Move a snippet's start back to a line start, or a word start, nearby."""
-    if pos <= 0:
-        return 0
-    line = text.rfind("\n", max(0, pos - _SNAP_TO_LINE_CHARS), pos)
-    if line != -1:
-        return line + 1
-    space = text.rfind(" ", max(0, pos - _SNAP_TO_SPACE_CHARS), pos)
-    return space + 1 if space != -1 else pos
-
-
-def _snap_end(text: str, pos: int) -> int:
-    """Move a snippet's end on to a line end, or a word end, nearby."""
-    if pos >= len(text):
-        return len(text)
-    line = text.find("\n", pos, pos + _SNAP_TO_LINE_CHARS)
-    if line != -1:
-        return line
-    space = text.find(" ", pos, pos + _SNAP_TO_SPACE_CHARS)
-    return space if space != -1 else pos
-
-
-def _candidate_passages(
-    text: str,
-    needles: Sequence[_Needle],
-    hits: Sequence[List[Tuple[int, int]]],
-) -> List[Tuple[float, int, int, int]]:
-    """A passage around every hit, as ``(score, start, end, hit_start)``.
-
-    A passage scores each needle with a hit inside it, more for a phrase
-    than a word, with diminishing returns for repeats (as _score_chunk does),
-    so the passages where the most of the query occurs together rank first.
-    """
-    hit_starts = [[start for start, _ in spans] for spans in hits]
-    candidates: List[Tuple[float, int, int, int]] = []
-    for spans in hits:
-        for hit_start, hit_end in spans:
-            lo = hit_start - SNIPPET_RADIUS_CHARS
-            hi = hit_end + SNIPPET_RADIUS_CHARS
-            score = 0.0
-            for needle, starts in zip(needles, hit_starts):
-                inside = bisect.bisect_right(starts, hi) - bisect.bisect_left(
-                    starts, lo
-                )
-                if inside:
-                    score += needle.weight * (1.0 + min(inside - 1, 4) * 0.25)
-            candidates.append(
-                (score, _snap_start(text, lo), _snap_end(text, hi), hit_start)
-            )
-    return candidates
-
-
 def _section_number(sections: Sequence[Dict], pos: int) -> int:
     """1-based number of the first section holding character ``pos``."""
     for chunk in sections:
         if chunk["start_char"] <= pos < chunk["end_char"]:
             return int(chunk["chunk_index"]) + 1
     return len(sections)
-
-
-def _line_number(text: str, pos: int) -> int:
-    return text.count("\n", 0, pos) + 1
 
 
 def grep_documents(documents: Sequence[StoredDocument], query: str) -> str:
@@ -471,7 +215,7 @@ def grep_documents(documents: Sequence[StoredDocument], query: str) -> str:
     the whole section next.
     """
     query = query[:MAX_TOOL_QUERY_CHARS]
-    needles = _tool_needles(query)
+    needles = query_needles(query)
     if not needles:
         return (
             "That search was empty. Give the search a word or phrase to look "
@@ -479,29 +223,28 @@ def grep_documents(documents: Sequence[StoredDocument], query: str) -> str:
         )
     shown_query = " ".join(query.split())
     lines = [f'Search of the stored documents for "{shown_query}":']
-    candidates: List[Tuple[float, int, int, int, int]] = []
     found: set = set()
     section_lists = [doc.sections for doc in documents]
     for index, doc in enumerate(documents):
-        counts: List[str] = []
-        hits: List[List[Tuple[int, int]]] = []
-        for needle in needles:
-            count, spans = _needle_hits(doc.text, needle)
-            hits.append(spans)
-            if count:
-                found.add(needle.label)
-                counts.append(f'"{needle.label}" {_plural(count, "time")}')
+        counts = {
+            label: count
+            for label, count in match_counts(doc.text, needles).items()
+            if count
+        }
+        found.update(counts)
         lines.append(
             f"- {doc.name} ({len(doc.text):,} chars, "
-            f"{_plural(len(section_lists[index]), 'section')}): "
-            + (", ".join(counts) if counts else "no matches")
-        )
-        candidates.extend(
-            (score, index, start, end, hit)
-            for score, start, end, hit in _candidate_passages(doc.text, needles, hits)
+            f"{plural(len(section_lists[index]), 'section')}): "
+            + (
+                ", ".join(
+                    f'"{label}" {plural(count, "time")}'
+                    for label, count in counts.items()
+                )
+                or "no matches"
+            )
         )
 
-    if not candidates:
+    if not found:
         lines.append(
             "Nothing matched. Search again with other words -- a synonym, the "
             "generic or brand name of a drug, a billing code, or the start of "
@@ -516,42 +259,29 @@ def grep_documents(documents: Sequence[StoredDocument], query: str) -> str:
             "Not found in any document: " + ", ".join(f'"{m}"' for m in missing)
         )
     lines.append("\nBest-matching passages, best first:")
-
-    # Highest score first; among equals, earliest in the document.
-    candidates.sort(key=lambda c: (-c[0], c[1], c[2]))
-    budget = MAX_TOOL_RESULT_CHARS - len("\n".join(lines))
-    picked: List[Tuple[int, int, int]] = []
-    passages: List[str] = []
-    for _, index, start, end, hit in candidates:
-        if len(passages) >= MAX_TOOL_PASSAGES:
-            break
-        if any(
-            index == p_index and start < p_end and p_start < end
-            for p_index, p_start, p_end in picked
-        ):
-            continue
-        doc = documents[index]
-        sections = section_lists[index]
-        snippet = (
-            ("…" if start > 0 else "")
-            + doc.text[start:end].strip()
-            + ("…" if end < len(doc.text) else "")
-        )
-        passage = (
-            f"[{doc.name}, section {_section_number(sections, hit)} of "
-            f"{len(sections)}, line {_line_number(doc.text, hit):,}]\n{snippet}"
-        )
-        if len(passage) + 2 > budget:
-            break
-        budget -= len(passage) + 2
-        picked.append((index, start, end))
-        passages.append(passage)
-
-    lines.append("\n\n".join(passages))
-    lines.append(
+    closing = (
         "\nThese are excerpts. To see more around one, read its whole section "
         "by number; to find more, search again with other words."
     )
+
+    passages: List[str] = []
+    for passage in select_passages(
+        [doc.text for doc in documents],
+        [query],
+        budget_chars=MAX_TOOL_RESULT_CHARS - len("\n".join(lines)) - len(closing),
+        max_passages=MAX_TOOL_PASSAGES,
+        per_passage_overhead=_PASSAGE_LABEL_CHARS,
+    ):
+        doc = documents[passage.source]
+        sections = section_lists[passage.source]
+        passages.append(
+            f"[{doc.name}, section {_section_number(sections, passage.hit)} of "
+            f"{len(sections)}, line {line_number(doc.text, passage.hit):,}]\n"
+            f"{passage_text(doc.text, passage)}"
+        )
+
+    lines.append("\n\n".join(passages))
+    lines.append(closing)
     return "\n".join(lines)
 
 
@@ -562,7 +292,7 @@ def read_document_section(document: StoredDocument, number: int) -> str:
         return f"{document.name} is empty."
     if not 1 <= number <= len(sections):
         return (
-            f"{document.name} has {_plural(len(sections), 'section')} "
+            f"{document.name} has {plural(len(sections), 'section')} "
             f"(1-{len(sections)}); there is no section {number}."
         )
     chunk = sections[number - 1]
@@ -571,7 +301,7 @@ def read_document_section(document: StoredDocument, number: int) -> str:
         text = text[:MAX_TOOL_RESULT_CHARS] + "…"
     return (
         f"Section {number} of {len(sections)} of {document.name} "
-        f"(from line {_line_number(document.text, chunk['start_char']):,}):\n"
+        f"(from line {line_number(document.text, chunk['start_char']):,}):\n"
         f"{text}"
     )
 

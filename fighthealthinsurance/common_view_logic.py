@@ -135,7 +135,6 @@ from fighthealthinsurance.models import *
 from fighthealthinsurance.process_denial import ProcessDenialCodes
 from fighthealthinsurance.rag_client import get_rag_context_for_denial
 from fighthealthinsurance.utils import (
-    extract_file_text,
     interleave_iterator_for_keep_alive,
     is_real_appeal,
     keepalive_frames,
@@ -4357,33 +4356,19 @@ class DenialCreatorHelper:
         """
         Extract text from all plan documents associated with a denial.
 
+        Read through MLPlanDocHelper.load_plan_documents, which decrypts:
+        uploads are stored encrypted, and opening the stored file's path
+        handed the ciphertext to the parser (and raises on remote storage),
+        so a fax number in a plan document was never found.
+
         Args:
             denial_id: The denial ID to get plan documents for
 
         Returns:
-            Combined text from all plan documents (PDF and text files)
+            Combined text from all plan documents
         """
-        combined_text = ""
-        try:
-            plan_docs = PlanDocuments.objects.filter(denial_id=denial_id)
-            async for doc in plan_docs:
-                try:
-                    # Try encrypted field first, fall back to unencrypted
-                    file_field = doc.plan_document_enc or doc.plan_document
-                    if not file_field:
-                        continue
-
-                    path = file_field.path
-                    text = extract_file_text(path)
-                    if text:
-                        combined_text += text + "\n"
-                except Exception as e:
-                    logger.debug(f"Error processing plan document: {e}")
-        except Exception as e:
-            logger.opt(exception=True).debug(
-                f"Error getting plan documents for denial {denial_id}: {e}"
-            )
-        return combined_text
+        documents = await MLPlanDocHelper.load_plan_documents(denial_id)
+        return "\n".join(doc.text for doc in documents)
 
     @classmethod
     async def extract_set_fax_number(cls, denial_id):

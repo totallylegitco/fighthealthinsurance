@@ -95,7 +95,7 @@ class WhatItWillAndWillNotParseTest(TransactionTestCase):
         doc = PlanDocuments(denial=denial)
         doc.plan_document_enc.save("huge.pdf", ContentFile(oversized), save=True)
 
-        with patch.object(MLPlanDocHelper, "_extract_pages_with_terms") as extracted:
+        with patch.object(MLPlanDocHelper, "_read_pages") as extracted:
             result = asyncio.run(
                 MLPlanDocHelper.extract_relevant_text(
                     denial.denial_id, ["medical necessity"]
@@ -251,9 +251,7 @@ class WhatItWillAndWillNotParseTest(TransactionTestCase):
             with mock.patch.object(
                 ml_document_extraction, "extract_text_from_bytes", note
             ):
-                return await MLPlanDocHelper._extract_pages_with_terms(
-                    b"plan bytes", "plan.pdf", ["medical necessity"]
-                )
+                return await MLPlanDocHelper._read_pages(b"plan bytes", "plan.pdf")
 
         pages = asyncio.run(run())
 
@@ -786,23 +784,17 @@ class ADamagedDocumentDoesNotBecomeGarbageTest(TransactionTestCase):
             b"endobj trailer"
         )
 
-        pages = asyncio.run(
-            MLPlanDocHelper._extract_pages_with_terms(
-                broken, "plan.pdf", ["medical necessity"]
-            )
-        )
+        pages = asyncio.run(MLPlanDocHelper._read_pages(broken, "plan.pdf"))
 
-        self.assertEqual(pages, [])
+        self.assertEqual(pages, {})
 
     def test_a_format_with_no_parser_is_still_read_as_text(self):
         """The guess itself stays, for the uploads it was there for."""
         pages = asyncio.run(
-            MLPlanDocHelper._extract_pages_with_terms(
-                b"Coverage requires medical necessity review.",
-                "benefits.text",
-                ["medical necessity"],
+            MLPlanDocHelper._read_pages(
+                b"Coverage requires medical necessity review.", "benefits.text"
             )
         )
 
         self.assertEqual(len(pages), 1)
-        self.assertIn("medical necessity", pages[0].lower())
+        self.assertIn("medical necessity", pages[1].lower())

@@ -564,7 +564,10 @@ last-resort variant. The model reaches the rest of the stored text through
 document search (below), on the paste's own turn as well as later ones.
 Explicit uploads take the same storage path under their own marker.
 
-* **Searching it.** Two ways in (chat/document_search.py). Every turn lists
+* **Searching it.** Two ways in (chat/document_search.py, on the matching
+  and passage ranking in fighthealthinsurance/document_grep.py, which the
+  appeal flow's plan-document helper shares -- see docs/ml-backends.md).
+  Every turn lists
   the chat's stored documents in the context summary, under a header that
   names the search tool, and adds the sections that best match the
   person's message; a stored long paste's turn only lists them, since its
