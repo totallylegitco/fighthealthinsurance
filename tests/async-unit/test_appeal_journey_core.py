@@ -120,6 +120,33 @@ class TestGenerateAndStoreAppeals(_JourneyTestBase):
         async_to_sync(generation_lease.arelease)(denial, lease.epoch)
 
     @patch("fighthealthinsurance.common_view_logic.appealGenerator")
+    def test_a_background_run_with_answers_keeps_the_derived_medical_context(
+        self, mock_gen
+    ):
+        """The assistant's answers ride as a questionnaire, but they are
+        filed under the questions' text, never a form box: a run carrying
+        them must not withdraw the sentence a site questionnaire derived
+        from its boxes (urgent, pre-service...), as an unticked site form
+        would."""
+        import json
+
+        from fighthealthinsurance.denial_context import merge_qa
+
+        denial = _make_denial(9105)
+        merge_qa(denial, {"medical_context": "This is an urgent claim."}, source="test")
+        denial.save()
+        mock_gen.make_appeals.return_value = iter(
+            _drafts([f"Dear Reviewer, appeal number {i} citing the denial." for i in range(3)])
+        )
+        with patch(
+            "fighthealthinsurance.assistant_drafts.answers_for_generation",
+            return_value={"What happened?": "a fall"},
+        ):
+            appeal_journey_core.generate_and_store_appeals(denial)
+        denial.refresh_from_db()
+        assert json.loads(denial.qa_context)["medical_context"] == "This is an urgent claim."
+
+    @patch("fighthealthinsurance.common_view_logic.appealGenerator")
     def test_empty_stream_raises_journey_incomplete(self, mock_gen):
         """A generator that produces nothing must surface as a retryable
         failure, never as a successful activity with zero drafts."""

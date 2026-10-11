@@ -6059,11 +6059,15 @@ class AppealsBackendHelper:
         # behavior users see, and silent background retries were eating it
         # (PR #963 review).
         dirty_fields = set() if background else {"gen_attempts"}
-        # Only a questionnaire submission can withdraw the derived sentence.
-        # Back and background generation carry no answers, so their empty
-        # forms say nothing about what the person decided.
+        # Only a questionnaire submission from the site can withdraw the
+        # derived sentence. Back generation carries no answers, and a
+        # background run's answers are the assistant's, filed under the
+        # questions' text and never a form box, so their empty forms say
+        # nothing about what the person decided.
         if record_derived_medical_context(
-            denial, medical_context, withdraw=bool(parameters.get("questionnaire"))
+            denial,
+            medical_context,
+            withdraw=bool(parameters.get("questionnaire")) and not background,
         ):
             dirty_fields.add("qa_context")
         if plan_context:
