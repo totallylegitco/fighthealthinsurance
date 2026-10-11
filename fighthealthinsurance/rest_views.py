@@ -2484,16 +2484,16 @@ class ChooserViewSet(viewsets.ViewSet):
         if task.context_json:
             context = task.context_json
 
-        # Serialize candidates
+        # Serialize candidates. Blind: no model name, synthesized flag or
+        # metadata leaves the server (see ChooserCandidateSerializer); the
+        # old payload carried all three, so a voter who opened the network
+        # tab could vote for a brand.
         candidate_data = [
             {
                 "id": c.id,
                 "candidate_index": c.candidate_index,
                 "kind": c.kind,
-                "model_name": c.model_name,
-                "synthesized": c.synthesized,
                 "content": c.content,
-                "metadata": c.metadata,
             }
             for c in candidates
         ]
@@ -2561,6 +2561,9 @@ class ChooserViewSet(viewsets.ViewSet):
         presented_candidate_ids = list(
             dict.fromkeys(serializer.validated_data["presented_candidate_ids"])
         )
+        flagged_candidate_ids = list(
+            dict.fromkeys(serializer.validated_data.get("flagged_candidate_ids") or [])
+        )
 
         # Validate task exists and is in valid state
         try:
@@ -2610,6 +2613,25 @@ class ChooserViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # A flag says "this one made things up"; it cannot also be the pick,
+        # and it must be one of the drafts the voter actually saw.
+        if chosen_candidate_id in flagged_candidate_ids:
+            return Response(
+                serializers.ErrorSerializer(
+                    {"error": "The chosen candidate cannot also be flagged"}
+                ).data,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if any(cid not in presented_candidate_ids for cid in flagged_candidate_ids):
+            return Response(
+                serializers.ErrorSerializer(
+                    {
+                        "error": "Flagged candidates must be among the presented candidates"
+                    }
+                ).data,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         # Every presented id must be one of this task's active candidates,
         # the only ones the next-task endpoint serves: the usage dashboard
         # counts each as a presentation of its model, so an id from another
@@ -2634,6 +2656,7 @@ class ChooserViewSet(viewsets.ViewSet):
                 task=task,
                 chosen_candidate=chosen_candidate,
                 presented_candidate_ids=presented_candidate_ids,
+                flagged_candidate_ids=flagged_candidate_ids,
                 session_key=session_key,
             )
         except IntegrityError:

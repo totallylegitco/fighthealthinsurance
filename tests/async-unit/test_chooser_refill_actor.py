@@ -71,7 +71,11 @@ async def test_a_loop_failing_every_tick_stops_reporting_healthy():
     with patch(
         "fighthealthinsurance.chooser_tasks.check_and_refill_task_pool",
         new=AsyncMock(side_effect=RuntimeError("db credentials rotated")),
-    ), patch("fighthealthinsurance.chooser_refill_actor.asyncio.sleep", fake_sleep):
+    ), patch(
+        "fighthealthinsurance.condition_rankings.refresh_if_due", new=AsyncMock()
+    ), patch(
+        "fighthealthinsurance.chooser_refill_actor.asyncio.sleep", fake_sleep
+    ):
         await actor.run()
 
     assert actor._consecutive_failures == UNHEALTHY_AFTER_FAILURES
@@ -91,9 +95,38 @@ async def test_a_successful_tick_resets_the_failure_count():
     with patch(
         "fighthealthinsurance.chooser_tasks.check_and_refill_task_pool",
         new=AsyncMock(return_value=True),
-    ), patch("fighthealthinsurance.chooser_refill_actor.asyncio.sleep", fake_sleep):
+    ), patch(
+        "fighthealthinsurance.condition_rankings.refresh_if_due", new=AsyncMock()
+    ), patch(
+        "fighthealthinsurance.chooser_refill_actor.asyncio.sleep", fake_sleep
+    ):
         await actor.run()
 
+    assert actor._consecutive_failures == 0
+
+
+@pytest.mark.asyncio
+async def test_a_failing_rankings_refresh_is_not_a_failed_tick():
+    """The loop refreshes the condition rankings after each refill; a
+    vocabulary service being down must not get the actor replaced, since
+    the pool it exists for was refilled."""
+    actor = _actor(failures=2)
+    refresh = AsyncMock(side_effect=RuntimeError("ncbi down"))
+
+    async def fake_sleep(seconds):
+        actor.running = False
+
+    with patch(
+        "fighthealthinsurance.chooser_tasks.check_and_refill_task_pool",
+        new=AsyncMock(return_value=True),
+    ), patch(
+        "fighthealthinsurance.condition_rankings.refresh_if_due", new=refresh
+    ), patch(
+        "fighthealthinsurance.chooser_refill_actor.asyncio.sleep", fake_sleep
+    ):
+        await actor.run()
+
+    assert refresh.await_count == 1
     assert actor._consecutive_failures == 0
 
 
@@ -110,7 +143,11 @@ async def test_a_refill_that_produces_nothing_is_a_failed_tick():
     with patch(
         "fighthealthinsurance.chooser_tasks.check_and_refill_task_pool",
         new=AsyncMock(return_value=False),
-    ), patch("fighthealthinsurance.chooser_refill_actor.asyncio.sleep", fake_sleep):
+    ), patch(
+        "fighthealthinsurance.condition_rankings.refresh_if_due", new=AsyncMock()
+    ), patch(
+        "fighthealthinsurance.chooser_refill_actor.asyncio.sleep", fake_sleep
+    ):
         await actor.run()
 
     assert actor._consecutive_failures == UNHEALTHY_AFTER_FAILURES

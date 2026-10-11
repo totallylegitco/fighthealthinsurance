@@ -36,6 +36,7 @@ from fighthealthinsurance import (
     assistant_terms_views,
     fax_views,
     intake_resume_views,
+    public_rankings,
     staff_views,
     views,
 )
@@ -635,6 +636,13 @@ urlpatterns += [
         "chooser/",
         views.ChooserView.as_view(),
         name="chooser",
+    ),
+    # Public, synthetic-only rankings from the chooser's votes, plus the
+    # most-appealed conditions and treatments (public_rankings.py).
+    path(
+        "chooser/rankings/",
+        public_rankings.ChooserRankingsView.as_view(),
+        name="chooser_rankings",
     ),
     path("cookies/", include("cookie_consent.urls")),
     # Microsites - condition-specific landing pages

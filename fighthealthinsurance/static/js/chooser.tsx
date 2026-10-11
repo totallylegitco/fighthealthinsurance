@@ -1,35 +1,47 @@
-import React, { useState, useCallback } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
-  Box,
-  Container,
-  Button,
-  Paper,
-  Text,
-  MantineProvider,
-  Title,
-  Card,
-  Group,
-  Stack,
-  Loader,
   Alert,
-  ScrollArea,
-  Checkbox,
   Anchor,
+  Badge,
+  Box,
+  Button,
+  Card,
+  Checkbox,
+  Container,
+  Group,
+  List,
+  Loader,
+  MantineProvider,
+  Paper,
+  ScrollArea,
+  SimpleGrid,
+  Stack,
+  Text,
+  Title,
 } from "@mantine/core";
 import ErrorBoundary from "./ErrorBoundary";
 import { THEME } from "./theme";
 import { getCSRFToken } from "./shared";
 
-// Types for Chooser API responses
+// The Appeal Arena: several AI drafts answer one synthetic denial, and the
+// visitor is the referee. Two things make a vote worth collecting here:
+// the drafts are blind (the API sends no model names), and a draft that
+// makes things up can be flagged, so a letter cannot win on invented facts.
+
+// Types for Chooser API responses. Candidates carry no model name on
+// purpose; see ChooserCandidateSerializer.
 interface ChooserCandidate {
   id: number;
   candidate_index: number;
   kind: string;
-  model_name: string;
-  synthesized?: boolean;
   content: string;
-  metadata: Record<string, unknown> | null;
+}
+
+interface EvidenceItem {
+  pmid?: string;
+  title?: string;
+  url?: string;
 }
 
 interface ChooserTaskContext {
@@ -37,6 +49,9 @@ interface ChooserTaskContext {
   diagnosis?: string;
   denial_text_preview?: string;
   insurance_company?: string;
+  facts?: string[];
+  evidence?: EvidenceItem[];
+  seeded?: boolean;
   prompt?: string;
   history?: Array<{ role: string; content: string }>;
 }
@@ -48,87 +63,247 @@ interface ChooserTask {
   candidates: ChooserCandidate[];
 }
 
+type TaskType = "appeal" | "chat";
+
 interface ChooserState {
   mode: "selection" | "loading" | "voting" | "confirmation" | "error";
   task: ChooserTask | null;
   selectedCandidate: ChooserCandidate | null;
+  flaggedIds: number[];
   error: string | null;
-  taskType: "appeal" | "chat" | null;
+  taskType: TaskType | null;
 }
 
-// Format context for display
-const formatContext = (context: ChooserTaskContext, taskType: string): React.ReactNode => {
-  if (taskType === "chat") {
-    // For chat tasks, show the conversation history if present
-    const parts: React.ReactNode[] = [];
+// The referee's record, kept in this browser only (never sent anywhere):
+// a little momentum, nothing more.
+interface Scoreboard {
+  rounds: number;
+  fouls: number;
+}
 
-    if (context.history && context.history.length > 0) {
-      context.history.forEach((msg, idx) => {
-	const isUser = msg.role === "user";
-	parts.push(
-	  <Box
-	    key={`history-${idx}`}
-	    mb="sm"
-	    p="sm"
-	    style={{
-	      backgroundColor: isUser ? "#f0f4f8" : "#e8f5e9",
-	      borderRadius: "8px",
-	      borderLeft: `3px solid ${isUser ? "#64b5f6" : "#81c784"}`,
-	    }}
-	  >
-	    <Text size="xs" fw={600} c={isUser ? "blue" : "green"} mb={4}>
-	      {isUser ? "👤 User" : "🤖 Assistant"}
-	    </Text>
-	    <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
-	      {msg.content}
-	    </Text>
-	  </Box>
-	);
-      });
+const SCOREBOARD_KEY = "fhi-arena-scoreboard";
+const RANKINGS_URL = "/chooser/rankings/";
+const LABELS = ["A", "B", "C", "D", "E", "F"];
+
+const readScoreboard = (): Scoreboard => {
+  try {
+    const raw = window.localStorage.getItem(SCOREBOARD_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<Scoreboard>;
+      return {
+        rounds: Number(parsed.rounds) || 0,
+        fouls: Number(parsed.fouls) || 0,
+      };
     }
-
-    // Add the current prompt (the question we're generating responses for)
-    if (context.prompt) {
-      parts.push(
-	<Box
-	  key="current-prompt"
-	  p="sm"
-	  style={{
-	    backgroundColor: "#fff3e0",
-	    borderRadius: "8px",
-	    borderLeft: "3px solid #ffb74d",
-	  }}
-	>
-	  <Text size="xs" fw={600} c="orange" mb={4}>
-	    👤 User (respond to this)
-	  </Text>
-	  <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
-	    {context.prompt}
-	  </Text>
-	</Box>
-      );
-    }
-
-    return parts.length > 0 ? <Stack gap="xs">{parts}</Stack> : "No context available";
+  } catch {
+    // Private windows and blocked storage: start from zero every time.
   }
-
-  // For appeal tasks, show the denial details
-  const parts: string[] = [];
-  if (context.procedure) parts.push(`Procedure: ${context.procedure}`);
-  if (context.diagnosis) parts.push(`Diagnosis: ${context.diagnosis}`);
-  if (context.insurance_company) parts.push(`Insurance: ${context.insurance_company}`);
-  if (context.denial_text_preview) parts.push(`Denial: ${context.denial_text_preview}`);
-
-  return parts.join("\n") || "No context available";
+  return { rounds: 0, fouls: 0 };
 };
 
-// Candidate Card Component
+const writeScoreboard = (board: Scoreboard): void => {
+  try {
+    window.localStorage.setItem(SCOREBOARD_KEY, JSON.stringify(board));
+  } catch {
+    // Not worth an error: the record is a nicety.
+  }
+};
+
+const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+// ---------------------------------------------------------------------------
+// Pieces
+
+const HouseRules: React.FC<{ compact?: boolean }> = ({ compact = false }) => {
+  if (compact) {
+    return (
+      <Paper
+        shadow="xs"
+        p="sm"
+        radius="md"
+        withBorder
+        style={{ backgroundColor: "#fffbea", borderColor: "#f5c518" }}
+      >
+        <Text size="sm">
+          <strong>House rules:</strong> pick the draft you would actually send. A draft
+          that makes something up (a study, a law, a test result, a date, a history
+          that is not in the case) is committing a foul: flag it, and never pick it.
+          Not sure? Skip the round.
+        </Text>
+      </Paper>
+    );
+  }
+  return (
+    <Paper shadow="sm" p="md" radius="md" withBorder style={{ width: "100%", maxWidth: "760px" }}>
+      <Text fw={700} mb="xs">
+        House rules
+      </Text>
+      <List spacing="xs" size="sm">
+        <List.Item>
+          <strong>Pick the draft you would send.</strong> Specific, persuasive, and
+          right about the case and the rules.
+        </List.Item>
+        <List.Item>
+          <strong>Making things up is a foul.</strong> Each case lists what is known
+          about the patient and the evidence on file. A draft that invents a study,
+          a law, a test result, a date or a history that is not there should never
+          win, however good it sounds. Flag it with 🚩 and pick another.
+        </List.Item>
+        <List.Item>
+          <strong>Not sure? Skip it.</strong> A skipped round beats a coin flip.
+        </List.Item>
+      </List>
+    </Paper>
+  );
+};
+
+const CaseRow: React.FC<{ label: string; value?: string }> = ({ label, value }) => {
+  if (!value) return null;
+  return (
+    <Group gap="xs" align="flex-start" wrap="nowrap">
+      <Text size="sm" c="dimmed" style={{ minWidth: "7.5rem" }}>
+        {label}
+      </Text>
+      <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
+        {value}
+      </Text>
+    </Group>
+  );
+};
+
+// The denial the drafts answer: the pair, the insurer's reason, what is known
+// about the patient, and the evidence a draft may cite.
+const AppealCase: React.FC<{ context: ChooserTaskContext }> = ({ context }) => {
+  const facts = context.facts ?? [];
+  const evidence = (context.evidence ?? []).filter((e) => e.title);
+  return (
+    <Stack gap="md">
+      <Stack gap={6}>
+        <CaseRow label="Treatment" value={context.procedure} />
+        <CaseRow label="Diagnosis" value={context.diagnosis} />
+        <CaseRow label="Insurer" value={context.insurance_company} />
+        <CaseRow label="Their reason" value={context.denial_text_preview} />
+      </Stack>
+      <Box>
+        <Text size="sm" fw={600} mb={4}>
+          What is known about the patient
+        </Text>
+        {facts.length > 0 ? (
+          <List size="sm" spacing={4}>
+            {facts.map((fact, idx) => (
+              <List.Item key={`fact-${idx}`}>{fact}</List.Item>
+            ))}
+          </List>
+        ) : (
+          <Text size="sm" c="dimmed">
+            Only what is above. Any detail about the patient beyond this is made up.
+          </Text>
+        )}
+      </Box>
+      <Box>
+        <Text size="sm" fw={600} mb={4}>
+          Evidence on file
+        </Text>
+        {evidence.length > 0 ? (
+          <List size="sm" spacing={4}>
+            {evidence.map((item, idx) => (
+              <List.Item key={`evidence-${item.pmid ?? idx}`}>
+                {item.url ? (
+                  <Anchor href={item.url} target="_blank" rel="noopener noreferrer" size="sm">
+                    {item.title}
+                  </Anchor>
+                ) : (
+                  item.title
+                )}
+                {item.pmid ? (
+                  <Text span size="xs" c="dimmed">
+                    {" "}
+                    (PMID {item.pmid})
+                  </Text>
+                ) : null}
+              </List.Item>
+            ))}
+          </List>
+        ) : (
+          <Text size="sm" c="dimmed">
+            Nothing on file for this case. A draft that cites a study anyway is making
+            it up.
+          </Text>
+        )}
+        <Text size="xs" c="dimmed" mt={4}>
+          A draft may cite only what is listed here. Anything else is a foul.
+        </Text>
+      </Box>
+    </Stack>
+  );
+};
+
+const ChatCase: React.FC<{ context: ChooserTaskContext }> = ({ context }) => {
+  const parts: React.ReactNode[] = [];
+  (context.history ?? []).forEach((msg, idx) => {
+    const isUser = msg.role === "user";
+    parts.push(
+      <Box
+        key={`history-${idx}`}
+        p="sm"
+        style={{
+          backgroundColor: isUser ? "#f0f4f8" : "#e8f5e9",
+          borderRadius: "8px",
+          borderLeft: `3px solid ${isUser ? "#64b5f6" : "#81c784"}`,
+        }}
+      >
+        <Text size="xs" fw={600} c={isUser ? "blue" : "green"} mb={4}>
+          {isUser ? "👤 Person" : "🤖 Assistant"}
+        </Text>
+        <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
+          {msg.content}
+        </Text>
+      </Box>,
+    );
+  });
+  if (context.prompt) {
+    parts.push(
+      <Box
+        key="current-prompt"
+        p="sm"
+        style={{
+          backgroundColor: "#fff3e0",
+          borderRadius: "8px",
+          borderLeft: "3px solid #ffb74d",
+        }}
+      >
+        <Text size="xs" fw={600} c="orange" mb={4}>
+          👤 Person (the drafts answer this)
+        </Text>
+        <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
+          {context.prompt}
+        </Text>
+      </Box>,
+    );
+  }
+  return parts.length > 0 ? (
+    <Stack gap="xs">{parts}</Stack>
+  ) : (
+    <Text size="sm" c="dimmed">
+      No conversation available.
+    </Text>
+  );
+};
+
 const CandidateCard: React.FC<{
   candidate: ChooserCandidate;
-  isSelected: boolean;
-  onSelect: () => void;
   label: string;
-}> = ({ candidate, isSelected, onSelect, label }) => {
+  isSelected: boolean;
+  isFlagged: boolean;
+  onSelect: () => void;
+  onToggleFlag: () => void;
+}> = ({ candidate, label, isSelected, isFlagged, onSelect, onToggleFlag }) => {
+  const [expanded, setExpanded] = useState(false);
+  const border = isSelected
+    ? `3px solid ${THEME.colors.primary}`
+    : isFlagged
+      ? "2px solid #e03131"
+      : "1px solid #e0e0e0";
   return (
     <Card
       shadow={isSelected ? "md" : "sm"}
@@ -136,119 +311,185 @@ const CandidateCard: React.FC<{
       radius="md"
       withBorder
       onClick={onSelect}
+      aria-pressed={isSelected}
       style={{
-	cursor: "pointer",
-	border: isSelected ? `3px solid ${THEME.colors.primary}` : "1px solid #e0e0e0",
-	backgroundColor: isSelected ? "#f9fff0" : "#ffffff",
-	transition: "all 0.2s ease",
+        cursor: "pointer",
+        border,
+        backgroundColor: isSelected ? "#f9fff0" : isFlagged ? "#fff5f5" : "#ffffff",
+        opacity: isFlagged ? 0.85 : 1,
+        transition: "all 0.2s ease",
       }}
     >
-      <Group justify="space-between" mb="sm">
-	<Text fw={700} size="lg">
-	  Option {label}
-	</Text>
-	{isSelected && (
-	  <Text size="sm" c="green" fw={500}>
-	    ✓ Selected
-	  </Text>
-	)}
+      <Group justify="space-between" mb="sm" wrap="nowrap">
+        <Group gap="xs">
+          <Text fw={700} size="lg">
+            Draft {label}
+          </Text>
+          {isSelected && (
+            <Badge color="green" variant="light">
+              Your pick
+            </Badge>
+          )}
+          {isFlagged && (
+            <Badge color="red" variant="light">
+              🚩 Foul
+            </Badge>
+          )}
+        </Group>
+        <Checkbox
+          size="sm"
+          color="red"
+          checked={isFlagged}
+          onClick={(event) => event.stopPropagation()}
+          onChange={() => onToggleFlag()}
+          aria-label={`Flag draft ${label} as making things up`}
+          label={<Text size="xs">Makes things up</Text>}
+        />
       </Group>
-      <ScrollArea h={300} offsetScrollbars>
-	<Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
-	  {candidate.content}
-	</Text>
+      <ScrollArea h={expanded ? undefined : 320} offsetScrollbars>
+        <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
+          {candidate.content}
+        </Text>
       </ScrollArea>
+      <Group justify="flex-end" mt="xs">
+        <Button
+          size="compact-xs"
+          variant="subtle"
+          color="gray"
+          onClick={(event) => {
+            event.stopPropagation();
+            setExpanded((v) => !v);
+          }}
+        >
+          {expanded ? "Collapse" : "Read it all"}
+        </Button>
+      </Group>
     </Card>
   );
 };
 
-// Main Chooser Component
+// ---------------------------------------------------------------------------
+// The arena
+
 const ChooserInterface: React.FC = () => {
   const [state, setState] = useState<ChooserState>({
     mode: "selection",
     task: null,
     selectedCandidate: null,
+    flaggedIds: [],
     error: null,
     taskType: null,
   });
   const [isSkipping, setIsSkipping] = useState(false);
   const [hasAcceptedTos, setHasAcceptedTos] = useState(false);
+  const [scoreboard, setScoreboard] = useState<Scoreboard>({ rounds: 0, fouls: 0 });
+  const [lastRoundFouls, setLastRoundFouls] = useState(0);
 
-  const fetchNextTask = useCallback(async (taskType: "appeal" | "chat") => {
+  useEffect(() => {
+    setScoreboard(readScoreboard());
+  }, []);
+
+  const fetchNextTask = useCallback(async (taskType: TaskType) => {
     setState((prev) => ({ ...prev, mode: "loading", error: null, taskType }));
 
     try {
       const response = await fetch(`/ziggy/rest/chooser/next/${taskType}/`, {
-	method: "GET",
-	headers: {
-	  "Content-Type": "application/json",
-	},
-	credentials: "include",
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
       });
 
       if (!response.ok) {
-	if (response.status === 404) {
-	  throw new Error("No tasks available right now. Please try again later.");
-	}
-	throw new Error(`Failed to fetch task: ${response.statusText}`);
+        if (response.status === 404) {
+          throw new Error(
+            "The arena is empty right now: every case has been judged and new ones are being written. Please try again in a few minutes.",
+          );
+        }
+        throw new Error(`Failed to fetch a case: ${response.statusText}`);
       }
 
       const task: ChooserTask = await response.json();
       setState((prev) => ({
-	...prev,
-	mode: "voting",
-	task,
-	selectedCandidate: null,
+        ...prev,
+        mode: "voting",
+        task,
+        selectedCandidate: null,
+        flaggedIds: [],
       }));
     } catch (error) {
       setState((prev) => ({
-	...prev,
-	mode: "error",
-	error: error instanceof Error ? error.message : "An error occurred",
+        ...prev,
+        mode: "error",
+        error: error instanceof Error ? error.message : "An error occurred",
       }));
     }
   }, []);
 
   const submitVote = useCallback(async () => {
     if (!state.task || !state.selectedCandidate) return;
+    const fouls = state.flaggedIds.length;
 
     setState((prev) => ({ ...prev, mode: "loading" }));
 
     try {
       const response = await fetch("/ziggy/rest/chooser/vote/", {
-	method: "POST",
-	headers: {
-	  "Content-Type": "application/json",
-	  "X-CSRFToken": getCSRFToken(),
-	},
-	credentials: "include",
-	body: JSON.stringify({
-	  task_id: state.task.task_id,
-	  chosen_candidate_id: state.selectedCandidate.id,
-	  presented_candidate_ids: state.task.candidates.map((c) => c.id),
-	}),
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCSRFToken(),
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          task_id: state.task.task_id,
+          chosen_candidate_id: state.selectedCandidate.id,
+          presented_candidate_ids: state.task.candidates.map((c) => c.id),
+          flagged_candidate_ids: state.flaggedIds,
+        }),
       });
 
       if (!response.ok) {
-	const errorData = await response.json();
-	throw new Error(errorData.error || "Failed to submit vote");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to submit vote");
       }
 
-      setState((prev) => ({
-	...prev,
-	mode: "confirmation",
-      }));
+      const next = { rounds: scoreboard.rounds + 1, fouls: scoreboard.fouls + fouls };
+      writeScoreboard(next);
+      setScoreboard(next);
+      setLastRoundFouls(fouls);
+      setState((prev) => ({ ...prev, mode: "confirmation" }));
     } catch (error) {
       setState((prev) => ({
-	...prev,
-	mode: "error",
-	error: error instanceof Error ? error.message : "Failed to submit vote",
+        ...prev,
+        mode: "error",
+        error: error instanceof Error ? error.message : "Failed to submit vote",
       }));
     }
-  }, [state.task, state.selectedCandidate]);
+  }, [state.task, state.selectedCandidate, state.flaggedIds, scoreboard]);
 
   const handleSelectCandidate = useCallback((candidate: ChooserCandidate) => {
-    setState((prev) => ({ ...prev, selectedCandidate: candidate }));
+    // Picking a draft clears its flag: a foul cannot also be the winner.
+    setState((prev) => ({
+      ...prev,
+      selectedCandidate: candidate,
+      flaggedIds: prev.flaggedIds.filter((id) => id !== candidate.id),
+    }));
+  }, []);
+
+  const handleToggleFlag = useCallback((candidate: ChooserCandidate) => {
+    setState((prev) => {
+      const flagged = prev.flaggedIds.includes(candidate.id);
+      return {
+        ...prev,
+        flaggedIds: flagged
+          ? prev.flaggedIds.filter((id) => id !== candidate.id)
+          : [...prev.flaggedIds, candidate.id],
+        // Flagging the current pick un-picks it.
+        selectedCandidate:
+          !flagged && prev.selectedCandidate?.id === candidate.id
+            ? null
+            : prev.selectedCandidate,
+      };
+    });
   }, []);
 
   const skipTask = useCallback(async () => {
@@ -258,31 +499,28 @@ const ChooserInterface: React.FC = () => {
 
     try {
       const response = await fetch("/ziggy/rest/chooser/skip/", {
-	method: "POST",
-	headers: {
-	  "Content-Type": "application/json",
-	  "X-CSRFToken": getCSRFToken(),
-	},
-	credentials: "include",
-	body: JSON.stringify({
-	  task_id: state.task.task_id,
-	}),
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": getCSRFToken(),
+        },
+        credentials: "include",
+        body: JSON.stringify({ task_id: state.task.task_id }),
       });
 
       if (!response.ok) {
-	const errorData = await response.json();
-	throw new Error(errorData.error || "Failed to skip task");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to skip task");
       }
 
-      // Fetch the next task
       if (state.taskType) {
-	fetchNextTask(state.taskType);
+        fetchNextTask(state.taskType);
       }
     } catch (error) {
       setState((prev) => ({
-	...prev,
-	mode: "error",
-	error: error instanceof Error ? error.message : "Failed to skip task",
+        ...prev,
+        mode: "error",
+        error: error instanceof Error ? error.message : "Failed to skip task",
       }));
     } finally {
       setIsSkipping(false);
@@ -294,6 +532,7 @@ const ChooserInterface: React.FC = () => {
       mode: "selection",
       task: null,
       selectedCandidate: null,
+      flaggedIds: [],
       error: null,
       taskType: null,
     });
@@ -307,86 +546,118 @@ const ChooserInterface: React.FC = () => {
     }
   }, [state.taskType, fetchNextTask, resetToSelection]);
 
+  // Keyboard: A to F pick a draft, Enter casts the vote.
+  useEffect(() => {
+    if (state.mode !== "voting" || !state.task) return;
+    const task = state.task;
+    const handler = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && ["INPUT", "TEXTAREA", "SELECT", "A", "BUTTON"].includes(target.tagName)) {
+        return;
+      }
+      const index = LABELS.indexOf(event.key.toUpperCase());
+      if (index >= 0 && index < task.candidates.length) {
+        handleSelectCandidate(task.candidates[index]);
+      } else if (event.key === "Enter" && state.selectedCandidate) {
+        submitVote();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [state.mode, state.task, state.selectedCandidate, handleSelectCandidate, submitVote]);
+
+  const primaryButton = (enabled: boolean) => ({
+    background: enabled ? THEME.buttonSharedStyles.background : "#cccccc",
+    color: enabled ? THEME.buttonSharedStyles.color : "#666666",
+  });
+
   // Render mode selection
   if (state.mode === "selection") {
     return (
       <Container size="md" py="xl">
-	<Stack gap="xl" align="center">
-	  <Title order={1} ta="center">
-	    Help Us Improve Our AI Responses
-	  </Title>
-	  <Text size="lg" ta="center" c="dimmed">
-	    Help us train our AI to select the best responses by choosing your favorite
-	    from a set of options.
-	  </Text>
-	  <Paper shadow="sm" p="md" radius="md" withBorder style={{ backgroundColor: "#fff3cd", borderColor: "#ffc107" }}>
-	    <Text size="sm" ta="center" fw={500}>
-	      ⚠️ Important: All scenarios shown are synthetic/anonymized for training purposes only.
-	      No real patient data or actual insurance cases are used in this interface.
-	    </Text>
-	  </Paper>
-	  <Paper shadow="sm" p="md" radius="md" withBorder style={{ width: "100%", maxWidth: "760px" }}>
-	    <Checkbox
-	      size="sm"
-	      aria-label="Agree to Terms of Service"
-	      checked={hasAcceptedTos}
-	      onChange={(event) => setHasAcceptedTos(event.currentTarget.checked)}
-	      label={
-	        <Text size="sm">
-	          I agree to the Terms of Service and understand this chooser is for
-	          improving AI response quality.
-	        </Text>
-	      }
-	    />
-	    <Text size="xs" mt="xs">
-	      <Anchor href="/tos" target="_blank" rel="noopener noreferrer">
-	        Read Terms of Service (opens in a new tab)
-	      </Anchor>
-	    </Text>
-	  </Paper>
-	  {!hasAcceptedTos && (
-	    <Text size="sm" c="orange" ta="center">
-	      Please accept the Terms of Service before scoring responses.
-	    </Text>
-	  )}
-	  <Group gap="lg" mt="xl">
-	    <Button
-	      size="xl"
-	      radius="md"
-	      disabled={!hasAcceptedTos}
-	      onClick={() => fetchNextTask("appeal")}
-	      style={{
-		background: hasAcceptedTos
-		  ? THEME.buttonSharedStyles.background
-		  : "#cccccc",
-		color: hasAcceptedTos
-		  ? THEME.buttonSharedStyles.color
-		  : "#666666",
-	      }}
-	    >
-	      Score Appeal Letters
-	    </Button>
-	    <Button
-	      size="xl"
-	      radius="md"
-	      disabled={!hasAcceptedTos}
-	      onClick={() => fetchNextTask("chat")}
-	      style={{
-		background: hasAcceptedTos
-		  ? THEME.buttonSharedStyles.background
-		  : "#cccccc",
-		color: hasAcceptedTos
-		  ? THEME.buttonSharedStyles.color
-		  : "#666666",
-	      }}
-	    >
-	      Score Chat Responses
-	    </Button>
-	  </Group>
-	  <Text size="sm" c="dimmed" ta="center" mt="xl">
-	    Thanks for helping us choose better responses and fight bad insurance decisions 💪
-	  </Text>
-	</Stack>
+        <Stack gap="xl" align="center">
+          <Badge size="lg" variant="light" color="lime">
+            Help us pick better letters
+          </Badge>
+          <Title order={1} ta="center">
+            Appeal Arena
+          </Title>
+          <Text size="lg" ta="center" c="dimmed" style={{ maxWidth: "640px" }}>
+            Insurance said no. A few AI drafts said &ldquo;we&rsquo;ll see about that.&rdquo;
+            You are the referee: read the case, read the drafts, pick the one that would
+            actually win, and call out any that make things up.
+          </Text>
+          {scoreboard.rounds > 0 && (
+            <Text size="sm" c="dimmed">
+              Your record: {plural(scoreboard.rounds, "round")} judged &middot;{" "}
+              {plural(scoreboard.fouls, "foul")} called
+            </Text>
+          )}
+          <Paper
+            shadow="sm"
+            p="md"
+            radius="md"
+            withBorder
+            style={{ backgroundColor: "#fff3cd", borderColor: "#ffc107", maxWidth: "760px" }}
+          >
+            <Text size="sm" ta="center" fw={500}>
+              ⚠️ Every case here is synthetic/anonymized for training purposes only: an
+              invented scenario about a real condition and treatment. No real patient
+              data or actual insurance cases are used in this interface.
+            </Text>
+          </Paper>
+          <HouseRules />
+          <Paper shadow="sm" p="md" radius="md" withBorder style={{ width: "100%", maxWidth: "760px" }}>
+            <Checkbox
+              size="sm"
+              aria-label="Agree to Terms of Service"
+              checked={hasAcceptedTos}
+              onChange={(event) => setHasAcceptedTos(event.currentTarget.checked)}
+              label={
+                <Text size="sm">
+                  I agree to the Terms of Service and understand the Arena exists to
+                  improve AI response quality.
+                </Text>
+              }
+            />
+            <Text size="xs" mt="xs">
+              <Anchor href="/tos" target="_blank" rel="noopener noreferrer">
+                Read Terms of Service (opens in a new tab)
+              </Anchor>
+            </Text>
+          </Paper>
+          {!hasAcceptedTos && (
+            <Text size="sm" c="orange" ta="center">
+              Please accept the Terms of Service before stepping into the Arena.
+            </Text>
+          )}
+          <Group gap="lg" mt="md">
+            <Button
+              size="xl"
+              radius="md"
+              disabled={!hasAcceptedTos}
+              onClick={() => fetchNextTask("appeal")}
+              style={primaryButton(hasAcceptedTos)}
+            >
+              Judge Appeal Letters
+            </Button>
+            <Button
+              size="xl"
+              radius="md"
+              disabled={!hasAcceptedTos}
+              onClick={() => fetchNextTask("chat")}
+              style={primaryButton(hasAcceptedTos)}
+            >
+              Judge Chat Replies
+            </Button>
+          </Group>
+          <Text size="sm" c="dimmed" ta="center">
+            Curious who is winning? <Anchor href={RANKINGS_URL}>See the rankings</Anchor>.
+          </Text>
+          <Text size="sm" c="dimmed" ta="center">
+            Thanks for helping us choose better responses and fight bad insurance decisions 💪
+          </Text>
+        </Stack>
       </Container>
     );
   }
@@ -395,10 +666,10 @@ const ChooserInterface: React.FC = () => {
   if (state.mode === "loading") {
     return (
       <Container size="md" py="xl">
-	<Stack gap="xl" align="center">
-	  <Loader size="xl" />
-	  <Text size="lg">Loading...</Text>
-	</Stack>
+        <Stack gap="xl" align="center">
+          <Loader size="xl" />
+          <Text size="lg">Calling the next case...</Text>
+        </Stack>
       </Container>
     );
   }
@@ -407,22 +678,14 @@ const ChooserInterface: React.FC = () => {
   if (state.mode === "error") {
     return (
       <Container size="md" py="xl">
-	<Stack gap="xl" align="center">
-	  <Alert color="red" title="Error" radius="md">
-	    {state.error}
-	  </Alert>
-	  <Button
-	    size="lg"
-	    radius="md"
-	    onClick={resetToSelection}
-	    style={{
-	      background: THEME.buttonSharedStyles.background,
-	      color: THEME.buttonSharedStyles.color,
-	    }}
-	  >
-	    Go Back
-	  </Button>
-	</Stack>
+        <Stack gap="xl" align="center">
+          <Alert color="red" title="Time out" radius="md">
+            {state.error}
+          </Alert>
+          <Button size="lg" radius="md" onClick={resetToSelection} style={primaryButton(true)}>
+            Back to the Arena
+          </Button>
+        </Stack>
       </Container>
     );
   }
@@ -431,168 +694,147 @@ const ChooserInterface: React.FC = () => {
   if (state.mode === "confirmation") {
     return (
       <Container size="md" py="xl">
-	<Stack gap="xl" align="center">
-	  <Title order={2} ta="center" c="green">
-	    ✓ Vote Recorded!
-	  </Title>
-	  <Text size="lg" ta="center">
-	    Thank you for helping us improve our responses!
-	  </Text>
-	  <Group gap="lg" mt="xl">
-	    <Button
-	      size="lg"
-	      radius="md"
-	      onClick={doAnother}
-	      style={{
-		background: THEME.buttonSharedStyles.background,
-		color: THEME.buttonSharedStyles.color,
-	      }}
-	    >
-	      Do Another One
-	    </Button>
-	    <Button
-	      size="lg"
-	      radius="md"
-	      variant="outline"
-	      onClick={resetToSelection}
-	    >
-	      Change Mode
-	    </Button>
-	  </Group>
-	  <Text size="sm" c="dimmed" ta="center" mt="xl">
-	    Thanks for helping us choose better responses and fight bad insurance decisions 💪
-	  </Text>
-	</Stack>
+        <Stack gap="xl" align="center">
+          <Title order={2} ta="center" c="green">
+            ✓ Vote counted!
+          </Title>
+          <Text size="lg" ta="center">
+            Round {scoreboard.rounds} done
+            {lastRoundFouls > 0 ? ` with ${plural(lastRoundFouls, "foul")} called` : ""}.
+            Thank you for refereeing.
+          </Text>
+          <Text size="sm" c="dimmed" ta="center">
+            Your record: {plural(scoreboard.rounds, "round")} judged &middot;{" "}
+            {plural(scoreboard.fouls, "foul")} called
+          </Text>
+          <Group gap="lg" mt="md">
+            <Button size="lg" radius="md" onClick={doAnother} style={primaryButton(true)}>
+              Next round
+            </Button>
+            <Button size="lg" radius="md" variant="outline" onClick={resetToSelection}>
+              Switch arena
+            </Button>
+          </Group>
+          <Text size="sm" c="dimmed" ta="center">
+            <Anchor href={RANKINGS_URL}>See how the models rank</Anchor>
+          </Text>
+          <Text size="sm" c="dimmed" ta="center">
+            Thanks for helping us choose better responses and fight bad insurance decisions 💪
+          </Text>
+        </Stack>
       </Container>
     );
   }
 
   // Render voting state
   if (state.mode === "voting" && state.task) {
-    const labels = ["A", "B", "C", "D", "E"];
     const hasEnoughCandidates = state.task.candidates.length >= 2;
+    const isAppeal = state.task.task_type !== "chat";
 
     // If only one candidate, show a message and skip options
     if (!hasEnoughCandidates) {
       return (
-	<Container size="md" py="xl">
-	  <Stack gap="xl" align="center">
-	    <Title order={2} ta="center">
-	      Not Enough Options
-	    </Title>
-	    <Alert color="yellow" title="Single Option Available" radius="md">
-	      This task only has one response option, so there's nothing to compare.
-	      We'll skip this one and try to find another task for you.
-	    </Alert>
-	    <Group gap="lg" mt="xl">
-	      <Button
-		size="lg"
-		radius="md"
-		onClick={skipTask}
-		loading={isSkipping}
-		style={{
-		  background: THEME.buttonSharedStyles.background,
-		  color: THEME.buttonSharedStyles.color,
-		}}
-	      >
-		Find Another Task
-	      </Button>
-	      <Button
-		size="lg"
-		radius="md"
-		variant="outline"
-		onClick={resetToSelection}
-	      >
-		Go Back
-	      </Button>
-	    </Group>
-	  </Stack>
-	</Container>
+        <Container size="md" py="xl">
+          <Stack gap="xl" align="center">
+            <Title order={2} ta="center">
+              Not enough contenders
+            </Title>
+            <Alert color="yellow" title="Only one draft in this case" radius="md">
+              There is nothing to compare here. We will skip this one and find you another
+              case.
+            </Alert>
+            <Group gap="lg" mt="xl">
+              <Button
+                size="lg"
+                radius="md"
+                onClick={skipTask}
+                loading={isSkipping}
+                style={primaryButton(true)}
+              >
+                Find another case
+              </Button>
+              <Button size="lg" radius="md" variant="outline" onClick={resetToSelection}>
+                Back
+              </Button>
+            </Group>
+          </Stack>
+        </Container>
       );
     }
 
+    const selectedLabel = state.selectedCandidate
+      ? LABELS[state.task.candidates.findIndex((c) => c.id === state.selectedCandidate?.id)]
+      : null;
+
     return (
       <Container size="xl" py="xl">
-	<Stack gap="xl">
-	  <Title order={2} ta="center">
-	    Choose the Best {state.taskType === "appeal" ? "Appeal Letter" : "Chat Response"}
-	  </Title>
+        <Stack gap="lg">
+          <Group justify="center" gap="sm">
+            <Badge size="lg" variant="filled" color="lime">
+              Round {scoreboard.rounds + 1}
+            </Badge>
+            <Title order={2} ta="center">
+              {isAppeal ? "Which appeal letter wins?" : "Which chat reply wins?"}
+            </Title>
+          </Group>
 
-	  {/* Synthetic Data Warning */}
-	  <Paper shadow="xs" p="xs" radius="md" withBorder style={{ backgroundColor: "#e7f3ff", borderColor: "#2196f3" }}>
-	    <Text size="xs" ta="center" c="dimmed">
-	      📋 Synthetic scenario for training purposes only
-	    </Text>
-	  </Paper>
+          <Text size="xs" ta="center" c="dimmed">
+            📋 Synthetic case for training purposes only. Drafts are shown blind, in random order.
+          </Text>
 
-	  {/* Context Section */}
-	  <Paper shadow="sm" p="md" radius="md" withBorder>
-	    <Text fw={600} mb="sm">
-	      {state.task.task_type === "chat" ? "Conversation:" : "Context:"}
-	    </Text>
-	    {state.task.task_type === "chat" ? (
-	      formatContext(state.task.task_context, state.task.task_type)
-	    ) : (
-	      <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
-		{formatContext(state.task.task_context, state.task.task_type)}
-	      </Text>
-	    )}
-	  </Paper>
+          <HouseRules compact />
 
-	  {/* Candidates Grid */}
-	  <Box>
-	    <Group gap="lg" grow>
-	      {state.task.candidates.map((candidate, index) => (
-		<CandidateCard
-		  key={candidate.id}
-		  candidate={candidate}
-		  isSelected={state.selectedCandidate?.id === candidate.id}
-		  onSelect={() => handleSelectCandidate(candidate)}
-		  label={labels[index] || String(index + 1)}
-		/>
-	      ))}
-	    </Group>
-	  </Box>
+          {/* The case */}
+          <Paper shadow="sm" p="md" radius="md" withBorder>
+            <Text fw={700} mb="sm">
+              {isAppeal ? "The case" : "The conversation"}
+            </Text>
+            {isAppeal ? (
+              <AppealCase context={state.task.task_context} />
+            ) : (
+              <ChatCase context={state.task.task_context} />
+            )}
+          </Paper>
 
-	  {/* Submit and Skip Buttons */}
-	  <Group justify="center" mt="xl">
-	    <Button
-	      size="lg"
-	      radius="md"
-	      disabled={!state.selectedCandidate}
-	      onClick={submitVote}
-	      style={{
-		background: state.selectedCandidate
-		  ? THEME.buttonSharedStyles.background
-		  : "#cccccc",
-		color: THEME.buttonSharedStyles.color,
-	      }}
-	    >
-	      Submit Vote
-	    </Button>
-	    <Button
-	      size="lg"
-	      radius="md"
-	      variant="light"
-	      onClick={skipTask}
-	      loading={isSkipping}
-	    >
-	      Skip This One
-	    </Button>
-	    <Button
-	      size="lg"
-	      radius="md"
-	      variant="outline"
-	      onClick={resetToSelection}
-	    >
-	      Cancel
-	    </Button>
-	  </Group>
+          {/* The contenders */}
+          <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+            {state.task.candidates.map((candidate, index) => (
+              <CandidateCard
+                key={candidate.id}
+                candidate={candidate}
+                label={LABELS[index] || String(index + 1)}
+                isSelected={state.selectedCandidate?.id === candidate.id}
+                isFlagged={state.flaggedIds.includes(candidate.id)}
+                onSelect={() => handleSelectCandidate(candidate)}
+                onToggleFlag={() => handleToggleFlag(candidate)}
+              />
+            ))}
+          </SimpleGrid>
 
-	  <Text size="sm" c="dimmed" ta="center" mt="lg">
-	    Select the response you think is best, then click Submit Vote. Or skip if you're unsure.
-	  </Text>
-	</Stack>
+          {/* Cast, skip, leave */}
+          <Group justify="center" mt="md">
+            <Button
+              size="lg"
+              radius="md"
+              disabled={!state.selectedCandidate}
+              onClick={submitVote}
+              style={primaryButton(Boolean(state.selectedCandidate))}
+            >
+              {selectedLabel ? `Cast vote for Draft ${selectedLabel}` : "Pick a draft to vote"}
+            </Button>
+            <Button size="lg" radius="md" variant="light" onClick={skipTask} loading={isSkipping}>
+              Skip this round
+            </Button>
+            <Button size="lg" radius="md" variant="outline" onClick={resetToSelection}>
+              Leave the Arena
+            </Button>
+          </Group>
+
+          <Text size="sm" c="dimmed" ta="center">
+            Click a draft (or press its letter) to pick it, flag any that make things up, then
+            cast your vote. Skip if you are unsure.
+          </Text>
+        </Stack>
       </Container>
     );
   }

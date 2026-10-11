@@ -23,6 +23,8 @@ branch with a literal class so the contrast gate can measure every tag.
       <th class="num" title="Votes cast for this model's candidate">Votes won</th>
       <th class="num" title="Votes where this model's candidate was on screen">Votes shown in</th>
       <th class="num" title="Votes won / votes shown in">Win rate</th>
+      <th class="num" title="Votes where the voter flagged this model's candidate as making things up">Flagged</th>
+      <th class="num" title="Flagged / votes shown in">Flag rate</th>
       {% elif kind == "calls" %}
       <th class="num">Calls</th>
       <th class="num" title="Produced a deliverable draft">OK</th>
@@ -156,6 +158,21 @@ branch with a literal class so the contrast gate can measure every tag.
       <td class="num">{{ r.shadow_asks_again|floatformat:2 }}</td>
       <td class="num">{{ r.shadow_promises|floatformat:2 }}</td>
       <td class="num">{{ r.shadow_composite|floatformat:2 }}</td>
+      {% elif kind == "votes" %}
+      <td class="num">{{ r.chosen }}</td>
+      <td class="num">{{ r.presented }}</td>
+      {% if r.win_rate is None %}
+      {# No presented count => no denominator; never show this as 0.0%. #}
+      <td class="num">&mdash;</td>
+      {% else %}
+      <td class="num">{{ r.win_rate|floatformat:1 }}%</td>
+      {% endif %}
+      <td class="num">{{ r.flagged|default:0 }}</td>
+      {% if r.flag_rate is None %}
+      <td class="num">&mdash;</td>
+      {% else %}
+      <td class="num">{{ r.flag_rate|floatformat:1 }}%</td>
+      {% endif %}
       {% else %}
       <td class="num">{{ r.chosen }}</td>
       <td class="num">{{ r.presented }}</td>

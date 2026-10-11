@@ -904,15 +904,18 @@ class ExtractPatientFieldsResponseSerializer(serializers.Serializer):
 
 # Chooser Serializers
 class ChooserCandidateSerializer(serializers.Serializer):
-    """Serializer for individual chooser candidates."""
+    """Serializer for individual chooser candidates.
+
+    Blind on purpose: no model name, no synthesized flag, no metadata. The
+    voter is comparing drafts, and a vote that could see the author would
+    rank the brand as much as the letter. The authorship is joined back in
+    from the database when the votes are counted.
+    """
 
     id = serializers.IntegerField(read_only=True)
     candidate_index = serializers.IntegerField()
     kind = serializers.CharField()
-    model_name = serializers.CharField()
-    synthesized = serializers.BooleanField(required=False, default=False)
     content = serializers.CharField()
-    metadata = serializers.JSONField(required=False, allow_null=True)
 
 
 class ChooserTaskSerializer(serializers.Serializer):
@@ -931,6 +934,11 @@ class ChooserVoteRequestSerializer(serializers.Serializer):
     chosen_candidate_id = serializers.IntegerField(required=True)
     presented_candidate_ids = serializers.ListField(
         child=serializers.IntegerField(), required=True
+    )
+    # Presented candidates the voter flagged as making things up. Optional;
+    # never the chosen one.
+    flagged_candidate_ids = serializers.ListField(
+        child=serializers.IntegerField(), required=False, default=list
     )
 
 

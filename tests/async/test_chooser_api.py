@@ -220,9 +220,26 @@ class ChooserNextTaskAPITest(APITestCase):
         self.assertEqual(data["task_type"], "appeal")
         self.assertEqual(len(data["candidates"]), 2)
         self.assertEqual(data["task_context"]["procedure"], "Physical Therapy")
-        # The synthesized flag is exposed per candidate (default False).
-        self.assertIn("synthesized", data["candidates"][0])
-        self.assertFalse(data["candidates"][0]["synthesized"])
+        self.assertEqual(
+            set(data["candidates"][0]), {"id", "candidate_index", "kind", "content"}
+        )
+
+    def test_next_task_is_blind_to_the_author(self):
+        """The payload names no model and carries no synthesized flag or
+        metadata: a voter who opens the network tab must not be able to vote
+        for a brand. Authorship is joined back in when the votes are counted."""
+        ChooserCandidate.objects.create(
+            task=self.task,
+            candidate_index=2,
+            kind="appeal_letter",
+            model_name="synthesized",
+            synthesized=True,
+            content="A blend of the other drafts into one letter.",
+            metadata={"source": "synthetic", "synthesized": True},
+        )
+        body = self.client.get(reverse("chooser-next-appeal")).content.decode()
+        for leak in ("model_name", "synthesized", "metadata", "model-a", "model-b"):
+            self.assertNotIn(leak, body)
 
     def test_next_task_serves_candidates_in_random_order(self):
         """The voter must be blind to model class: the stored order puts the
@@ -244,13 +261,10 @@ class ChooserNextTaskAPITest(APITestCase):
             ),
         )
 
-    def test_next_task_serializes_synthesized_true(self):
-        """A synthesized=True candidate is serialized as true by the API.
-
-        Guards against a regression where the view stops passing the flag and
-        the serializer's default (False) silently masks it.
-        """
-        ChooserCandidate.objects.create(
+    def test_next_task_serves_a_synthesized_candidate_like_any_other(self):
+        """A synthesized draft is one more blind contender: served, and not
+        marked out from the single-model drafts."""
+        synthesized = ChooserCandidate.objects.create(
             task=self.task,
             candidate_index=2,
             kind="appeal_letter",
@@ -263,9 +277,8 @@ class ChooserNextTaskAPITest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         candidates = response.json()["candidates"]
-        synthesized = [c for c in candidates if c["model_name"] == "synthesized"]
-        self.assertEqual(len(synthesized), 1)
-        self.assertTrue(synthesized[0]["synthesized"])
+        self.assertIn(synthesized.id, [c["id"] for c in candidates])
+        self.assertEqual(len({frozenset(c) for c in candidates}), 1)
 
     def test_session_exclusion(self):
         """Test that tasks already voted on are excluded."""
@@ -449,6 +462,81 @@ class ChooserVoteAPITest(APITestCase):
 
         # Verify vote was created
         self.assertEqual(ChooserVote.objects.filter(task=self.task).count(), 1)
+
+    def test_vote_records_fabrication_flags(self):
+        """A vote may flag presented drafts as making things up; the flags
+        are stored with the vote, deduplicated."""
+        url = reverse("chooser-vote")
+        data = {
+            "task_id": self.task.id,
+            "chosen_candidate_id": self.candidate1.id,
+            "presented_candidate_ids": [self.candidate1.id, self.candidate2.id],
+            "flagged_candidate_ids": [self.candidate2.id, self.candidate2.id],
+        }
+        response = self.client.post(
+            url, json.dumps(data), content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        vote = ChooserVote.objects.get(task=self.task)
+        self.assertEqual(vote.flagged_candidate_ids, [self.candidate2.id])
+
+    def test_vote_without_flags_stores_an_empty_list(self):
+        url = reverse("chooser-vote")
+        data = {
+            "task_id": self.task.id,
+            "chosen_candidate_id": self.candidate1.id,
+            "presented_candidate_ids": [self.candidate1.id, self.candidate2.id],
+        }
+        self.client.post(url, json.dumps(data), content_type="application/json")
+
+        self.assertEqual(
+            ChooserVote.objects.get(task=self.task).flagged_candidate_ids, []
+        )
+
+    def test_vote_cannot_flag_the_chosen_candidate(self):
+        """A foul cannot also be the winner."""
+        url = reverse("chooser-vote")
+        data = {
+            "task_id": self.task.id,
+            "chosen_candidate_id": self.candidate1.id,
+            "presented_candidate_ids": [self.candidate1.id, self.candidate2.id],
+            "flagged_candidate_ids": [self.candidate1.id],
+        }
+        response = self.client.post(
+            url, json.dumps(data), content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("flagged", response.json()["error"])
+        self.assertEqual(ChooserVote.objects.count(), 0)
+
+    def test_vote_cannot_flag_a_candidate_that_was_not_presented(self):
+        """Flags count against a model on the public rankings, so a flag on
+        a draft the voter never saw (another task's, or one out of rotation)
+        is rejected like a presented id would be."""
+        other_task = ChooserTask.objects.create(task_type="appeal", status="READY")
+        elsewhere = ChooserCandidate.objects.create(
+            task=other_task,
+            candidate_index=0,
+            kind="appeal_letter",
+            model_name="model-c",
+            content="Content C",
+        )
+        url = reverse("chooser-vote")
+        data = {
+            "task_id": self.task.id,
+            "chosen_candidate_id": self.candidate1.id,
+            "presented_candidate_ids": [self.candidate1.id, self.candidate2.id],
+            "flagged_candidate_ids": [elsewhere.id],
+        }
+        response = self.client.post(
+            url, json.dumps(data), content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("presented", response.json()["error"])
+        self.assertEqual(ChooserVote.objects.count(), 0)
 
     def test_vote_invalid_task(self):
         """Test voting on a non-existent task."""

@@ -1,0 +1,176 @@
+"""The public rankings page: ``/chooser/rankings/``.
+
+What the Appeal Arena's votes say about the models, for anyone to read,
+and which conditions and treatments people fight denials over most.
+
+Everything on it is either synthetic or aggregate:
+
+* The model tables count ``ChooserVote`` rows on tasks whose source is
+  ``synthetic`` and nothing else. Real patients' picks in the denial flow
+  (``ProposedAppeal``), call logs, chat turns, session counts and anything
+  else the staff dashboard shows stay off this page.
+* The condition and treatment lists come from ``condition_rankings``: terms
+  on at least k distinct denials, shaped like medical terms, vouched for by
+  a medical vocabulary, with counts rounded down to a multiple of k.
+
+The numbers are computed at most once per ``PUBLIC_RANKINGS_CACHE_SECONDS``
+per process and never touch a model or NCBI. ``?format=json`` returns the
+same data as JSON for embedding.
+"""
+
+import datetime
+from typing import Any, Dict, List, Optional, cast
+
+from django.conf import settings
+from django.core.cache import cache
+from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.utils import timezone
+from django.views.generic import TemplateView
+from loguru import logger
+
+from fighthealthinsurance import condition_rankings
+from fighthealthinsurance.models import ChooserTask, ChooserVote
+from fighthealthinsurance.staff_views import ModelUsageDashboardView
+
+PUBLIC_RANKINGS_CACHE_SECONDS = getattr(
+    settings, "PUBLIC_RANKINGS_CACHE_SECONDS", 15 * 60
+)
+# A model's win rate is shown as a rate once it has been in this many votes;
+# below that the row is listed as still warming up and sorted to the end.
+PUBLIC_RANKINGS_MIN_SHOWN = getattr(settings, "PUBLIC_RANKINGS_MIN_SHOWN", 10)
+SYNTHETIC_SOURCE = "synthetic"
+_CACHE_KEY = "public_rankings:data"
+
+WINDOWS = (("all", "All time", None), ("30d", "Last 30 days", 30))
+KINDS = (("appeal_letter", "Appeal letters"), ("chat_response", "Chat replies"))
+
+
+def _model_rows(kind: str, since: Optional[datetime.datetime]) -> List[Dict[str, Any]]:
+    """The leaderboard rows for ``kind`` since ``since``: synthetic votes
+    only, models with a denominator only, best win rate first among those
+    past PUBLIC_RANKINGS_MIN_SHOWN, then the rest by votes shown."""
+    rows = ModelUsageDashboardView._chooser_stats(
+        kind, since, None, source=SYNTHETIC_SOURCE
+    )
+    out = []
+    for r in rows:
+        if r["presented"] <= 0:
+            continue
+        out.append(
+            {
+                "model": r["model_name"],
+                "won": r["chosen"],
+                "shown": r["presented"],
+                "win_rate": r["win_rate"],
+                "flagged": r["flagged"],
+                "flag_rate": r["flag_rate"],
+                "warming_up": r["presented"] < PUBLIC_RANKINGS_MIN_SHOWN,
+            }
+        )
+    out.sort(
+        key=lambda r: (
+            r["warming_up"],
+            -(r["win_rate"] or 0.0) if not r["warming_up"] else -r["shown"],
+            r["flag_rate"] or 0.0,
+            r["model"],
+        )
+    )
+    for rank, r in enumerate(out, start=1):
+        r["rank"] = rank
+    return out
+
+
+def _totals() -> Dict[str, int]:
+    votes = ChooserVote.objects.filter(task__source=SYNTHETIC_SOURCE)
+    return {
+        "votes": votes.count(),
+        "tasks_judged": votes.values("task_id").distinct().count(),
+        "tasks_ready": ChooserTask.objects.filter(
+            source=SYNTHETIC_SOURCE, status="READY"
+        ).count(),
+    }
+
+
+def _term_rows(kind: str) -> List[Dict[str, Any]]:
+    rows = condition_rankings.ranked_terms_cached(
+        kind, condition_rankings.CONDITION_RANKING_LIMIT
+    )
+    top = rows[0].denials if rows else 0
+    return [
+        {
+            "rank": i,
+            "name": r.display,
+            "count": r.public_count,
+            # Bar width, relative to the top term.
+            "share": round(100.0 * r.denials / top) if top else 0,
+        }
+        for i, r in enumerate(rows, start=1)
+    ]
+
+
+def compute_rankings(now: Optional[datetime.datetime] = None) -> Dict[str, Any]:
+    """Everything the page and its JSON show, uncached."""
+    now = now or timezone.now()
+    windows = []
+    for slug, label, days in WINDOWS:
+        since = now - datetime.timedelta(days=days) if days else None
+        windows.append(
+            {
+                "slug": slug,
+                "label": label,
+                "tables": [
+                    {
+                        "kind": kind,
+                        "label": kind_label,
+                        "rows": _model_rows(kind, since),
+                    }
+                    for kind, kind_label in KINDS
+                ],
+            }
+        )
+    return {
+        "generated_at": now.isoformat(),
+        "min_shown": PUBLIC_RANKINGS_MIN_SHOWN,
+        "k_anonymity": condition_rankings.CONDITION_RANKING_MIN_DENIALS,
+        "totals": _totals(),
+        "windows": windows,
+        "conditions": _term_rows(condition_rankings.KIND_CONDITION),
+        "treatments": _term_rows(condition_rankings.KIND_TREATMENT),
+    }
+
+
+def rankings() -> Dict[str, Any]:
+    """compute_rankings, remembered for PUBLIC_RANKINGS_CACHE_SECONDS. A
+    cache that cannot answer is not an error."""
+    try:
+        hit = cache.get(_CACHE_KEY)
+    except Exception as e:
+        logger.debug(f"public rankings cache read failed: {e}")
+        hit = None
+    if hit is not None:
+        return cast(Dict[str, Any], hit)
+    data = compute_rankings()
+    try:
+        cache.set(_CACHE_KEY, data, PUBLIC_RANKINGS_CACHE_SECONDS)
+    except Exception as e:
+        logger.debug(f"public rankings cache write failed: {e}")
+    return data
+
+
+class ChooserRankingsView(TemplateView):
+    template_name = "chooser_rankings.html"
+
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        if request.GET.get("format") == "json":
+            response = JsonResponse(rankings())
+            response["Cache-Control"] = (
+                f"public, max-age={PUBLIC_RANKINGS_CACHE_SECONDS}"
+            )
+            return response
+        return super().get(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs: Any) -> Dict[str, Any]:
+        ctx = super().get_context_data(**kwargs)
+        ctx["title"] = "Appeal Arena Rankings"
+        ctx["data"] = rankings()
+        return ctx

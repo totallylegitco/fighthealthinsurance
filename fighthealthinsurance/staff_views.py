@@ -2452,6 +2452,7 @@ def _merge_stats(
     chosen: Dict[str, int],
     presented: Dict[str, int],
     quality: Optional[Dict[str, Dict[str, Any]]] = None,
+    flagged: Optional[Dict[str, int]] = None,
 ) -> List[Dict[str, Any]]:
     """Combine per-model chosen + presented counts into a sorted list of dicts.
 
@@ -2459,6 +2460,10 @@ def _merge_stats(
     model has no presented count (no denominator — e.g. legacy chosen rows
     without presentation records). Templates render ``None`` as an em dash;
     it must never be displayed as 0.0%.
+
+    ``flagged`` (optional, the chooser tables) is per-model counts of votes
+    whose voter flagged the model's candidate as making things up;
+    ``flag_rate`` is that over presented, None without a denominator.
 
     ``quality`` (optional) is per-model draft-quality aggregates from
     ``ml/letter_quality.py``: ``{"avg": 0..1, "scored": n, "ungrounded": n}``.
@@ -2468,11 +2473,13 @@ def _merge_stats(
     for the average, rendered as a dash, never as 0.
     """
     quality = quality or {}
+    flagged = flagged or {}
     rows: List[Dict[str, Any]] = []
-    for model_name in set(chosen) | set(presented) | set(quality):
+    for model_name in set(chosen) | set(presented) | set(quality) | set(flagged):
         c = chosen.get(model_name, 0)
         p = presented.get(model_name, 0)
         win_rate = (c / p * 100.0) if p > 0 else None
+        f = flagged.get(model_name, 0)
         q = quality.get(model_name) or {}
         rows.append(
             {
@@ -2480,6 +2487,8 @@ def _merge_stats(
                 "chosen": c,
                 "presented": p,
                 "win_rate": win_rate,
+                "flagged": f,
+                "flag_rate": (f / p * 100.0) if p > 0 else None,
                 "quality_avg": q.get("avg"),
                 "quality_scored": int(q.get("scored") or 0),
                 "quality_ungrounded": int(q.get("ungrounded") or 0),
@@ -3733,15 +3742,20 @@ class ModelUsageDashboardView(generic.TemplateView):
         kind: str,
         since: Optional[datetime.datetime],
         until: Optional[datetime.datetime] = None,
+        source: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         # Both chosen and presented derive from the same vote set (filtered
         # by ChooserVote.created_at), so a window's win rates compare like
         # with like: every vote event contributes its chosen candidate once
         # and each distinct presented candidate once. Candidate creation
         # time is irrelevant — candidates are generated ahead of votes.
-        chosen_qs = _within(
-            ChooserVote.objects.filter(chosen_candidate__kind=kind), since, until
-        )
+        # ``source`` limits the votes to tasks of that ChooserTask.source;
+        # the public rankings pass "synthetic" so nothing built from a
+        # person's case can reach them, whatever else the pool holds.
+        votes = ChooserVote.objects.filter(chosen_candidate__kind=kind)
+        if source is not None:
+            votes = votes.filter(task__source=source)
+        chosen_qs = _within(votes, since, until)
         chosen: Counter = Counter()
         for name, count in chosen_qs.values_list(
             "chosen_candidate__model_name"
@@ -3761,14 +3775,21 @@ class ModelUsageDashboardView(generic.TemplateView):
         # and re-samples one that answered only to reach two candidates, so
         # that stays rare).
         counter: Counter = Counter()
-        for ids in chosen_qs.values_list(
-            "presented_candidate_ids", flat=True
+        # Flags: the presented candidates the voter marked as making things
+        # up, one per vote event like presented; a flagged id is always a
+        # presented one (the vote endpoint checks), so the lookup below
+        # covers both.
+        flag_counter: Counter = Counter()
+        for ids, flagged_ids in chosen_qs.values_list(
+            "presented_candidate_ids", "flagged_candidate_ids"
         ).iterator():
             if ids:
                 counter.update(set(ids))
+            if flagged_ids:
+                flag_counter.update(set(flagged_ids))
         cand_to_model = dict(
             ChooserCandidate.objects.filter(
-                id__in=list(counter.keys()), kind=kind
+                id__in=list(set(counter) | set(flag_counter)), kind=kind
             ).values_list("id", "model_name")
         )
         presented: Counter = Counter()
@@ -3776,7 +3797,12 @@ class ModelUsageDashboardView(generic.TemplateView):
             presented_label = normalize_model_label(cand_to_model.get(cid))
             if presented_label is not None:
                 presented[presented_label] += n
-        return _merge_stats(dict(chosen), dict(presented))
+        flagged: Counter = Counter()
+        for cid, n in flag_counter.items():
+            flagged_label = normalize_model_label(cand_to_model.get(cid))
+            if flagged_label is not None:
+                flagged[flagged_label] += n
+        return _merge_stats(dict(chosen), dict(presented), flagged=dict(flagged))
 
     @staticmethod
     def _chooser_participation(

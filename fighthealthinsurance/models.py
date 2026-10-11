@@ -1437,6 +1437,44 @@ class PubMedQueryData(models.Model):
     created = models.DateTimeField(db_default=Now(), null=True)
 
 
+class MedicalTermCheck(models.Model):
+    """Whether a condition or treatment string names a real medical concept.
+
+    Written by condition_rankings.py, which ranks the conditions and
+    treatments people most often appeal and seeds the chooser's synthetic
+    cases from them. A term reaches this table only once it has cleared the
+    k-anonymity bar there (CONDITION_RANKING_MIN_DENIALS distinct denials),
+    so no rare, possibly identifying string is ever sent to an outside
+    vocabulary service or shown on the public rankings. ``is_real`` is None
+    while the term waits for a check; ``source`` says which vocabulary
+    answered (microsites, rxnorm, mesh) or ``heuristic`` when the string was
+    rejected before any lookup. ``display`` is the vocabulary's preferred
+    spelling, when it gave one, else the normalized term.
+    """
+
+    KIND_CHOICES = [("condition", "Condition"), ("treatment", "Treatment")]
+
+    term = models.CharField(max_length=120)
+    kind = models.CharField(max_length=12, choices=KIND_CHOICES)
+    is_real = models.BooleanField(null=True, blank=True)
+    display = models.CharField(max_length=160, blank=True, default="")
+    source = models.CharField(max_length=20, blank=True, default="")
+    checked_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["term", "kind"], name="medical_term_check_uniq"
+            ),
+        ]
+        indexes = [models.Index(fields=["kind", "is_real"])]
+
+    def __str__(self) -> str:
+        state = {True: "real", False: "not real", None: "unchecked"}[self.is_real]
+        return f"{self.kind} {self.term!r}: {state}"
+
+
 class NICEGuidance(models.Model):
     """
     Caches a single guidance item retrieved from the NICE syndication API.
@@ -4329,6 +4367,14 @@ class ChooserVote(ExportModelOperationsMixin("ChooserVote"), models.Model):  # t
         ChooserCandidate, on_delete=models.CASCADE, related_name="votes"
     )
     presented_candidate_ids = models.JSONField()  # List of candidate IDs shown to user
+    # The presented candidates the voter flagged as making things up (an
+    # invented study, statute, test result or history that is not in the
+    # task's case facts or evidence). A subset of presented_candidate_ids
+    # that never holds the chosen candidate; empty when nothing was flagged.
+    # Collected so the chooser can rank backends on fabrication as well as
+    # preference, and so a letter that merely sounds good does not win on
+    # the strength of facts it made up.
+    flagged_candidate_ids = models.JSONField(default=list, blank=True)
     session_key = models.CharField(max_length=100, db_index=True)
 
     created_at = models.DateTimeField(auto_now_add=True)

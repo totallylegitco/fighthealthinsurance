@@ -1134,6 +1134,10 @@ class Dev(Base):
 class _TestBase(Dev):
     """Process environment shared by Test, TestSync and TestActor."""
 
+    # A chooser scenario with no cached evidence must not search PubMed from
+    # a test: tests are hermetic to live backends (see CLAUDE.md).
+    CHOOSER_PUBMED_LIVE_SEARCH = False
+
     @classmethod
     def pre_setup(cls):
         """Mark the process as a test run and point outside APIs at nothing.

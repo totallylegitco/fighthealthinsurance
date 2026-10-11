@@ -16,6 +16,7 @@ calls relied on the router's internal-only default.
 
 import asyncio
 import datetime
+import json
 import random
 import re
 import threading
@@ -35,10 +36,13 @@ from fighthealthinsurance.ml.model_identity import (
     SYNTHESIZED_MODEL_NAME,
     canonical_model_name,
 )
+from fighthealthinsurance import condition_rankings
 from fighthealthinsurance.models import (
     ChooserCandidate,
     ChooserTask,
     ModelHealthAlertState,
+    PubMedMiniArticle,
+    PubMedQueryData,
 )
 from fighthealthinsurance.utils import fire_and_forget_in_new_threadpool
 
@@ -83,6 +87,30 @@ CHOOSER_GENERATION_CLAIM_SECONDS = getattr(
 )
 # The fewest candidates a task needs to go READY.
 _MIN_READY_CANDIDATES = 2
+# Whether an appeal scenario is built around a real (treatment, condition)
+# pair from condition_rankings (k-anonymous and vocabulary-checked, so
+# nothing about any one person) rather than one the writer invents. Real
+# pairs make the drafts argue about what people actually fight, and the
+# PubMed searches already run for the pair are reused as the case's
+# evidence, so a seeded task usually costs no NCBI call at all.
+CHOOSER_SEED_FROM_RANKINGS = getattr(settings, "CHOOSER_SEED_FROM_RANKINGS", True)
+# Articles attached to a scenario as the evidence the drafts may cite.
+CHOOSER_EVIDENCE_LIMIT = getattr(settings, "CHOOSER_EVIDENCE_LIMIT", 5)
+# Seconds a live PubMed search for a scenario's evidence may take.
+CHOOSER_PUBMED_SEARCH_TIMEOUT = getattr(settings, "CHOOSER_PUBMED_SEARCH_TIMEOUT", 20.0)
+# Case facts kept per scenario, and the longest one.
+CHOOSER_MAX_FACTS = 6
+_MAX_FACT_CHARS = 240
+# Evidence rows carry a PMID, a title and (when known) a link; no abstracts,
+# so the voter and the drafts see exactly the same list.
+_EVIDENCE_KEYS = ("pmid", "title", "url")
+
+
+def _pubmed_live_search_allowed() -> bool:
+    """Whether a scenario with no cached evidence may search PubMed live.
+    Read per call so tests, and an operator short on NCBI quota, can turn
+    it off; the seeded path rarely needs it."""
+    return bool(getattr(settings, "CHOOSER_PUBMED_LIVE_SEARCH", True))
 
 
 def _model_display_name(model) -> str:
@@ -272,6 +300,177 @@ def _parse_conversation(text: str):
         return history, None
     final_user_prompt = history.pop()["content"]
     return history, final_user_prompt
+
+
+_FACT_SPLIT_RE = re.compile(r"\s*;\s*|\s*\n\s*")
+
+
+def _clean_fact(raw: str) -> str:
+    """One case fact without list markup, emphasis or a trailing period,
+    cut to _MAX_FACT_CHARS."""
+    fact = _strip_label_emphasis(_LABEL_MARKUP_RE.sub("", raw.strip()))
+    fact = fact.strip().rstrip(".").strip()
+    return fact[:_MAX_FACT_CHARS]
+
+
+def _facts_from_response(text: str) -> List[str]:
+    """The case facts a scenario writer gave, as a list.
+
+    Asked for on one line separated by semicolons, but models also answer
+    with a bullet list under the label; both are read. Up to
+    CHOOSER_MAX_FACTS distinct facts, in order; none when the label is
+    missing, so an older-style scenario still parses.
+    """
+    inline = _labeled_fields(text).get("case_facts", "")
+    pieces: List[str] = [p for p in _FACT_SPLIT_RE.split(inline) if p.strip()]
+    if not pieces:
+        collecting = False
+        for raw in text.split("\n"):
+            split = _split_label(raw)
+            if split is not None and split[0].lower().replace(" ", "_") == "case_facts":
+                collecting = True
+                if split[1]:
+                    pieces.extend(p for p in _FACT_SPLIT_RE.split(split[1]) if p)
+                continue
+            if not collecting:
+                continue
+            if split is not None and split[1]:
+                # The next labelled field ends the list.
+                break
+            if raw.strip():
+                pieces.append(raw)
+    facts: List[str] = []
+    for piece in pieces:
+        fact = _clean_fact(piece)
+        if len(fact) >= 3 and fact.lower() not in {f.lower() for f in facts}:
+            facts.append(fact)
+        if len(facts) >= CHOOSER_MAX_FACTS:
+            break
+    return facts
+
+
+async def _pick_seed_pair() -> Optional[condition_rankings.SeedPair]:
+    """A real (treatment, condition) pair to build the scenario around, or
+    None: seeding is off, the pool is empty (no refresh has run, or nothing
+    has cleared k-anonymity and the vocabularies yet), or it could not be
+    read. The writer then invents the pair as before."""
+    if not CHOOSER_SEED_FROM_RANKINGS:
+        return None
+    try:
+        pairs = await condition_rankings.seed_pairs()
+    except Exception as e:
+        logger.warning(f"Chooser: could not read the seed pairs: {e}")
+        return None
+    if not pairs:
+        return None
+    return random.choice(pairs)
+
+
+async def _cached_pmids(query: str) -> List[str]:
+    """PMIDs earlier PubMed searches found for ``query``, newest search
+    first, from the denial-less cache rows every search writes (any age:
+    for a synthetic case a two-year-old search is as good as today's).
+    Nothing is sent to NCBI."""
+    pmids: List[str] = []
+    rows = (
+        PubMedQueryData.objects.filter(query__iexact=query, denial_id__isnull=True)
+        .exclude(articles__isnull=True)
+        .exclude(articles="")
+        .order_by("-created")[:6]
+    )
+    async for row in rows:
+        try:
+            found = json.loads((row.articles or "").replace("\x00", ""))
+        except json.JSONDecodeError:
+            continue
+        for pmid in found or []:
+            if pmid and str(pmid) not in pmids:
+                pmids.append(str(pmid))
+    return pmids
+
+
+async def _evidence_for(procedure: str, diagnosis: str) -> List[dict]:
+    """The evidence a scenario's drafts may cite: up to CHOOSER_EVIDENCE_LIMIT
+    articles for the procedure and diagnosis, each a PMID, a title and a
+    link. Cached searches first; a live search only when nothing is cached
+    and CHOOSER_PUBMED_LIVE_SEARCH allows it. Articles with no stored title
+    are skipped rather than fetched: the list is for the voter to check
+    citations against, so every row must be readable."""
+    query = f"{procedure} {diagnosis}".strip()
+    if not query:
+        return []
+    pmids = await _cached_pmids(query)
+    if not pmids and _pubmed_live_search_allowed():
+        from fighthealthinsurance.pubmed_tools import PubMedTools
+
+        try:
+            pmids = [
+                str(p)
+                for p in await PubMedTools().find_pubmed_article_ids_for_query(
+                    query, since=None, timeout=CHOOSER_PUBMED_SEARCH_TIMEOUT
+                )
+                if p
+            ]
+        except Exception as e:
+            logger.warning(f"Chooser: live PubMed search failed for a scenario: {e}")
+            pmids = []
+    if not pmids:
+        return []
+    titles = {
+        article.pmid: article
+        async for article in PubMedMiniArticle.objects.filter(
+            pmid__in=pmids[: CHOOSER_EVIDENCE_LIMIT * 3]
+        )
+        .exclude(title__isnull=True)
+        .exclude(title="")
+    }
+    evidence: List[dict] = []
+    for pmid in pmids:
+        article = titles.get(pmid)
+        if article is None:
+            continue
+        evidence.append(
+            {
+                "pmid": pmid,
+                "title": (article.title or "").strip()[:300],
+                "url": article.article_url
+                or f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
+            }
+        )
+        if len(evidence) >= CHOOSER_EVIDENCE_LIMIT:
+            break
+    return evidence
+
+
+def _scenario_prompt(seed: Optional[condition_rankings.SeedPair]) -> str:
+    """What the scenario writer is asked. With a seed, the procedure and
+    diagnosis are given and the writer fills in the rest of the case."""
+    if seed is None:
+        pair_lines = (
+            "Procedure: [a specific real medical procedure name, e.g., MRI of lumbar spine, arthroscopic knee surgery]\n"
+            "Diagnosis: [a specific real medical diagnosis, e.g., chronic lower back pain, torn ACL]\n"
+        )
+        intro = "Please generate a varied, realistic but completely fictional health insurance denial scenario.\n\n"
+    else:
+        pair_lines = f"Procedure: {seed.treatment}\n" f"Diagnosis: {seed.condition}\n"
+        intro = (
+            "Please generate a realistic but completely fictional health insurance denial scenario "
+            f"about this exact procedure and diagnosis (copy them verbatim): {seed.treatment} for {seed.condition}.\n\n"
+        )
+    return (
+        "We are building a system to help patients appeal health insurance denials. "
+        "To improve our model selection techniques, we need realistic synthetic denial scenarios. "
+        + intro
+        + "Provide the following in EXACTLY this structured format (one field per line):\n"
+        + pair_lines
+        + "Insurance Company: [a fictional but realistic-sounding insurance company name]\n"
+        "Denial Reason: [a 1-2 sentence realistic denial reason, such as 'not medically necessary', 'experimental treatment', 'out of network', etc.]\n"
+        "Case Facts: [3 to 5 short facts about the fictional patient and case on this one line, separated by semicolons: "
+        "an age range, how long the symptoms have lasted, what was tried already and what happened, relevant history, "
+        "and what the treating clinician documented. No names, no dates, no member or claim numbers.]\n\n"
+        "Be creative and varied. Use real medical terminology for procedures and diagnoses. "
+        "The case facts are the only facts an appeal may rely on, so make them concrete."
+    )
 
 
 def _scenario_writers(models: List) -> List:
@@ -838,17 +1037,10 @@ async def _generate_appeal_candidates(task: ChooserTask):
     # backend (fhi-legacy) does not. See _scenario_writers.
     writers = _scenario_writers(generation_models)
     try:
-        scenario_prompt = (
-            "We are building a system to help patients appeal health insurance denials. "
-            "To improve our model selection techniques, we need realistic synthetic denial scenarios. "
-            "Please generate a varied, realistic but completely fictional health insurance denial scenario.\n\n"
-            "Provide the following in EXACTLY this structured format (one field per line):\n"
-            "Procedure: [a specific real medical procedure name, e.g., MRI of lumbar spine, arthroscopic knee surgery]\n"
-            "Diagnosis: [a specific real medical diagnosis, e.g., chronic lower back pain, torn ACL]\n"
-            "Insurance Company: [a fictional but realistic-sounding insurance company name]\n"
-            "Denial Reason: [a 1-2 sentence realistic denial reason, such as 'not medically necessary', 'experimental treatment', 'out of network', etc.]\n\n"
-            "Be creative and varied. Use real medical terminology for procedures and diagnoses."
-        )
+        # A real pair from the rankings when there is one (see
+        # _pick_seed_pair); the writer invents one otherwise.
+        seed = await _pick_seed_pair()
+        scenario_prompt = _scenario_prompt(seed)
         scenario_system_prompt = (
             "You are a system that generates realistic but fictional health insurance scenarios. "
             "These are used to improve model selection for a health insurance appeal assistance service. "
@@ -869,9 +1061,23 @@ async def _generate_appeal_candidates(task: ChooserTask):
                 "insurance_company": fields.get("insurance_company"),
                 "denial_text_preview": fields.get("denial_reason"),
             }
+            if seed is not None:
+                # The seed is the case, whatever the writer echoed back.
+                written["procedure"] = seed.treatment
+                written["diagnosis"] = seed.condition
             missing = [k for k, v in written.items() if not v]
             if not missing:
                 context = written
+                # Facts are wanted, not required: a scenario without them
+                # is the old kind of task, still worth a vote.
+                facts = _facts_from_response(scenario_response or "")
+                if facts:
+                    context["facts"] = facts
+                else:
+                    logger.info(
+                        f"ChooserTask {task.id}: scenario from "
+                        f"{_model_display_name(writer)} gave no case facts"
+                    )
                 break
             preview = (scenario_response or "")[:200]
             logger.warning(
@@ -891,6 +1097,19 @@ async def _generate_appeal_candidates(task: ChooserTask):
             await task.asave()
             return
 
+        context["seeded"] = seed is not None
+        # The evidence the drafts may cite, and the voter checks them
+        # against. Best effort: a scenario with none still measures the
+        # models, and the voter is told the list is empty.
+        try:
+            context["evidence"] = await _evidence_for(
+                context["procedure"] or "", context["diagnosis"] or ""
+            )
+        except Exception as e:
+            logger.opt(exception=True).warning(
+                f"ChooserTask {task.id}: could not attach evidence: {e}"
+            )
+            context["evidence"] = []
         task.context_json = context
         await database_sync_to_async(task.save)()
 
@@ -909,7 +1128,9 @@ async def _generate_appeal_candidates(task: ChooserTask):
     prompt = _build_appeal_prompt(task.context_json)
     system_prompt = (
         "You are an expert at writing health insurance appeal letters. "
-        "Write a professional, compelling appeal letter based on the given context."
+        "Write a professional, compelling appeal letter based on the given context. "
+        "Stay inside the facts and evidence you are given: a letter that makes "
+        "things up loses the appeal and this comparison."
     )
 
     async def ask(model, resample: bool) -> Optional[str]:
@@ -1080,11 +1301,33 @@ def _build_appeal_prompt(context: dict) -> str:
         parts.append(f"Insurance Company: {context['insurance_company']}")
     if context.get("denial_text_preview"):
         parts.append(f"Denial Summary: {context['denial_text_preview']}")
+    facts = [str(f) for f in (context.get("facts") or []) if f]
+    if facts:
+        parts.append("\nCase facts (the only facts known about this patient):")
+        parts.extend(f"- {fact}" for fact in facts)
+    evidence = [e for e in (context.get("evidence") or []) if e.get("title")]
+    if evidence:
+        parts.append("\nEvidence on file (the only studies you may cite):")
+        parts.extend(
+            f"- {e['title']} (PMID {e['pmid']})" if e.get("pmid") else f"- {e['title']}"
+            for e in evidence
+        )
 
     parts.append(
         "\nPlease write a professional appeal letter that argues why this treatment "
         "should be covered. Include relevant medical reasoning and cite any applicable "
         "guidelines or regulations."
+    )
+    parts.append(
+        "Use only the case facts above; where a detail is not given, leave it out or "
+        "say the records will show it, rather than inventing it. Cite only the "
+        "evidence on file, by title or PMID"
+        + (
+            "; if nothing on file fits, cite nothing"
+            if evidence
+            else " (there is none on file, so cite no studies)"
+        )
+        + ". Never invent a study, a statute, a test result, a date or a clinical history."
     )
 
     return "\n".join(parts)
