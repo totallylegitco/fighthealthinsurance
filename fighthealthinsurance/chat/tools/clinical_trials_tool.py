@@ -9,10 +9,11 @@ specific patient, not whether the therapy is hypothetical.
 """
 
 import re
-from typing import Any, Awaitable, Callable, Optional, Tuple
+from typing import Any, Awaitable, Callable, List, Optional, Tuple
 
 from loguru import logger
 
+from fighthealthinsurance.chat.research_context import trials_block
 from fighthealthinsurance.clinicaltrials_tools import (
     DEFAULT_MAX_TRIALS,
     ClinicalTrialsTools,
@@ -52,11 +53,14 @@ class ClinicalTrialsTool(BaseTool):
             Callable[..., Awaitable[Tuple[Optional[str], Optional[str]]]]
         ] = None,
         max_trials: int = DEFAULT_MAX_TRIALS,
+        research_found: Optional[List[str]] = None,
     ):
         super().__init__(send_status_message)
         self.clinical_trials_tools = clinical_trials_tools or ClinicalTrialsTools()
         self.call_llm_callback = call_llm_callback
         self.max_trials = max_trials
+        # The turn's research blocks (see PubMedTool).
+        self.research_found = research_found
 
     async def execute(
         self,
@@ -113,6 +117,8 @@ class ClinicalTrialsTool(BaseTool):
                 )
 
         trial_context = self._build_trials_context(trials)
+        if trial_context and self.research_found is not None:
+            self.research_found.append(trial_context)
 
         if self.call_llm_callback and model_backends:
             additional_response, additional_context = await self.call_llm_callback(
@@ -144,12 +150,4 @@ class ClinicalTrialsTool(BaseTool):
         rendered = [r for r in rendered if r]
         if not rendered:
             return ""
-        body = "\n\n".join(rendered)
-        return (
-            "\n\nWe got back clinicaltrialscontext:[\n"
-            + body
-            + "\n]. When citing a trial, include the NCT ID and the URL. "
-            + "Remember: the existence of a trial does not by itself establish coverage; "
-            + "use it to argue that the therapy is being actively studied or used clinically, "
-            + "not that the patient is enrolled in a trial.\n"
-        )
+        return trials_block(rendered)

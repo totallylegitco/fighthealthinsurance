@@ -23,6 +23,7 @@ from fighthealthinsurance.chat.appeal_letter_generator import (
     draft_letter_for_chat,
     letter_placement_note,
 )
+from fighthealthinsurance.chat.research_context import research_for_chat
 from fighthealthinsurance.client_gone import ClientGone
 from fighthealthinsurance.denial_context import merge_qa
 
@@ -88,6 +89,7 @@ class GenerateAppealLetterTool(AppealTool):
         deadline_seconds: Optional[float] = None,
         drafted_this_turn: Optional[List[Optional[DraftedLetter]]] = None,
         use_reserve: bool = True,
+        research_found: Optional[List[str]] = None,
     ):
         """
         Args:
@@ -110,12 +112,17 @@ class GenerateAppealLetterTool(AppealTool):
             use_reserve: Whether a stored draft may stand in when generation
                 fails. False when the user asked for a new letter (a redo,
                 another version): a stored draft predates that request.
+            research_found: The research blocks the chat's tools found this
+                turn (owned by ChatInterface, see PubMedTool). The letter
+                draws on them and on the chat's stored context, so it argues
+                from the evidence the person just saw discussed.
         """
         super().__init__(send_status_message, send_error_message, domain)
         self.use_external = use_external
         self.deadline_seconds = deadline_seconds
         self.drafted_this_turn = drafted_this_turn
         self.use_reserve = use_reserve
+        self.research_found = research_found
         # Whether this reply's call drafted a letter: decides
         # dropped_calls_notice for the straggler calls after it.
         self._drafted_letter = False
@@ -274,6 +281,7 @@ class GenerateAppealLetterTool(AppealTool):
                 use_external=self.use_external,
                 use_reserve=self.use_reserve,
                 deadline_seconds=self.deadline_seconds,
+                research=research_for_chat(chat, self.research_found or ()),
             )
             if drafted and self.drafted_this_turn is not None:
                 self.drafted_this_turn[0] = drafted

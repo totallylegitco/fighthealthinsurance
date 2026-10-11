@@ -103,6 +103,7 @@ from fighthealthinsurance.chat.tools import (
     RxNormLookupTool,
     USPSTFLookupTool,
 )
+from fighthealthinsurance.chat.research_context import research_for_chat
 from fighthealthinsurance.chat.appeal_letter_generator import (
     DraftedLetter,
     denial_has_letter_context,
@@ -333,6 +334,12 @@ class ChatInterface:
         # delivers a letter the tool already drafted instead of generating --
         # and saving over it -- another. Reset at the start of each turn.
         self._turn_drafted_letter: list[Optional[DraftedLetter]] = [None]
+        # The research blocks PubMedTool and ClinicalTrialsTool found in the
+        # turn in flight. The turn's context, which carries them too, is
+        # only stored when the turn ends, so a letter drafted later in the
+        # same turn (in a tool's follow-up pass, or by the total-failure
+        # fallback) reads them here. Reset at the start of each turn.
+        self._turn_research_found: list[str] = []
         # Whether the turn's message asks for a new letter (a redo, another
         # version). Then neither the letter tool nor the total-failure
         # fallback may hand back a stored draft: it predates the request.
@@ -1406,6 +1413,7 @@ class ChatInterface:
             deadline_seconds=self._remaining_letter_deadline(),
             drafted_this_turn=self._turn_drafted_letter,
             use_reserve=not self._turn_wants_fresh_letter,
+            research_found=self._turn_research_found,
         )
         response_text, context, _ = await generate_letter_tool.handle(
             response_text, context, chat=chat
@@ -1458,6 +1466,7 @@ class ChatInterface:
             pubmed_tools=self.pubmed_tools,
             rxnorm_tools=self.rxnorm_tools,
             call_llm_callback=follow_up,
+            research_found=self._turn_research_found,
         )
         response_text, context, _ = await pubmed_tool.handle(
             response_text, context, **tool_kwargs
@@ -1472,6 +1481,7 @@ class ChatInterface:
             self.send_status_message,
             clinical_trials_tools=self.clinical_trials_tools,
             call_llm_callback=follow_up,
+            research_found=self._turn_research_found,
         )
         response_text, context, _ = await clinical_trials_tool.handle(
             response_text, context, **tool_kwargs
@@ -1589,6 +1599,7 @@ class ChatInterface:
         self._reply_gate = None
         # Nor may a previous turn's letter count as this turn's.
         self._turn_drafted_letter[0] = None
+        self._turn_research_found.clear()
         self._turn_wants_fresh_letter = not is_document and wants_fresh_letter(
             user_message
         )
@@ -2735,6 +2746,7 @@ class ChatInterface:
                         deadline_seconds=_env_float(
                             "FHI_CHAT_LETTER_FALLBACK_DEADLINE", 60.0
                         ),
+                        research=research_for_chat(chat, self._turn_research_found),
                     )
                 finally:
                     heartbeat_task.cancel()

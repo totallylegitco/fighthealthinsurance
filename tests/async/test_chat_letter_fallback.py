@@ -24,6 +24,11 @@ from fighthealthinsurance.chat.appeal_letter_generator import (
     find_reserve_letter,
     generate_letter_for_denial,
 )
+from fighthealthinsurance.chat.research_context import (
+    ChatResearch,
+    pubmed_block,
+    trials_block,
+)
 from fighthealthinsurance.chat.tools import AppealTool, GenerateAppealLetterTool
 from fighthealthinsurance.chat_interface import ChatInterface
 from fighthealthinsurance.client_gone import ClientGone
@@ -70,6 +75,10 @@ FULL_MODEL_LETTER = GENERATED_LETTER + " " + (
     "The treating physician documented failed conservative therapy, "
     "worsening symptoms, and a clinical need for this procedure. " * 3
 )
+
+# What the chat's PubMed and ClinicalTrials tools found earlier.
+CHAT_ARTICLE = "Title: Imaging in chronic back pain\nAbstract: MRI guided care..."
+CHAT_TRIAL = "NCT: NCT01234567; Title: Imaging trial; Status: RECRUITING"
 
 EDITED_LETTER = (
     "My carefully hand-edited appeal letter about the MRI denial, "
@@ -150,6 +159,22 @@ class ChatLetterFallbackTest(APITestCase):
         # The user's message survived too (pre-persist).
         user_msgs = [m for m in fresh.chat_history if m.get("role") == "user"]
         self.assertEqual(len(user_msgs), 1)
+
+    async def test_letter_fallback_drafts_from_the_chats_research(self):
+        """The rescue letter argues from the articles the chat found."""
+        user, chat = await _make_professional_chat("letterfall20", "9999920020")
+        await _link_letter_appeal(chat, user)
+        chat.summary_for_next_call = [pubmed_block([CHAT_ARTICLE])]
+        await chat.asave(update_fields=["summary_for_next_call"])
+        interface = ChatInterface(
+            send_json_message_func=_FrameRecorder(), chat=chat, user=user
+        )
+        with patch(
+            "fighthealthinsurance.chat_interface.draft_letter_for_chat",
+            new=AsyncMock(return_value=DraftedLetter(GENERATED_LETTER, True)),
+        ) as mock_draft, _llm_call_fails(lambda *a, **k: (None, None)):
+            await interface.handle_chat_message("Please go ahead and draft a letter.")
+        self.assertEqual(mock_draft.await_args.kwargs["research"].pubmed, CHAT_ARTICLE)
 
     async def test_letter_fallback_serves_existing_reserve_without_models(self):
         """With a ProposedAppeal already in the DB the rescue needs zero
@@ -761,6 +786,27 @@ class GenerateAppealLetterToolTest(APITestCase):
             )
         self.assertFalse(mock_draft.await_args.kwargs["use_reserve"])
 
+    async def test_tool_drafts_from_stored_and_this_turns_research(self):
+        """Articles from earlier turns (the chat's stored context) and trials
+        found earlier in this turn both reach the letter pipeline."""
+        chat = await self._make_chat("lettertool14", "9999939014")
+        chat.summary_for_next_call = [pubmed_block([CHAT_ARTICLE])]
+        tool = GenerateAppealLetterTool(
+            AsyncMock(), AsyncMock(), research_found=[trials_block([CHAT_TRIAL])]
+        )
+        with patch(
+            "fighthealthinsurance.chat.tools.generate_appeal_letter_tool."
+            "draft_letter_for_chat",
+            new=AsyncMock(return_value=DraftedLetter(GENERATED_LETTER, True)),
+        ) as mock_draft:
+            await tool.handle(
+                '**generate_appeal_letter**{"procedure": "MRI"}', "", chat=chat
+            )
+        self.assertEqual(
+            mock_draft.await_args.kwargs["research"],
+            ChatResearch(pubmed=CHAT_ARTICLE, clinical_trials=CHAT_TRIAL),
+        )
+
 
 class LetterSelectionPolicyTest(APITestCase):
     """generate_letter_for_denial picks a letter, not just any model output."""
@@ -914,6 +960,28 @@ class LetterSelectionPolicyTest(APITestCase):
         ):
             await generate_letter_for_denial(self._denial(), deadline_seconds=30)
         self.assertEqual([t <= 30.0 for t in timeouts_seen], [True])
+
+    async def test_models_get_the_chats_research_beside_the_denials(self):
+        """The chat's articles join what the wizard stored on the denial, and
+        its trials go in as trial context."""
+        denial = self._denial()
+        denial.pubmed_context = "Title: A stored study; Summary: from the wizard"
+        research = ChatResearch(pubmed=CHAT_ARTICLE, clinical_trials=CHAT_TRIAL)
+        with patch(
+            "fighthealthinsurance.ml.ml_appeal_context_helper."
+            "MLAppealContextHelper.maybe_summarize_denial_text",
+            new=AsyncMock(return_value=None),
+        ), patch.object(
+            common_view_logic.appealGenerator,
+            "make_appeals",
+            return_value=iter([]),
+        ) as make_appeals:
+            await generate_letter_for_denial(denial, research=research)
+        kwargs = make_appeals.call_args.kwargs
+        self.assertEqual(
+            (kwargs["pubmed_context"], kwargs["clinical_trials_context"]),
+            (denial.pubmed_context + "\n\n" + CHAT_ARTICLE, CHAT_TRIAL),
+        )
 
     async def _consent_seen_by_the_summarizer(self, stored, chat_consent):
         denial = self._denial()

@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Any, List, NamedTuple, Optional
 from channels.db import database_sync_to_async
 from loguru import logger
 
+from fighthealthinsurance.chat.research_context import ChatResearch
 from fighthealthinsurance.context_utils import CONTEXT_LEVEL_TEMPLATE
 from fighthealthinsurance.exec import bridge_executor, letter_executor
 from fighthealthinsurance.ml import ml_models, spend
@@ -273,6 +274,7 @@ async def generate_letter_for_denial(
     *,
     use_external: bool = False,
     deadline_seconds: Optional[float] = None,
+    research: Optional[ChatResearch] = None,
 ) -> Optional["GeneratedAppeal"]:
     """Run the appeal-generation pipeline for ``denial`` and return one letter.
 
@@ -282,6 +284,11 @@ async def generate_letter_for_denial(
     The first deliverable model-written letter wins (completion order == the
     fastest healthy model, which is what a waiting chat user needs); the
     specialized static templates serve as the zero-model fallback.
+
+    The models get the research the chat's tools found (``research``,
+    see chat/research_context) and the research the wizard stored on the
+    denial, as the wizard's own retry path reads it back: PubMed articles,
+    trials, citations, NICE guidance, RAG and plan context.
 
     An oversized denial text is replaced by the wizard's summary of it
     (MLAppealContextHelper.maybe_summarize_denial_text), bounded so the
@@ -310,11 +317,21 @@ async def generate_letter_for_denial(
     # A context variable, so it reaches the summary's task and the drain's
     # worker threads (asgiref and the exec.py pools copy the context).
     with ml_models.attempt_deadline(deadline_seconds):
-        return await _generate_letter(denial, use_external, deadline_seconds)
+        return await _generate_letter(
+            denial, use_external, deadline_seconds, research or ChatResearch()
+        )
+
+
+def _joined(*parts: Optional[str]) -> Optional[str]:
+    """The non-blank parts, blank-line separated, or None."""
+    return "\n\n".join(p for p in parts if p and p.strip()) or None
 
 
 async def _generate_letter(
-    denial: Any, use_external: bool, deadline_seconds: float
+    denial: Any,
+    use_external: bool,
+    deadline_seconds: float,
+    research: ChatResearch,
 ) -> Optional["GeneratedAppeal"]:
     """generate_letter_for_denial's work, inside the denial's spend channel
     and the letter's attempt deadline."""
@@ -323,7 +340,10 @@ async def _generate_letter(
         # Lazy imports: common_view_logic pulls in a large graph and this
         # module is imported from the chat tool package (see the speculative
         # helper for the same pattern).
-        from fighthealthinsurance.common_view_logic import appealGenerator
+        from fighthealthinsurance.common_view_logic import (
+            appealGenerator,
+            plan_context_for_models,
+        )
         from fighthealthinsurance.generate_appeal import (
             AppealTemplateGenerator,
             GeneratedAppeal,
@@ -423,6 +443,12 @@ async def _generate_letter(
                 # through denial.qa_context instead.
                 non_ai_appeals=non_ai_appeals,
                 specialized_templates=specialized_templates or None,
+                pubmed_context=_joined(denial.pubmed_context, research.pubmed),
+                clinical_trials_context=research.clinical_trials,
+                ml_citations_context=denial.ml_citation_context,
+                nice_context=denial.nice_context,
+                rag_context=denial.rag_context,
+                plan_context=plan_context_for_models(denial),
                 diagnostics_sink=diagnostics,
                 # Tags the persisted ModelCallAttempt rows so a chat-driven
                 # generation can be told apart from the wizard's live run
@@ -492,6 +518,7 @@ async def draft_letter_for_chat(
     prefer_existing: bool = False,
     use_reserve: bool = True,
     deadline_seconds: Optional[float] = None,
+    research: Optional[ChatResearch] = None,
 ) -> Optional[DraftedLetter]:
     """Produce an appeal letter for a chat-linked appeal and persist it.
 
@@ -501,7 +528,8 @@ async def draft_letter_for_chat(
     models are down. The tool path generates first (the user just asked for
     a fresh draft) and falls back to the reserve. ``use_reserve=False``
     never serves one: a request for a new letter is not answered by a draft
-    made before whatever the person wants changed.
+    made before whatever the person wants changed. ``research`` is what the
+    chat's tools found, for a generated letter (generate_letter_for_denial).
 
     On success the letter -- placeholders filled exactly as the wizard fills
     them -- is saved to ``appeal.appeal_text``, EXCEPT that only a full
@@ -534,6 +562,7 @@ async def draft_letter_for_chat(
             denial,
             use_external=use_external,
             deadline_seconds=deadline_seconds,
+            research=research,
         )
         if generated_item:
             letter = generated_item.text
