@@ -28,9 +28,11 @@ from fighthealthinsurance.chat.document_processor import (
     process_uploaded_document,
 )
 from fighthealthinsurance.chat.document_search import (
+    DOCUMENT_LISTING_HEADER,
     _extract_search_terms,
     _score_chunk,
     get_document_context_for_message,
+    search_chat_documents,
 )
 from fighthealthinsurance.models import ChatDocument, OngoingChat
 from tests.chat_fixtures import discard_background_task
@@ -257,7 +259,7 @@ class TestDocumentContextAsync(APITestCase):
 
         result = await get_document_context_for_message(chat.id, "hi")
         assert result is not None
-        assert "Uploaded documents" in result
+        assert DOCUMENT_LISTING_HEADER in result
         assert "plan.pdf" in result
         assert "denial_letter.pdf" in result
         assert "Plan document summary" in result
@@ -275,6 +277,117 @@ class TestDocumentContextAsync(APITestCase):
         result = await get_document_context_for_message(chat.id, "hi")
         assert result is not None
         assert "(processing)" in result
+
+    async def test_searches_past_the_start_of_an_unanalyzed_document(self):
+        # A long paste is analyzed only once its turn is over, so the next
+        # question usually arrives before it has been: all of it must be
+        # searched, not just its opening.
+        chat = await OngoingChat.objects.acreate()
+        text = "General plan rules apply to every member. " * 400 + (
+            "Appeal deadlines are 180 days from the denial notice."
+        )
+        await _make_doc(chat, text)
+        result = await get_document_context_for_message(chat.id, "appeal deadlines")
+        assert "180 days from the denial notice" in result
+
+    async def test_message_without_search_terms_only_lists_documents(self):
+        chat = await OngoingChat.objects.acreate()
+        await _make_doc(chat, "Appeal deadlines are 180 days.")
+        result = await get_document_context_for_message(chat.id, "")
+        assert DOCUMENT_LISTING_HEADER in result
+        assert "Relevant sections" not in result
+
+    async def test_listing_gives_each_documents_section_count(self):
+        chat = await OngoingChat.objects.acreate()
+        text = "Plan rules. " * 1000
+        await _make_doc(chat, text)
+        result = await get_document_context_for_message(chat.id, "")
+        assert f"{len(chunk_document(text))} sections" in result
+
+
+class TestSearchChatDocumentsAsync(APITestCase):
+    """search_chat_documents (the search_documents tool) over stored rows."""
+
+    FILLER = "General plan rules apply to every member. "
+
+    async def _store(self, chat, name: str, text: str) -> ChatDocument:
+        return await ChatDocument.objects.acreate(
+            chat=chat, document_name=name, full_text=text, char_count=len(text)
+        )
+
+    async def test_says_when_nothing_is_stored(self):
+        chat = await OngoingChat.objects.acreate()
+        result = await search_chat_documents(chat.id, query="deadline")
+        assert "no documents stored in this chat" in result
+
+    async def test_finds_text_deep_in_a_pending_paste(self):
+        chat = await OngoingChat.objects.acreate()
+        await self._store(
+            chat,
+            "pasted_message_1.txt",
+            self.FILLER * 800
+            + "Infusions require prior authorization through the specialty "
+            "pharmacy. "
+            + self.FILLER * 50,
+        )
+        result = await search_chat_documents(chat.id, query="specialty pharmacy")
+        assert "Infusions require prior authorization" in result
+
+    async def test_document_name_narrows_the_search(self):
+        chat = await OngoingChat.objects.acreate()
+        await self._store(chat, "policy.txt", "Exclusions: cosmetic surgery.")
+        await self._store(chat, "denial.txt", "Exclusions were cited here.")
+        result = await search_chat_documents(
+            chat.id, query="exclusions", document="POLICY"
+        )
+        assert "- policy.txt" in result
+        assert "denial.txt" not in result
+
+    async def test_unknown_document_name_searches_everything_and_says_so(self):
+        chat = await OngoingChat.objects.acreate()
+        await self._store(chat, "policy.txt", "Exclusions: cosmetic surgery.")
+        await self._store(chat, "denial.txt", "Exclusions were cited here.")
+        result = await search_chat_documents(
+            chat.id, query="exclusions", document="formulary"
+        )
+        assert 'No stored document is named like "formulary"' in result
+        assert "- policy.txt" in result
+        assert "- denial.txt" in result
+
+    async def test_section_read_defaults_to_the_newest_document(self):
+        chat = await OngoingChat.objects.acreate()
+        await self._store(chat, "old.txt", "Old document text.")
+        await self._store(chat, "new.txt", "New document text.")
+        result = await search_chat_documents(chat.id, section=1)
+        assert "New document text." in result
+        assert "Read from new.txt" in result
+
+    async def test_identical_copies_are_searched_once(self):
+        chat = await OngoingChat.objects.acreate()
+        text = "Step therapy applies to biologics."
+        await self._store(chat, "first_copy.txt", text)
+        await self._store(chat, "second_copy.txt", text)
+        result = await search_chat_documents(chat.id, query="step therapy")
+        assert result.count("Step therapy applies") == 1
+        assert "- second_copy.txt" in result
+        assert "first_copy.txt" not in result
+
+    async def test_a_re_stored_copy_is_the_newest_document(self):
+        # Rows A(X), B(Y), A2(X): A2 is the newest, though its text was
+        # first stored before B.
+        chat = await OngoingChat.objects.acreate()
+        await self._store(chat, "first_copy.txt", "Step therapy applies.")
+        await self._store(chat, "other.txt", "Appeals within 180 days.")
+        await self._store(chat, "second_copy.txt", "Step therapy applies.")
+        result = await search_chat_documents(chat.id, section=1)
+        assert "Read from second_copy.txt" in result
+
+    async def test_other_chats_documents_are_never_searched(self):
+        mine = await OngoingChat.objects.acreate()
+        theirs = await OngoingChat.objects.acreate()
+        await self._store(theirs, "theirs.txt", "Diagnosis details.")
+        result = await search_chat_documents(mine.id, query="diagnosis")
+        assert "no documents stored in this chat" in result
 
 
 class TestProcessUploadedDocument(APITestCase):

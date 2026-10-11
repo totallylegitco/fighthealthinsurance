@@ -36,6 +36,17 @@ wins, including the ones `scripts/run_local.sh` sets.
   no healthy general-purpose internal is left. With no internal backend
   configured, it does all of that work (`MLRouter.summarize_backends` and
   `MLRouter.full_qa_backends`).
+- **The best local model chooses how to search long plan documents.** The
+  plan documents a person uploads with an appeal are summarized for it
+  (`MLPlanDocHelper`, `fighthealthinsurance/ml/ml_plan_doc_helper.py`).
+  Documents that fit the summary's window (`MAX_CONTEXT_LENGTH`) go in whole.
+  Longer ones are searched: `MLRouter.best_internal_model()` (the strongest
+  healthy general-purpose internal backend, with the cheapest ones behind it)
+  is told they are too long, shown their headings, and asked for search
+  strings in the documents' own words, and
+  `fighthealthinsurance/document_grep.py` fills the window with the
+  passages that best cover those strings, labelled by page. Only internal
+  models are asked, at every step: plan documents are patient data.
 - **The chooser always opts into external models**, because its inputs are
   synthetic, with no patient data (`fighthealthinsurance/chooser_tasks.py`).
 - **`fhi-legacy` is for appeals and prior auth.** It is an appeal-text

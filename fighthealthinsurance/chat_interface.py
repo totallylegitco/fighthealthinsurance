@@ -96,6 +96,7 @@ from fighthealthinsurance.chat.tools import (
     AppealTool,
     ClinicalTrialsTool,
     DocFetcherTool,
+    DocumentSearchTool,
     FinancialAssistanceTool,
     GenerateAppealLetterTool,
     MedicaidEligibilityTool,
@@ -1491,6 +1492,17 @@ class ChatInterface:
             response_text, context, **tool_kwargs
         )
 
+        # Searches what the user pasted or uploaded (and what fetch_doc
+        # stored), so the model can look past the preview it was given.
+        document_search_tool = DocumentSearchTool(
+            self.send_status_message,
+            call_llm_callback=follow_up,
+            chat=self.chat,
+        )
+        response_text, context, _ = await document_search_tool.handle(
+            response_text, context, **tool_kwargs
+        )
+
         pa_requirement_tool = PaRequirementLookupTool(
             self.send_status_message,
             call_llm_callback=follow_up,
@@ -1679,6 +1691,9 @@ class ChatInterface:
             # name the document that exists (sanitized -- legacy rows may
             # predate the name sanitization).
             doc_name = sanitize_document_name(uploaded_doc.document_name) or doc_name
+            # The variants tell the model how to read the upload, by the name
+            # it is stored under.
+            document_name = doc_name
 
             user_message = (
                 f"I've uploaded a document: {doc_name} ({char_count:,} characters). "
@@ -2126,11 +2141,15 @@ class ChatInterface:
 
         # Inject uploaded document context into the LLM call. Guarded: a
         # failure searching stored documents must degrade to "no doc context"
-        # rather than kill the whole turn.
+        # rather than kill the whole turn. A stored long paste only lists the
+        # documents: its message is now the marker, whose words ("pasted",
+        # "stored", "reference") would pick sections at random, and the
+        # model already has the paste's beginning and end -- it searches the
+        # rest with search_documents.
         doc_context_str = None
         try:
             doc_context_str = await get_document_context_for_message(
-                chat.id, user_message
+                chat.id, user_message if long_paste_variant is None else ""
             )
         except Exception as e:
             logger.warning(

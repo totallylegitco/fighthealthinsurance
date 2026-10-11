@@ -14,7 +14,7 @@ logger) and must never log full message contents (PHI).
 import re
 import time
 import unicodedata
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Dict, List, Optional, Tuple
 
 from loguru import logger
@@ -137,6 +137,23 @@ def build_long_paste_marker(char_count: int, doc_name: str) -> str:
     return (
         f"You pasted a long message (~{char_count:,} chars). "
         f"It has been stored for reference as {doc_name}."
+    )
+
+
+def stored_document_note(doc_name: str) -> str:
+    """What the model is told after an upload's marker on the upload's turn.
+
+    The marker says a document arrived; none of its text is in the message.
+    Without this the model either answered from the marker alone or asked
+    the user what the document says. Names the tool without spelling out a
+    call, which the model could copy verbatim.
+    """
+    return (
+        f'[Note from the system, not the user: the text of "{doc_name}" is '
+        f"stored, not shown here. Before saying anything about what it "
+        f"contains, read it with the search_documents tool -- its first "
+        f"section is the place to start -- or search it for what the user "
+        f"asks about.]"
     )
 
 
@@ -270,11 +287,15 @@ def _build_long_variants(
         "document_name": doc_name,
         "char_count": char_count,
     }
+    # Names the tool but never writes out a call: an example call here would
+    # be one the model could copy verbatim.
     reference_text = (
         f"[The user pasted a long message of about {char_count:,} characters. "
-        f'The full text has been stored for reference as "{doc_name}" and can be '
-        f"searched. Use the beginning and end below to understand the request, and "
-        f"ask to search the document for specifics.]\n\n"
+        f'Its full text is stored as "{doc_name}", but only its beginning and '
+        f"end are shown below. Use them to understand the request. For "
+        f"anything else in it, search the full text with the search_documents "
+        f"tool in this reply -- never guess what the rest of it says, and "
+        f"never ask the user to paste it again.]\n\n"
         f"Beginning of pasted content:\n{head}\n\n...\n\n"
         f"End of pasted content:\n{tail}"
     )
@@ -339,8 +360,10 @@ def prepare_user_message_variants(
     Args:
         user_message: The raw user message.
         is_document: Whether this came in via the explicit document-upload path
-            (already stored + replaced with a marker upstream).
-        document_name: Optional name to use for a stored long paste.
+            (already stored + replaced with a marker upstream). Every variant's
+            ``text_for_llm`` then ends with stored_document_note.
+        document_name: The name a long paste is stored under (or, for an
+            upload, the name it was stored under).
         max_direct_chars: Soft limit; above it we use compact long-message
             variants instead of the raw text.
         max_variant_chars: Hard ceiling for any variant's ``text_for_llm``.
@@ -365,6 +388,16 @@ def prepare_user_message_variants(
                 display_text=None if not was_sanitized else safe,
                 metadata={"char_count": char_count},
             )
+        ]
+
+    if is_document:
+        # Only the model's text changes: display_text stays as built, so
+        # history keeps the bare marker.
+        note = stored_document_note(
+            sanitize_document_name(document_name) or "the uploaded document"
+        )
+        variants = [
+            replace(v, text_for_llm=f"{v.text_for_llm}\n\n{note}") for v in variants
         ]
 
     # Log only non-PHI metadata (kinds + deltas + size), never content.

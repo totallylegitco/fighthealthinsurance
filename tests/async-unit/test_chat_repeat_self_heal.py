@@ -7,56 +7,17 @@ sampling before the caller's scoring/retry ladder ever sees it.
 
 import pytest
 
-from fighthealthinsurance.ml.ml_models import RemoteOpenLike
 from tests.chat_fixtures import (
     CANNED_MEDICAID_REPLY,
     FRESH_REPLY,
     LOOPED_REPLY,
+    ScriptedModel,
 )
 
 HISTORY = [
     {"role": "user", "content": "Help me with the new medicaid requirements."},
     {"role": "assistant", "content": LOOPED_REPLY},
 ]
-
-
-class ScriptedModel(RemoteOpenLike):
-    """RemoteOpenLike whose _infer plays back a scripted list of replies."""
-
-    def __init__(self, replies):
-        super().__init__(
-            api_base="http://example.invalid",
-            token="test-token",
-            model="test-model",
-            system_prompts_map={},
-        )
-        self._replies = list(replies)
-        self.infer_calls = []
-
-    async def _infer(
-        self,
-        system_prompts,
-        prompt,
-        patient_context=None,
-        plan_context=None,
-        pubmed_context=None,
-        ml_citations_context=None,
-        history=None,
-        temperature=0.7,
-        raise_http_errors: bool = False,
-        timeout=None,
-        raise_on_unavailable: bool = False,
-    ):
-        self.infer_calls.append(
-            {
-                "prompt": prompt,
-                "temperature": temperature,
-                "system_prompts": list(system_prompts or []),
-            }
-        )
-        if not self._replies:
-            return None
-        return (self._replies.pop(0), None)
 
 
 @pytest.mark.asyncio

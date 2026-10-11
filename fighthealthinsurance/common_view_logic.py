@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 import html
+import inspect
 import json
 import os
 import re
@@ -23,6 +24,7 @@ from typing import (
     Optional,
     Tuple,
     AsyncGenerator,
+    Callable,
     cast,
 )
 
@@ -135,7 +137,6 @@ from fighthealthinsurance.models import *
 from fighthealthinsurance.process_denial import ProcessDenialCodes
 from fighthealthinsurance.rag_client import get_rag_context_for_denial
 from fighthealthinsurance.utils import (
-    extract_file_text,
     interleave_iterator_for_keep_alive,
     is_real_appeal,
     keepalive_frames,
@@ -2321,6 +2322,24 @@ EXTRACTION_RUN_LABELS: dict[str, str] = {
 QUESTION_GENERATION_DEADLINE_SECONDS = 130
 
 
+async def form_plan_context(
+    plan_context: Callable[["Denial"], Any], denial: "Denial"
+) -> Optional[str]:
+    """Run a denial-type form's plan_context hook from async code.
+
+    A coroutine hook is awaited. A plain one runs off the event loop through
+    database_sync_to_async: the hooks read the denial's plan documents and
+    other rows, and called inline from the appeal generator the ORM raised
+    SynchronousOnlyOperation, which was logged at DEBUG and dropped -- so
+    the gender-affirming-care plan context never reached an appeal.
+    """
+    if inspect.iscoroutinefunction(plan_context):
+        result: Optional[str] = await plan_context(denial)
+        return result
+    sync_result: Optional[str] = await database_sync_to_async(plan_context)(denial)
+    return sync_result
+
+
 def stored_questions_are_current(denial: "Denial") -> bool:
     """Whether the set on the row is a finished set for the row's inputs now.
 
@@ -4357,33 +4376,19 @@ class DenialCreatorHelper:
         """
         Extract text from all plan documents associated with a denial.
 
+        Read through MLPlanDocHelper.load_plan_documents, which decrypts:
+        uploads are stored encrypted, and opening the stored file's path
+        handed the ciphertext to the parser (and raises on remote storage),
+        so a fax number in a plan document was never found.
+
         Args:
             denial_id: The denial ID to get plan documents for
 
         Returns:
-            Combined text from all plan documents (PDF and text files)
+            Combined text from all plan documents
         """
-        combined_text = ""
-        try:
-            plan_docs = PlanDocuments.objects.filter(denial_id=denial_id)
-            async for doc in plan_docs:
-                try:
-                    # Try encrypted field first, fall back to unencrypted
-                    file_field = doc.plan_document_enc or doc.plan_document
-                    if not file_field:
-                        continue
-
-                    path = file_field.path
-                    text = extract_file_text(path)
-                    if text:
-                        combined_text += text + "\n"
-                except Exception as e:
-                    logger.debug(f"Error processing plan document: {e}")
-        except Exception as e:
-            logger.opt(exception=True).debug(
-                f"Error getting plan documents for denial {denial_id}: {e}"
-            )
-        return combined_text
+        documents = await MLPlanDocHelper.load_plan_documents(denial_id)
+        return "\n".join(doc.text for doc in documents)
 
     @classmethod
     async def extract_set_fax_number(cls, denial_id):
@@ -5993,12 +5998,17 @@ class AppealsBackendHelper:
                     op = getattr(parsed, "plan_context", None)
                     if op is not None and callable(op):
                         try:
-                            pc = parsed.plan_context(denial)
+                            pc = await form_plan_context(op, denial)
                             if pc is not None:
                                 plan_context.add(pc)
                         except Exception as e:
-                            logger.debug(
-                                f"Error {e} processing form {form} for plan context"
+                            # WARNING, not DEBUG: a failing hook drops the
+                            # plan context from the appeal, and at DEBUG it
+                            # went unnoticed for every gender-affirming-care
+                            # denial.
+                            logger.opt(exception=True).warning(
+                                f"plan_context failed for form {form.__name__}: "
+                                f"{type(e).__name__}"
                             )
                     # See if we have a provided medical reason
                     if (

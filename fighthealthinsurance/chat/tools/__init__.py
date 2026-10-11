@@ -12,6 +12,7 @@ from .appeal_tool import AppealTool
 from .base_tool import BaseTool
 from .clinical_trials_tool import ClinicalTrialsTool
 from .doc_fetcher_tool import DocFetcherTool
+from .document_search_tool import DocumentSearchTool
 from .financial_assistance_tool import FinancialAssistanceTool
 from .generate_appeal_letter_tool import GenerateAppealLetterTool
 from .json_followup_tool import JsonFollowupTool
@@ -31,6 +32,7 @@ from .patterns import (
     MEDICAID_INFO_REGEX,
     PUBMED_QUERY_REGEX,
     RXNORM_LOOKUP_REGEX,
+    SEARCH_DOCUMENTS_REGEX,
     USPSTF_LOOKUP_REGEX,
     contains_tool_call,
     count_tool_invocations,
@@ -51,6 +53,7 @@ __all__ = [
     "CREATE_OR_UPDATE_PRIOR_AUTH_REGEX",
     "GENERATE_APPEAL_LETTER_REGEX",
     "FETCH_DOC_REGEX",
+    "SEARCH_DOCUMENTS_REGEX",
     "RXNORM_LOOKUP_REGEX",
     "USPSTF_LOOKUP_REGEX",
     "LOOKUP_PA_REQUIREMENT_REGEX",
@@ -70,6 +73,7 @@ __all__ = [
     "GenerateAppealLetterTool",
     "PriorAuthTool",
     "DocFetcherTool",
+    "DocumentSearchTool",
     "RxNormLookupTool",
     "USPSTFLookupTool",
     "PaRequirementLookupTool",

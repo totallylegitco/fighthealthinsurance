@@ -230,6 +230,7 @@ class DocFetcherTool(BaseTool):
         )
 
         # Store full document for chunking, summarization, and back-searching
+        stored = False
         if self.chat:
             try:
                 await process_uploaded_document(
@@ -237,6 +238,7 @@ class DocFetcherTool(BaseTool):
                     document_name=safe_url,
                     full_text=full_text,
                 )
+                stored = True
                 await self.send_status_message(
                     "Document stored for analysis and future reference."
                 )
@@ -252,9 +254,26 @@ class DocFetcherTool(BaseTool):
         question_part = (
             f"The user's question was: {user_question}\n" if user_question else ""
         )
+        # A cut-off document must say so, or the model answers as if the
+        # part it saw were all of it. Names the tool without spelling out a
+        # call, which the model could copy verbatim.
+        cut_part = ""
+        if len(full_text) > MAX_CHAT_TEXT_LENGTH:
+            cut_part = (
+                f"(Only the first {MAX_CHAT_TEXT_LENGTH:,} of its "
+                f"{len(full_text):,} characters are shown. "
+                + (
+                    f'The whole document is stored as "{safe_url}": search it '
+                    f"with the search_documents tool for anything not shown "
+                    f"here.)\n"
+                    if stored
+                    else "Do not assume the rest says nothing about the question.)\n"
+                )
+            )
         doc_context = (
             f"\n\nDocument fetched from {safe_url}:\n"
             f"{llm_text}\n\n"
+            f"{cut_part}"
             f"{question_part}"
             f"Please incorporate the relevant information from the document above.\n"
         )

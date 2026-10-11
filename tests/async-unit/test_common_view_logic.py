@@ -14,6 +14,7 @@ from fighthealthinsurance.common_view_logic import (
     AppealsBackendHelper,
     NextStepInfo,
     DenialCreatorHelper,
+    form_plan_context,
 )
 from fighthealthinsurance.utils import (
     MIN_APPEAL_CHARS,
@@ -2964,9 +2965,13 @@ class ConfirmedStateTest(TestCase):
             generate_external_review_packet(denial, {})["regulator"]["state"], "CA"
         )
         denial_type = DenialTypes.objects.get(name="Gender Affirming Care")
+        # The hook is async (it reads the plan documents): run it the way
+        # the appeal generator does.
         self.assertIn(
             "CDI-Gender-Nondiscrimination-Regulations",
-            denial_type.get_form()().plan_context(denial),
+            async_to_sync(form_plan_context)(
+                denial_type.get_form()().plan_context, denial
+            ),
         )
 
     def test_an_intake_request_that_loaded_before_a_correction_keeps_it(self):
