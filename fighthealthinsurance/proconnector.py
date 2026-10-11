@@ -731,9 +731,9 @@ def _first_name(name: str) -> Optional[str]:
     "Rebecca Lee" and "Dr. Rebecca Lee", "Lee" for "Lee, Rebecca".
     Punctuation is no part of it, so a whole-word search for it can match
     ("Dr." or "Lee," never can)."""
-    words = re.findall(r"\w+", name)
+    words: list[str] = re.findall(r"\w+", name)
     named = [word for word in words if word.lower() not in _HONORIFICS]
-    return (named or words or [None])[0]
+    return (named or words)[0] if words else None
 
 
 def new_signup_body_problem(body: Optional[str]) -> Optional[str]:

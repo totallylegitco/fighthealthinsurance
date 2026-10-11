@@ -61,8 +61,7 @@ _LETTER_REQUEST_RE = re.compile(
 _NEGATION = r"\b(?:don['’]?t|do\s+not|not|never|won['’]?t|stop)\b"
 _DECLINED_RE = re.compile(_NEGATION + r"|\bmy\s+own\b", re.IGNORECASE)
 _DECLINED_LEAD_IN_RE = re.compile(
-    _NEGATION
-    + r"(?:\s+(?:you|to|want|wanna|need|please|ever|yet|even|actually|bother"
+    _NEGATION + r"(?:\s+(?:you|to|want|wanna|need|please|ever|yet|even|actually|bother"
     r"|go|ahead|and|have|i|we|it|just|really|like))*\s*$",
     re.IGNORECASE,
 )
@@ -147,9 +146,7 @@ def _letter_requests(text: Optional[str]) -> List[str]:
     for match in _LETTER_REQUEST_RE.finditer(text):
         start = max(text.rfind(mark, 0, match.start()) for mark in ".!?\n,;:") + 1
         lead_in = text[start : match.start()]
-        if _DECLINED_RE.search(match.group(0)) or _DECLINED_LEAD_IN_RE.search(
-            lead_in
-        ):
+        if _DECLINED_RE.search(match.group(0)) or _DECLINED_LEAD_IN_RE.search(lead_in):
             continue
         requests.append(match.group(0))
     return requests
