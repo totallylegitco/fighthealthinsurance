@@ -12,11 +12,12 @@ ml/llm_usage.py adds to three tables through here:
 Off the request path like spend.py's ledger: record_llm_usage adds to this
 process's pending totals in memory, and one daemon thread per process
 writes them every WRITE_EVERY_SECONDS (subtracting only what a write
-stored, so a failed write is retried, never lost) on its own connection,
-closed after each pass. Pending totals are one entry per row, capped at
-MAX_PENDING; past the cap new entries are dropped, keyed ones first, and
-counted in fhi_llm_usage_ledger_dropped_total. A process that exits loses
-at most its last few seconds.
+stored, so a failed write is retried, never lost, and holds back no other
+row) on its own connection, closed after each pass. Pending totals are one
+entry per row, capped at MAX_PENDING; past the cap new entries are
+dropped, keyed ones first, and counted in
+fhi_llm_usage_ledger_dropped_total. A process that exits loses at most
+its last few seconds.
 
 Unlike the Prometheus series, these also count the calls made on the Ray
 actors, whose registries nothing scrapes.
@@ -203,7 +204,16 @@ class _Ledger:
                     # now would outlive the sweep that promises it is gone.
                     LEDGER_DROPPED_TOTAL.labels(table=WEEK).inc()
                 else:
-                    _store(table, key, amounts)
+                    try:
+                        _store(table, key, amounts)
+                    except Exception as e:
+                        # This row stays pending for the next pass; the rows
+                        # after it are still written in this one.
+                        logger.warning(
+                            f"LLM usage ledger write failed for {table}: "
+                            f"{type(e).__name__}"
+                        )
+                        continue
                 with self._lock:
                     left = self._pending[table].get(key)
                     if left is None:

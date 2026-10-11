@@ -101,6 +101,33 @@ class LedgerTest(TestCase):
             llm_usage_ledger._ledger.pending_for_tests(llm_usage_ledger.DAILY), {}
         )
 
+    def test_a_failed_row_holds_back_no_other_row(self):
+        failing = (DAY, "site", "other", "bad-model", "internal", "isp")
+        fine = (DAY, "site", "other", "good-model", "internal", "isp")
+        llm_usage_ledger.add_daily(*failing, _one())
+        llm_usage_ledger.add_daily(*fine, _one())
+        llm_usage_ledger.add_network(DAY, "site", "isp", "COMCAST-7922", "US", _one())
+        real_store = llm_usage_ledger._store
+
+        def failing_for_one_row(table, key, amounts):
+            if key == failing:
+                raise RuntimeError("this row won't write")
+            return real_store(table, key, amounts)
+
+        with patch.object(llm_usage_ledger, "_store", side_effect=failing_for_one_row):
+            llm_usage_ledger._ledger._write_pending()
+        # The rows after it, in its table and the next, were written.
+        self.assertEqual(
+            list(LLMUsageDaily.objects.values_list("model", flat=True)),
+            ["good-model"],
+        )
+        self.assertTrue(LLMUsageNetworkDaily.objects.exists())
+        # And it is still pending, so the next pass writes it.
+        pending = llm_usage_ledger._ledger.pending_for_tests(llm_usage_ledger.DAILY)
+        self.assertEqual(list(pending), [failing])
+        llm_usage_ledger._ledger.flush_sync_for_tests()
+        self.assertEqual(LLMUsageDaily.objects.get(model="bad-model").calls, 1)
+
     def test_a_request_counted_while_its_row_is_written_stays_pending(self):
         key = (DAY, "site", "other", "m", "internal", "isp")
         llm_usage_ledger.add_daily(*key, _one())
