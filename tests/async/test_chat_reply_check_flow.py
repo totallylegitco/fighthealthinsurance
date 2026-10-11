@@ -866,6 +866,9 @@ class ChatJevTiersTest(_CheckedTurns, APITransactionTestCase):
         self.assertIn("THE REPLY 2:", jev.states[1])
         self.assertEqual(frames.last_content(), SECOND_OPINION_REPLY)
         self.assertEqual(row.winner_model, "claude")
+        # The runner-up follows the pick: Jev's second, not the race's pick
+        # twice over.
+        self.assertEqual(row.runner_up_model, "fhi-local")
         self.assertEqual(
             (row.rank_outcome, row.rank_count, row.rank_changed),
             ("picked", 2, True),

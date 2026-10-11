@@ -1078,6 +1078,15 @@ class ChatInterface:
                         response_text, context_part = top_result
                         picked_model = call_labels.get(top)
                         picked_score = score_log.get(top, picked_score)
+                        # The row's runner-up follows the pick: Jev's second,
+                        # not the race's, which may now be the pick itself.
+                        second = jev_order[1] if len(jev_order) > 1 else None
+                        if second is not None:
+                            runner_up_text = completed_results[second][0]
+                            runner_up_model = call_labels.get(second)
+                            runner_up_score = score_log.get(second)
+                        else:
+                            runner_up_text = runner_up_model = runner_up_score = None
                 turn.set_rank(gate.rank_outcome, gate.rank_ms, gate.rank_count, changed)
         if gate is not None:
             # The identifier list is needed no further than the ranking.
