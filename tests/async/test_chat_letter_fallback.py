@@ -86,6 +86,23 @@ EDITED_LETTER = (
 )
 
 
+class _ScriptedChatModel(RecordingChatModel):
+    """Answers each message with the reply for the first marker it carries
+    (None matches any message), so each tool's follow-up pass, whose
+    message is that tool's context block, can get its own reply."""
+
+    def __init__(self, replies):
+        super().__init__()
+        self._replies = replies
+
+    async def generate_chat_response(self, current_message_for_llm, *args, **kwargs):
+        await super().generate_chat_response(current_message_for_llm, *args, **kwargs)
+        for marker, reply in self._replies:
+            if marker is None or marker in (current_message_for_llm or ""):
+                return (reply, "mock context summary")
+        return (None, None)
+
+
 async def _link_letter_appeal(chat, user, **denial_fields):
     """Create a Denial with letter context and an Appeal linked to the chat."""
     fields = {
@@ -372,6 +389,89 @@ class ChatLetterFallbackTest(APITestCase):
             "Imaging in chronic back pain",
             mock_draft.await_args.kwargs["research"].pubmed or "",
         )
+
+    async def _run_search_and_draft_turn(self, username, npi):
+        """A turn whose reply searches PubMed and the trial registry and asks
+        for the letter, and whose PubMed follow-up pass asks for the letter
+        too. Returns the frames sent and the patched drafter."""
+        user, chat = await _make_professional_chat(username, npi)
+        recorder = _FrameRecorder()
+        interface = ChatInterface(
+            send_json_message_func=recorder, chat=chat, user=user
+        )
+        interface.pubmed_tools = MagicMock()
+        interface.pubmed_tools.find_pubmed_article_ids_for_query = AsyncMock(
+            return_value=["1"]
+        )
+        interface.pubmed_tools.get_articles = AsyncMock(
+            return_value=[
+                MagicMock(title="Imaging in chronic back pain", abstract="MRI")
+            ]
+        )
+        interface.rxnorm_tools = MagicMock()
+        interface.rxnorm_tools.normalize = AsyncMock(
+            return_value=MagicMock(matched=False)
+        )
+        interface.clinical_trials_tools = MagicMock()
+        interface.clinical_trials_tools.find_trials_for_query = AsyncMock(
+            return_value=["NCT01234567"]
+        )
+        interface.clinical_trials_tools.get_trials = AsyncMock(
+            return_value=[MagicMock(nct_id="NCT01234567", brief_title="Imaging")]
+        )
+        interface.clinical_trials_tools.format_trial_short = (
+            lambda trial: f"NCT: {trial.nct_id}; Title: {trial.brief_title}"
+        )
+        letter_call = '**generate_appeal_letter**{"procedure": "MRI"}'
+        model = _ScriptedChatModel(
+            [
+                ("clinicaltrialscontext", "The registry lists an imaging trial."),
+                ("pubmedcontext", "The studies support imaging.\n" + letter_call),
+                (
+                    None,
+                    "Checking the evidence.\n"
+                    "**pubmed_query: MRI chronic back pain**\n"
+                    "**clinical_trials_query: MRI back pain**\n" + letter_call,
+                ),
+            ]
+        )
+        with patch(
+            "fighthealthinsurance.ml.ml_router.MLRouter."
+            "get_chat_backends_with_fallback",
+            return_value=([model], []),
+        ), patch(
+            "fighthealthinsurance.chat_interface.fire_and_forget_in_new_threadpool",
+            new_callable=AsyncMock,
+        ), patch(
+            "fighthealthinsurance.chat.tools.generate_appeal_letter_tool."
+            "draft_letter_for_chat",
+            new=AsyncMock(return_value=DraftedLetter(GENERATED_LETTER, True)),
+        ) as mock_draft:
+            await interface.handle_chat_message("Find evidence and draft my letter.")
+        return recorder, mock_draft
+
+    async def test_a_follow_up_letter_waits_for_the_rest_of_the_research(self):
+        """PubMed's follow-up pass asks for the letter before the trial search
+        has run; its call waits for it, so the letter has the trials too."""
+        _, mock_draft = await self._run_search_and_draft_turn(
+            "letterfall22", "9999920022"
+        )
+        self.assertIn(
+            "NCT01234567",
+            mock_draft.await_args.kwargs["research"].clinical_trials or "",
+        )
+
+    async def test_a_waiting_letter_call_never_reaches_the_reply(self):
+        """The call carried up from the follow-up is run or stripped where it
+        lands; the person never sees it, payload and all."""
+        recorder, _ = await self._run_search_and_draft_turn(
+            "letterfall23", "9999920023"
+        )
+        replies = " ".join(
+            str(f.get("content", "")) for f in recorder.frames
+            if f.get("role") == "assistant"
+        )
+        self.assertNotIn("generate_appeal_letter", replies)
 
     async def _interface_with_linked_appeal(self, username, npi):
         user, chat = await _make_professional_chat(username, npi)

@@ -340,6 +340,10 @@ class ChatInterface:
         # same turn (in a tool's follow-up pass, or by the total-failure
         # fallback) reads them here. Reset at the start of each turn.
         self._turn_research_found: list[str] = []
+        # Set while a research tool's follow-up pass runs and the pass that
+        # called it still has research to run: the follow-up then leaves its
+        # letter call for that pass (see _call_llm_with_actions).
+        self._defer_letter_calls = False
         # Whether the turn's message asks for a new letter (a redo, another
         # version). Then neither the letter tool nor the total-failure
         # fallback may hand back a stored draft: it predates the request.
@@ -1410,51 +1414,61 @@ class ChatInterface:
         # letter tool, can replace the reply or run their follow-up onto its
         # last line. RxNorm runs before PubMed so the LLM can plug a
         # canonical drug name into a follow-up pubmed_query.
-        rxnorm_tool = RxNormLookupTool(
-            self.send_status_message,
-            rxnorm_tools=self.rxnorm_tools,
-            call_llm_callback=follow_up,
-        )
-        response_text, context, _ = await rxnorm_tool.handle(
-            response_text, context, **tool_kwargs
-        )
-
-        pubmed_tool = PubMedTool(
-            self.send_status_message,
-            pubmed_tools=self.pubmed_tools,
-            rxnorm_tools=self.rxnorm_tools,
-            call_llm_callback=follow_up,
-            research_found=self._turn_research_found,
-        )
-        response_text, context, _ = await pubmed_tool.handle(
-            response_text, context, **tool_kwargs
-        )
-
-        clinical_trials_tool = ClinicalTrialsTool(
-            self.send_status_message,
-            clinical_trials_tools=self.clinical_trials_tools,
-            call_llm_callback=follow_up,
-            research_found=self._turn_research_found,
-        )
-        response_text, context, _ = await clinical_trials_tool.handle(
-            response_text, context, **tool_kwargs
-        )
+        research_tools = [
+            RxNormLookupTool(
+                self.send_status_message,
+                rxnorm_tools=self.rxnorm_tools,
+                call_llm_callback=follow_up,
+            ),
+            PubMedTool(
+                self.send_status_message,
+                pubmed_tools=self.pubmed_tools,
+                rxnorm_tools=self.rxnorm_tools,
+                call_llm_callback=follow_up,
+                research_found=self._turn_research_found,
+            ),
+            ClinicalTrialsTool(
+                self.send_status_message,
+                clinical_trials_tools=self.clinical_trials_tools,
+                call_llm_callback=follow_up,
+                research_found=self._turn_research_found,
+            ),
+        ]
+        for i, research_tool in enumerate(research_tools):
+            # A tool's follow-up pass can ask for the letter too. While this
+            # pass still has research to run, that letter call waits for
+            # this pass's letter tool (_defer_letter_calls): drafted in the
+            # follow-up, the letter would miss that research, and the
+            # turn's one-letter rule would then strip the call here.
+            outer_defer = self._defer_letter_calls
+            self._defer_letter_calls = outer_defer or any(
+                later.detect(response_text) for later in research_tools[i + 1 :]
+            )
+            try:
+                response_text, context, _ = await research_tool.handle(
+                    response_text, context, **tool_kwargs
+                )
+            finally:
+                self._defer_letter_calls = outer_defer
 
         # After AppealTool on purpose too: when a reply carries both calls,
         # the field updates from create_or_update_appeal land first and the
-        # generated letter (which reads them) wins the appeal_text.
-        generate_letter_tool = GenerateAppealLetterTool(
-            self.send_status_message,
-            self.send_error_message,
-            use_external=self.use_external_models,
-            deadline_seconds=self._remaining_letter_deadline(),
-            drafted_this_turn=self._turn_drafted_letter,
-            use_reserve=not self._turn_wants_fresh_letter,
-            research_found=self._turn_research_found,
-        )
-        response_text, context, _ = await generate_letter_tool.handle(
-            response_text, context, chat=chat
-        )
+        # generated letter (which reads them) wins the appeal_text. Skipped
+        # in a follow-up pass whose parent still has research to run: its
+        # letter call is joined onto the parent's reply and runs there.
+        if not self._defer_letter_calls:
+            generate_letter_tool = GenerateAppealLetterTool(
+                self.send_status_message,
+                self.send_error_message,
+                use_external=self.use_external_models,
+                deadline_seconds=self._remaining_letter_deadline(),
+                drafted_this_turn=self._turn_drafted_letter,
+                use_reserve=not self._turn_wants_fresh_letter,
+                research_found=self._turn_research_found,
+            )
+            response_text, context, _ = await generate_letter_tool.handle(
+                response_text, context, chat=chat
+            )
 
         prior_auth_tool = PriorAuthTool(
             self.send_status_message, self.send_error_message
@@ -1605,6 +1619,7 @@ class ChatInterface:
         # Nor may a previous turn's letter count as this turn's.
         self._turn_drafted_letter[0] = None
         self._turn_research_found.clear()
+        self._defer_letter_calls = False
         self._turn_wants_fresh_letter = not is_document and wants_fresh_letter(
             user_message
         )
