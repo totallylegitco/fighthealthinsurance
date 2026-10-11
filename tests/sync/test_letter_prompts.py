@@ -343,6 +343,35 @@ class DashboardPromptSwitchTest(TestCase):
         )
         self.assertEqual(apv.current_letter_prompt_mode(), apv.MODE_SPLIT)
 
+    def test_saving_from_a_calendar_view_returns_to_that_view(self):
+        self._staff()
+        response = self.client.post(
+            self.url, {"mode": apv.MODE_NEW, "view": "monthly"}
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            response["Location"],
+            f"{self.url}?prompt_saved=1&view=monthly#letter-prompts",
+        )
+
+    def test_saving_from_the_rolling_view_returns_to_it(self):
+        self._staff()
+        response = self.client.post(
+            self.url, {"mode": apv.MODE_NEW, "view": "rolling"}
+        )
+        self.assertEqual(
+            response["Location"], f"{self.url}?prompt_saved=1#letter-prompts"
+        )
+
+    def test_an_unknown_view_is_not_carried_into_the_redirect(self):
+        self._staff()
+        response = self.client.post(
+            self.url, {"mode": apv.MODE_NEW, "view": "<script>"}
+        )
+        self.assertEqual(
+            response["Location"], f"{self.url}?prompt_saved=1#letter-prompts"
+        )
+
     def test_the_new_modes_can_be_saved(self):
         self._staff()
         for mode in (apv.MODE_SECTIONED, apv.MODE_THIRDS):

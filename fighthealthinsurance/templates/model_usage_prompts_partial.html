@@ -10,6 +10,7 @@ tables sit in each window below, counted like the model table.
   {% if panel.this_pod_mode != panel.saved_mode %}<p class="prompt-banner">This server is still on the earlier setting and will switch within 30 seconds.</p>{% endif %}
   <form method="post" action="{% url 'model_usage_dashboard' %}">
     {% csrf_token %}
+    <input type="hidden" name="view" value="{{ view }}">
     <fieldset class="prompt-fieldset">
       <legend class="note">Each new letter draft is written with:</legend>
       {% for value, label in panel.mode_choices %}

@@ -3037,7 +3037,12 @@ class ModelUsageDashboardView(generic.TemplateView):
         # This pod sees the change at once; the others within the cache time.
         reset_letter_prompt_mode_cache()
         logger.info(f"Staff {request.user} set the letter prompt mode to {mode}")
-        return redirect(f"{request.path}?prompt_saved=1#letter-prompts")
+        # Back to the view (rolling or a calendar one) the form was on.
+        query = "prompt_saved=1"
+        view = (request.POST.get("view") or "").strip()
+        if view in dict(MODEL_USAGE_VIEWS) and view != "rolling":
+            query += f"&view={view}"
+        return redirect(f"{request.path}?{query}#letter-prompts")
 
     @staticmethod
     def _service_health(
