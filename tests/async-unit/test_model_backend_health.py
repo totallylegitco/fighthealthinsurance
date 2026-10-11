@@ -1582,6 +1582,7 @@ class TestTypeSafeProbe:
         assert state == mhc.TYPESAFE_PROBE_STATE
         assert questions == mhc.TYPESAFE_PROBE_QUESTIONS
         assert ask.await_args.kwargs["use"] == spend.OTHER
+        assert ask.await_args.kwargs["task"] == "probe"
 
     @pytest.mark.parametrize(
         "status,category",

@@ -974,7 +974,7 @@ async def check_typesafe(
     check_backend does for a model. The error is what every Jev feature
     records (letter_quality.failure_summary: an HTTP status, "timeout" or a
     class name); the staff pages say what it means. Counted under the
-    "other" TypeSafe use."""
+    "other" TypeSafe use, and as a "probe" in the LLM usage metrics."""
     from fighthealthinsurance.ml import letter_quality, spend, typesafe
 
     result.started_at = datetime.now(dt_timezone.utc)
@@ -1000,6 +1000,7 @@ async def check_typesafe(
             TYPESAFE_PROBE_QUESTIONS,
             timeout_seconds=timeout,
             use=spend.OTHER,
+            task="probe",
         )
     except Exception as e:
         result.latency_ms = int((time.monotonic() - start) * 1000)

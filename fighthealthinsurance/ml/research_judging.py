@@ -203,6 +203,7 @@ async def _post(
         questions,
         timeout_seconds=timeout_seconds,
         use=spend.typesafe_use(spend.RESEARCH),
+        task="research_judging",
     )
 
 

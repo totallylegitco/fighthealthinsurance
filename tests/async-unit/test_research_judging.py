@@ -152,6 +152,7 @@ class TestJudgeArticle:
         with override_settings(**ENABLED), patch.object(typesafe, "ask", ask):
             asyncio.run(rj.judge_article(TITLE, ABSTRACT, "MRI", "pain"))
         assert ask.await_args.kwargs["use"] == spend.RESEARCH
+        assert ask.await_args.kwargs["task"] == "research_judging"
 
 
 class TestDropAndOrder:
