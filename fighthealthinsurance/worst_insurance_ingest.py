@@ -9,7 +9,7 @@ rows, mirroring the structure of ``imr_ingest.py``.
 
 import re
 from datetime import date, datetime
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from django.db import transaction
 
@@ -131,6 +131,23 @@ def match_insurance_company(issuer_name: str) -> Optional[InsuranceCompany]:
     return matches[0][0]
 
 
+def _require_number(cast: type, issuer: Dict, key: str, state: str) -> Any:
+    """``cast(issuer[key])``, re-raising any failure as ``ValueError``.
+
+    A JSON ``null`` (or a non-numeric string) in ``rank``/``composite_score``
+    would otherwise surface as a raw ``TypeError`` traceback; the management
+    command only catches ``ValueError`` for a clean error message. The
+    transaction still rolls back either way.
+    """
+    try:
+        return cast(issuer[key])
+    except (KeyError, TypeError, ValueError) as e:
+        raise ValueError(
+            f"rankings state {state!r} issuer {issuer.get('issuer')!r} has "
+            f"invalid {key!r}: {issuer.get(key)!r}"
+        ) from e
+
+
 def _parse_iso_date(raw: object) -> Optional[date]:
     """Parse an ISO ``YYYY-MM-DD`` value, or None if absent/malformed."""
     if not raw:
@@ -220,12 +237,14 @@ def load_report_dict(data: Dict, source_url: str = "") -> Tuple[int, int, int, i
                     state=state,
                     issuer_slug=issuer_slug,
                     defaults={
-                        "rank": int(issuer.get("rank", 0)),
+                        "rank": _require_number(int, issuer, "rank", state),
                         "issuer_name": issuer_name,
                         "group_affiliation": str(
                             issuer.get("group_affiliation", "") or ""
                         ),
-                        "composite_score": float(issuer.get("composite_score", 0.0)),
+                        "composite_score": _require_number(
+                            float, issuer, "composite_score", state
+                        ),
                         "weight_coverage": issuer.get("weight_coverage"),
                         "member_months": issuer.get("member_months"),
                         "metrics": issuer.get("metrics"),

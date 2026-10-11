@@ -108,6 +108,16 @@ class TestLoadReport:
         assert WorstInsuranceReport.objects.count() == 2
         assert WorstInsuranceRanking.objects.count() == 8
 
+    @pytest.mark.parametrize("key", ["rank", "composite_score"])
+    def test_null_numeric_field_raises_value_error_not_type_error(self, key):
+        """A JSON null must surface as ValueError (the command's contract),
+        not a raw TypeError from int(None)/float(None)."""
+        data = sample_report()
+        data["states"]["TX"]["issuers"][0][key] = None
+        with pytest.raises(ValueError, match=key):
+            load_report_dict(data)
+        assert WorstInsuranceReport.objects.count() == 0
+
     def test_malformed_row_rolls_back_and_preserves_previous_report(self):
         load_report_dict(sample_report())
         before = set(WorstInsuranceRanking.objects.values_list("state", "issuer_slug"))
@@ -176,6 +186,16 @@ class TestManagementCommand:
         from django.core.management.base import CommandError
 
         with pytest.raises(CommandError, match="schema_version"):
+            call_command("ingest_worst_insurance", file=str(bad), stdout=StringIO())
+
+    def test_null_rank_gives_clean_command_error(self, tmp_path):
+        data = sample_report()
+        data["states"]["TX"]["issuers"][0]["rank"] = None
+        bad = tmp_path / "bad.json"
+        bad.write_text(json.dumps(data), encoding="utf-8")
+        from django.core.management.base import CommandError
+
+        with pytest.raises(CommandError, match="rank"):
             call_command("ingest_worst_insurance", file=str(bad), stdout=StringIO())
 
     def test_requires_url_or_file(self):
