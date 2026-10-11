@@ -51,20 +51,27 @@ _LETTER_REQUEST_RE = re.compile(
 )
 
 # A request that asks us NOT to write the letter ("Don't write the letter
-# yet", "I'll write my own appeal"). The negation must govern the drafting
-# verb: inside the match itself, or right before the verb with only filler
-# words between ("I do not want you to write..."). A denial described with
-# "not" earlier in the sentence ("my MRI was not approved, can you write an
-# appeal?", "they would not cover it so please draft the letter") is not a
-# refusal, and "please draft the letter, don't forget my diagnosis" still
-# counts.
+# yet", "I'll write my own appeal", "I don't think you should write the
+# appeal"). A negation in the request itself always counts. One before the
+# verb counts unless a new ask starts between them ("so", "but", "can you",
+# "please"...): that is a denial described with "not" ("my MRI was not
+# approved can you write an appeal?", "they would not cover it so please
+# draft the letter"), not a refusal. "Please draft the letter, don't forget
+# my diagnosis" still counts.
 _NEGATION = r"\b(?:don['’]?t|do\s+not|not|never|won['’]?t|stop)\b"
 _DECLINED_RE = re.compile(_NEGATION + r"|\bmy\s+own\b", re.IGNORECASE)
-_DECLINED_LEAD_IN_RE = re.compile(
-    _NEGATION + r"(?:\s+(?:you|to|want|wanna|need|please|ever|yet|even|actually|bother"
-    r"|go|ahead|and|have|i|we|it|just|really|like))*\s*$",
+_NEW_ASK_RE = re.compile(
+    r"\b(?:so|but|then|please|and\s+i|(?:can|could|would|will)\s+you)\b",
     re.IGNORECASE,
 )
+
+
+def _declined_by_lead_in(lead_in: str) -> bool:
+    """Whether a negation before the drafting verb governs it: the last one,
+    with no new ask between it and the verb."""
+    negations = list(re.finditer(_NEGATION, lead_in, re.IGNORECASE))
+    return bool(negations) and not _NEW_ASK_RE.search(lead_in[negations[-1].end() :])
+
 
 # A request for a new letter (a redo, another version): a draft made
 # earlier predates whatever the person wants changed, so it is no answer.
@@ -137,7 +144,7 @@ def _letter_requests(text: Optional[str]) -> List[str]:
     """The requests in ``text`` that ask for a letter, each from its drafting
     verb to its letter/appeal noun, declined ones left out. A negation
     counts against a request only when it governs the verb (see
-    _DECLINED_LEAD_IN_RE), so one earlier in the sentence ("I'm not sure
+    _declined_by_lead_in), so one earlier in the sentence ("I'm not sure
     what to say, can you write my appeal?", "it was not approved so please
     draft the letter") doesn't."""
     if not text:
@@ -146,7 +153,7 @@ def _letter_requests(text: Optional[str]) -> List[str]:
     for match in _LETTER_REQUEST_RE.finditer(text):
         start = max(text.rfind(mark, 0, match.start()) for mark in ".!?\n,;:") + 1
         lead_in = text[start : match.start()]
-        if _DECLINED_RE.search(match.group(0)) or _DECLINED_LEAD_IN_RE.search(lead_in):
+        if _DECLINED_RE.search(match.group(0)) or _declined_by_lead_in(lead_in):
             continue
         requests.append(match.group(0))
     return requests

@@ -2066,6 +2066,7 @@ class TestLetterRequestDetector(TestCase):
             "I do not want you to write the appeal letter",
             "Please don’t draft the letter yet",
             "Never write an appeal for me",
+            "I don't think you should write the appeal letter",
         ]:
             with self.subTest(message=message):
                 self.assertFalse(looks_like_letter_request(message))
