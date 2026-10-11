@@ -318,8 +318,9 @@ def skip_reason(use: str = spend.OTHER) -> typing.Optional[str]:
     if not spend.loaded():
         return "this process's spend ledger has not loaded (ml/spend.py)"
     if not spend.allows(spend.TYPESAFE, use):
+        for_use = "" if use == spend.OTHER else f" for {use}"
         return (
-            f"TypeSafe's budget is spent for the {use} use "
+            f"TypeSafe's budget is spent{for_use} "
             "(FHI_SPEND_TYPESAFE_* in ml/spend.py)"
         )
     problem = settings_problem()

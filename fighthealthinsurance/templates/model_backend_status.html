@@ -184,11 +184,13 @@
           {% if r.internal_name and r.internal_name != r.model_name %}<div class="mono muted">{{ r.internal_name }}</div>{% endif %}
         </td>
         <td>
-          {% if r.kind %}{{ r.kind }}{% else %}<span class="muted">unknown</span>{% endif %}
+          {% if r.jev %}<span class="muted">typed questions (Jev), not a router backend</span>
+          {% elif r.kind %}{{ r.kind }}{% else %}<span class="muted">unknown</span>{% endif %}
           {% if r.quality is not None %}<div class="sub">quality {{ r.quality }}{% if r.tier %}, <span class="muted">{{ r.tier }} tier</span>{% endif %}</div>{% endif %}
         </td>
         <td>
-          {% if not r.has_traits %}<span class="muted">unavailable</span>
+          {% if r.jev %}<span class="muted">n/a (each use calls it directly)</span>
+          {% elif not r.has_traits %}<span class="muted">unavailable</span>
           {% elif not r.routed %}<span class="muted">not routed on this pod</span>
           {% else %}
             {% if r.top_external_rank %}<span class="chip chip-ext">top external #{{ r.top_external_rank }}</span>{% endif %}
@@ -204,13 +206,15 @@
           {% elif not r.ui_registered %}<div class="sub muted">not registered in router</div>
           {% elif not r.reporting_registered %}<div class="sub muted">not in reporting</div>{% endif %}
           {% if r.config_detail and not r.retired %}{% if not r.show_check or r.config_detail != r.last_check.error %}<div class="err">{{ r.config_detail }}</div>{% endif %}{% endif %}
-          {% if r.jev_uses %}
-            {# Jev's uses, each on or skipped on this pod, and why. #}
+          {% if r.jev_uses and r.enabled %}
+            {# Jev's uses, each on or skipped on this pod, and why. Without a key the row's own reason covers them all. #}
             {% for u in r.jev_uses %}<div class="sub">{{ u.label }}: {% if u.skip %}<span class="muted">skipped, {{ u.skip }}</span>{% else %}on{% endif %}</div>{% endfor %}
             <div class="sub"><a href="{% url 'model_usage_dashboard' %}#jev">Each use's last answer and failure</a></div>
           {% endif %}
         </td>
         <td>
+          {% if r.jev %}<span class="muted">n/a</span>
+          {% else %}
           {% for leg in r.serving %}
             <div class="mono serving-leg">{{ leg.weights|default:leg.model_id }}</div>
             <div class="sub muted">{% if leg.max_model_len %}context {{ leg.max_model_len }}, {% endif %}since {{ leg.first_seen|date:"Y-m-d" }}{% if r.serving|length > 1 or r.serving_unreported %}, <span class="mono">{{ leg.endpoint }}</span>{% endif %}</div>
@@ -222,6 +226,7 @@
               <div class="sub muted">history: last recorded {{ leg.last_seen|date:"Y-m-d H:i" }} UTC, <span class="mono">{{ leg.endpoint }}</span></div>
               <div class="sub muted mono serving-leg">{{ leg.weights|default:leg.model_id }}</div>
             {% endfor %}
+          {% endif %}
           {% endif %}
         </td>
         <td>

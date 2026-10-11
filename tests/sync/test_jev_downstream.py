@@ -500,6 +500,8 @@ class ModelBackendStatusTypeSafeRowTest(TestCase):
         )
         self.assertIsNotNone(cell)
         self.assertContains(response, "TYPESAFE_API_KEY is not set")
+        # The row's own reason covers every use; no list repeating it.
+        self.assertNotContains(response, "Each use's last answer and failure")
 
     def test_a_credit_pause_is_a_live_skip(self):
         with self.settings(TYPESAFE_API_KEY="k"), patch.object(
@@ -517,6 +519,7 @@ class ModelBackendStatusTypeSafeRowTest(TestCase):
         self.assertIsNone(row["live_problem"])
         self.assertTrue(row["live_known"])
         self.assertContains(response, "n/a (answers questions; writes no letters)")
+        self.assertContains(response, "typed questions (Jev), not a router backend")
 
     def test_each_use_is_listed_on_or_skipped_with_its_switch(self):
         with self.settings(**TRIAGE_ON):

@@ -581,7 +581,8 @@ class TestSkipReason:
 
     def test_a_spent_budget_names_the_use(self):
         with patch.object(spend, "allows", return_value=False):
-            assert "spent for the letters use" in self._reason(spend.LETTERS)
+            assert "spent for letters" in self._reason(spend.LETTERS)
+            assert "budget is spent (" in self._reason()
 
     def test_a_refused_setting(self):
         reason = self._reason(TYPESAFE_API_URL="http://typesafe.invalid/v1/systemone")
