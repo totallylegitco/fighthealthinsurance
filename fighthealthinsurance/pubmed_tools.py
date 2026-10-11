@@ -97,7 +97,11 @@ def stored_judgments(
     denial: Denial, pmids: list[str]
 ) -> dict[str, research_judging.Judgment]:
     """What is already known about these articles for this denial's
-    treatment and condition. Reads only; sends nothing anywhere."""
+    treatment and condition. Reads only; sends nothing anywhere. Nothing
+    while judging is switched off: the switch is the kill switch for the
+    judgments already stored too."""
+    if not research_judging.enabled():
+        return {}
     if not (denial.procedure or "").strip() or not pmids:
         return {}
     key = research_judging.treatment_key(denial.procedure, denial.diagnosis)
@@ -1477,16 +1481,23 @@ class PubMedTools(object):
         condition: the stored ones, plus new ones for up to
         research_judging.MAX_ARTICLES others when judging is on and the
         person allowed external models. Each new judgment is stored as it
-        lands, so a caller that stops waiting keeps what arrived."""
-        procedure = (denial.procedure or "").strip()
-        if not procedure:
+        lands, so a caller that stops waiting keeps what arrived. Nothing
+        while judging is switched off, stored judgments included (the switch
+        is their kill switch too)."""
+        if not research_judging.enabled() or not (denial.procedure or "").strip():
             return {}
         key = research_judging.treatment_key(denial.procedure, denial.diagnosis)
         pmids = list(dict.fromkeys(a.pmid for a in articles if a.pmid))
         judgments = {
             row.pmid: judgment_of(row) async for row in judgment_rows(pmids, key)
         }
-        if not research_judging.enabled() or not denial.use_external:
+        # Consent as it stands now, not on the copy the (possibly long)
+        # search started from: the person may have withdrawn it meanwhile.
+        if not await Denial.objects.filter(
+            denial_id=denial.denial_id,
+            denial_text=denial.denial_text,
+            use_external=True,
+        ).aexists():
             return judgments
         by_pmid = {a.pmid: a for a in articles if a.pmid}
         missing = [pmid for pmid in pmids if pmid not in judgments][

@@ -755,15 +755,30 @@ def is_current(denial: typing.Any) -> bool:
     )
 
 
+def usable(denial: typing.Any) -> bool:
+    """Whether the stored triage may be shown or steer anything: triage is
+    switched on (TYPESAFE_DENIAL_TRIAGE_ENABLED is the kill switch for the
+    triages already stored, as TYPESAFE_LETTER_RANKING_ENABLED is for
+    stored scores), the person still allows external models (the triage
+    only exists with that consent, and withdrawing it withdraws its use),
+    and it is current (is_current)."""
+    return (
+        enabled()
+        and bool(getattr(denial, "use_external", False))
+        and is_current(denial)
+    )
+
+
 def deadline_to_show(
     denial: typing.Any, today: datetime.date
 ) -> typing.Optional[datetime.date]:
     """The deadline a reader may be told about, or None.
 
-    Confidently identified, computed from the current text, and strictly
-    after today: a deadline that is today (or earlier) would read as "you
-    already lost", which the letter may not even say. Readers are told it
-    only through deadline_sentence_if_enabled; see the module docstring.
+    Confidently identified, from a usable triage, not marked wrong by staff
+    (appeal_deadline_check), and strictly after today:
+    a deadline that is today (or earlier) would read as "you already lost",
+    which the letter may not even say. Readers are told it only through
+    deadline_sentence_if_enabled; see the module docstring.
     """
     deadline = getattr(denial, "appeal_deadline", None)
     confidence = getattr(denial, "appeal_deadline_confidence", None)
@@ -774,7 +789,10 @@ def deadline_to_show(
         or confidence < DEADLINE_CONFIDENCE_TO_SHOW
     ):
         return None
-    if not is_current(denial):
+    if not usable(denial):
+        return None
+    if getattr(denial, "appeal_deadline_check", None) == DEADLINE_WRONG:
+        # Staff found this one wrong: never shown, whatever the flag says.
         return None
     if deadline <= today:
         return None
@@ -831,15 +849,12 @@ def _at_least(value: typing.Any, bar: float) -> bool:
 
 
 def suggestions(denial: typing.Any, *, min_confidence: float) -> Suggestions:
-    """What the stored triage suggests, at ``min_confidence`` or above.
-
-    Nothing unless the person allowed external models (the triage only
-    exists with that consent, and a withdrawn consent withdraws its use) and
-    the triage is current: computed from the letter on the row, under this
-    rubric. A pre-service probability at the bar suggests the Pre-Service
-    type and box; one at or below 1 - bar suggests Post-Service.
+    """What the stored triage suggests, at ``min_confidence`` or above;
+    nothing unless it is usable. A pre-service probability at the bar
+    suggests the Pre-Service type and box; one at or below 1 - bar suggests
+    Post-Service.
     """
-    if not getattr(denial, "use_external", False) or not is_current(denial):
+    if not usable(denial):
         return Suggestions()
     type_names: list[str] = []
     category_type = DENIAL_TYPE_FOR_CATEGORY.get(

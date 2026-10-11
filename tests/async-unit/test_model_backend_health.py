@@ -1631,6 +1631,29 @@ class TestTypeSafeProbe:
         )
         assert refused.category == mhc.CATEGORY_AUTH
 
+    def test_a_refusal_that_paused_typesafe_for_credit_is_billing(self):
+        from fighthealthinsurance.ml import spend, typesafe
+
+        with patch.object(spend, "paused", return_value=True):
+            result = self._probe(
+                AsyncMock(side_effect=typesafe.TypeSafeError("HTTP 429", status=429))
+            )
+        assert result.category == mhc.CATEGORY_BILLING
+
+    def test_an_unloaded_spend_ledger_is_not_read_as_billing(self):
+        from django.test import override_settings
+
+        from fighthealthinsurance.ml import spend, typesafe
+
+        ask = AsyncMock()
+        with override_settings(**self.KEY), patch.object(typesafe, "ask", ask), patch.object(
+            spend._ledger, "wait_until_loaded", return_value=False
+        ):
+            result = asyncio.run(mhc.check_typesafe(mhc.typesafe_entry(), timeout=5))
+        ask.assert_not_awaited()
+        assert result.category == mhc.CATEGORY_OTHER
+        assert "spend ledger" in result.error
+
     def test_a_timeout(self):
         result = self._probe(AsyncMock(side_effect=asyncio.TimeoutError()))
         assert result.category == mhc.CATEGORY_TIMEOUT

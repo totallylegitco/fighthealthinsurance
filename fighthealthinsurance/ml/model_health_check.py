@@ -934,9 +934,13 @@ def _typesafe_category(e: BaseException) -> str:
     """The category a failed TypeSafe probe reads as. A spent or paused
     budget is billing, like a 402: every Jev use is off until the budget is
     raised or, after a credit refusal, the UTC day ends."""
-    from fighthealthinsurance.ml import typesafe
+    from fighthealthinsurance.ml import spend, typesafe
 
     if isinstance(e, typesafe.TypeSafeBudgetSpent):
+        return CATEGORY_BILLING
+    if isinstance(e, typesafe.TypeSafeError) and spend.paused(spend.TYPESAFE, "*"):
+        # The refusal named credit or quota (a 429, 401 or 403 whose body
+        # said so; typesafe.ask paused TypeSafe for the day on it).
         return CATEGORY_BILLING
     if isinstance(e, typesafe.TypeSafeError):
         if e.status is None:
@@ -976,14 +980,19 @@ async def check_typesafe(
     result.started_at = datetime.now(dt_timezone.utc)
     # The wait is an Event, not the database, so a plain thread is enough.
     try:
-        await asyncio.wait_for(
+        loaded = await asyncio.wait_for(
             asyncio.to_thread(
                 spend._ledger.wait_until_loaded, TYPESAFE_LEDGER_WAIT_SECONDS
             ),
             TYPESAFE_LEDGER_WAIT_SECONDS,
         )
     except (asyncio.TimeoutError, TimeoutError):
-        pass
+        loaded = False
+    if not loaded:
+        # ask() would refuse it as a spent budget, which it is not.
+        result.category = CATEGORY_OTHER
+        result.error = "not sent: the spend ledger did not load (ml/spend.py)"
+        return result
     start = time.monotonic()
     try:
         payload = await typesafe.ask(

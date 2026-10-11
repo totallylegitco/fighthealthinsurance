@@ -213,9 +213,33 @@ class TestJudgeArticlesForADenial:
         post.assert_not_called()
         assert judgments["111"].supports == pytest.approx(0.7)
 
+    def test_switched_off_a_stored_judgment_is_not_used(self):
+        denial = _denial()
+        article = _article("444")
+        PubMedArticleJudgment.objects.create(
+            pmid="444",
+            treatment_key=rj.treatment_key(denial.procedure, denial.diagnosis),
+            on_topic=0.05,
+            supports=0.0,
+            undermines=0.0,
+            scorer=rj.SCORER,
+        )
+        judgments = async_to_sync(PubMedTools().judge_articles)(denial, [article])
+        assert judgments == {}
+
     def test_without_consent_nothing_is_sent(self):
         denial = _denial(use_external=False)
         article = _article("222")
+        with override_settings(**ENABLED), patch.object(rj, "_post") as post:
+            judgments = async_to_sync(PubMedTools().judge_articles)(denial, [article])
+        post.assert_not_called()
+        assert judgments == {}
+
+    def test_consent_withdrawn_during_the_search_sends_nothing(self):
+        denial = _denial()
+        article = _article("555")
+        # The row now says no; the copy the search started from still says yes.
+        Denial.objects.filter(pk=denial.pk).update(use_external=False)
         with override_settings(**ENABLED), patch.object(rj, "_post") as post:
             judgments = async_to_sync(PubMedTools().judge_articles)(denial, [article])
         post.assert_not_called()

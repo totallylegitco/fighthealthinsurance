@@ -15,6 +15,13 @@ from django.test import override_settings
 from fighthealthinsurance.ml import denial_triage as dt
 
 ENABLED = dict(TYPESAFE_API_KEY="test-key", TYPESAFE_DENIAL_TRIAGE_ENABLED=True)
+
+
+@pytest.fixture
+def triage_on():
+    """Triage switched on: a stored triage is only usable while it is."""
+    with override_settings(**ENABLED):
+        yield
 DENIAL_DATE = datetime.date(2026, 9, 2)
 LETTER = (
     "Dear Member, your request for an MRI of the lumbar spine performed on "
@@ -371,8 +378,10 @@ class _DenialLike:
         self.denial_text = text
         self.triage_text_hash = dt.text_hash("something else" if stale else text)
         self.triage_source = source
+        self.use_external = True
 
 
+@pytest.mark.usefixtures("triage_on")
 class TestWhatAReaderMayBeTold:
     TODAY = datetime.date(2026, 9, 7)
 
@@ -443,6 +452,7 @@ class _Triaged:
         self.triage_urgent = fields.get("urgent", 0.9)
 
 
+@pytest.mark.usefixtures("triage_on")
 class TestSuggestions:
     def test_a_confident_current_triage_suggests_what_intake_asks(self):
         found = dt.suggestions(_Triaged(), min_confidence=dt.SUGGEST_CONFIDENCE)
@@ -482,6 +492,10 @@ class TestSuggestions:
     )
     def test_nothing_without_consent_or_for_another_letter(self, triaged):
         assert not dt.suggestions(triaged, min_confidence=0.7)
+
+    def test_nothing_once_triage_is_switched_off(self):
+        with override_settings(TYPESAFE_DENIAL_TRIAGE_ENABLED=False):
+            assert not dt.suggestions(_Triaged(), min_confidence=0.7)
 
     def test_categories_and_kinds_without_a_counterpart_suggest_nothing(self):
         found = dt.suggestions(
@@ -543,8 +557,25 @@ class TestFailureHook:
         assert seen == ["HTTP 402"]
 
 
+@pytest.mark.usefixtures("triage_on")
 class TestDeadlineFlag:
     TODAY = datetime.date(2026, 9, 7)
+
+    def test_a_deadline_staff_marked_wrong_is_never_shown(self):
+        denial = _DenialLike(datetime.date(2026, 10, 15), 0.9)
+        denial.appeal_deadline_check = dt.DEADLINE_WRONG
+        assert dt.deadline_to_show(denial, self.TODAY) is None
+        denial.appeal_deadline_check = dt.DEADLINE_CORRECT
+        assert dt.deadline_to_show(denial, self.TODAY) is not None
+
+    def test_no_deadline_once_consent_is_withdrawn_or_triage_is_off(self):
+        denial = _DenialLike(datetime.date(2026, 10, 15), 0.9)
+        assert dt.deadline_to_show(denial, self.TODAY) is not None
+        denial.use_external = False
+        assert dt.deadline_to_show(denial, self.TODAY) is None
+        denial.use_external = True
+        with override_settings(TYPESAFE_DENIAL_TRIAGE_ENABLED=False):
+            assert dt.deadline_to_show(denial, self.TODAY) is None
 
     def test_the_sentence_needs_the_flag(self):
         denial = _DenialLike(datetime.date(2026, 10, 15), 0.9)

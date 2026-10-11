@@ -322,7 +322,7 @@ class DenialModelSerializer(serializers.ModelSerializer):
 
     @extend_schema_field(DenialTriageSerializer(allow_null=True))
     def get_triage(self, obj: Denial) -> Optional[dict]:
-        if not obj.use_external or not denial_triage.is_current(obj):
+        if not denial_triage.usable(obj):
             return None
         deadline = (
             denial_triage.deadline_to_show(obj, timezone.localdate())

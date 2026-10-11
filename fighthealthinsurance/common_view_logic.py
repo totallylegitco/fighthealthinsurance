@@ -4589,7 +4589,8 @@ class DenialCreatorHelper:
         and a plan source only when it has none. Each row carries the
         ``typesafe`` source, so a replaced letter's sweep takes it away
         (_invalidate_denial_text_artifacts); rows added while the letter was
-        replaced are removed again here, as extract_set_denialtype does.
+        replaced, or the person withdrew external-model consent, are removed
+        again here, as extract_set_denialtype does.
 
         Returns how many rows were added.
         """
@@ -4634,13 +4635,14 @@ class DenialCreatorHelper:
                 )
                 source_pks.append(source_relation.pk)
         if (type_pks or source_pks) and not await Denial.objects.filter(
-            denial_id=denial_id, denial_text=letter
+            denial_id=denial_id, denial_text=letter, use_external=True
         ).aexists():
             await DenialTypesRelation.objects.filter(pk__in=type_pks).adelete()
             await PlanSourceRelation.objects.filter(pk__in=source_pks).adelete()
             logger.info(
                 f"apply_triage_suggestions({denial_id}): the letter was replaced "
-                "while its suggestions were stored; removed them"
+                "or consent withdrawn while its suggestions were stored; "
+                "removed them"
             )
             return 0
         return len(type_pks) + len(source_pks)

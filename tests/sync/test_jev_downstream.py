@@ -32,6 +32,10 @@ from tests.sync.test_back_url_token import EMAIL
 from tests.sync.test_review_page_prefill import HINT, ReviewPageTestBase, shown
 
 TODAY = datetime.date(2026, 10, 3)
+# A stored triage, or stored article judgments, are only used while their
+# switch is on: each switch is also the kill switch for what is stored.
+TRIAGE_ON = dict(TYPESAFE_API_KEY="k", TYPESAFE_DENIAL_TRIAGE_ENABLED=True)
+RESEARCH_ON = dict(TYPESAFE_API_KEY="k", TYPESAFE_RESEARCH_JUDGING_ENABLED=True)
 
 
 def triage(denial, **overrides):
@@ -59,6 +63,7 @@ def denial_type(name, form=None):
     )[0]
 
 
+@override_settings(**TRIAGE_ON)
 class ReviewPageSuggestionsTest(ReviewPageTestBase):
     def setUp(self):
         super().setUp()
@@ -106,6 +111,14 @@ class ReviewPageSuggestionsTest(ReviewPageTestBase):
         self.assertEqual(shown(page, "denial_type"), [])
         self.assertEqual(shown(page, "plan_source"), [])
 
+    def test_no_suggestion_once_triage_is_switched_off(self):
+        self.without_a_plan_source()
+        triage(self.denial)
+        with override_settings(TYPESAFE_DENIAL_TRIAGE_ENABLED=False):
+            page = self.on_to_review()
+        self.assertEqual(shown(page, "denial_type"), [])
+        self.assertEqual(shown(page, "plan_source"), [])
+
     def test_no_suggestion_from_a_replaced_letter(self):
         self.without_a_plan_source()
         triage(self.denial, triage_text_hash=dt.text_hash("an older letter"))
@@ -125,6 +138,7 @@ class ReviewPageSuggestionsTest(ReviewPageTestBase):
         self.assertIn("appears to say appeals are due by December 2, 2026", page)
 
 
+@override_settings(**TRIAGE_ON)
 class QuestionsPageSuggestionsTest(TestCase):
     def setUp(self):
         self.denial = models.Denial.objects.create(
@@ -163,6 +177,7 @@ class QuestionsPageSuggestionsTest(TestCase):
         self.assertNotIn("pre_service", answers)
 
 
+@override_settings(**TRIAGE_ON)
 class AssistantCaseSuggestionsTest(TestCase):
     def setUp(self):
         self.denial = models.Denial.objects.create(
@@ -223,6 +238,17 @@ class AssistantCaseSuggestionsTest(TestCase):
         )
         self.assertEqual(list(self.denial.plan_source.all()), [other])
 
+    def test_rows_stored_after_consent_was_withdrawn_are_removed(self):
+        triage(self.denial)
+        suggested = dt.suggestions(self.denial, min_confidence=dt.APPLY_CONFIDENCE)
+        # Consent withdrawn after the suggestions were read, before the
+        # rows were stored.
+        models.Denial.objects.filter(pk=self.denial.pk).update(use_external=False)
+        with patch.object(dt, "suggestions", return_value=suggested):
+            self.assertEqual(self.apply(), 0)
+        self.assertFalse(self.denial.denial_type.exists())
+        self.assertFalse(self.denial.plan_source.exists())
+
     def test_a_new_letter_takes_them_away(self):
         triage(self.denial)
         self.apply()
@@ -233,6 +259,7 @@ class AssistantCaseSuggestionsTest(TestCase):
         self.assertIsNone(self.denial.triage_category)
 
 
+@override_settings(**TRIAGE_ON)
 class RestTriageTest(TestCase):
     def setUp(self):
         self.denial = models.Denial.objects.create(
@@ -257,6 +284,11 @@ class RestTriageTest(TestCase):
         with override_settings(TYPESAFE_DEADLINE_SHOW_ENABLED=True):
             data = DenialModelSerializer(self.denial).data["triage"]
         self.assertIsNotNone(data["appeal_deadline"])
+
+    def test_a_triage_is_not_served_once_switched_off(self):
+        triage(self.denial)
+        with override_settings(TYPESAFE_DENIAL_TRIAGE_ENABLED=False):
+            self.assertIsNone(DenialModelSerializer(self.denial).data["triage"])
 
     def test_a_stale_triage_is_not_served(self):
         triage(self.denial, triage_text_hash=dt.text_hash("an older letter"))
@@ -292,6 +324,7 @@ class DeadlineLabelAdminTest(TestCase):
         self.assertIsNone(self.untriaged.appeal_deadline_check)
 
 
+@override_settings(**RESEARCH_ON)
 class FaxArticleOrderTest(TestCase):
     def setUp(self):
         self.denial = models.Denial.objects.create(
@@ -326,6 +359,14 @@ class FaxArticleOrderTest(TestCase):
         self.assertTrue(fax_form.fields["pubmed_3"].initial)
         self.assertTrue(fax_form.fields["pubmed_2"].initial)
         self.assertFalse(fax_form.fields["pubmed_1"].initial)
+
+    def test_switched_off_the_stored_judgments_are_not_used(self):
+        with override_settings(TYPESAFE_RESEARCH_JUDGING_ENABLED=False):
+            articles = ChooseAppealHelper.candidate_articles(
+                self.denial.denial_id, self.denial
+            )
+        self.assertFalse(any(getattr(a, "judged_drop", False) for a in articles))
+        self.assertEqual(sorted(a.pmid for a in articles), ["1", "2", "3"])
 
 
 class JevDashboardPanelTest(TestCase):
