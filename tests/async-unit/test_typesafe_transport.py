@@ -549,6 +549,83 @@ class TestCoolingDownPredicate:
             assert typesafe.cooling_down() is False
 
 
+class TestSkipReason:
+    """typesafe.skip_reason(): why this process would send a use nothing
+    right now, in the order ask() refuses, for the staff pages that must say
+    when Jev is skipped and why."""
+
+    @pytest.fixture(autouse=True)
+    def _empty_ledger(self):
+        spend._ledger.reset_for_tests()
+        yield
+        spend._ledger.reset_for_tests()
+
+    @staticmethod
+    def _reason(use=spend.OTHER, **overrides):
+        with override_settings(**{**SETTINGS, **overrides}):
+            return typesafe.skip_reason(use)
+
+    def test_none_when_a_request_would_be_sent(self):
+        assert self._reason() is None
+
+    def test_without_a_key(self):
+        assert self._reason(TYPESAFE_API_KEY="") == typesafe.NO_KEY
+
+    def test_a_credit_or_quota_pause(self):
+        with patch.object(spend, "paused", return_value=True):
+            assert "refused for credit or quota" in self._reason()
+
+    def test_an_unloaded_spend_ledger(self):
+        with patch.object(spend, "loaded", return_value=False):
+            assert "spend ledger has not loaded" in self._reason()
+
+    def test_a_spent_budget_names_the_use(self):
+        with patch.object(spend, "allows", return_value=False):
+            assert "spent for letters" in self._reason(spend.LETTERS)
+            assert "budget is spent (" in self._reason()
+
+    def test_a_refused_setting(self):
+        reason = self._reason(TYPESAFE_API_URL="http://typesafe.invalid/v1/systemone")
+        assert reason == "TYPESAFE_API_URL must use https"
+
+    def test_a_cooldown_names_the_status_that_started_it(self):
+        with pytest.raises(typesafe.TypeSafeError):
+            _ask(_FakeSession(401))
+        assert "after HTTP 401" in self._reason()
+
+    def test_a_cooldown_after_a_failed_connection_says_so(self):
+        typesafe._start_cooldown("could not be reached", None, cap=60)
+        assert "after a failed connection" in self._reason()
+
+
+class TestRefusedBeforeSending:
+    """typesafe.refused_before_sending(): the probe says "skipped" for these,
+    and reports a failure for anything that reached (or tried to reach)
+    TypeSafe."""
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            typesafe.TypeSafeBudgetSpent("budget spent"),
+            typesafe.TypeSafeCoolingDown("cooling down", status=401),
+            typesafe.TypeSafeError("TYPESAFE_API_URL must use https"),
+        ],
+    )
+    def test_refusals_ask_makes_itself(self, error):
+        assert typesafe.refused_before_sending(error) is True
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            typesafe.TypeSafeError("HTTP 503", status=503),
+            aiohttp.ConnectionTimeoutError("Connection timeout to host"),
+            asyncio.TimeoutError(),
+        ],
+    )
+    def test_anything_that_was_sent_or_tried(self, error):
+        assert typesafe.refused_before_sending(error) is False
+
+
 class TestBudgetSpentLog:
     """A spent or paused budget refuses every request for the rest of the day
     or month: a WARNING once per use and UTC day, then debug lines."""
@@ -704,7 +781,7 @@ class TestDenialTriageThroughAsk:
             "model": model,
             "answers": {
                 "category": {"type": "choice", "choice": "medical_necessity", "confidence": 0.85},
-                "regulation": {"type": "choice", "choice": "employer_plan", "confidence": 0.6},
+                "regulation": {"type": "choice", "choice": "employer_private", "confidence": 0.6},
                 "pre_service": {"type": "noul", "noul": 0.92},
                 "urgent": {"type": "noul", "noul": 0.05},
                 "deadline": {"type": "choice", "choice": "180 days from notice", "confidence": 0.9},

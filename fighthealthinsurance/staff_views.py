@@ -96,7 +96,16 @@ from fighthealthinsurance.models import (
 )
 from fighthealthinsurance.email_utils import is_sendable_email
 from fighthealthinsurance.business_hours import describe_send_window
-from fighthealthinsurance.ml import chat_gate, chat_shadow, letter_quality, model_query
+from fighthealthinsurance.ml import (
+    chat_gate,
+    chat_shadow,
+    denial_triage,
+    letter_quality,
+    model_query,
+    research_judging,
+    spend,
+    typesafe,
+)
 from fighthealthinsurance.ml.health_status import live_problem
 from fighthealthinsurance.context_utils import (
     CONTEXT_LEVEL_CHOICES,
@@ -2639,6 +2648,67 @@ def _partial_start(
     return None
 
 
+def _jev_skip_reason(use: str = spend.OTHER) -> Optional[str]:
+    """typesafe.skip_reason for a staff page, which must load when Jev is
+    broken: an unreadable state reads as such instead of raising."""
+    try:
+        return typesafe.skip_reason(use)
+    except Exception as e:
+        logger.opt(exception=True).warning("TypeSafe skip state unreadable")
+        return f"state unreadable ({type(e).__name__})"
+
+
+def _jev_uses() -> List[Dict[str, Any]]:
+    """Every use of TypeSafe's Jev: its label, health-row service, switch
+    and spend use, whether it is on, and ``skip``: why this pod is skipping
+    it right now (no API key, its switch off, or what typesafe.ask would
+    refuse before sending, typesafe.skip_reason), or None. Settings and
+    in-process state only; never calls TypeSafe and never raises."""
+    uses = (
+        (
+            "Letter ranking",
+            letter_quality,
+            "TYPESAFE_LETTER_RANKING_ENABLED",
+            spend.LETTERS,
+        ),
+        (
+            "Denial triage",
+            denial_triage,
+            "TYPESAFE_DENIAL_TRIAGE_ENABLED",
+            spend.TRIAGE,
+        ),
+        ("Chat reply check", chat_gate, "FHI_CHAT_JEV_GATE_ENABLED", spend.CHAT),
+        ("Chat shadow scores", chat_shadow, "TYPESAFE_CHAT_SHADOW_ENABLED", spend.CHAT),
+        (
+            "Research judging",
+            research_judging,
+            "TYPESAFE_RESEARCH_JUDGING_ENABLED",
+            spend.RESEARCH,
+        ),
+    )
+    rows: List[Dict[str, Any]] = []
+    for label, feature, flag, use in uses:
+        # Every feature's enabled() is the key and its switch.
+        on = feature.enabled()
+        skip: Optional[str]
+        if not typesafe.configured():
+            skip = typesafe.NO_KEY
+        elif not on:
+            skip = f"{flag} is off"
+        else:
+            skip = _jev_skip_reason(use)
+        rows.append(
+            {
+                "label": label,
+                "service": feature.SERVICE,
+                "flag": flag,
+                "on": on,
+                "skip": skip,
+            }
+        )
+    return rows
+
+
 class ModelUsageDashboardView(generic.TemplateView):
     """Staff dashboard showing which ML models users pick most often.
 
@@ -2827,6 +2897,7 @@ class ModelUsageDashboardView(generic.TemplateView):
         ctx["chat_since"] = chat_since
         ctx["chat_capped"] = bool(chat_cut)
         ctx["chat_shadow"] = self._chat_shadow_state()
+        ctx["jev"] = self._jev_panel()
         ctx["chat_policy"] = self._chat_policy_panel()
         ctx["reply_check"] = self._reply_check_state()
         ctx["letter_prompts"] = self._letter_prompts_panel()
@@ -2917,15 +2988,44 @@ class ModelUsageDashboardView(generic.TemplateView):
         return redirect(f"{request.path}?prompt_saved=1#letter-prompts")
 
     @staticmethod
-    def _reply_check_state() -> Dict[str, Any]:
+    def _service_health(
+        service: str, hint: Callable[[str], str] = AdminStatusView._scoring_failure_hint
+    ) -> Dict[str, Any]:
+        """The last outcome a TypeSafe feature recorded on its
+        ExternalServiceHealth row (a status or class name, never text), with
+        ``hint`` saying what the failure most likely means. Never raises: an
+        unreadable row gives empty fields and ``error``, the exception's
+        class name."""
+        from fighthealthinsurance.models import ExternalServiceHealth
+
+        out: Dict[str, Any] = {
+            "last_success_at": None,
+            "last_failure_at": None,
+            "last_failure": "",
+            "last_failure_hint": "",
+            "error": None,
+        }
+        try:
+            health = ExternalServiceHealth.objects.filter(service=service).first()
+        except Exception as e:
+            logger.warning(f"{service} health read failed: {type(e).__name__}")
+            out["error"] = type(e).__name__
+            return out
+        if health is not None:
+            out["last_success_at"] = health.last_success_at
+            out["last_failure_at"] = health.last_failure_at
+            out["last_failure"] = health.last_failure
+            out["last_failure_hint"] = hint(health.last_failure)
+        return out
+
+    @classmethod
+    def _reply_check_state(cls) -> Dict[str, Any]:
         """Whether the live Jev check on chat replies is on now, its
         thresholds, and the last outcome it recorded on its
         ExternalServiceHealth row (a status or class name, never text)."""
         from django.conf import settings
 
-        from fighthealthinsurance.models import ExternalServiceHealth
-
-        out: Dict[str, Any] = {
+        return {
             "on": chat_gate.enabled(),
             "max_wait_seconds": chat_gate.max_wait_seconds(),
             "timeout_seconds": chat_gate.timeout_seconds(),
@@ -2940,59 +3040,108 @@ class ModelUsageDashboardView(generic.TemplateView):
             "demote_failed": chat_gate.demote_failed(),
             # Our own checks, which come before Jev is asked.
             "min_response_length": MIN_RESPONSE_LENGTH,
-            "last_success_at": None,
-            "last_failure_at": None,
-            "last_failure": "",
-            "last_failure_hint": "",
+            **cls._service_health(chat_gate.SERVICE, cls._gate_failure_hint),
         }
-        try:
-            health = ExternalServiceHealth.objects.filter(
-                service=chat_gate.SERVICE
-            ).first()
-        except Exception as e:
-            logger.warning(f"Chat reply check health read failed: {type(e).__name__}")
-            return out
-        if health is not None:
-            out["last_success_at"] = health.last_success_at
-            out["last_failure_at"] = health.last_failure_at
-            out["last_failure"] = health.last_failure
-            out["last_failure_hint"] = (
-                # The check has its own, much shorter, timeout.
-                "no answer within FHI_CHAT_JEV_GATE_TIMEOUT_SECONDS"
-                if health.last_failure == "timeout"
-                else AdminStatusView._scoring_failure_hint(health.last_failure)
-            )
-        return out
 
     @staticmethod
-    def _chat_shadow_state() -> Dict[str, Any]:
+    def _gate_failure_hint(summary: str) -> str:
+        # The check has its own, much shorter, timeout.
+        if summary == "timeout":
+            return "no answer within FHI_CHAT_JEV_GATE_TIMEOUT_SECONDS"
+        return AdminStatusView._scoring_failure_hint(summary)
+
+    @classmethod
+    def _chat_shadow_state(cls) -> Dict[str, Any]:
         """Whether chat shadow scoring is on now, and the last outcome the
         scorer recorded on its ExternalServiceHealth row (a status or class
         name, never text)."""
-        from fighthealthinsurance.models import ExternalServiceHealth
+        return {"on": chat_shadow.enabled(), **cls._service_health(chat_shadow.SERVICE)}
 
-        out: Dict[str, Any] = {
-            "on": chat_shadow.enabled(),
-            "last_success_at": None,
-            "last_failure_at": None,
-            "last_failure": "",
-            "last_failure_hint": "",
+    # How recent an answer or a failure must be to set a Jev use's level.
+    JEV_WINDOW = datetime.timedelta(hours=24)
+
+    @classmethod
+    def _jev_panel(cls) -> Dict[str, Any]:
+        """Is Jev working: every use of TypeSafe's Jev on one panel, each
+        with its switch, why it is skipped now if it is (_jev_uses), the
+        last success and failure its health row recorded, and a level from
+        those; then the newest deploy-time probe
+        (ml/model_health_check.check_typesafe) and the staff tally of triage
+        deadlines, which decides when readers may be told them
+        (TYPESAFE_DEADLINE_SHOW_ENABLED). TypeSafe's spend and any pause are
+        in the chat routing policy panel's spend rows.
+
+        Reads rows, settings and this pod's state only; never calls
+        TypeSafe. Each part fails on its own: an unreadable part reads as an
+        error, not a blank page.
+        """
+        since = timezone.now() - cls.JEV_WINDOW
+        rows: List[Dict[str, Any]] = []
+        for use in _jev_uses():
+            row: Dict[str, Any] = {**use, **cls._service_health(use["service"])}
+            success_at = row["last_success_at"]
+            failure_at = row["last_failure_at"]
+            if not row["on"]:
+                row["level"] = "off"
+            elif row["skip"]:
+                row["level"] = "skipped"
+            elif (
+                failure_at
+                and failure_at >= since
+                and (success_at is None or failure_at > success_at)
+            ):
+                row["level"] = "failing"
+            elif success_at is not None and success_at >= since:
+                row["level"] = "ok"
+            else:
+                row["level"] = "idle"
+            rows.append(row)
+
+        panel: Dict[str, Any] = {
+            "rows": rows,
+            "window_hours": int(cls.JEV_WINDOW.total_seconds() // 3600),
+            "key_present": typesafe.configured(),
+            "model": typesafe.model_name(),
+            "probe": None,
+            "probe_error": None,
+            "deadlines": None,
+            "deadlines_error": None,
         }
         try:
-            health = ExternalServiceHealth.objects.filter(
-                service=chat_shadow.SERVICE
-            ).first()
-        except Exception:
-            logger.opt(exception=True).warning("Chat shadow health read failed")
-            return out
-        if health is not None:
-            out["last_success_at"] = health.last_success_at
-            out["last_failure_at"] = health.last_failure_at
-            out["last_failure"] = health.last_failure
-            out["last_failure_hint"] = AdminStatusView._scoring_failure_hint(
-                health.last_failure
+            panel["probe"] = (
+                ModelBackendHealthCheckResult.objects.filter(provider="typesafe")
+                .order_by("-created_at")
+                .first()
             )
-        return out
+        except Exception as e:
+            logger.opt(exception=True).warning("Jev panel: probe unreadable")
+            panel["probe_error"] = type(e).__name__
+        try:
+            panel["deadlines"] = {
+                "show_on": denial_triage.deadline_show_enabled(),
+                **Denial.objects.filter(
+                    triage_source__startswith="typesafe/",
+                    triage_source__endswith=denial_triage._RUBRIC_SUFFIX,
+                    appeal_deadline_label__isnull=False,
+                    appeal_deadline_confidence__gte=denial_triage.DEADLINE_CONFIDENCE_TO_SHOW,
+                ).aggregate(
+                    correct=Count(
+                        "pk",
+                        filter=Q(appeal_deadline_check=denial_triage.DEADLINE_CORRECT),
+                    ),
+                    wrong=Count(
+                        "pk",
+                        filter=Q(appeal_deadline_check=denial_triage.DEADLINE_WRONG),
+                    ),
+                    unlabelled=Count(
+                        "pk", filter=Q(appeal_deadline_check__isnull=True)
+                    ),
+                ),
+            }
+        except Exception as e:
+            logger.opt(exception=True).warning("Jev panel: deadline tally unreadable")
+            panel["deadlines_error"] = type(e).__name__
+        return panel
 
     @staticmethod
     def _llm_usage_panel() -> Dict[str, Any]:
@@ -3888,6 +4037,9 @@ class ModelBackendStatusView(generic.TemplateView):
 
         static_results, checkable = mhc.enumerate_backend_checks()
         entries = list(static_results) + [pending for pending, _ in checkable]
+        # TypeSafe (Jev) is no router backend, but the deploy check probes it
+        # (check_typesafe), so it gets a row and its latest result here.
+        entries.append(mhc.typesafe_entry())
 
         # Routing is a view of this pod's router. If reading it fails, the page
         # says so and still shows the health rows, which are what staff need
@@ -3925,9 +4077,13 @@ class ModelBackendStatusView(generic.TemplateView):
         # can say a row came from an earlier deploy.
         deployment_is_versioned = mhc.is_versioned_deployment_id(current_deployment)
 
+        # TypeSafe's row says which uses this pod skips and why.
+        jev_uses = _jev_uses()
+
         rows: List[Dict[str, Any]] = []
         for r in entries:
             check = latest_checks.get(r.model_name)
+            is_jev = r.provider == mhc.TYPESAFE_PROVIDER
             # Static category from configuration classification (e.g.
             # NOT_CONFIGURED / DISABLED / FAIL_MISSING_CREDENTIALS); empty for
             # backends that need a live probe to judge.
@@ -3964,6 +4120,10 @@ class ModelBackendStatusView(generic.TemplateView):
                 if r.router_instance is not None
                 else None
             )
+            if is_jev:
+                # No router instance: whether this pod would skip Jev now,
+                # and why (no key, a spent or paused budget, a cooldown).
+                live_now = _jev_skip_reason()
             rows.append(
                 {
                     "provider": r.provider,
@@ -3998,7 +4158,10 @@ class ModelBackendStatusView(generic.TemplateView):
                     "stale_environment": stale_environment,
                     "config_changed": check is not None and check.enabled != r.enabled,
                     "live_problem": live_now,
-                    "live_known": r.router_instance is not None,
+                    "live_known": r.router_instance is not None or is_jev,
+                    "live_skipped": is_jev and live_now is not None,
+                    "jev": is_jev,
+                    "jev_uses": jev_uses if is_jev else [],
                     "last_generation": last_generation.get(r.model_name),
                     # Citations only: never a generation candidate, so its
                     # empty "Last stored generation" is not a symptom. Read

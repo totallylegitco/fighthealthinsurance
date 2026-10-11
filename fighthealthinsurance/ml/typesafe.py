@@ -204,6 +204,16 @@ def _log_budget_spent(use: str) -> None:
         logger.debug(f"TypeSafe not asked for {use}: budget spent or paused")
 
 
+def refused_before_sending(e: BaseException) -> bool:
+    """Whether ask() raised ``e`` before anything was sent: a spent or
+    paused budget, a cooldown, or a setting it refuses (settings_problem).
+    A cooldown carries the status that started it, so it is told apart by
+    class, not by a missing status."""
+    return isinstance(e, (TypeSafeBudgetSpent, TypeSafeCoolingDown)) or (
+        isinstance(e, TypeSafeError) and e.status is None
+    )
+
+
 def announced(e: BaseException) -> bool:
     """Whether ``e`` is a refusal whose cause was logged once when it began:
     a cooldown (_start_cooldown) or a spent or paused budget
@@ -265,6 +275,11 @@ async def _note_refusal(response: typing.Any) -> None:
         _start_cooldown(f"answered HTTP {status}", status)
 
 
+# Why nothing is sent anywhere without a key (every feature checks
+# configured() before asking).
+NO_KEY = "TYPESAFE_API_KEY is not set"
+
+
 def configured() -> bool:
     return bool(getattr(settings, "TYPESAFE_API_KEY", None))
 
@@ -273,6 +288,50 @@ def model_name() -> str:
     """The model every request names: TYPESAFE_MODEL, or the pinned release
     when the setting is unset or empty."""
     return str(getattr(settings, "TYPESAFE_MODEL", "") or "").strip() or DEFAULT_MODEL
+
+
+def settings_problem() -> typing.Optional[str]:
+    """Why ask() refuses to send whatever it is asked, from its settings
+    alone, or None."""
+    url = str(getattr(settings, "TYPESAFE_API_URL", "") or "")
+    if urlsplit(url).scheme.lower() != "https":
+        # The bearer token and the state must never travel in the clear
+        # (review).
+        return "TYPESAFE_API_URL must use https"
+    if not _MODEL_NAME.fullmatch(model_name()):
+        # When a response names no model, this name goes into the recorded
+        # provenance, so it must fit that format.
+        return "TYPESAFE_MODEL is not a model name"
+    return None
+
+
+def skip_reason(use: str = spend.OTHER) -> typing.Optional[str]:
+    """Why a request for ``use`` would not be sent from this process right
+    now, or None: no API key, or what ask() refuses before sending, in the
+    order it checks. For the staff pages, which must say when Jev is being
+    skipped and why: reads settings and this process's state, never waits
+    and never sends."""
+    if not configured():
+        return NO_KEY
+    if spend.paused(spend.TYPESAFE, "*") or spend.paused(spend.TYPESAFE, use):
+        return "paused until the next UTC day: TypeSafe refused for credit or quota"
+    if not spend.loaded():
+        return "this process's spend ledger has not loaded (ml/spend.py)"
+    if not spend.allows(spend.TYPESAFE, use):
+        for_use = "" if use == spend.OTHER else f" for {use}"
+        return (
+            f"TypeSafe's budget is spent{for_use} "
+            "(FHI_SPEND_TYPESAFE_* in ml/spend.py)"
+        )
+    problem = settings_problem()
+    if problem:
+        return problem
+    until, status = _cooldown
+    left = until - time.monotonic()
+    if left > 0:
+        cause = f"HTTP {status}" if status is not None else "a failed connection"
+        return f"cooling down for {left:.0f}s more after {cause}"
+    return None
 
 
 def reported_model(payload: typing.Any) -> str:
@@ -317,16 +376,12 @@ async def ask(
     if not spend.allows(spend.TYPESAFE, use):
         _log_budget_spent(use)
         raise TypeSafeBudgetSpent("budget spent")
+    problem = settings_problem()
+    if problem:
+        # Refused here, before anything is built or sent.
+        raise TypeSafeError(problem)
     url = str(getattr(settings, "TYPESAFE_API_URL", "") or "")
-    if urlsplit(url).scheme.lower() != "https":
-        # The bearer token and the state must never travel in the clear
-        # (review). Refused here, before anything is built or sent.
-        raise TypeSafeError("TYPESAFE_API_URL must use https")
     model = model_name()
-    if not _MODEL_NAME.fullmatch(model):
-        # Refused rather than sent: when a response names no model, this name
-        # goes into the recorded provenance, so it must fit that format.
-        raise TypeSafeError("TYPESAFE_MODEL is not a model name")
     _refuse_while_cooling()
     body = {
         "state": state[:STATE_CHAR_CAP],

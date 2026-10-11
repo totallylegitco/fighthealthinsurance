@@ -96,6 +96,7 @@ TASKS = (
     "letter_scoring",
     "reply_gate",
     "reply_shadow",
+    "research_judging",
     # Everything else.
     "chooser",
     "staff_query",

@@ -883,21 +883,176 @@ async def check_backend(
     return result
 
 
+# --- TypeSafe (Jev) ----------------------------------------------------------
+#
+# Not a router backend: Jev answers typed questions about a text (letter
+# ranking, denial triage, the chat reply check, research judging) and writes
+# nothing, so it has no place in the model catalog. It is checked here so a
+# rejected key, spent credits or an outage shows on the status page and in the
+# deploy alert e-mail like any backend's.
+
+TYPESAFE_PROVIDER = "typesafe"
+# A fixed sentence and one yes/no question: no user data, a few dozen tokens.
+TYPESAFE_PROBE_STATE = "The sky is blue on a clear day."
+TYPESAFE_PROBE_QUESTIONS = {
+    "probe": {"type": "noul", "instructions": "Does this text describe the sky?"}
+}
+# TypeSafe is refused until this process's spend ledger has loaded
+# (ml/spend.py), which a freshly started deploy job may not have yet.
+TYPESAFE_LEDGER_WAIT_SECONDS = 10.0
+
+
+def skipped(reason: str) -> str:
+    """How a TypeSafe probe that sent nothing reads, on the status page and
+    in the alert e-mail: "skipped: " and why (typesafe.skip_reason)."""
+    return f"skipped: {reason}"
+
+
+def typesafe_entry() -> BackendCheckResult:
+    """TypeSafe as a row of the check, classified from configuration: not
+    configured (and so skipped) without TYPESAFE_API_KEY, otherwise waiting
+    on the probe.
+    "Registered" holds trivially: there is no selection UI or usage
+    registry for it to be missing from."""
+    from fighthealthinsurance.ml import typesafe
+
+    configured = typesafe.configured()
+    return BackendCheckResult(
+        provider=TYPESAFE_PROVIDER,
+        model_name=typesafe.model_name(),
+        internal_name=typesafe.model_name(),
+        category=CATEGORY_OTHER if configured else CATEGORY_NOT_CONFIGURED,
+        enabled=configured,
+        error="" if configured else skipped(typesafe.NO_KEY),
+        ui_registered=True,
+        reporting_registered=True,
+    )
+
+
+def _typesafe_wanted(only_models: Optional[List[str]]) -> bool:
+    if not only_models:
+        return True
+    from fighthealthinsurance.ml import typesafe
+
+    return bool({TYPESAFE_PROVIDER, typesafe.model_name()}.intersection(only_models))
+
+
+def _typesafe_category(e: BaseException) -> str:
+    """The category a failed TypeSafe probe reads as. A spent or paused
+    budget is billing, like a 402: every Jev use is off until the budget is
+    raised or, after a credit refusal, the UTC day ends."""
+    from fighthealthinsurance.ml import spend, typesafe
+
+    if isinstance(e, typesafe.TypeSafeBudgetSpent):
+        return CATEGORY_BILLING
+    if isinstance(e, typesafe.TypeSafeError) and spend.paused(spend.TYPESAFE, "*"):
+        # The refusal named credit or quota (a 429, 401 or 403 whose body
+        # said so; typesafe.ask paused TypeSafe for the day on it).
+        return CATEGORY_BILLING
+    if isinstance(e, typesafe.TypeSafeError):
+        if e.status is None:
+            # A cooldown a failed connection started; any other status-less
+            # refusal comes before sending (the URL or the model setting).
+            if isinstance(e, typesafe.TypeSafeCoolingDown):
+                return CATEGORY_NETWORK
+            return CATEGORY_CLIENT_INIT
+        if e.status in (401, 403):
+            return CATEGORY_AUTH
+        if e.status == 402:
+            return CATEGORY_BILLING
+        if e.status in (404, 410):
+            return CATEGORY_MODEL_NOT_FOUND
+        if e.status in (429, 529):
+            return CATEGORY_RATE_LIMITED
+        if 500 <= e.status < 600:
+            return CATEGORY_NETWORK
+        return CATEGORY_OTHER
+    if isinstance(e, (asyncio.TimeoutError, TimeoutError)):
+        return CATEGORY_TIMEOUT
+    if isinstance(e, (aiohttp.ClientError, ConnectionError, OSError)):
+        return CATEGORY_NETWORK
+    return CATEGORY_OTHER
+
+
+async def check_typesafe(
+    result: BackendCheckResult, timeout: float = DEFAULT_TIMEOUT_SECONDS
+) -> BackendCheckResult:
+    """Ask TypeSafe the canned question once and categorize the outcome, as
+    check_backend does for a model. When TypeSafe answered or could not be
+    reached, the error is what every Jev feature records
+    (letter_quality.failure_summary: an HTTP status, "timeout" or a class
+    name); the staff pages say what it means. When nothing was sent (a spent
+    or paused budget, a cooldown, a refused setting, an unloaded ledger), it
+    is "skipped: " and why, and the category is still the failure's, so a
+    spent budget alerts as FAIL_BILLING. Counted under the
+    "other" TypeSafe use, and as a "probe" in the LLM usage metrics."""
+    from fighthealthinsurance.ml import letter_quality, spend, typesafe
+
+    result.started_at = datetime.now(dt_timezone.utc)
+    # The wait is an Event, not the database, so a plain thread is enough.
+    try:
+        loaded = await asyncio.wait_for(
+            asyncio.to_thread(
+                spend._ledger.wait_until_loaded, TYPESAFE_LEDGER_WAIT_SECONDS
+            ),
+            TYPESAFE_LEDGER_WAIT_SECONDS,
+        )
+    except (asyncio.TimeoutError, TimeoutError):
+        loaded = False
+    if not loaded:
+        # ask() would refuse it as a spent budget, which it is not.
+        result.category = CATEGORY_OTHER
+        result.error = skipped("the spend ledger did not load (ml/spend.py)")
+        return result
+    start = time.monotonic()
+    try:
+        payload = await typesafe.ask(
+            TYPESAFE_PROBE_STATE,
+            TYPESAFE_PROBE_QUESTIONS,
+            timeout_seconds=timeout,
+            use=spend.OTHER,
+            task="probe",
+        )
+    except Exception as e:
+        result.category = _typesafe_category(e)
+        if typesafe.refused_before_sending(e):
+            # Our own refusal: its message names no host and no text.
+            result.error = skipped(typesafe.skip_reason(spend.OTHER) or str(e))
+        else:
+            result.latency_ms = int((time.monotonic() - start) * 1000)
+            result.error = letter_quality.failure_summary(e)
+        return result
+    result.latency_ms = int((time.monotonic() - start) * 1000)
+    try:
+        answer = payload["answers"]["probe"]["noul"]
+        if isinstance(answer, bool) or not 0.0 <= float(answer) <= 1.0:
+            raise ValueError("not a probability")
+    except (KeyError, TypeError, ValueError):
+        result.category = CATEGORY_MALFORMED_RESPONSE
+        result.error = "no probability in the answer to the probe question"
+        return result
+    result.ok = True
+    result.category = CATEGORY_PASS
+    return result
+
+
 async def run_checks_async(
     only_models: Optional[List[str]] = None,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
 ) -> List[BackendCheckResult]:
-    """Enumerate and check all (or ``only_models``) backends concurrently."""
+    """Enumerate and check all (or ``only_models``) backends concurrently,
+    TypeSafe included."""
     static_results, checkable = enumerate_backend_checks(only_models=only_models)
-    if checkable:
-        checked = await asyncio.gather(
-            *[
-                check_backend(result, instance, timeout)
-                for result, instance in checkable
-            ]
-        )
-    else:
-        checked = []
+    probes = [
+        check_backend(result, instance, timeout) for result, instance in checkable
+    ]
+    if _typesafe_wanted(only_models):
+        entry = typesafe_entry()
+        if entry.enabled:
+            probes.append(check_typesafe(entry, timeout))
+        else:
+            static_results.append(entry)
+    checked = await asyncio.gather(*probes) if probes else []
     results = static_results + list(checked)
     results.sort(key=lambda r: (r.ok, not r.failed, r.provider, r.model_name))
     return results
@@ -1009,7 +1164,9 @@ def _send_consolidated_alert(summary: HealthCheckRunSummary) -> bool:
         + "\n\n"
         + unregistered_section
         + "Each backend was tested once with a tiny 'Reply with exactly: OK' "
-        "prompt through the same client/credentials/routing as real requests.\n\n"
+        "prompt through the same client/credentials/routing as real requests; "
+        "TypeSafe (Jev, provider 'typesafe') was asked one canned yes/no "
+        "question through the same client every Jev feature uses.\n\n"
         "Where to look:\n"
         "- Deployment logs: search for MODEL_BACKEND_HEALTH_SUMMARY in the "
         "web-actor-launch job output.\n"

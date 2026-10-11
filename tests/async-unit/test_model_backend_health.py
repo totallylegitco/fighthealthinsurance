@@ -1545,3 +1545,180 @@ class TestCatalogFailureIsVisible:
     def test_a_check_naming_the_class_keeps_the_row(self, monkeypatch):
         """The class name is what the row reports, so re-checking it works."""
         assert len(self._catalog_rows(monkeypatch, ["RemoteAzureOpenAI"])) == 1
+class TestTypeSafeProbe:
+    """TypeSafe (Jev) is probed with one canned yes/no question; its
+    failures land in the same categories, rows and e-mail as a model's."""
+
+    KEY = {"TYPESAFE_API_KEY": "test-key"}
+
+    @staticmethod
+    def _probe(ask):
+        from django.test import override_settings
+
+        from fighthealthinsurance.ml import spend, typesafe
+
+        with override_settings(**TestTypeSafeProbe.KEY), patch.object(
+            typesafe, "ask", ask
+        ), patch.object(spend._ledger, "wait_until_loaded", return_value=True):
+            entry = mhc.typesafe_entry()
+            assert entry.enabled
+            return asyncio.run(mhc.check_typesafe(entry, timeout=5))
+
+    def test_without_a_key_it_is_not_configured_and_not_a_failure(self):
+        entry = mhc.typesafe_entry()
+        assert entry.category == mhc.CATEGORY_NOT_CONFIGURED
+        assert not entry.enabled and not entry.failed
+        assert entry.error == "skipped: TYPESAFE_API_KEY is not set"
+        assert entry.provider == mhc.TYPESAFE_PROVIDER
+
+    def test_a_probability_passes(self):
+        from fighthealthinsurance.ml import spend
+
+        ask = AsyncMock(
+            return_value={"model": "jev-1.13.0", "answers": {"probe": {"noul": 0.97}}}
+        )
+        result = self._probe(ask)
+        assert result.ok and result.category == mhc.CATEGORY_PASS
+        state, questions = ask.await_args.args
+        assert state == mhc.TYPESAFE_PROBE_STATE
+        assert questions == mhc.TYPESAFE_PROBE_QUESTIONS
+        assert ask.await_args.kwargs["use"] == spend.OTHER
+        assert ask.await_args.kwargs["task"] == "probe"
+
+    @pytest.mark.parametrize(
+        "status,category",
+        [
+            (401, mhc.CATEGORY_AUTH),
+            (402, mhc.CATEGORY_BILLING),
+            (404, mhc.CATEGORY_MODEL_NOT_FOUND),
+            (410, mhc.CATEGORY_MODEL_NOT_FOUND),
+            (429, mhc.CATEGORY_RATE_LIMITED),
+            (529, mhc.CATEGORY_RATE_LIMITED),
+            (503, mhc.CATEGORY_NETWORK),
+            (422, mhc.CATEGORY_OTHER),
+        ],
+    )
+    def test_http_failures_are_categorized(self, status, category):
+        from fighthealthinsurance.ml import typesafe
+
+        result = self._probe(
+            AsyncMock(side_effect=typesafe.TypeSafeError(f"HTTP {status}", status=status))
+        )
+        assert result.category == category and result.failed
+        assert result.error == f"HTTP {status}"
+
+    @staticmethod
+    def _probe_unsent(**overrides):
+        """The probe through the real typesafe.ask, which refuses before a
+        session exists in every case these tests set up."""
+        from django.test import override_settings
+
+        from fighthealthinsurance.ml import spend, typesafe
+
+        conf = {**TestTypeSafeProbe.KEY, **overrides}
+        with override_settings(**conf), patch.object(
+            typesafe.aiohttp, "ClientSession", side_effect=AssertionError("sent")
+        ), patch.object(spend._ledger, "wait_until_loaded", return_value=True):
+            return asyncio.run(mhc.check_typesafe(mhc.typesafe_entry(), timeout=5))
+
+    def test_a_refused_url_is_skipped_as_a_client_init_failure(self):
+        result = self._probe_unsent(TYPESAFE_API_URL="http://typesafe.invalid/v1")
+        assert result.category == mhc.CATEGORY_CLIENT_INIT
+        assert result.error == "skipped: TYPESAFE_API_URL must use https"
+        assert result.latency_ms is None
+
+    def test_a_spent_budget_is_skipped_and_still_billing(self):
+        from fighthealthinsurance.ml import spend
+
+        with patch.object(spend, "allows", return_value=False):
+            result = self._probe_unsent()
+        assert result.category == mhc.CATEGORY_BILLING
+        assert result.error.startswith("skipped: TypeSafe's budget is spent")
+
+    def test_a_credit_pause_is_skipped_and_still_billing(self):
+        from fighthealthinsurance.ml import spend
+
+        with patch.object(spend, "paused", return_value=True):
+            result = self._probe_unsent()
+        assert result.category == mhc.CATEGORY_BILLING
+        assert "refused for credit or quota" in result.error
+
+    def test_a_cooldown_is_skipped_and_says_what_started_it(self):
+        from fighthealthinsurance.ml import typesafe
+
+        typesafe._start_cooldown("could not be reached", None, cap=60)
+        try:
+            result = self._probe_unsent()
+        finally:
+            typesafe.reset_cooldown_for_tests()
+        assert result.category == mhc.CATEGORY_NETWORK
+        assert result.error.startswith("skipped: cooling down")
+        assert "after a failed connection" in result.error
+
+    def test_a_cooldown_reads_as_what_started_it(self):
+        from fighthealthinsurance.ml import typesafe
+
+        unreachable = self._probe(
+            AsyncMock(side_effect=typesafe.TypeSafeCoolingDown("cooling down"))
+        )
+        assert unreachable.category == mhc.CATEGORY_NETWORK
+        refused = self._probe(
+            AsyncMock(side_effect=typesafe.TypeSafeCoolingDown("cooling down", status=401))
+        )
+        assert refused.category == mhc.CATEGORY_AUTH
+
+    def test_a_refusal_that_paused_typesafe_for_credit_is_billing(self):
+        from fighthealthinsurance.ml import spend, typesafe
+
+        with patch.object(spend, "paused", return_value=True):
+            result = self._probe(
+                AsyncMock(side_effect=typesafe.TypeSafeError("HTTP 429", status=429))
+            )
+        assert result.category == mhc.CATEGORY_BILLING
+
+    def test_an_unloaded_spend_ledger_is_not_read_as_billing(self):
+        from django.test import override_settings
+
+        from fighthealthinsurance.ml import spend, typesafe
+
+        ask = AsyncMock()
+        with override_settings(**self.KEY), patch.object(typesafe, "ask", ask), patch.object(
+            spend._ledger, "wait_until_loaded", return_value=False
+        ):
+            result = asyncio.run(mhc.check_typesafe(mhc.typesafe_entry(), timeout=5))
+        ask.assert_not_awaited()
+        assert result.category == mhc.CATEGORY_OTHER
+        assert result.error == "skipped: the spend ledger did not load (ml/spend.py)"
+
+    def test_a_timeout(self):
+        result = self._probe(AsyncMock(side_effect=asyncio.TimeoutError()))
+        assert result.category == mhc.CATEGORY_TIMEOUT
+
+    def test_an_answer_without_a_probability_is_malformed(self):
+        result = self._probe(AsyncMock(return_value={"answers": {"probe": {"noul": 3}}}))
+        assert result.category == mhc.CATEGORY_MALFORMED_RESPONSE
+
+    def test_the_run_includes_typesafe_only_when_wanted(self, monkeypatch, fresh_router):
+        _clear_provider_env(monkeypatch)
+        results = asyncio.run(mhc.run_checks_async())
+        assert mhc.TYPESAFE_PROVIDER in {r.provider for r in results}
+        results = asyncio.run(mhc.run_checks_async(only_models=["fhi-local"]))
+        assert mhc.TYPESAFE_PROVIDER not in {r.provider for r in results}
+        results = asyncio.run(mhc.run_checks_async(only_models=["typesafe"]))
+        assert [r.provider for r in results] == [mhc.TYPESAFE_PROVIDER]
+
+    def test_a_typesafe_failure_is_in_the_alert_email(self):
+        failing = _result(
+            provider=mhc.TYPESAFE_PROVIDER,
+            model_name="jev-1.13.0",
+            internal_name="jev-1.13.0",
+            category=mhc.CATEGORY_AUTH,
+        )
+        failing.error = "HTTP 401"
+        summary = mhc.HealthCheckRunSummary(
+            run_id="r", deployment_id="d", environment="e", results=[failing]
+        )
+        with patch("django.core.mail.send_mail") as send:
+            assert mhc._send_consolidated_alert(summary)
+        body = send.call_args.args[1]
+        assert "provider: typesafe" in body and "HTTP 401" in body
