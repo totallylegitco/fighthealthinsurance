@@ -372,6 +372,16 @@ class TestSearchChatDocumentsAsync(APITestCase):
         assert "- second_copy.txt" in result
         assert "first_copy.txt" not in result
 
+    async def test_a_re_stored_copy_is_the_newest_document(self):
+        # Rows A(X), B(Y), A2(X): A2 is the newest, though its text was
+        # first stored before B.
+        chat = await OngoingChat.objects.acreate()
+        await self._store(chat, "first_copy.txt", "Step therapy applies.")
+        await self._store(chat, "other.txt", "Appeals within 180 days.")
+        await self._store(chat, "second_copy.txt", "Step therapy applies.")
+        result = await search_chat_documents(chat.id, section=1)
+        assert "Read from second_copy.txt" in result
+
     async def test_other_chats_documents_are_never_searched(self):
         mine = await OngoingChat.objects.acreate()
         theirs = await OngoingChat.objects.acreate()

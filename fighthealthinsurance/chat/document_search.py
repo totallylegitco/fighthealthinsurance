@@ -328,8 +328,9 @@ async def _load_stored_documents(chat_id) -> List[StoredDocument]:
     """The chat's stored documents, oldest first.
 
     A document stored twice with identical text (a re-paste after its first
-    copy's analysis was abandoned) is listed once, under its newest name, so
-    a search does not return every passage twice.
+    copy's analysis was abandoned) is listed once, as its newest copy and in
+    that copy's place, so a search does not return every passage twice and
+    "the most recently stored document" is still the newest one.
     """
     by_digest: Dict[str, StoredDocument] = {}
     async for doc in (
@@ -340,6 +341,9 @@ async def _load_stored_documents(chat_id) -> List[StoredDocument]:
     ):
         text = doc.full_text or ""
         digest = hashlib.sha256(text.encode("utf-8", "replace")).hexdigest()
+        # Re-inserted, not reassigned: a dict keeps a key where it was first
+        # put, which would leave the newest copy in its oldest copy's place.
+        by_digest.pop(digest, None)
         by_digest[digest] = StoredDocument(name=doc.document_name, text=text)
     return list(by_digest.values())
 
