@@ -323,6 +323,55 @@ class ChatLetterFallbackTest(APITestCase):
             )
         self.assertFalse(mock_draft.await_args.kwargs["use_reserve"])
 
+    async def test_a_reply_that_searches_and_drafts_drafts_from_the_search(self):
+        """A reply carrying both a PubMed search and the letter call drafts
+        the letter from what that search found: the research tools run
+        before the letter tool."""
+        user, chat = await _make_professional_chat("letterfall21", "9999920021")
+        interface = ChatInterface(
+            send_json_message_func=_FrameRecorder(), chat=chat, user=user
+        )
+        interface.pubmed_tools = MagicMock()
+        interface.pubmed_tools.find_pubmed_article_ids_for_query = AsyncMock(
+            return_value=["1"]
+        )
+        interface.pubmed_tools.get_articles = AsyncMock(
+            return_value=[
+                MagicMock(title="Imaging in chronic back pain", abstract="MRI")
+            ]
+        )
+        interface.rxnorm_tools = MagicMock()
+        interface.rxnorm_tools.normalize = AsyncMock(
+            return_value=MagicMock(matched=False)
+        )
+        # The search's follow-up pass carries the pubmedcontext block; it
+        # gets a plain answer, the first pass both calls.
+        model = RecordingChatModel(
+            looped_reply=(
+                "Let me check the literature first.\n"
+                "**pubmed_query: MRI chronic back pain**\n"
+                '**generate_appeal_letter**{"procedure": "MRI"}'
+            ),
+            fresh_reply="Here is what the studies say about imaging.",
+            anti_repeat_marker="pubmedcontext",
+        )
+        with patch(
+            "fighthealthinsurance.ml.ml_router.MLRouter."
+            "get_chat_backends_with_fallback",
+            return_value=([model], []),
+        ), patch(
+            "fighthealthinsurance.chat_interface.fire_and_forget_in_new_threadpool",
+            new_callable=AsyncMock,
+        ), patch(
+            "fighthealthinsurance.chat.tools.generate_appeal_letter_tool."
+            "draft_letter_for_chat",
+            new=AsyncMock(return_value=DraftedLetter(GENERATED_LETTER, True)),
+        ) as mock_draft:
+            await interface.handle_chat_message("Find evidence and draft my letter.")
+        self.assertIn(
+            "Imaging in chronic back pain",
+            mock_draft.await_args.kwargs["research"].pubmed or "",
+        )
 
     async def _interface_with_linked_appeal(self, username, npi):
         user, chat = await _make_professional_chat(username, npi)

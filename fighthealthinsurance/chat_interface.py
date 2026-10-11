@@ -1397,14 +1397,51 @@ class ChatInterface:
             user_message_for_scoring=scoring_message,
         )
 
-        # Non-recursive tools: appeal, appeal letter, prior auth
         appeal_tool = AppealTool(self.send_status_message, self.send_error_message)
         response_text, context, _ = await appeal_tool.handle(
             response_text, context, chat=chat
         )
 
-        # After AppealTool on purpose: when a reply carries both calls, the
-        # field updates from create_or_update_appeal land first and the
+        # Research tools before the letter tool, so a reply that both
+        # searches and asks for the letter drafts it from what the search
+        # found (each records its block in _turn_research_found). They join
+        # their follow-up onto the reply with a blank line, which keeps a
+        # pending letter call parseable; the medicaid tools, after the
+        # letter tool, can replace the reply or run their follow-up onto its
+        # last line. RxNorm runs before PubMed so the LLM can plug a
+        # canonical drug name into a follow-up pubmed_query.
+        rxnorm_tool = RxNormLookupTool(
+            self.send_status_message,
+            rxnorm_tools=self.rxnorm_tools,
+            call_llm_callback=follow_up,
+        )
+        response_text, context, _ = await rxnorm_tool.handle(
+            response_text, context, **tool_kwargs
+        )
+
+        pubmed_tool = PubMedTool(
+            self.send_status_message,
+            pubmed_tools=self.pubmed_tools,
+            rxnorm_tools=self.rxnorm_tools,
+            call_llm_callback=follow_up,
+            research_found=self._turn_research_found,
+        )
+        response_text, context, _ = await pubmed_tool.handle(
+            response_text, context, **tool_kwargs
+        )
+
+        clinical_trials_tool = ClinicalTrialsTool(
+            self.send_status_message,
+            clinical_trials_tools=self.clinical_trials_tools,
+            call_llm_callback=follow_up,
+            research_found=self._turn_research_found,
+        )
+        response_text, context, _ = await clinical_trials_tool.handle(
+            response_text, context, **tool_kwargs
+        )
+
+        # After AppealTool on purpose too: when a reply carries both calls,
+        # the field updates from create_or_update_appeal land first and the
         # generated letter (which reads them) wins the appeal_text.
         generate_letter_tool = GenerateAppealLetterTool(
             self.send_status_message,
@@ -1426,7 +1463,7 @@ class ChatInterface:
             response_text, context, chat=chat
         )
 
-        # Recursive tools: medicaid eligibility, medicaid info, pubmed, doc fetcher
+        # Recursive tools: medicaid eligibility, medicaid info, doc fetcher, ...
         medicaid_elig_tool = MedicaidEligibilityTool(
             self.send_status_message,
             follow_up,
@@ -1450,40 +1487,8 @@ class ChatInterface:
             response_text, context, **tool_kwargs
         )
 
-        # Run drug name normalization before PubMed so the LLM can
-        # plug a canonical drug name into a follow-up pubmed_query.
-        rxnorm_tool = RxNormLookupTool(
-            self.send_status_message,
-            rxnorm_tools=self.rxnorm_tools,
-            call_llm_callback=follow_up,
-        )
-        response_text, context, _ = await rxnorm_tool.handle(
-            response_text, context, **tool_kwargs
-        )
-
-        pubmed_tool = PubMedTool(
-            self.send_status_message,
-            pubmed_tools=self.pubmed_tools,
-            rxnorm_tools=self.rxnorm_tools,
-            call_llm_callback=follow_up,
-            research_found=self._turn_research_found,
-        )
-        response_text, context, _ = await pubmed_tool.handle(
-            response_text, context, **tool_kwargs
-        )
-
         uspstf_tool = USPSTFLookupTool(self.send_status_message, follow_up)
         response_text, context, _ = await uspstf_tool.handle(
-            response_text, context, **tool_kwargs
-        )
-
-        clinical_trials_tool = ClinicalTrialsTool(
-            self.send_status_message,
-            clinical_trials_tools=self.clinical_trials_tools,
-            call_llm_callback=follow_up,
-            research_found=self._turn_research_found,
-        )
-        response_text, context, _ = await clinical_trials_tool.handle(
             response_text, context, **tool_kwargs
         )
 
