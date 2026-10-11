@@ -92,13 +92,29 @@ class _Found:
             self.add(part, person)
 
     def date_of_birth(self, dob: Optional[datetime.date]) -> None:
+        """The date as people type it: numeric with slashes, dashes or dots,
+        zero-padded or not, with a two- or four-digit year, and spelled out
+        with the month's name."""
         if dob is None:
             return
-        for spelling in (
-            dob.isoformat(),
-            dob.strftime("%m/%d/%Y"),
-            f"{dob.month}/{dob.day}/{dob.year}",
-        ):
+        month, day, year, short_year = dob.month, dob.day, dob.year, dob.year % 100
+        spellings = [dob.isoformat(), dob.strftime("%Y/%m/%d")]
+        for sep in ("/", "-", "."):
+            spellings += [
+                dob.strftime(f"%m{sep}%d{sep}%Y"),
+                f"{month}{sep}{day}{sep}{year}",
+                dob.strftime(f"%m{sep}%d{sep}%y"),
+                f"{month}{sep}{day}{sep}{short_year:02d}",
+            ]
+        for name in (dob.strftime("%B"), dob.strftime("%b")):
+            spellings += [
+                f"{name} {day}, {year}",
+                f"{name} {day} {year}",
+                f"{name} {day:02d}, {year}",
+                f"{day} {name} {year}",
+                f"{day:02d} {name} {year}",
+            ]
+        for spelling in dict.fromkeys(spellings):
             self.add(spelling, "DOB")
 
 

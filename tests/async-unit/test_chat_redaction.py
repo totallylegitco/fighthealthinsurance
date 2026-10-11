@@ -150,6 +150,13 @@ def test_a_linked_prior_auth_brings_its_patient_plan_member_and_birth_date():
         "1984-03-07": "DOB",
         "03/07/1984": "DOB",
         "3/7/1984": "DOB",
+        "03-07-1984": "DOB",
+        "3-7-84": "DOB",
+        "03.07.1984": "DOB",
+        "1984/03/07": "DOB",
+        "March 7, 1984": "DOB",
+        "Mar 7, 1984": "DOB",
+        "7 March 1984": "DOB",
         "Fringilla Coelebs": f"PROFESSIONAL#{doctor.pk}",
     }.items():
         assert found.get(value) == category, value
