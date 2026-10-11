@@ -26,7 +26,8 @@ ChatInterface.handle_chat_message (chat_interface.py)
   │    accreted summary to FHI_CHAT_MAX_SUMMARY_CHARS (6000)
   │  long paste (> 8000 chars): full text stored as a ChatDocument first
   │    (document_processor.py); history + scoring then use a compact
-  │    marker -- see "Stored-content turns" in §6
+  │    marker, and the model greps the stored text with search_documents
+  │    -- see "Stored-content turns" in §6
   │  prepare_user_message_variants (message_preprocessor.py)
   │  state hint injected into the summary context as an UNCONFIRMED guess
   ▼
@@ -559,8 +560,31 @@ history and scoring use a one-line marker ("You pasted a long message
 preferred head+tail preview variant plus a lower-scored last resort
 truncated to DIRECT_CHAT_HARD_LIMIT_CHARS (24000): a paste over that limit
 is never sent whole, though one between the two limits still is, in the
-last-resort variant. Later turns reach the stored text through document
-search. Explicit uploads take the same storage path under their own marker.
+last-resort variant. The model reaches the rest of the stored text through
+document search (below), on the paste's own turn as well as later ones.
+Explicit uploads take the same storage path under their own marker.
+
+* **Searching it.** Two ways in (chat/document_search.py). Every turn lists
+  the chat's stored documents in the context summary, under a header that
+  names the search tool, and adds the sections that best match the
+  person's message; a stored long paste's turn only lists them, since its
+  message is the marker, whose words picked sections at random, and the
+  model already has the paste's beginning and end.
+  And the model can search for itself, as an agent greps a file:
+  `**search_documents {"query": "step therapy"}**` greps the full text
+  (literal and case-insensitive, a word matching the words it starts, a
+  phrase matching across line wraps; model-written text is never compiled
+  as a regex), reports how often each part of the query occurs, and returns
+  the best-matching passages labelled with document, section and line;
+  `{"section": N}` reads a section whole, and `"document"` narrows either
+  to the documents whose names contain it. Up to three calls in one reply
+  run together into one follow-up pass, which keeps the turn's context
+  summary, and the results stay out of the running context (bounded from
+  its tail, they would push the conversation's own summary out). Sections
+  are chunk_document's chunks, recomputed from the full text, so a section
+  number means the same text before and after the document is analyzed,
+  and an unanalyzed document -- a long paste always is, mid-turn -- is
+  searched whole rather than by its opening.
 
 * **Dedupe.** Identical content re-submitted to the same chat (the user
   re-pasting after a failed turn) reuses the newest stored copy -- compared
@@ -711,6 +735,11 @@ Three levels, in increasing detail:
   to. Never string-replace a name through built variants: the truncated
   variant's text IS the user's raw paste, and a client-supplied name that
   occurs in it would be rewritten inside the message sent to the model.
+* The system's own text around stored documents -- the listing header, the
+  long-paste preview's framing, the search-result scaffolding and the
+  follow-up prompt -- may name search_documents but never spells out a
+  call (`search_documents {...}`): a model echoing its context would run
+  it. Call examples live in the system prompt only.
 * The stored-content marker gets no exemption from the repeat ladder: a
   reply that nearly copies it is exactly the echo the ladder exists to
   catch (substantive acknowledgments of the paste don't trip it). A

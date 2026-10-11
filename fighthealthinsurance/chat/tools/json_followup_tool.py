@@ -84,11 +84,20 @@ class JsonFollowupTool(BaseTool):
         to the running context so downstream tools can reuse it.
       * ``followup_context_summary`` — value passed as ``previous_context_summary``
         to ``call_llm_callback`` when re-invoking the LLM. Defaults to empty.
+      * ``followup_keeps_context_summary`` — when True, the follow-up gets the
+        turn's own context summary instead (``followup_context_summary`` only
+        when the turn has none), for tools whose result only makes sense
+        alongside the conversation so far.
+      * ``max_payloads_per_reply`` — how many of this tool's calls in one
+        reply are run. Their notes go back to the model together, in one
+        follow-up pass; calls past the limit are stripped unrun.
     """
 
     detect_flags: int = re.DOTALL | re.IGNORECASE
     append_note_to_context: bool = False
     followup_context_summary: str = ""
+    followup_keeps_context_summary: bool = False
+    max_payloads_per_reply: int = 1
 
     def __init__(
         self,
@@ -141,53 +150,71 @@ class JsonFollowupTool(BaseTool):
         all_matches = self.detect_all(response_text)
         cleaned_response = self.clean_all_matches(response_text, all_matches)
 
-        if len(all_matches) > 1:
+        # The call this handler detected first, then the reply's others.
+        calls = [match] + [m for m in all_matches if m.start() != match.start()]
+        if len(calls) > self.max_payloads_per_reply:
             logger.warning(
-                f"Found {len(all_matches)} {self.name} tool calls; "
-                "processing only the first one."
+                f"Found {len(calls)} {self.name} tool calls; processing only "
+                f"the first {self.max_payloads_per_reply}."
             )
 
-        json_data = self.extract_json_payload(match, response_text)
-        try:
-            params = json.loads(json_data)
-        except json.JSONDecodeError as e:
-            logger.warning(
-                f"Invalid JSON in {self.name} tool call (length={len(json_data)}): "
-                f"{type(e).__name__}"
-            )
-            await self.send_status_message(
-                f"Could not parse {self.name} parameters: invalid JSON."
-            )
+        notes: List[str] = []
+        any_parsed = False
+        for call in calls[: self.max_payloads_per_reply]:
+            json_data = self.extract_json_payload(call, response_text)
+            try:
+                params = json.loads(json_data)
+            except json.JSONDecodeError as e:
+                logger.warning(
+                    f"Invalid JSON in {self.name} tool call (length={len(json_data)}): "
+                    f"{type(e).__name__}"
+                )
+                await self.send_status_message(
+                    f"Could not parse {self.name} parameters: invalid JSON."
+                )
+                continue
+            any_parsed = True
+
+            if not isinstance(params, dict):
+                await self.send_status_message(
+                    f"Error processing {self.name}: expected a JSON object."
+                )
+                continue
+
+            try:
+                note, status = await self.run(
+                    params, current_message_for_llm=current_message_for_llm
+                )
+            except Exception as e:
+                logger.opt(exception=True).warning(
+                    f"{self.name} lookup failed: {type(e).__name__}"
+                )
+                await self.send_status_message(
+                    f"{self.name} lookup failed; continuing without it."
+                )
+                continue
+
+            if status:
+                await self.send_status_message(status)
+            if note:
+                notes.append(note)
+
+        if not any_parsed:
             return (
                 f"I couldn't parse the {self.name} request. Please try again with a "
                 "valid JSON payload.",
                 context,
             )
 
-        if not isinstance(params, dict):
-            await self.send_status_message(
-                f"Error processing {self.name}: expected a JSON object."
-            )
+        if not notes:
             return cleaned_response, context
+        note = "\n\n".join(notes)
 
-        try:
-            note, status = await self.run(
-                params, current_message_for_llm=current_message_for_llm
+        followup_summary = self.followup_context_summary
+        if self.followup_keeps_context_summary:
+            followup_summary = (
+                kwargs.get("previous_context_summary") or followup_summary
             )
-        except Exception as e:
-            logger.opt(exception=True).warning(
-                f"{self.name} lookup failed: {type(e).__name__}"
-            )
-            await self.send_status_message(
-                f"{self.name} lookup failed; continuing without it."
-            )
-            return cleaned_response, context
-
-        if status:
-            await self.send_status_message(status)
-
-        if not note:
-            return cleaned_response, context
 
         if self.call_llm_callback and model_backends:
             if history_for_llm is not None:
@@ -202,7 +229,7 @@ class JsonFollowupTool(BaseTool):
             ) = await self.call_llm_callback(
                 model_backends,
                 self.build_followup_prompt(note, current_message_for_llm),
-                self.followup_context_summary,
+                followup_summary,
                 history_for_llm,
                 depth=depth + 1,
                 is_logged_in=is_logged_in,

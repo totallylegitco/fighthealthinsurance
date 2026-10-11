@@ -82,6 +82,14 @@ MEDICAID_GOV_LOOKUP_REGEX = r"(?:\*\*)?medicaid_gov_lookup\s*(\{[^}]*\})\s*(?:\*
 # Matches: fetch_doc {JSON} or **fetch_doc {JSON}**
 FETCH_DOC_REGEX = r"(?:\*\*)?fetch_doc\s*(\{[^}]*\})\s*(?:\*\*)?"
 
+# Stored-document search tool - captures JSON parameters
+# Matches: search_documents {JSON} or **search_documents {JSON}**, and the
+# singular search_document. Greps the full text of what the user pasted or
+# uploaded in this chat, or reads one section of it (see
+# chat/document_search.search_chat_documents). The leading \b keeps a word
+# that merely ends in the name (research_documents) from matching.
+SEARCH_DOCUMENTS_REGEX = r"(?:\*\*)?\bsearch_documents?\s*(\{[^}]*\})\s*(?:\*\*)?"
+
 # USPSTF preventive-services lookup tool - captures JSON parameters
 # Matches: uspstf_lookup {JSON} or **uspstf_lookup {JSON}**
 USPSTF_LOOKUP_REGEX = r"(?:\*\*)?uspstf_lookup\s*(\{[^}]*\})\s*(?:\*\*)?"
@@ -172,6 +180,7 @@ ALL_TOOL_PATTERNS = [
     CREATE_OR_UPDATE_PRIOR_AUTH_REGEX,
     GENERATE_APPEAL_LETTER_REGEX,
     FETCH_DOC_REGEX,
+    SEARCH_DOCUMENTS_REGEX,
     USPSTF_LOOKUP_REGEX,
     LOOKUP_PA_REQUIREMENT_REGEX,
     RXNORM_LOOKUP_REGEX,

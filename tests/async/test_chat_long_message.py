@@ -20,9 +20,11 @@ from channels.testing import WebsocketCommunicator
 from prometheus_client import REGISTRY
 from rest_framework.test import APITestCase
 
+from fighthealthinsurance.chat.document_search import DOCUMENT_LISTING_HEADER
 from fighthealthinsurance.chat.message_preprocessor import (
     DIRECT_CHAT_HARD_LIMIT_CHARS,
     DIRECT_CHAT_SOFT_LIMIT_CHARS,
+    TAIL_PREVIEW_CHARS,
     build_long_paste_marker,
 )
 from fighthealthinsurance.models import ChatDocument, ChatTurn
@@ -48,6 +50,29 @@ class VaryingChatModel(RecordingChatModel):
         return (
             f"Reply number {n} with fresh guidance about the denial.",
             f"Summary: turn {n}.",
+        )
+
+
+# Opens the prompt of the follow-up pass that hands search results back.
+SEARCH_RESULT_MARKER = "Result of your search of the user's stored documents"
+
+
+class DocumentSearchingModel(RecordingChatModel):
+    """Searches the stored documents for ``query`` first, then answers
+    ``answer`` once the search results come back."""
+
+    def __init__(self, query: str, answer: str):
+        super().__init__()
+        self._query = query
+        self._answer = answer
+
+    async def generate_chat_response(self, current_message_for_llm, **kwargs):
+        await super().generate_chat_response(current_message_for_llm, **kwargs)
+        if SEARCH_RESULT_MARKER in (current_message_for_llm or ""):
+            return self._answer, "Summary: answered from the stored policy."
+        return (
+            f'**search_documents {{"query": "{self._query}"}}**',
+            "Summary: searching the stored policy.",
         )
 
 
@@ -421,6 +446,54 @@ class LongPasteNameAdoptionDoesNotCorruptContentTest(ChatTurnTestCase):
         self.assertTrue(sent)
         for msg in sent:
             self.assertNotIn("was first_doc.txt because", msg)
+
+
+class LongPasteDocumentSearchTest(ChatTurnTestCase):
+    """A model searches a long paste on the paste's own turn: a passage past
+    everything it was shown reaches its follow-up pass, which writes the
+    reply the user gets. Storage is real -- the search reads the stored row,
+    still unanalyzed, as it would be mid-turn."""
+
+    NEEDLE = (
+        "Exception criteria: the plan covers the brand drug when two generics "
+        "failed or caused an adverse reaction."
+    )
+    FILLER = "Section text about general plan administration and member rights. "
+    BIG = FILLER * 450 + NEEDLE + " " + FILLER * 60
+    ANSWER = "Your policy covers the brand drug once two generics have failed."
+
+    def setUp(self):
+        super().setUp()
+        # Past the last-resort variant's cut and before the tail preview: no
+        # message variant shows it.
+        start = self.BIG.index(self.NEEDLE)
+        self.assertGreater(start, DIRECT_CHAT_HARD_LIMIT_CHARS)
+        self.assertLess(start + len(self.NEEDLE), len(self.BIG) - TAIL_PREVIEW_CHARS)
+        self.model = DocumentSearchingModel("exception criteria", self.ANSWER)
+
+    async def test_reply_is_written_from_the_search_results(self):
+        _, response = await self.paste_big()
+        self.assertEqual(response.get("content"), self.ANSWER)
+
+    async def test_only_the_search_shows_the_model_the_buried_passage(self):
+        await self.paste_big()
+        sent = _messages_sent(self.model)
+        follow_ups = [m for m in sent if SEARCH_RESULT_MARKER in m]
+        self.assertEqual(len(follow_ups), 1)
+        self.assertIn(self.NEEDLE, follow_ups[0])
+        for msg in sent:
+            if SEARCH_RESULT_MARKER not in msg:
+                self.assertNotIn(self.NEEDLE, msg)
+
+    async def test_paste_turn_names_the_tool_to_the_model(self):
+        await self.paste_big()
+        self.assertIn("search_documents tool", self.model.calls[0]["message"])
+
+    async def test_paste_turn_context_lists_the_paste_without_random_sections(self):
+        await self.paste_big()
+        context = self.model.calls[0]["context"]
+        self.assertIn(DOCUMENT_LISTING_HEADER, context)
+        self.assertNotIn("Relevant sections", context)
 
 
 class NormalMessagePrimaryPathTest(ChatTurnTestCase):

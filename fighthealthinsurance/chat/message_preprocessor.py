@@ -270,11 +270,14 @@ def _build_long_variants(
         "document_name": doc_name,
         "char_count": char_count,
     }
+    # Names the tool but never writes out a call: an example call here would
+    # be one the model could copy verbatim.
     reference_text = (
         f"[The user pasted a long message of about {char_count:,} characters. "
-        f'The full text has been stored for reference as "{doc_name}" and can be '
-        f"searched. Use the beginning and end below to understand the request, and "
-        f"ask to search the document for specifics.]\n\n"
+        f'Its full text is stored as "{doc_name}", but only its beginning and '
+        f"end are shown below. Use them to understand the request, and search "
+        f"the full text with the search_documents tool for anything else in "
+        f"it -- never guess what the rest of it says.]\n\n"
         f"Beginning of pasted content:\n{head}\n\n...\n\n"
         f"End of pasted content:\n{tail}"
     )

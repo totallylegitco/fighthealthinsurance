@@ -1842,6 +1842,12 @@ Use this to distinguish between (1) FDA-approved standard-of-care, (2) off-label
         doc_fetcher_tool = """**Document Fetcher Tool**: If a user shares a URL to a document (insurance plan, medical guidelines, denial letter, etc.), you can fetch and read it using: **fetch_doc {"url": "https://example.com/document.pdf"}**
 This tool can read PDF, DOCX, HTML, and plain text documents. Use it when a user shares a link and you need to reference the document's contents. Only use it for URLs the user has explicitly shared or referenced."""
 
+        document_search_tool = """**Document Search Tool**: When the user pastes or uploads a long document -- a plan policy or coverage criteria, a denial letter, an Explanation of Benefits, medical records -- its full text is stored and your context lists it under "Documents stored in this chat". You only ever see a preview or a few excerpts of it, so before answering a question about what a stored document says, search it the way you would grep a file: **search_documents {"query": "step therapy"}**
+- "query": a word or an exact phrase, matched ignoring case. A word also finds the longer words it starts ("cover" finds "covered" and "coverage"). The results say how often each part of the query occurs in each document, then give the best-matching passages, each labelled with its document, section number and line.
+- "document" (optional): part of a document's name, to search just that one.
+- "section" (optional): a section number from earlier results, to read that whole section instead of searching: **search_documents {"document": "policy", "section": 4}**
+You can make several searches in one reply. If a search misses, try other words -- a synonym, the drug's generic or brand name, a billing code -- before telling the user the document doesn't mention something. Quote the document's exact words for criteria, exclusions, limits and deadlines, and say which section they come from. Never guess what a stored document says. Only use this when your context lists stored documents."""
+
         uspstf_tool = """**USPSTF Preventive Services Tool**: For preventive-care denials (screenings, counseling, preventive medications, perinatal prevention, cancer screening, etc.) you can look up the relevant US Preventive Services Task Force recommendation using: **uspstf_lookup {"query": "search terms", "grade": "A", "limit": 3}**
 
 All JSON keys are optional. Use ``query`` for free-text terms (e.g. "colon cancer screening"), ``grade`` to restrict to a letter grade ("A", "B", "C", "D", or "I"), ``topic`` to filter by topic, and ``limit`` to cap the number of results.
@@ -1964,6 +1970,7 @@ We have a selection of tools to help you. You should try and use these tools whe
 {uspstf_tool}
 {clinical_trials_tool}
 {doc_fetcher_tool}
+{document_search_tool}
 {pa_requirement_tool}
 {financial_assistance_tool}
 
@@ -1992,6 +1999,7 @@ We have a selection of tools to help you. You should try and use these tools whe
 {uspstf_tool}
 {clinical_trials_tool}
 {doc_fetcher_tool}
+{document_search_tool}
 {pa_requirement_tool}
 {financial_assistance_tool}
 
