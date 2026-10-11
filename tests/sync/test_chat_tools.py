@@ -2043,6 +2043,45 @@ class TestLetterRequestDetector(TestCase):
             )
         )
 
+    def test_a_denial_described_with_not_does_not_cancel_the_request(self):
+        """People describe a denial with "not"; that is no refusal to draft."""
+        from fighthealthinsurance.chat.appeal_letter_generator import (
+            looks_like_letter_request,
+        )
+
+        for message in [
+            "Since my MRI was not approved can you write an appeal letter?",
+            "My insurance would not cover my surgery so please draft the appeal letter",
+            "They won't pay for it so can you write the appeal",
+        ]:
+            with self.subTest(message=message):
+                self.assertTrue(looks_like_letter_request(message))
+
+    def test_a_negation_governing_the_verb_declines(self):
+        from fighthealthinsurance.chat.appeal_letter_generator import (
+            looks_like_letter_request,
+        )
+
+        for message in [
+            "I do not want you to write the appeal letter",
+            "Please don’t draft the letter yet",
+            "Never write an appeal for me",
+        ]:
+            with self.subTest(message=message):
+                self.assertFalse(looks_like_letter_request(message))
+
+    def test_new_or_again_before_the_request_is_not_a_redo(self):
+        from fighthealthinsurance.chat.appeal_letter_generator import (
+            wants_fresh_letter,
+        )
+
+        for message in [
+            "My new insurance denied my MRI so please draft the appeal letter",
+            "I got the denial again so can you write an appeal letter",
+        ]:
+            with self.subTest(message=message):
+                self.assertFalse(wants_fresh_letter(message))
+
     def test_new_in_an_earlier_clause_is_not_a_redo(self):
         from fighthealthinsurance.chat.appeal_letter_generator import (
             wants_fresh_letter,

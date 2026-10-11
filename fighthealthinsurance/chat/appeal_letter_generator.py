@@ -50,16 +50,28 @@ _LETTER_REQUEST_RE = re.compile(
     re.IGNORECASE,
 )
 
-# A clause that matches the test above but asks us NOT to write the letter
-# ("Don't write the letter yet", "I'll write my own appeal"). Only the
-# matched clause is checked, so "please draft the letter, don't forget my
-# diagnosis" still counts.
-_DECLINED_RE = re.compile(
-    r"\b(?:don'?t|do\s+not|not|never|won'?t|stop)\b|\bmy\s+own\b", re.IGNORECASE
+# A request that asks us NOT to write the letter ("Don't write the letter
+# yet", "I'll write my own appeal"). The negation must govern the drafting
+# verb: inside the match itself, or right before the verb with only filler
+# words between ("I do not want you to write..."). A denial described with
+# "not" earlier in the sentence ("my MRI was not approved, can you write an
+# appeal?", "they would not cover it so please draft the letter") is not a
+# refusal, and "please draft the letter, don't forget my diagnosis" still
+# counts.
+_NEGATION = r"\b(?:don['’]?t|do\s+not|not|never|won['’]?t|stop)\b"
+_DECLINED_RE = re.compile(_NEGATION + r"|\bmy\s+own\b", re.IGNORECASE)
+_DECLINED_LEAD_IN_RE = re.compile(
+    _NEGATION
+    + r"(?:\s+(?:you|to|want|wanna|need|please|ever|yet|even|actually|bother"
+    r"|go|ahead|and|have|i|we|it|just|really|like))*\s*$",
+    re.IGNORECASE,
 )
 
-# A clause asking for a new letter (a redo, another version): a draft made
+# A request for a new letter (a redo, another version): a draft made
 # earlier predates whatever the person wants changed, so it is no answer.
+# Checked against the request itself, from the verb to the noun ("redo the
+# letter", "write another appeal"), so "my new insurance denied it, please
+# draft the letter" is a first request.
 _FRESH_LETTER_RE = re.compile(
     r"\b(?:redo|redraft|rewrite|again|another|new|updated|different)\b",
     re.IGNORECASE,
@@ -122,32 +134,36 @@ def letter_placement_note(drafted: DraftedLetter, appeal_link: str) -> str:
     )
 
 
-def _requested_letter_clauses(text: Optional[str]) -> List[str]:
-    """The clauses of ``text`` that ask for a letter, declined ones left out.
-    Each runs from the clause start -- after the last sentence end, comma,
-    semicolon or colon -- to the end of its match, so a negation or a "new"
-    earlier in the sentence ("I'm not sure what to say, can you write my
-    appeal?") doesn't count against the request."""
+def _letter_requests(text: Optional[str]) -> List[str]:
+    """The requests in ``text`` that ask for a letter, each from its drafting
+    verb to its letter/appeal noun, declined ones left out. A negation
+    counts against a request only when it governs the verb (see
+    _DECLINED_LEAD_IN_RE), so one earlier in the sentence ("I'm not sure
+    what to say, can you write my appeal?", "it was not approved so please
+    draft the letter") doesn't."""
     if not text:
         return []
-    clauses = []
+    requests = []
     for match in _LETTER_REQUEST_RE.finditer(text):
         start = max(text.rfind(mark, 0, match.start()) for mark in ".!?\n,;:") + 1
-        clause = text[start : match.end()]
-        if not _DECLINED_RE.search(clause):
-            clauses.append(clause)
-    return clauses
+        lead_in = text[start : match.start()]
+        if _DECLINED_RE.search(match.group(0)) or _DECLINED_LEAD_IN_RE.search(
+            lead_in
+        ):
+            continue
+        requests.append(match.group(0))
+    return requests
 
 
 def looks_like_letter_request(text: Optional[str]) -> bool:
     """Whether a user message asks us to draft/write an appeal letter."""
-    return bool(_requested_letter_clauses(text))
+    return bool(_letter_requests(text))
 
 
 def wants_fresh_letter(text: Optional[str]) -> bool:
     """Whether a letter request asks for a new letter (a redo, another
     version), which a draft made earlier can't answer."""
-    return any(_FRESH_LETTER_RE.search(c) for c in _requested_letter_clauses(text))
+    return any(_FRESH_LETTER_RE.search(r) for r in _letter_requests(text))
 
 
 def denial_has_letter_context(denial: Any) -> bool:
