@@ -476,8 +476,8 @@ class TestMakeAppealsSpecializedHint(unittest.TestCase):
         with patch(
             "fighthealthinsurance.generate_appeal.ml_router"
         ) as mock_router, patch(
-            # The completion-ordered fan-in that replaced as_available_nested;
-            # stubbed the same way so make_appeals runs with no model results.
+            # The completion-ordered fan-in, stubbed so make_appeals runs
+            # with no model results.
             "fighthealthinsurance.generate_appeal._appeals_as_futures_complete",
             return_value=iter([]),
         ):

@@ -10,9 +10,7 @@ from fighthealthinsurance.rxnorm_tools import (
     NormalizedDrug,
     RxNormTools,
     _clean_query,
-    expand_drug_query_terms,
     looks_like_single_drug_query,
-    normalize_drug_name,
 )
 
 # ---- Sample RxNav-shaped JSON responses --------------------------------
@@ -199,65 +197,6 @@ class TestRxNormToolsNormalize:
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-class TestExpandQueryTerms:
-    async def test_expands_brand_to_canonical_plus_synonyms(self):
-        tools = RxNormTools()
-        routes = {
-            "/rxcui.json?name=lipitor": {
-                "idGroup": {"name": "Lipitor", "rxnormId": ["153165"]}
-            },
-            "/rxcui/153165/properties.json": {
-                "properties": {"rxcui": "153165", "name": "Lipitor", "tty": "BN"}
-            },
-            "/rxcui/153165/related.json": {
-                "relatedGroup": {
-                    "conceptGroup": [
-                        {
-                            "tty": "IN",
-                            "conceptProperties": [
-                                {"rxcui": "83367", "name": "atorvastatin"}
-                            ],
-                        },
-                        {
-                            "tty": "BN",
-                            "conceptProperties": [
-                                {"rxcui": "153165", "name": "Lipitor"},
-                                {"rxcui": "1000048", "name": "Atorvaliq"},
-                            ],
-                        },
-                    ]
-                }
-            },
-        }
-        with patch.object(
-            tools, "_fetch_json", side_effect=_make_fetch_json_mock(routes)
-        ):
-            terms = await tools.expand_query_terms("Lipitor")
-
-        # Canonical name first, then ingredients, then brand names. We
-        # also de-duplicate (Lipitor would otherwise appear twice).
-        assert terms[0] == "Lipitor"
-        assert "atorvastatin" in terms
-        assert "Atorvaliq" in terms
-        # No duplicates.
-        assert len(terms) == len(set(t.lower() for t in terms))
-
-    async def test_falls_back_to_user_input_on_miss(self):
-        tools = RxNormTools()
-        routes = {
-            "/rxcui.json": EXACT_MISS,
-            "/approximateTerm.json": APPROX_MISS,
-        }
-        with patch.object(
-            tools, "_fetch_json", side_effect=_make_fetch_json_mock(routes)
-        ):
-            terms = await tools.expand_query_terms("xyz123 tablet")
-
-        assert terms == ["xyz123 tablet"]
-
-
-@pytest.mark.django_db(transaction=True)
-@pytest.mark.asyncio
 class TestGetBrandsAndGenerics:
     async def test_returns_structured_view(self):
         tools = RxNormTools()
@@ -293,40 +232,6 @@ class TestGetBrandsAndGenerics:
         assert info["matched"] is False
         assert info["ingredients"] == []
         assert info["brand_names"] == []
-
-
-@pytest.mark.django_db(transaction=True)
-@pytest.mark.asyncio
-class TestModuleHelpers:
-    async def test_normalize_drug_name_uses_default_singleton(self):
-        with patch(
-            "fighthealthinsurance.rxnorm_tools.RxNormTools.normalize",
-            new_callable=AsyncMock,
-        ) as mock_normalize:
-            mock_normalize.return_value = NormalizedDrug(
-                query="lipitor",
-                rxcui="153165",
-                canonical_name="Lipitor",
-                tty="BN",
-            )
-            result = await normalize_drug_name("Lipitor")
-
-        assert result.matched
-        assert result.canonical_name == "Lipitor"
-
-    async def test_expand_drug_query_terms_caps_at_max_terms(self):
-        with patch(
-            "fighthealthinsurance.rxnorm_tools.RxNormTools.expand_query_terms",
-            new_callable=AsyncMock,
-        ) as mock_expand:
-            mock_expand.return_value = ["a", "b", "c"]
-            terms = await expand_drug_query_terms("anything", max_terms=3)
-
-        assert terms == ["a", "b", "c"]
-        mock_expand.assert_awaited_once()
-        # max_terms is forwarded to the underlying tool.
-        kwargs = mock_expand.await_args.kwargs
-        assert kwargs.get("max_terms") == 3
 
 
 class TestPubMedSingleDrugHeuristic:

@@ -17,9 +17,9 @@ from unittest.mock import AsyncMock, patch
 import aiohttp
 import pytest
 
-from fighthealthinsurance.exec import executor
 from fighthealthinsurance.generate_appeal import (
     GeneratedAppeal,
+    _appeals_as_futures_complete,
     _generated_to_appeals_text,
 )
 from fighthealthinsurance.ml.ml_models import (
@@ -27,7 +27,6 @@ from fighthealthinsurance.ml.ml_models import (
     RemoteFullOpenLike,
     describe_model_error,
 )
-from fighthealthinsurance.utils import as_available_nested
 
 
 def _connector_error(os_error: OSError) -> aiohttp.ClientConnectorError:
@@ -205,17 +204,16 @@ class TestAppealStreamIsolation:
         assert [a.text for a in out] == ["templated: because reasons"]
 
     def test_one_failing_backend_does_not_kill_the_stream(self):
-        """End-to-end through as_available_nested (which re-raises future
-        exceptions mid-iteration): the failing backend is contained and the
-        healthy backend's appeal still comes through."""
+        """End-to-end through the appeal fan-in: the failing backend is
+        contained and the healthy backend's appeal still comes through."""
         gen = _StubTemplateGenerator()
         failed: Future = Future()
         failed.set_exception(aiohttp.ServerDisconnectedError())
         ok: Future = Future()
         ok.set_result([("full", "Surviving appeal")])
-        futures = [
-            executor.submit(_generated_to_appeals_text, "bad", failed, gen),
-            executor.submit(_generated_to_appeals_text, "good", ok, gen),
+        pairs = [
+            (failed, _generated_to_appeals_text("bad", failed, gen)),
+            (ok, _generated_to_appeals_text("good", ok, gen)),
         ]
-        texts = [a.text for a in as_available_nested(futures)]
+        texts = [a.text for a in _appeals_as_futures_complete(pairs)]
         assert texts == ["Surviving appeal"]

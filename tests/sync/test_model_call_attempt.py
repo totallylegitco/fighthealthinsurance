@@ -398,7 +398,7 @@ class MakeAppealsStaysLazyTest(TestCase):
         Real backends hand back a materialized list per inference and the
         streaming granularity in production is one future per inference; a
         generator here is the deterministic way to prove the CONSUMER chain
-        (UnwrapIterator -> make_appeals' return value -> the caller) is lazy,
+        (the fan-in -> make_appeals' return value -> the caller) is lazy,
         without depending on as_completed ordering across models.
         """
 

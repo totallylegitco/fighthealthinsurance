@@ -1534,15 +1534,12 @@ def _appeals_as_futures_complete(
 ) -> Iterator["GeneratedAppeal"]:
     """Yield each mapper's appeals in the order the MODEL futures complete.
 
-    The previous shape -- ``submit_pool.submit(_generated_to_appeals_text,...)``
-    then ``as_available_nested`` -- looked like a completion-ordered fan-in but
-    wasn't: ``_generated_to_appeals_text`` is a generator FUNCTION, so the
-    submitted future resolved instantly with a fresh generator object,
-    ``as_completed`` ordering was meaningless, and the sub-iterators were then
-    drained serially in that arbitrary order. One hung backend at the front of
-    the line blocked consumption of every other model's already-finished
-    appeals -- and once make_appeals' overall budget expired, those finished
-    appeals were abandoned along with it.
+    Completion is keyed on the model futures, not on pool-submitted mappers:
+    ``_generated_to_appeals_text`` is a generator FUNCTION, so a pool future
+    for it resolves at once and says nothing about when the model answers.
+    Keyed that way, the mappers drain in arbitrary order, and one hung
+    backend at the front blocks every other model's finished appeals until
+    make_appeals' overall budget expires and they are abandoned with it.
 
     Here the mappers stay lazy (no pool round-trip; the model calls themselves
     were already submitted by parallel_infer) and we key completion on the

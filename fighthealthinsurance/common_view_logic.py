@@ -7066,7 +7066,7 @@ class AppealsBackendHelper:
 
         # Convert the blocking sync iterator to async so next() calls
         # run in a thread executor and don't block the event loop.
-        # Without this, as_available_nested()'s concurrent.futures.as_completed()
+        # Without this, the fan-in's concurrent.futures.as_completed()
         # blocks the event loop, preventing keep-alive newlines from being sent.
         async_appeals: AsyncIterator[GeneratedAppeal] = sync_iterator_to_async(
             filtered_appeals

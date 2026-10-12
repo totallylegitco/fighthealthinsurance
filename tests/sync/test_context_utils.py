@@ -1,7 +1,7 @@
 """Tests for fighthealthinsurance.context_utils.
 
-Covers boundary-aware truncation, deduplication, block merging, and the
-supplemental-citation attach pattern used in the appeal/denial flow.
+Covers boundary-aware truncation and the supplemental-citation attach
+pattern used in the appeal/denial flow.
 """
 
 import unittest
@@ -10,10 +10,8 @@ from fighthealthinsurance.context_utils import (
     CHARS_PER_TOKEN,
     DENIAL_CONTEXT_TOKEN_FIELDS,
     attach_supplemental_to_citations,
-    dedupe_blocks,
     estimate_tokens,
     flatten_citation_context,
-    merge_context_blocks,
     summarize_denial_context_tokens,
     truncate_at_boundary,
 )
@@ -133,52 +131,6 @@ class TestTruncateAtBoundary(unittest.TestCase):
                 result = truncate_at_boundary(text, max_chars, ellipsis="...")
                 self.assertEqual(result, text[:max_chars])
                 self.assertEqual(len(result), max_chars)
-
-
-class TestDedupeBlocks(unittest.TestCase):
-    def test_skips_none_and_empty(self):
-        self.assertEqual(dedupe_blocks([None, "", "  ", "kept"]), ["kept"])
-
-    def test_dedupe_is_case_and_whitespace_insensitive(self):
-        result = dedupe_blocks(["Hello World", "  hello  WORLD  ", "Other"])
-        self.assertEqual(result, ["Hello World", "Other"])
-
-    def test_preserves_order_of_first_occurrence(self):
-        result = dedupe_blocks(["b", "a", "B", "c", "A"])
-        self.assertEqual(result, ["b", "a", "c"])
-
-    def test_min_chars_filter(self):
-        result = dedupe_blocks(["ok", "x", "longer text"], min_chars=3)
-        self.assertEqual(result, ["longer text"])
-
-
-class TestMergeContextBlocks(unittest.TestCase):
-    def test_empty_input_returns_empty_string(self):
-        self.assertEqual(merge_context_blocks([]), "")
-        self.assertEqual(merge_context_blocks([None, "", "  "]), "")
-
-    def test_joins_with_default_separator(self):
-        result = merge_context_blocks(["one", "two", "three"])
-        self.assertEqual(result, "one\n\ntwo\n\nthree")
-
-    def test_dedupes_by_default(self):
-        result = merge_context_blocks(["one", "ONE", "two"])
-        self.assertEqual(result, "one\n\ntwo")
-
-    def test_dedupe_can_be_disabled(self):
-        result = merge_context_blocks(["one", "ONE"], dedupe=False)
-        self.assertEqual(result, "one\n\nONE")
-
-    def test_respects_max_chars_budget(self):
-        result = merge_context_blocks(
-            ["aaaa", "bbbb", "cccc"], separator="|", max_chars=9
-        )
-        # First two cost 4 + 1 + 4 = 9; third would exceed.
-        self.assertEqual(result, "aaaa|bbbb")
-
-    def test_max_chars_drops_oversized_first_block(self):
-        result = merge_context_blocks(["a" * 100], max_chars=10)
-        self.assertEqual(result, "")
 
 
 class TestFlattenCitationContext(unittest.TestCase):

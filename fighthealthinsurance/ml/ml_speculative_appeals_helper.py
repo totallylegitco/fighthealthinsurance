@@ -327,7 +327,7 @@ class SpeculativeAppealsHelper:
 
                 Both halves have to be off the event loop. make_appeals runs the
                 model calls synchronously, and what it hands back is a LAZY
-                iterator (as_available_nested over concurrent futures) whose
+                iterator (the fan-in over the model futures) whose
                 next() blocks on the next model to finish -- so draining it here
                 rather than in the async caller is what actually keeps the loop
                 free. Doing it here also preserves the early break: we stop
