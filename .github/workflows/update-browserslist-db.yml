@@ -2,7 +2,7 @@ name: Update Browserslist DB
 
 # Keeps the frontend browser support baseline current by refreshing the
 # Browserslist database (the `caniuse-lite` + `baseline-browser-mapping`
-# packages) that webpack/babel consult when compiling the React/TS bundle.
+# packages) that webpack consults when compiling the React/TS bundle.
 # Stale data produces "Browserslist: caniuse-lite is outdated" build warnings
 # and can miss newer browsers, so we refresh it on a schedule and open a PR
 # with the change for review.
@@ -72,7 +72,7 @@ jobs:
 
             This bumps the `caniuse-lite` and `baseline-browser-mapping` entries
             in `package-lock.json` so the browser support baseline used by
-            webpack/babel stays current and the "caniuse-lite is outdated" build
+            webpack stays current and the "caniuse-lite is outdated" build
             warning stays quiet.
 
             Opened automatically by the `Update Browserslist DB` workflow. If no

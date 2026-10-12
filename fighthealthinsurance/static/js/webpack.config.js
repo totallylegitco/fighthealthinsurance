@@ -90,7 +90,7 @@ const entries = Object.fromEntries(
 // isProduction is decided INSIDE the exported function, from the CLI's --mode
 // when one is given, so see below.
 
-module.exports = async (env, argv) => {
+module.exports = (env, argv) => {
   // One source of truth for mode and optimization.
   // `webpack --mode X` overrides the configured mode after this file has
   // run, so if this flag came only from NODE_ENV the two could disagree:
@@ -104,11 +104,6 @@ module.exports = async (env, argv) => {
   const isProduction = argv && argv.mode
     ? argv.mode === 'production'
     : process.env.NODE_ENV !== 'development';
-  // Load ESM-only plugins with dynamic import()
-  const [{ default: remarkGfm }, { default: rehypeHighlight }] = await Promise.all([
-    import('remark-gfm'),
-    import('rehype-highlight'),
-  ]);
   return {
   context: __dirname,
   mode: isProduction ? 'production' : 'development',
@@ -149,31 +144,13 @@ module.exports = async (env, argv) => {
       path.resolve(__dirname, 'node_modules'),
       'node_modules'
     ],
-  extensions: ['.tsx', '.ts', '.js', '.md'],
+  extensions: ['.tsx', '.ts', '.js'],
     alias: {
       '@sentry/browser': require.resolve('@sentry/browser'),
     },
   },
   module: {
     rules: [
-      {
-        test: /\.md?$/,
-        use: [
-          {
-            loader: 'babel-loader',
-            options: {
-              presets: ['@babel/preset-react']
-            }
-          },
-          {
-            loader: '@mdx-js/loader',
-            options: {
-              remarkPlugins: [remarkGfm],
-              rehypePlugins: [rehypeHighlight]
-            }
-          }
-        ]
-      },
       {
         test: /\.(ts|tsx)$/,
         use: {
@@ -183,31 +160,6 @@ module.exports = async (env, argv) => {
           }
         },
         exclude: /node_modules/,
-      },
-      {
-        test: /\.(js|jsx)$/,
-        use: 'babel-loader',
-        exclude: /node_modules/,
-      },
-      {
-        test: /\.css$/,
-        exclude: /\.module\.css$/,
-        use: ['style-loader', 'css-loader'],
-      },
-      {
-        test: /\.module\.css$/,
-        use: [
-          'style-loader',
-          {
-            loader: 'css-loader',
-            options: {
-              modules: {
-                localIdentName: '[name]__[local]--[hash:base64:5]',
-              },
-              importLoaders: 1,
-            },
-          },
-        ],
       },
     ],
   },
