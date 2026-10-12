@@ -4,7 +4,6 @@ import random
 import typing
 from typing import Optional
 
-from django.conf import settings
 from django.core.exceptions import SuspiciousFileOperation
 from django.db import IntegrityError, models
 from django.db.models import Count, Q
