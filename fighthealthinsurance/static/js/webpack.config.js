@@ -1,5 +1,4 @@
 const path = require('path');
-const glob = require('glob');
 const TerserPlugin = require('terser-webpack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
 const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
@@ -56,21 +55,25 @@ const workerAssets = [
 // Check if bundle analysis is requested
 const shouldAnalyze = process.env.ANALYZE === 'true';
 
-// Dynamically find all .tsx and .ts files in static/js (excluding files like icons.tsx if desired)
-const jsDir = path.join(__dirname);
-const entries = {};
-try {
-  glob.sync(path.join(jsDir, '*.{ts,tsx}')).forEach(file => {
-    const name = path.basename(file).replace(/\.(tsx|ts)$/, '');
-    // Exclude utility files and test files from being entry points
-    if (!['icons', 'utils', 'types'].includes(name) && !name.includes('.test') && !name.includes('.spec')) {
-      entries[name] = file;
-    }
-  });
-} catch (error) {
-  console.error('Error scanning for entry points:', error);
-  process.exit(1);
-}
+// Only bundles a page loads; tests/sync/test_bundle_urls.py checks them against the templates.
+const entryFiles = [
+  'appeal.ts',
+  'appeal_fetcher.ts',
+  'blog.tsx',
+  'blog_post.tsx',
+  'chat_interface.tsx',
+  'chooser.tsx',
+  'entity_fetcher.ts',
+  'escalation_packet_review.ts',
+  'explain_denial.ts',
+  'formPersistence.ts',
+  'model_status.ts',
+  'scrub.ts',
+  'user_info_storage.ts',
+];
+const entries = Object.fromEntries(
+  entryFiles.map((file) => [path.parse(file).name, path.join(__dirname, file)]),
+);
 
 // Determine if we're in production mode
 // Production unless a developer explicitly asks for a development build.
@@ -112,6 +115,8 @@ module.exports = async (env, argv) => {
   entry: entries,
   output: {
     path: path.resolve(__dirname, 'dist'),
+    // Bundles dropped from the list would otherwise keep shipping from an old dist/.
+    clean: true,
     filename: '[name].bundle.js',
     // Chunks a bundle loads itself carry their own hash, so a CDN can't
     // serve an old one; entry bundles are versioned by {% bundle %}.
