@@ -1357,9 +1357,7 @@ class ResendStuckFaxView(View):
     """
 
     def post(self, request):
-        from asgiref.sync import async_to_sync
-
-        from fighthealthinsurance import temporal_client
+        from fighthealthinsurance.helpers.fax_helpers import _dispatch_or_ray_fax
         from fighthealthinsurance.models import FaxesToSend
 
         fax_uuid = (request.POST.get("uuid") or "").strip()
@@ -1394,16 +1392,16 @@ class ResendStuckFaxView(View):
             # for: the workflow id is deterministic per fax, so a failed send
             # whose run is still open would raise WorkflowAlreadyStartedError
             # and this recovery endpoint would answer 502 for the one case it
-            # exists to handle (external review).
-            workflow_id = async_to_sync(temporal_client.start_send_fax_workflow)(
-                fax.hashed_email, str(fax.uuid), force_restart=True
-            )
+            # exists to handle (external review). The same Temporal-else-Ray
+            # switch as staging, so a fax whose first dispatch failed can be
+            # sent with Temporal off or down.
+            _dispatch_or_ray_fax(fax.hashed_email, str(fax.uuid), force_restart=True)
         except Exception as e:
             logger.opt(exception=True).error(
-                f"Staff resend failed to start workflow for fax uuid={fax.uuid}"
+                f"Staff resend failed to start a send for fax uuid={fax.uuid}"
             )
             return HttpResponse(f"Could not start send: {e}", status=502)
-        return HttpResponse(f"Resend started: {workflow_id}")
+        return HttpResponse("Resend started")
 
 
 class ScheduleFollowUps(View):
