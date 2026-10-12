@@ -12,7 +12,6 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 
 import datetime
 import os
-import re
 import time
 import traceback
 from functools import cached_property
@@ -546,13 +545,6 @@ class Base(Configuration):
     # to us.
     COFACTOR_INTRO_CONTACT = os.getenv("COFACTOR_INTRO_CONTACT", "")
 
-    # Demo-request notifications always go to support42@; additional recipients
-    # can be configured via the DEMO_REQUEST_EXTRA_NOTIFICATION_EMAILS env var
-    # (comma-separated).
-    DEMO_REQUEST_NOTIFICATION_EMAILS = [
-        "support42@fighthealthinsurance.com"
-    ] + _env_list("DEMO_REQUEST_EXTRA_NOTIFICATION_EMAILS")
-
     # Professional-signup notifications — the web /pro_version interest form and
     # the Fight Paperwork (FPW) REST professional sign-up endpoint — default to
     # support42@fighthealthinsurance.com and professional@fighthealthinsurance.com;
@@ -707,10 +699,6 @@ class Base(Configuration):
         "fighthealthinsurance.middleware.AuditMiddleware",
         "django_prometheus.middleware.PrometheusAfterMiddleware",
     ]
-
-    GOOGLE_ANALYTICS = {
-        "google_analytics_id": "G-2EDT623L0V",
-    }
 
     ROOT_URLCONF = "fighthealthinsurance.urls"
 
@@ -931,9 +919,6 @@ class Base(Configuration):
     METRICS_ALLOWED_FORWARDED_CIDRS = _env_list("METRICS_ALLOWED_FORWARDED_CIDRS")
 
     # STRIPE SETTINGS
-    STRIPE_LIVE_MODE = False
-    STRIPE_API_VERSION = "2024-09-30.acacia"
-
     @property
     def STRIPE_API_SECRET_KEY(self):
         return os.getenv(
@@ -979,15 +964,6 @@ class Base(Configuration):
             self.EXTERNAL_STORAGE_B,
             self.EXTERNAL_STORAGE_C,
         )
-
-    # Ignore some 404 errors
-    IGNORABLE_404_URLS = [
-        re.compile(r"\.(php|cgi)$"),
-        re.compile(r"^/phpmyadmin/"),
-        re.compile(r"^/apple-touch-icon.*\.png$"),
-        re.compile(r"^/favicon\.ico$"),
-        re.compile(r"^/robots\.txt$"),
-    ]
 
     # Seconds the appeal-generation flow waits for in-flight background
     # PubMed/citation cache-warming before falling through to an inline
@@ -1442,8 +1418,6 @@ class Prod(Base):
     FIDO_SERVER_ID = "fighthealthinsurance.com"  # Server rp id for FIDO2, it is the full domain of your project
     FIGHT_PAPERWORK_DOMAIN = "www.fightpaperwork.com"
     FIGHT_HEALTH_INSURANCE_DOMAIN = "www.fighthealthinsurance.com"
-
-    STRIPE_LIVE_MODE = True
 
     @property
     def SECRET_KEY(self):  # type: ignore
