@@ -1779,7 +1779,7 @@ class ECRIGuideline(
     publication_date = models.DateField(null=True, blank=True)
     last_updated = models.DateField(null=True, blank=True)
 
-    # Free text fields surfaced in citations / context blocks
+    # Free text fields from the guideline brief
     recommendations_summary = models.TextField(blank=True)
     intended_population = models.TextField(blank=True)
     intended_users = models.CharField(max_length=300, blank=True)

@@ -4,9 +4,8 @@ ECRI Guidelines Trust (https://guidelines.ecri.org/) — a publicly available
 repository of guideline content — when crafting health insurance appeals.
 
 The helper matches stored ``ECRIGuideline`` records to a denial's procedure
-and diagnosis using whole-word keyword matching, then returns either short
-citation strings (for the appeal letter's references section) or a formatted
-context block (for inclusion in ML prompts).
+and diagnosis using whole-word keyword matching, then returns short citation
+strings for the appeal letter's references section.
 """
 
 import re
@@ -175,50 +174,3 @@ class ECRIGuidelinesHelper:
             max_results=max_citations,
         )
         return [g.citation_string() for g in guidelines]
-
-    @classmethod
-    async def get_context(
-        cls,
-        procedure: Optional[str] = None,
-        diagnosis: Optional[str] = None,
-        max_guidelines: int = 3,
-        max_chars_per_guideline: int = 1200,
-    ) -> str:
-        """Return a markdown context block for inclusion in ML prompts.
-
-        Returns an empty string when no matching guidelines are found.
-        """
-        guidelines = await cls.find_relevant_guidelines(
-            procedure=procedure,
-            diagnosis=diagnosis,
-            max_results=max_guidelines,
-        )
-        if not guidelines:
-            return ""
-
-        parts: List[str] = [
-            "## Evidence-Based Clinical Practice Guidelines",
-            "The following guideline summaries are drawn from the ECRI "
-            "Guidelines Trust, a public repository of evidence-based clinical "
-            "practice guideline content. Cite them only as the references "
-            "they are; do not invent additional details.",
-        ]
-        for guideline in guidelines:
-            header_bits = [guideline.title]
-            if guideline.developer_organization:
-                header_bits.append(guideline.developer_organization)
-            if guideline.publication_date:
-                header_bits.append(str(guideline.publication_date.year))
-            parts.append("\n### " + " — ".join(header_bits))
-            if guideline.intended_population:
-                parts.append(f"*Population:* {guideline.intended_population}")
-            if guideline.evidence_quality:
-                parts.append(f"*Evidence quality:* {guideline.evidence_quality}")
-            summary = guideline.recommendations_summary or ""
-            if summary:
-                if len(summary) > max_chars_per_guideline:
-                    summary = summary[:max_chars_per_guideline] + "..."
-                parts.append(summary)
-            if guideline.url:
-                parts.append(f"Source: {guideline.url}")
-        return "\n".join(parts)

@@ -5,7 +5,6 @@ import os
 import re
 import sys
 import tempfile
-import xml.etree.ElementTree as ET
 from contextlib import asynccontextmanager
 from datetime import timedelta
 from typing import (
@@ -46,11 +45,6 @@ from fighthealthinsurance.models import (
     PubMedQueryData,
 )
 from fighthealthinsurance.pdf_text import acount_pdf_pages, aextract_pdf_page_texts
-from fighthealthinsurance.pubmed_search import (
-    EvidenceStrength,
-    build_structured_query,
-    categorize_articles_by_strength,
-)
 from fighthealthinsurance.rxnorm_tools import RxNormTools, looks_like_single_drug_query
 from fighthealthinsurance.utils import pubmed_fetcher
 
@@ -137,12 +131,9 @@ _PDF_READ_TIMEOUT_SECS = 30.0
 # full article holds.
 _PDF_MAX_TEXT_CHARS = 500_000
 
-# NCBI E-utilities REST API base URL. Used for elink (related articles) and
-# efetch (MeSH terms / publication types). NCBI requests that ``tool`` and
-# ``email`` be supplied per their usage guidelines.
-_EUTILS_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
-# When NCBI_API_KEY is set, NCBI raises per-IP limits from 3 -> 10 req/s for
-# both metapub and direct E-utilities calls.
+# NCBI requests that ``tool`` and ``email`` be supplied per their usage
+# guidelines. When NCBI_API_KEY is set, NCBI raises per-IP limits from
+# 3 -> 10 req/s for both metapub and direct E-utilities calls.
 _NCBI_API_KEY = os.environ.get("NCBI_API_KEY") or None
 _EUTILS_PARAMS: Dict[str, str] = {
     "tool": _TOOL_NAME,
@@ -150,19 +141,6 @@ _EUTILS_PARAMS: Dict[str, str] = {
 }
 if _NCBI_API_KEY:
     _EUTILS_PARAMS["api_key"] = _NCBI_API_KEY
-
-# NCBI documents 200 IDs as the practical limit for an efetch GET; chunk to
-# stay well under URL-length caps regardless of caller-supplied list size.
-_EFETCH_BATCH_SIZE = 200
-
-# MeSH terms and publication types are effectively immutable once an article
-# is indexed; elink "related" sets drift only as new articles are published.
-# A 7-day TTL keeps NCBI off the hot path without staying out of date for
-# the appeal use-case.
-_EFETCH_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60
-_ELINK_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60
-_EFETCH_CACHE_PREFIX = "pubmed:efetch:meshpub:"
-_ELINK_CACHE_PREFIX = "pubmed:elink:related:"
 
 # Negative-cache window for queries that legitimately return no PMIDs. Kept
 # shorter than the 30-day positive cache because absence is more volatile
@@ -772,9 +750,8 @@ class PubMedTools(object):
     @staticmethod
     async def _query_cache_get(key: str, default: Any) -> Any:
         """Best-effort query-cache read. A cache-backend failure must not
-        break an otherwise-working lookup (mirrors the defensive pattern in
-        fetch_mesh_and_pub_types); on failure we return ``default`` so the
-        caller falls through to the DB/NCBI path."""
+        break an otherwise-working lookup; on failure we return ``default`` so
+        the caller falls through to the DB/NCBI path."""
         try:
             return await cache.aget(key, default=default)
         except Exception as e:
@@ -790,348 +767,6 @@ class PubMedTools(object):
             await cache.aset(key, value, timeout=timeout)
         except Exception as e:
             logger.warning(f"PubMed query cache write failed for {key}: {e}")
-
-    async def fetch_mesh_and_pub_types(
-        self,
-        pmids: List[str],
-        session: Optional[aiohttp.ClientSession] = None,
-        timeout: float = 15.0,
-        batch_size: int = _EFETCH_BATCH_SIZE,
-    ) -> Dict[str, Dict[str, List[str]]]:
-        """Fetch MeSH terms and publication types for a list of PMIDs via efetch.
-
-        Returns ``{pmid: {"mesh": [...], "pub_types": [...]}}``. Missing PMIDs
-        are simply absent from the result rather than raising. Network errors
-        and XML parse failures degrade to a partial (or empty) result.
-        ``CancelledError`` is re-raised so request cancellation propagates;
-        ``TimeoutError`` returns whatever was collected so far.
-
-        Splits ``pmids`` into ``batch_size`` chunks to avoid URL-length caps
-        and NCBI's recommended single-request limit. ``timeout`` applies to
-        the whole batched operation.
-        """
-        if not pmids:
-            return {}
-
-        result: Dict[str, Dict[str, List[str]]] = {}
-
-        # Per-PMID cache lookup; only the misses go to NCBI.
-        cache_keys = {p: f"{_EFETCH_CACHE_PREFIX}{p}" for p in pmids}
-        try:
-            cached = await cache.aget_many(list(cache_keys.values()))
-        except Exception as e:
-            logger.opt(exception=True).debug(f"efetch cache read failed: {e}")
-            cached = {}
-        misses: List[str] = []
-        for pmid in pmids:
-            hit = cached.get(cache_keys[pmid])
-            if hit is not None:
-                result[pmid] = hit
-            else:
-                misses.append(pmid)
-        if not misses:
-            return result
-
-        fresh: Dict[str, Dict[str, List[str]]] = {}
-        url = f"{_EUTILS_BASE}/efetch.fcgi"
-        try:
-            async with _ensure_session(session) as s:
-                async with async_timeout(timeout):
-                    for i in range(0, len(misses), batch_size):
-                        batch = misses[i : i + batch_size]
-                        params = {
-                            **_EUTILS_PARAMS,
-                            "db": "pubmed",
-                            "id": ",".join(batch),
-                            "rettype": "xml",
-                            "retmode": "xml",
-                        }
-                        async with s.get(url, params=params) as resp:
-                            if resp.status != 200:
-                                logger.debug(
-                                    f"efetch returned {resp.status} for batch starting at {i}"
-                                )
-                                continue
-                            body = await resp.text()
-                        self._merge_efetch_xml_into(body, fresh)
-        except asyncio.CancelledError:
-            raise
-        except asyncio.TimeoutError as e:
-            logger.debug(f"Timeout in fetch_mesh_and_pub_types: {e}")
-        except Exception as e:
-            logger.opt(exception=True).debug(f"Error in fetch_mesh_and_pub_types: {e}")
-
-        result.update(fresh)
-        if fresh:
-            try:
-                await cache.aset_many(
-                    {_EFETCH_CACHE_PREFIX + p: row for p, row in fresh.items()},
-                    timeout=_EFETCH_CACHE_TTL_SECONDS,
-                )
-            except Exception as e:
-                logger.opt(exception=True).debug(f"efetch cache write failed: {e}")
-        return result
-
-    @staticmethod
-    def _merge_efetch_xml_into(
-        body: str, result: Dict[str, Dict[str, List[str]]]
-    ) -> None:
-        """Parse an efetch XML body and merge ``{pmid: {mesh, pub_types}}`` rows
-        into ``result``. Silently skips a malformed body so one bad batch
-        doesn't poison the rest."""
-        try:
-            root = ET.fromstring(body)
-        except ET.ParseError as e:
-            logger.debug(f"Failed to parse efetch XML: {e}")
-            return
-        for art in root.findall(".//PubmedArticle"):
-            pmid_el = art.find(".//PMID")
-            if pmid_el is None or not pmid_el.text:
-                continue
-            pmid = pmid_el.text.strip()
-            mesh_terms = [
-                descriptor.text.strip()
-                for descriptor in art.findall(".//MeshHeading/DescriptorName")
-                if descriptor.text
-            ]
-            pub_types = [
-                pt.text.strip()
-                for pt in art.findall(".//PublicationTypeList/PublicationType")
-                if pt.text
-            ]
-            result[pmid] = {"mesh": mesh_terms, "pub_types": pub_types}
-
-    async def find_related_pmids(
-        self,
-        pmid: str,
-        session: Optional[aiohttp.ClientSession] = None,
-        timeout: float = 15.0,
-        max_results: int = 10,
-    ) -> List[str]:
-        """Return PMIDs related to ``pmid`` via NCBI's elink ``pubmed_pubmed`` set.
-
-        Useful for query expansion when a user's free-text terms are too
-        narrow or use lay vocabulary. Returns at most ``max_results`` PMIDs
-        and excludes the input PMID itself.
-        """
-        if not pmid:
-            return []
-
-        cache_key = f"{_ELINK_CACHE_PREFIX}{pmid}:{max_results}"
-        try:
-            cached = await cache.aget(cache_key)
-        except Exception as e:
-            logger.opt(exception=True).debug(f"elink cache read failed: {e}")
-            cached = None
-        if cached is not None:
-            return list(cached)
-
-        related: List[str] = []
-        params = {
-            **_EUTILS_PARAMS,
-            "dbfrom": "pubmed",
-            "db": "pubmed",
-            "id": pmid,
-            "linkname": "pubmed_pubmed",
-            "retmode": "json",
-        }
-        url = f"{_EUTILS_BASE}/elink.fcgi"
-        # Only cache when the call completed without error; on timeout/network
-        # failure we want the next caller to retry rather than serve stale "[]".
-        successful = False
-        try:
-            async with _ensure_session(session) as s:
-                async with async_timeout(timeout):
-                    async with s.get(url, params=params) as resp:
-                        if resp.status != 200:
-                            return []
-                        data = await resp.json()
-            for linkset in data.get("linksets", []):
-                for linksetdb in linkset.get("linksetdbs", []):
-                    if linksetdb.get("linkname") != "pubmed_pubmed":
-                        continue
-                    for related_id in linksetdb.get("links", []):
-                        related_id_str = str(related_id)
-                        if related_id_str != pmid and related_id_str not in related:
-                            related.append(related_id_str)
-                        if len(related) >= max_results:
-                            break
-                    if len(related) >= max_results:
-                        break
-                if len(related) >= max_results:
-                    break
-            successful = True
-        except asyncio.CancelledError:
-            raise
-        except asyncio.TimeoutError as e:
-            logger.debug(f"Timeout in find_related_pmids({pmid}): {e}")
-        except Exception as e:
-            logger.opt(exception=True).debug(
-                f"Error in find_related_pmids({pmid}): {e}"
-            )
-
-        if successful:
-            try:
-                await cache.aset(cache_key, related, timeout=_ELINK_CACHE_TTL_SECONDS)
-            except Exception as e:
-                logger.opt(exception=True).debug(f"elink cache write failed: {e}")
-        return related
-
-    async def structured_search(
-        self,
-        condition: Optional[str] = None,
-        treatment: Optional[str] = None,
-        pub_type_preset: Optional[str] = None,
-        pub_type_filters: Optional[List[str]] = None,
-        mesh_terms: Optional[List[str]] = None,
-        since_year: Optional[str] = None,
-        until_year: Optional[str] = None,
-        extra_terms: Optional[List[str]] = None,
-        max_results: int = 20,
-        expand_with_related: bool = False,
-        timeout: float = 60.0,
-    ) -> Dict[EvidenceStrength, List[PubMedMiniArticle]]:
-        """Run a structured PubMed search and return articles bucketed by strength.
-
-        Builds a query from ``condition``/``treatment`` plus optional
-        publication-type filters, MeSH constraints, and a date range; runs
-        the search; fetches publication types in a single batched ``efetch``;
-        and categorizes the result into strong / moderate / weak / unknown
-        evidence tiers.
-
-        Args:
-            condition: Diagnosis or condition (e.g., "rheumatoid arthritis").
-            treatment: Procedure or medication (e.g., "infliximab").
-            pub_type_preset: Preset key from ``PUB_TYPE_PRESETS``
-                (e.g., "guidelines_and_systematic_reviews").
-            pub_type_filters: Explicit filter keys from ``PUB_TYPE_FILTERS``.
-            mesh_terms: MeSH descriptors to require (joined with AND).
-            since_year: Earliest publication year (defaults to no lower bound).
-            until_year: Latest publication year (defaults to current year
-                if ``since_year`` is set).
-            extra_terms: Additional free-text terms (e.g., microsite
-                keywords).
-            max_results: Cap on total PMIDs to materialize.
-            expand_with_related: When true and the initial search returns at
-                least one PMID, fetch related PMIDs via elink and add them to
-                the result set (useful when user vocabulary is too narrow).
-            timeout: Wall-clock timeout for the whole operation.
-
-        Returns:
-            A dict keyed by ``EvidenceStrength`` with ``PubMedMiniArticle``
-            lists in each bucket. All four tiers are always present.
-        """
-        empty_buckets: Dict[EvidenceStrength, List[PubMedMiniArticle]] = {
-            s: [] for s in EvidenceStrength
-        }
-        structured = build_structured_query(
-            condition=condition,
-            treatment=treatment,
-            pub_type_preset=pub_type_preset,
-            pub_type_filters=pub_type_filters,
-            mesh_terms=mesh_terms,
-            since_year=since_year,
-            until_year=until_year,
-            extra_terms=extra_terms,
-        )
-        if not structured.query:
-            return empty_buckets
-
-        try:
-            async with async_timeout(timeout):
-                # since_year is already encoded into the date filter inside
-                # the query string, so pass since=None here to avoid
-                # double-filtering with metapub's own ``since`` keyword.
-                pmids = await self.find_pubmed_article_ids_for_query(
-                    structured.query,
-                    since=None,
-                    timeout=timeout / 2,
-                )
-                pmids = [p for p in pmids if p][:max_results]
-
-                if expand_with_related and pmids:
-                    seed = pmids[0]
-                    related = await self.find_related_pmids(
-                        seed,
-                        timeout=timeout / 4,
-                        max_results=max_results,
-                    )
-                    for related_pmid in related:
-                        if related_pmid not in pmids and len(pmids) < max_results:
-                            pmids.append(related_pmid)
-
-                if not pmids:
-                    return empty_buckets
-
-                articles = await self._materialize_mini_articles(
-                    pmids, per_source_timeout=timeout / 12
-                )
-                pub_types_by_pmid = await self.fetch_mesh_and_pub_types(
-                    [a.pmid for a in articles],
-                    timeout=timeout / 4,
-                )
-                pub_types_lookup = {
-                    pmid: data.get("pub_types", [])
-                    for pmid, data in pub_types_by_pmid.items()
-                }
-                return categorize_articles_by_strength(
-                    articles, pub_types_lookup=pub_types_lookup
-                )
-        except asyncio.CancelledError:
-            raise
-        except asyncio.TimeoutError:
-            logger.debug(f"Timeout in structured_search: {structured.query}")
-        except Exception as e:
-            logger.opt(exception=True).debug(f"Error in structured_search: {e}")
-        return empty_buckets
-
-    async def _materialize_mini_articles(
-        self,
-        pmids: List[str],
-        per_source_timeout: float = 5.0,
-    ) -> List[PubMedMiniArticle]:
-        """Resolve a PMID list into ``PubMedMiniArticle`` rows, fetching as needed.
-
-        Reuses cached rows when present; otherwise fetches metadata via
-        metapub and creates a new row. Skips PMIDs that fail to fetch.
-        """
-        articles: List[PubMedMiniArticle] = []
-        async with aiohttp.ClientSession(headers=_FETCH_HEADERS) as session:
-            for pmid in pmids:
-                cached = await PubMedMiniArticle.objects.filter(pmid=pmid).afirst()
-                if cached:
-                    articles.append(cached)
-                    continue
-                try:
-                    fetched = await sync_to_async(pubmed_fetcher.article_by_pmid)(pmid)
-                    if not fetched:
-                        continue
-                    doi = getattr(fetched, "doi", None)
-                    url = None
-                    try:
-                        url = await asyncio.wait_for(
-                            self._find_article_url(
-                                pmid,
-                                doi=doi,
-                                session=session,
-                                per_source_timeout=per_source_timeout,
-                            ),
-                            timeout=per_source_timeout * 2,
-                        )
-                    except Exception as e:
-                        logger.debug(f"URL discovery failed for {pmid}: {e}")
-                    title = (fetched.title or "").replace("\x00", "")
-                    abstract = (fetched.abstract or "").replace("\x00", "")
-                    article = await PubMedMiniArticle.objects.acreate(
-                        pmid=pmid,
-                        title=title,
-                        abstract=abstract,
-                        article_url=url,
-                    )
-                    articles.append(article)
-                except Exception as e:
-                    logger.debug(f"Failed to materialize {pmid}: {e}")
-        return articles
 
     async def find_pubmed_articles_for_denial(
         self, denial: Denial, timeout=70.0
