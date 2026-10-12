@@ -302,16 +302,6 @@ class RateLimiter:
 
         return True
 
-    def record_request(self) -> None:
-        """
-        Legacy method - no longer tracks requests.
-
-        In multi-container deployments, client-side request counting is
-        inaccurate. We now rely solely on 429 responses from the API.
-        This method is kept for backwards compatibility but is a no-op.
-        """
-        pass
-
     def mark_exhausted(self, retry_after_seconds: float = 60.0) -> None:
         """
         Mark the rate limiter as temporarily exhausted (backing off).

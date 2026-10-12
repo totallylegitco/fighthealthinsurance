@@ -521,16 +521,6 @@ class TestBackwardCompatibility:
         return fax
 
     @pytest.mark.django_db
-    def test_get_contents_backward_compatible(
-        self, fax_with_encrypted_document, sample_pdf_bytes
-    ):
-        """Test that _get_contents() still works after refactoring."""
-        result = fax_with_encrypted_document._get_contents()
-
-        assert result == sample_pdf_bytes
-        assert isinstance(result, bytes)
-
-    @pytest.mark.django_db
     def test_get_temporary_document_path_backward_compatible(
         self, fax_with_encrypted_document, sample_pdf_bytes
     ):

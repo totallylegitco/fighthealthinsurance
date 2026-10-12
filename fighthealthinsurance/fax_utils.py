@@ -206,15 +206,6 @@ class SonicFax(FaxSenderBase):
             raise Exception(f"Error logging into sonic got back {r.text}")
         return cookies
 
-    async def blocking_check_fax_status(
-        self, destination: str, path: str, dest_name: Optional[str] = None
-    ) -> bool:
-        with requests.Session() as s:
-            cookies = self._login(s)
-            return await self._blocking_check_fax_status(
-                s, cookies, destination, path, dest_name
-            )
-
     async def _blocking_check_fax_status(
         self,
         s: Session,
@@ -285,13 +276,6 @@ class SonicFax(FaxSenderBase):
                         pass
         logger.warning(f"Timed out waiting for fax status on file {filename}")
         return False
-
-    async def send_fax_non_blocking(
-        self, destination: str, path: str, dest_name: Optional[str] = None
-    ):
-        with requests.Session() as s:
-            cookies = self._login(s)
-            return self._send_fax_non_blocking(s, cookies, destination, path, dest_name)
 
     def _get_filename(self, path: str) -> str:
         _head, tail = os.path.split(path)

@@ -18,7 +18,6 @@ from django import forms
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
 from django.contrib.staticfiles.storage import staticfiles_storage
-from django.core.exceptions import SuspiciousOperation
 from django.http import (
     HttpRequest,
     HttpResponse,
@@ -375,47 +374,6 @@ class BRB(TemplateView):
         response = super().get(request, *args, **kwargs)
         response.status_code = 503  # Set HTTP status to 503
         return response
-
-
-def safe_redirect(request, url):
-    """
-    Safely redirect to a URL after validating it's safe.
-
-    Args:
-        request: The HTTP request
-        url: The URL to redirect to
-
-    Returns:
-        HttpResponseRedirect to a safe URL
-
-    Raises:
-        SuspiciousOperation if the URL is not safe
-    """
-    ALLOWED_HOSTS = [
-        request.get_host(),
-        "checkout.stripe.com",
-    ]
-
-    if url:
-        if url.startswith("//"):
-            raise SuspiciousOperation(f"Untrusted redirect: {url}")
-        elif not url.startswith("/"):
-            # For complete URLs, we need to validate the domain
-            from urllib.parse import urlparse
-
-            parsed_url = urlparse(url)
-
-            if parsed_url.netloc and parsed_url.netloc not in ALLOWED_HOSTS:
-                logger.warning(f"Suspicious redirect attempt to: {url}")
-                raise SuspiciousOperation(
-                    f"Redirect to untrusted domain: {parsed_url.netloc}"
-                )
-
-        logger.info(f"Redirecting to: {url}")
-
-        return HttpResponseRedirect(url)
-    else:
-        raise Exception(f"Asked to redirect to non-existing url.")
 
 
 def mark_session_consent(session, email: str) -> None:
@@ -840,15 +798,6 @@ class BlogPostView(StaticIshView):
             }
         )
         return context
-
-
-class ScanView(generic.TemplateView):
-    """Initial scan/scrub page for uploading denial letters."""
-
-    template_name = "scrub.html"
-
-    def get_context_data(self, **kwargs):
-        return {"ocr_result": "", "upload_more": True}
 
 
 class PrivacyPolicyView(StaticIshView):

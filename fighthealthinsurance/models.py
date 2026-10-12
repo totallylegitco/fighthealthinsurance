@@ -1926,20 +1926,6 @@ class FaxesToSend(ExportModelOperationsMixin("FaxesToSend"), models.Model):  # t
         "Appeal", on_delete=models.SET_NULL, null=True, blank=True
     )
 
-    def _get_contents(self):
-        """
-        Get decrypted document contents. Legacy method - prefer get_fax_document().
-
-        Returns:
-            bytes: Decrypted document contents
-
-        Raises:
-            MissingRequiredDataError: If required data for regeneration is missing
-            DocumentRegenerationError: If PDF generation fails
-            MissingDocumentError: If document cannot be retrieved or regenerated
-        """
-        return self.get_fax_document(return_encrypted=False)
-
     def _get_filename(self) -> str:
         if self.combined_document:
             return self.combined_document.name  # type: ignore
@@ -5243,18 +5229,6 @@ class SiteBanner(models.Model):
             preview = preview[:50] + "…"
         status = "active" if self.active else "inactive"
         return f"SiteBanner<{self.level}, {status}>: {preview}"
-
-    def is_currently_visible(
-        self, now: typing.Optional[datetime.datetime] = None
-    ) -> bool:
-        """Whether this banner should be shown to visitors right now."""
-        if not self.active:
-            return False
-        if self.expires_at is not None:
-            now = now or timezone.now()
-            if self.expires_at <= now:
-                return False
-        return True
 
     @classmethod
     def _active_banner_payload(cls) -> typing.List[typing.Dict[str, typing.Any]]:

@@ -216,28 +216,3 @@ class TestExtraLinkContextHelper:
         high_pos = context.find("High Priority")
         low_pos = context.find("Low Priority")
         assert high_pos < low_pos
-
-    @pytest.mark.asyncio
-    @pytest.mark.django_db
-    async def test_has_extralinks(self):
-        """Test checking if a microsite has extralinks."""
-        # Should return False for non-existent microsite
-        has_links = await ExtraLinkContextHelper.has_extralinks("nonexistent")
-        assert has_links is False
-
-        # Create a document and link
-        url = "https://example.com/test.pdf"
-        doc = await ExtraLinkDocument.objects.acreate(
-            url=url,
-            url_hash=ExtraLinkDocument.get_url_hash(url),
-            fetch_status="success",
-        )
-
-        await MicrositeExtraLink.objects.acreate(
-            microsite_slug="has-links",
-            document=doc,
-        )
-
-        # Should return True now
-        has_links = await ExtraLinkContextHelper.has_extralinks("has-links")
-        assert has_links is True

@@ -369,16 +369,6 @@ def get_state_help_by_abbreviation(abbreviation: str) -> Optional[StateHelp]:
     return None
 
 
-def get_all_state_help() -> dict[str, StateHelp]:
-    """
-    Get all available state help entries.
-
-    Returns:
-        Dictionary mapping slug to StateHelp object
-    """
-    return load_state_help()
-
-
 def get_state_help_slugs() -> list[str]:
     """
     List all available state help slugs.

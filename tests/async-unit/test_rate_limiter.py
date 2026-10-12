@@ -40,19 +40,6 @@ class TestRateLimiterBasic(unittest.TestCase):
 
         self.assertTrue(limiter.can_request())
 
-    def test_record_request_is_noop(self):
-        """Test record_request is a no-op (kept for backwards compatibility)."""
-        limiter = RateLimiter(name="test")
-
-        # Should not raise, but also should not do anything
-        limiter.record_request()
-        limiter.record_request()
-        limiter.record_request()
-
-        # Should still be able to request (no RPM limiting)
-        self.assertTrue(limiter.can_request())
-
-
 class TestRateLimiterExhaustion(unittest.TestCase):
     """Tests for temporary exhaustion marking (429 handling)."""
 

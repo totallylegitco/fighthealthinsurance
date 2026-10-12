@@ -535,15 +535,6 @@ class FinancialAssistanceResults:
             self.diagnosis_specific or self.manufacturer or self.state_medicaid_name
         )
 
-    def all_programs(self) -> list[AssistanceProgram]:
-        """Convenience: every program in a single ordered list."""
-        return [
-            *self.diagnosis_specific,
-            *self.manufacturer,
-            *self.general,
-            *self.safety_net,
-        ]
-
 
 def _resolve_canonical_drug(drug: Optional[str]) -> Optional[str]:
     """

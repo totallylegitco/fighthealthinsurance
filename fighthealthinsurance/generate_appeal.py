@@ -2315,12 +2315,6 @@ class AppealGenerator(object):
         logger.debug(f"Returning (procedure, diagnosis)=({proc}, {diag})")
         return (proc, diag)
 
-    def make_open_procedure_prompt(self, denial_text=None) -> Optional[str]:
-        if denial_text is not None:
-            return f"What was the procedure/treatment and what is the diagnosis from the following denial (remember to provide two strings seperated by MAGIC as your response): {denial_text}"
-        else:
-            return None
-
     def make_open_prompt(
         self,
         denial_text=None,

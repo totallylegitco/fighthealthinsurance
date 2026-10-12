@@ -343,19 +343,6 @@ class ChatInterface:
         # fallback may hand back a stored draft: it predates the request.
         self._turn_wants_fresh_letter = False
 
-    @staticmethod
-    def _append_to_history(chat, role: str, content: str):
-        """Append a message to chat history with a timestamp."""
-        if not chat.chat_history:
-            chat.chat_history = []
-        chat.chat_history.append(
-            {
-                "role": role,
-                "content": content,
-                "timestamp": timezone.now().isoformat(),
-            }
-        )
-
     @property
     def is_patient(self) -> bool:
         return self.chat.chat_type == ChatType.PATIENT

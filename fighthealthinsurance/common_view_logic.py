@@ -2486,7 +2486,6 @@ class DenialCreatorHelper:
     # Lazy load to avoid bootstrap problem w/new project
     _codes_denial_processor = None
     _regex_src = None
-    _codes_src = None
     _all_denial_types = None
 
     @classmethod
@@ -2506,12 +2505,6 @@ class DenialCreatorHelper:
         if cls._regex_src is None:
             cls._regex_src = await DataSource.objects.aget(name="regex")
         return cls._regex_src
-
-    @classmethod
-    def codes_src(cls):
-        if cls._codes_src is None:
-            cls._codes_src = DataSource.objects.get(name="codes")
-        return cls._codes_src
 
     @classmethod
     def all_denial_types(cls):
