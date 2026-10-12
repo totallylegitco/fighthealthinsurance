@@ -5,6 +5,7 @@ route and the prior auth websocket answer 404 or refuse the connection, and
 every chat is a patient chat. FHI's own routes keep answering.
 """
 
+import importlib
 import json
 import uuid
 from unittest.mock import AsyncMock, patch
@@ -17,6 +18,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.http import HttpResponse
 from django.test import Client, RequestFactory, TestCase, override_settings
 from django.urls import URLPattern, URLResolver, include, path, reverse
+from django.urls.resolvers import RegexPattern
 from rest_framework.test import APIClient
 
 from fhi_users import urls as fhi_users_urls
@@ -29,6 +31,7 @@ from fighthealthinsurance.models import (
     ChatType,
     InterestedProfessional,
     OngoingChat,
+    PriorAuthRequest,
 )
 from fighthealthinsurance.routing import websocket_urlpatterns
 from fighthealthinsurance.websockets import OngoingChatConsumer, resolve_chat_type
@@ -396,7 +399,7 @@ class FightPaperworkChatsOffTests(TestCase):
             )
         self.assertEqual(chat.id, stored.id)
 
-    async def _chat_frames(self, message: dict) -> list:
+    async def _chat_frames(self, message: dict, user=None) -> list:
         from tests.sync.mock_chat_model import MockChatModel
 
         mock_model = MockChatModel()
@@ -412,6 +415,8 @@ class FightPaperworkChatsOffTests(TestCase):
             backends.return_value = [mock_model]
             with_fallback.return_value = ([mock_model], [])
             communicator = _websocket("/ws/ongoing-chat/")
+            if user is not None:
+                communicator.scope["user"] = user
             connected, _ = await communicator.connect()
             self.assertTrue(connected)
             frames = []
@@ -448,3 +453,83 @@ class FightPaperworkChatsOffTests(TestCase):
         new_chat = await OngoingChat.objects.aget(id=forks[0]["chat_id"])
         self.assertEqual(new_chat.chat_type, ChatType.PATIENT)
         await self.assert_unchanged(stored)
+
+    async def _stored_appeal(self) -> Appeal:
+        return await Appeal.objects.acreate(
+            appeal_text="An appeal.", primary_professional=self.professional
+        )
+
+    async def _stored_prior_auth(self) -> PriorAuthRequest:
+        return await PriorAuthRequest.objects.acreate(
+            creator_professional_user=self.professional,
+            created_for_professional_user=self.professional,
+            diagnosis="Asthma",
+            treatment="Inhaler",
+            insurance_company="Example Health",
+        )
+
+    async def test_linking_a_stored_appeal_leaves_it_alone(self) -> None:
+        appeal = await self._stored_appeal()
+        frames = await self._chat_frames(
+            {"iterate_on_appeal": str(appeal.id), "content": "Hello"},
+            user=self.pro_user,
+        )
+        self.assertIn("content", frames[-1], frames)
+        self.assertIsNone((await Appeal.objects.aget(id=appeal.id)).chat_id)
+
+    async def test_linking_a_stored_appeal_works_when_on(self) -> None:
+        appeal = await self._stored_appeal()
+        with self.settings(FIGHT_PAPERWORK_ENABLED=True):
+            await self._chat_frames(
+                {"iterate_on_appeal": str(appeal.id), "content": "Hello"},
+                user=self.pro_user,
+            )
+        self.assertIsNotNone((await Appeal.objects.aget(id=appeal.id)).chat_id)
+
+    async def test_linking_a_stored_prior_auth_leaves_it_alone(self) -> None:
+        prior_auth = await self._stored_prior_auth()
+        frames = await self._chat_frames(
+            {"iterate_on_prior_auth": str(prior_auth.id), "content": "Hello"},
+            user=self.pro_user,
+        )
+        self.assertIn("content", frames[-1], frames)
+        fresh = await PriorAuthRequest.objects.aget(id=prior_auth.id)
+        self.assertIsNone(fresh.chat_id)
+
+    async def test_linking_a_stored_prior_auth_works_when_on(self) -> None:
+        prior_auth = await self._stored_prior_auth()
+        with self.settings(FIGHT_PAPERWORK_ENABLED=True):
+            await self._chat_frames(
+                {"iterate_on_prior_auth": str(prior_auth.id), "content": "Hello"},
+                user=self.pro_user,
+            )
+        fresh = await PriorAuthRequest.objects.aget(id=prior_auth.id)
+        self.assertIsNotNone(fresh.chat_id)
+
+
+class DebugApiIndexTests(TestCase):
+    """In DEBUG the REST index is Fight Paperwork's router root."""
+
+    def _debug_index(self):
+        # rest_urls picks its router class on import, so load it as DEBUG would.
+        try:
+            with override_settings(DEBUG=True):
+                patterns = list(importlib.reload(rest_urls).urlpatterns)
+        finally:
+            importlib.reload(rest_urls)
+        match = URLResolver(RegexPattern(r"^/"), patterns).resolve("/")
+        request = RequestFactory().get("/")
+        request.resolver_match = match
+        return lambda: match.func(request, *match.args)
+
+    def test_index_lists_fight_paperwork_routes_when_on(self) -> None:
+        index = self._debug_index()
+        with self.settings(FIGHT_PAPERWORK_ENABLED=True):
+            response = index()
+        self.assertIn("denials", response.data)
+
+    def test_index_answers_404_while_off(self) -> None:
+        index = self._debug_index()
+        with self.settings(FIGHT_PAPERWORK_ENABLED=False):
+            response = index()
+        self.assertEqual(response.status_code, 404)

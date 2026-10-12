@@ -87,7 +87,7 @@ urlpatterns = [
         rest_views.ActorHealthStatus.as_view(),
         name="actor_health_status",
     ),
-    # Routers. The chooser comes first so it keeps the DEBUG API root.
-    path("", include(chooser_router.urls)),
+    # Routers. Fight Paperwork's comes first so its DEBUG API index wins.
     path("", include(gate_patterns(router.urls))),
+    path("", include(chooser_router.urls)),
 ]

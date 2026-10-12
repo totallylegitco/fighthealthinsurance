@@ -1768,6 +1768,10 @@ class OngoingChatConsumer(
             f"use_external_models={bool(use_external_models)}"
         )
 
+        if not fight_paperwork_enabled():
+            # Linking a stored appeal or prior auth into a chat is Fight Paperwork's.
+            iterate_on_appeal = iterate_on_prior_auth = None
+
         # Validate we have the required data
         if replay_requested and not chat_id:
             await self.send_json_message({"error": "Chat ID is required for replay."})

@@ -153,6 +153,7 @@ class OngoingChatWebSocketTest(APITestCase):
         """Clean up the test environment."""
         self.get_chat_backends_patcher.stop()
 
+    @override_settings(FIGHT_PAPERWORK_ENABLED=True)
     async def test_link_chat_to_appeal_success(self):
         """Test linking a chat to an appeal with permission."""
         await self.asyncSetUp()
@@ -198,6 +199,7 @@ class OngoingChatWebSocketTest(APITestCase):
         await communicator.disconnect()
         await self.asyncTearDown()
 
+    @override_settings(FIGHT_PAPERWORK_ENABLED=True)
     async def test_link_chat_to_prior_auth_success(self):
         """Test linking a chat to a prior auth with permission."""
         await self.asyncSetUp()
@@ -314,6 +316,7 @@ class OngoingChatWebSocketTest(APITestCase):
         mock_analyze.assert_awaited_once_with("fake-chat")
         await self.asyncTearDown()
 
+    @override_settings(FIGHT_PAPERWORK_ENABLED=True)
     async def test_link_chat_to_appeal_permission_denied(self):
         """Test linking a chat to an appeal without permission is denied."""
         await self.asyncSetUp()
@@ -365,6 +368,7 @@ class OngoingChatWebSocketTest(APITestCase):
         await communicator.disconnect()
         await self.asyncTearDown()
 
+    @override_settings(FIGHT_PAPERWORK_ENABLED=True)
     async def test_link_chat_to_prior_auth_permission_denied(self):
         """Test linking a chat to a prior auth without permission is denied."""
         await self.asyncSetUp()
