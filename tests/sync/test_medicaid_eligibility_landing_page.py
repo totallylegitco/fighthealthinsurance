@@ -8,6 +8,8 @@ sitemap omits the page until the flag is flipped.
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
+LLMS_TXT_ENTRY = "https://www.fighthealthinsurance.com/medicaid-eligibility.md"
+
 
 class TestMedicaidEligibilityLandingPage(TestCase):
     """The /medicaid-eligibility landing page renders and routes users."""
@@ -130,3 +132,15 @@ class TestMedicaidEligibilityPageStaging(TestCase):
         from fighthealthinsurance.sitemap import StaticViewSitemap
 
         self.assertNotIn("medicaid-eligibility", StaticViewSitemap().items())
+
+    @override_settings(MEDICAID_ELIGIBILITY_PAGE_ENABLED=False)
+    def test_llms_txt_does_not_list_the_page_when_disabled(self):
+        from fighthealthinsurance.agent_docs import build_llms_txt
+
+        self.assertNotIn(LLMS_TXT_ENTRY, build_llms_txt())
+
+    @override_settings(MEDICAID_ELIGIBILITY_PAGE_ENABLED=True)
+    def test_llms_txt_lists_the_page_when_enabled(self):
+        from fighthealthinsurance.agent_docs import build_llms_txt
+
+        self.assertIn(LLMS_TXT_ENTRY, build_llms_txt())

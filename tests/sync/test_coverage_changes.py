@@ -1,6 +1,6 @@
 """The yearly coverage guide lives at one address with no year in it."""
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 
@@ -29,3 +29,18 @@ class CoverageChangesTest(TestCase):
     def test_the_resources_menu_links_to_the_guide(self):
         html = self.client.get(reverse("root")).content.decode()
         self.assertIn(f'href="{reverse("coverage-changes")}"', html)
+
+
+class CoverageChangesEligibilityLinkTest(TestCase):
+    """The guide links to the Medicaid eligibility check only while that page serves."""
+
+    def _guide(self):
+        return self.client.get(reverse("coverage-changes")).content.decode()
+
+    @override_settings(MEDICAID_ELIGIBILITY_PAGE_ENABLED=False)
+    def test_no_link_to_the_eligibility_check_while_it_is_off(self):
+        self.assertNotIn(f'href="{reverse("medicaid-eligibility")}"', self._guide())
+
+    @override_settings(MEDICAID_ELIGIBILITY_PAGE_ENABLED=True)
+    def test_links_to_the_eligibility_check_while_it_is_on(self):
+        self.assertIn(f'href="{reverse("medicaid-eligibility")}"', self._guide())
