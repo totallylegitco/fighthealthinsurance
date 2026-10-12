@@ -577,8 +577,7 @@ urlpatterns: List[Union[URLPattern, URLResolver]] = [
     ),
     path(
         "favicon.ico",
-        # The optimized icon is 984 bytes; images/favicon.ico is a 3 MB
-        # photograph, and every browser asks for this path unprompted.
+        # Every browser asks for this path unprompted; send it the small icon.
         RedirectView.as_view(
             url=staticfiles_storage.url("images/favicon-optimized.ico")
         ),
