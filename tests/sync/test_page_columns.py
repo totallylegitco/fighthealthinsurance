@@ -38,7 +38,6 @@ ON_A_COLUMN = {
     "fax_followup_thankyou.html": "fhi-page",
     "professional_available.html": "fhi-page",
     "professional_thankyou.html": "fhi-page",
-    "warnings.html": "fhi-page",
     "server_side_ocr.html": "fhi-page",
     "server_side_ocr_error.html": "fhi-page",
     "faq.html": "fhi-page",

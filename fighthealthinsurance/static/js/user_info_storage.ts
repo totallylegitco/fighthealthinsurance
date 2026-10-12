@@ -233,17 +233,6 @@ export function restorePersonalInfo(message: string, userInfo: UserInfo | null):
   return restoredMessage;
 }
 
-// Form field IDs that map to UserInfo properties
-const FIELD_MAPPINGS: Record<string, keyof UserInfo> = {
-  store_fname: "firstName",
-  store_lname: "lastName",
-  email: "email",
-  store_street: "address",
-  store_city: "city",
-  store_state: "state",
-  store_zip: "zipCode",
-};
-
 /**
  * Collect user info from form fields
  */

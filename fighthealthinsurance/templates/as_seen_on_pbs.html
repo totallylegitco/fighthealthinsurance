@@ -4,10 +4,6 @@
 {% block metadescription %}Learn how AI is helping patients fight back against denied health insurance claims. Featured on PBS NewsHour, Fight Health Insurance provides free AI-powered appeal letter generation to help you overturn insurance denials.{% endblock metadescription %}
 {% load static %}
 
-{% block hero_tagline %}📺 As Seen on PBS NewsHour{% endblock hero_tagline %}
-{% block hero_subcopy %}How patients are using AI to fight back against denied insurance claims. Generate your free appeal letter in minutes.{% endblock hero_subcopy %}
-{% block hero_cta_text %}Appeal Your Insurance Denial for Free{% endblock hero_cta_text %}
-
 {% block after_hero %}
 <!-- PBS VIDEO SECTION -->
 <section id="pbs-video" style="padding: 80px 0; background: #fff;">
@@ -33,39 +29,3 @@
     </div>
 </section>
 {% endblock after_hero %}
-
-{% block testimonials_title %}Highlights from the PBS Segment{% endblock testimonials_title %}
-
-{% block testimonials_content %}
-<div class="testimonial-card">
-    <div class="testimonial-quote">"The tool uses artificial intelligence to analyze denial letters and generate personalized appeal letters for patients to submit to their insurance companies."</div>
-    <div class="testimonial-author">— PBS NewsHour</div>
-</div>
-<div class="testimonial-card">
-    <div class="testimonial-quote">"Insurance companies use AI to deny claims—now patients can use AI to fight back and level the playing field."</div>
-    <div class="testimonial-author">— PBS NewsHour</div>
-</div>
-<div class="testimonial-card">
-    <div class="testimonial-quote">"Many patients don't appeal their denials because the process is too complicated and time-consuming. This tool makes it accessible for everyone."</div>
-    <div class="testimonial-author">— PBS NewsHour</div>
-</div>
-{% endblock testimonials_content %}
-
-{% block about_title %}Ready to Fight Back?{% endblock about_title %}
-
-{% block about_content %}
-As featured on PBS NewsHour, Fight Health Insurance uses AI to help you generate appeal letters when your health insurance claim is denied.
-<h4>It's Simple:</h4>
-<ul>
-  <li><strong>Upload your denial letter</strong> - take a photo or upload the document</li>
-  <li><strong>Our AI analyzes it</strong> - we identify the denial reasons and relevant regulations</li>
-  <li><strong>Get your appeal letter</strong> - personalized, professional, and ready to submit</li>
-  <li><strong>Fight back</strong> - submit your appeal and track your case</li>
-</ul>
-<p>
-Best of all, it's completely free. Pay what you can - $0 is totally fine.
-</p>
-<p>
-<a href="{% url 'scan' %}" class="fhi-button fhi-button-primary">Generate Your Appeal Now</a>
-</p>
-{% endblock about_content %}

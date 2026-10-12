@@ -114,10 +114,8 @@ class NothingInTheHeaderNeedsJavaScriptTest(TestCase):
         self.assertNotIn("dropdown-toggle", nav)
         self.assertNotIn("navbar-collapse", nav)
         # Nor anywhere else: the body carried Bootstrap 3 scrollspy attributes
-        # aimed at .navbar-collapse, and custom.js a click handler for it.
+        # aimed at .navbar-collapse.
         self.assertNotIn("data-spy", html)
-        custom_js = _static("js", "custom.js").read_text()
-        self.assertNotIn("navbar-collapse", custom_js)
 
     def test_the_chat_button_keeps_its_name_and_stays_off_paper(self):
         """Below 575px the word is hidden and the icon is aria-hidden, which

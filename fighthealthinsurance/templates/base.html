@@ -328,12 +328,11 @@
          starts every page from a short reset of its own. -->
     <!-- jQuery loads first because the compressed block below needs it. -->
     <script src="{% static 'js/jquery.js' %}"></script>
-    <!-- Smoothscroll and custom.js need jQuery, so they load after it. The
-         header stays at the top of the window through position: sticky in
-         main.css, with no script. -->
+    <!-- Smoothscroll needs jQuery, so it loads after it. The header stays
+         at the top of the window through position: sticky in main.css,
+         with no script. -->
     {% compress js file %}
     <script src="{% static 'js/smoothscroll.js' %}"></script>
-    <script src="{% static 'js/custom.js' %}"></script>
     {% endcompress %}
 </body>
 
