@@ -132,7 +132,6 @@ ML backends (at least one; either kind works on its own):
 
 Development:
 - `RECAPTCHA_TESTING=true` - Disable reCAPTCHA locally
-- `OAUTHLIB_RELAX_TOKEN_SCOPE=1` - OAuth scope relaxation
 
 ## Test Organization
 

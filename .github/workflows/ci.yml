@@ -97,7 +97,7 @@ jobs:
         uses: astral-sh/setup-uv@v3
 
       - name: Install system level packages
-        run: (sudo apt-get update || echo "sometimes this fails because of the azure cli repo which we do not use") && sudo apt-get install -y  libgirepository1.0-dev pkg-config python3-dev && sudo apt-get clean
+        run: (sudo apt-get update || echo "sometimes this fails because of the azure cli repo which we do not use") && sudo apt-get install -y pkg-config python3-dev && sudo apt-get clean
 
       - name: Install dependencies
         run: uv tool install tox --with tox-uv
@@ -138,7 +138,7 @@ jobs:
           python-version: '3.13'
           
       - name: Install system level packages
-        run: (sudo apt-get update || echo "sometimes this fails because of the azure cli repo which we do not use") && sudo apt-get install -y  libgirepository1.0-dev pkg-config python3-dev && sudo apt-get clean
+        run: (sudo apt-get update || echo "sometimes this fails because of the azure cli repo which we do not use") && sudo apt-get install -y pkg-config python3-dev && sudo apt-get clean
 
       - name: Install tox
         run: uv tool install tox --with tox-uv
@@ -169,9 +169,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-#          - python: '3.12'
-#            toxpy: '312'
-#            django: '52'
           - python: '3.13'
             toxpy: '313'
             django: '52'
@@ -214,7 +211,7 @@ jobs:
       - name: Install system level packages
         run: |
           mkdir -p ~/apt-archives/partial
-          (sudo apt-get update || echo "apt-get update failed, continuing with existing package lists...") && sudo apt-get install -y -o Dir::Cache::Archives="$HOME/apt-archives" tesseract-ocr texlive libgirepository1.0-dev pkg-config python3-dev
+          (sudo apt-get update || echo "apt-get update failed, continuing with existing package lists...") && sudo apt-get install -y -o Dir::Cache::Archives="$HOME/apt-archives" tesseract-ocr texlive pkg-config python3-dev
           # apt writes these as root; the cache step saves them as the runner
           sudo chown -R "$(id -u):$(id -g)" ~/apt-archives
 
@@ -250,8 +247,6 @@ jobs:
       - name: Run tests
         run: tox -e py${{ matrix.toxpy }}-django${{ matrix.django }}-sync
         env:
-          FARTS: "farts"
-          GOOGLE_CLIENT_SECRETS_TEXT: ${{ secrets.GOOGLE_CLIENT_SECRETS_TEXT }}
           STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
 
   tests-selenium:
@@ -263,12 +258,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-#          - python: '3.11'
-#            toxpy: '311'
-#            django: '52'
-#          - python: '3.12'
-#            toxpy: '312'
-#            django: '52'
           - python: '3.13'
             toxpy: '313'
             django: '52'
@@ -311,7 +300,7 @@ jobs:
       - name: Install system level packages
         run: |
           mkdir -p ~/apt-archives/partial
-          (sudo apt-get update || echo "apt-get update failed, continuing with existing package lists...") && sudo apt-get install -y -o Dir::Cache::Archives="$HOME/apt-archives" tesseract-ocr texlive libgirepository1.0-dev pkg-config python3-dev
+          (sudo apt-get update || echo "apt-get update failed, continuing with existing package lists...") && sudo apt-get install -y -o Dir::Cache::Archives="$HOME/apt-archives" tesseract-ocr texlive pkg-config python3-dev
           # apt writes these as root; the cache step saves them as the runner
           sudo chown -R "$(id -u):$(id -g)" ~/apt-archives
 
@@ -343,8 +332,6 @@ jobs:
       - name: Run selenium tests
         run: tox -e py${{ matrix.toxpy }}-django${{ matrix.django }}-selenium
         env:
-          FARTS: "farts"
-          GOOGLE_CLIENT_SECRETS_TEXT: ${{ secrets.GOOGLE_CLIENT_SECRETS_TEXT }}
           STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
 
   tests-sync-actor:
@@ -354,12 +341,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-#          - python: '3.11'
-#            toxpy: '311'
-#            django: '52'
-#          - python: '3.12'
-#            toxpy: '312'
-#            django: '52'
           - python: '3.13'
             toxpy: '313'
             django: '52'
@@ -401,7 +382,7 @@ jobs:
       - name: Install system level packages
         run: |
           mkdir -p ~/apt-archives/partial
-          (sudo apt-get update || echo "apt-get update failed, continuing with existing package lists...") && sudo apt-get install -y -o Dir::Cache::Archives="$HOME/apt-archives" tesseract-ocr texlive libgirepository1.0-dev pkg-config python3-dev
+          (sudo apt-get update || echo "apt-get update failed, continuing with existing package lists...") && sudo apt-get install -y -o Dir::Cache::Archives="$HOME/apt-archives" tesseract-ocr texlive pkg-config python3-dev
           # apt writes these as root; the cache step saves them as the runner
           sudo chown -R "$(id -u):$(id -g)" ~/apt-archives
 
@@ -437,83 +418,7 @@ jobs:
       - name: Run tests
         run: tox -e py${{ matrix.toxpy }}-django${{ matrix.django }}-sync-actor
         env:
-          FARTS: "farts"
-          GOOGLE_CLIENT_SECRETS_TEXT: ${{ secrets.GOOGLE_CLIENT_SECRETS_TEXT }}
           STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
-
-
-#  build-docker-ray-container:
-#    runs-on: ubuntu-latest
-#    name: Build the docker ray containers
-#    strategy:
-#      fail-fast: false
-#    steps:
-#      -
-#        name: Checkout
-#        uses: actions/checkout@v4
-#      -
-#        # Add support for more platforms with QEMU (optional)
-#        # https://github.com/docker/setup-qemu-action
-#        name: Set up QEMU
-#        uses: docker/setup-qemu-action@v3
-#      # We need python for collect static
-#      - name: Install uv
-#        uses: astral-sh/setup-uv@v3
-#
-#      - name: Install our build env
-#        run:
-#          pwd && uv venv build_venv --python python3.11 && source build_venv/bin/activate && uv pip install -r requirements.txt
-#      -
-#        name: Set up Docker Buildx
-#        uses: docker/setup-buildx-action@v3
-#      - name: Run ray docker build
-#        run:
-#          ./scripts/build_ray.sh
-#        env:
-#          BUILDX_CMD: "load"
-#          FHI_VERSION: "ci"
-#          PLATFORM: linux/amd64
-#          MYORG: "totallylegitco"
-
-#  build-docker-django-container:
-#    runs-on: ubuntu-latest
-#    strategy:
-#      fail-fast: false
-#    name: Build the docker django containers
-#    steps:
-#      -
-#        name: Checkout
-#        uses: actions/checkout@v4
-#      -
-#        # Add support for more platforms with QEMU (optional)
-#        # https://github.com/docker/setup-qemu-action
-#        name: Set up QEMU
-#        uses: docker/setup-qemu-action@v3
-#      -
-#        name: Set up Docker Buildx
-#        uses: docker/setup-buildx-action@v3
-#      - name: Install uv
-#        uses: astral-sh/setup-uv@v3
-#
-#      - name: Install dependencies
-#        run: uv tool install tox --with tox-uv
-#
-#
-#      - name: Install our build env
-#        run:
-#          pwd && uv venv build_venv --python python3.11 && source build_venv/bin/activate && uv pip install -r requirements.txt
-#
-#      - name: Run build the templates
-#        run:
-#          ./scripts/setup_templates.sh
-#      - name: Run django docker build
-#        run:
-#          ./scripts/build_django.sh
-#        env:
-#          BUILDX_CMD: "load"
-#          FHI_VERSION: "ci"
-#          PLATFORM: linux/amd64
-#          MYORG: "totallylegitco"
 
   tests-async:
     runs-on: ubuntu-latest
@@ -522,12 +427,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-#          - python: '3.11'
-#            toxpy: '311'
-#            django: '52'
-#          - python: '3.12'
-#            toxpy: '312'
-#            django: '52'
           - python: '3.13'
             toxpy: '313'
             django: '52'
@@ -570,7 +469,7 @@ jobs:
       - name: Install system level packages
         run: |
           mkdir -p ~/apt-archives/partial
-          (sudo apt-get update || echo "apt-get update failed, continuing with existing package lists...") && sudo apt-get install -y -o Dir::Cache::Archives="$HOME/apt-archives" tesseract-ocr texlive libgirepository1.0-dev pkg-config python3-dev
+          (sudo apt-get update || echo "apt-get update failed, continuing with existing package lists...") && sudo apt-get install -y -o Dir::Cache::Archives="$HOME/apt-archives" tesseract-ocr texlive pkg-config python3-dev
           # apt writes these as root; the cache step saves them as the runner
           sudo chown -R "$(id -u):$(id -g)" ~/apt-archives
 
@@ -609,8 +508,6 @@ jobs:
       - name: Run tests
         run: ENVIRONMENT=Test tox -e py${{ matrix.toxpy }}-django${{ matrix.django }}-async
         env:
-          FARTS: "farts"
-          GOOGLE_CLIENT_SECRETS_TEXT: ${{ secrets.GOOGLE_CLIENT_SECRETS_TEXT }}
           STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
           NOSTRIPE: true
 
@@ -622,12 +519,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-#          - python: '3.11'
-#            toxpy: '311'
-#            django: '52'
-#          - python: '3.12'
-#            toxpy: '312'
-#            django: '52'
           - python: '3.13'
             toxpy: '313'
             django: '52'
@@ -670,7 +561,7 @@ jobs:
       - name: Install system level packages
         run: |
           mkdir -p ~/apt-archives/partial
-          (sudo apt-get update || echo "apt-get update failed, continuing with existing package lists...") && sudo apt-get install -y -o Dir::Cache::Archives="$HOME/apt-archives" tesseract-ocr texlive libgirepository1.0-dev pkg-config python3-dev
+          (sudo apt-get update || echo "apt-get update failed, continuing with existing package lists...") && sudo apt-get install -y -o Dir::Cache::Archives="$HOME/apt-archives" tesseract-ocr texlive pkg-config python3-dev
           # apt writes these as root; the cache step saves them as the runner
           sudo chown -R "$(id -u):$(id -g)" ~/apt-archives
 
@@ -709,7 +600,5 @@ jobs:
       - name: Run tests
         run: ENVIRONMENT=Test tox -e py${{ matrix.toxpy }}-django${{ matrix.django }}-async-unit
         env:
-          FARTS: "farts"
-          GOOGLE_CLIENT_SECRETS_TEXT: ${{ secrets.GOOGLE_CLIENT_SECRETS_TEXT }}
           STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
           NOSTRIPE: true
