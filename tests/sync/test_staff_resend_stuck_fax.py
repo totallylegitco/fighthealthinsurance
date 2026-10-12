@@ -113,3 +113,23 @@ class ResendStuckFaxTest(TestCase):
             self.url, {"uuid": "00000000-0000-0000-0000-000000000000"}
         )
         assert r.status_code == 404
+
+    def test_sends_a_requested_fax_that_never_started(self):
+        """The staff page's "Requested, never sent" list posts here: a row
+        staging saved and marked paid, never attempted, no claim taken."""
+        requested = FaxesToSend.objects.create(
+            hashed_email="h",
+            denial_id=self.denial,
+            destination="15551234567",
+            paid=True,
+            should_send=False,
+        )
+        self._login()
+        with patch(
+            "fighthealthinsurance.temporal_client.start_send_fax_workflow"
+        ) as start:
+            start.return_value = f"send-fax-{requested.uuid}"
+            r = self.client.post(self.url, {"uuid": str(requested.uuid)})
+        assert r.status_code == 200, r.content
+        assert start.call_args.args == ("h", str(requested.uuid)), start.call_args
+        assert start.call_args.kwargs.get("force_restart") is True, start.call_args

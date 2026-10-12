@@ -266,6 +266,10 @@
           <div class="value">{{ fax_queue.due_now }}</div>
           <div class="label">Stuck (queued &gt;1h, never picked up)</div>
         </div>
+        <div class="stat-card {% if fax_queue.requested_never_sent %}stat-alert{% endif %}">
+          <div class="value">{{ fax_queue.requested_never_sent }}</div>
+          <div class="label">Requested, never sent (asked for over {{ fax_queue.requested_grace_minutes }} min ago, no send started)</div>
+        </div>
         <div class="stat-card {% if fax_queue.requested_unpicked %}stat-alert{% endif %}">
           <div class="value">{{ fax_queue.requested_unpicked }}</div>
           <div class="label">Professional send never picked up</div>
@@ -280,13 +284,40 @@
         </div>
         <div class="stat-card">
           <div class="value">{{ fax_queue.awaiting_confirmation }}</div>
-          <div class="label">Never confirmed by the user</div>
+          <div class="label">Never confirmed by the user (unpaid draft)</div>
         </div>
         <div class="stat-card {% if fax_queue.failures_recent %}stat-alert{% endif %}">
           <div class="value">{{ fax_queue.failures_recent }}</div>
           <div class="label">Failures (last 7 days)</div>
         </div>
       </div>
+      {% if fax_queue.requested_never_sent_rows %}
+      <p class="summary-line">Requested, never sent: the person pressed send (paying is optional, so some paid and some did not) and no send ever started. Newest {{ fax_queue.requested_never_sent_rows|length }} of {{ fax_queue.requested_never_sent }}. Check the age before sending: an old one may no longer be wanted.</p>
+      <table class="status">
+        <thead><tr><th>Fax</th><th>Requested</th><th>Fax number</th><th>Action</th></tr></thead>
+        <tbody>
+        {% for f in fax_queue.requested_never_sent_rows %}
+          <tr>
+            <td><code>{{ f.uuid }}</code></td>
+            <td>{{ f.date|date:"Y-m-d H:i" }} ({{ f.date|timesince }} ago)</td>
+            <td>{{ f.fax_number }}</td>
+            <td>
+              {% comment %} The same staff resend tool as the failure list
+                 below: POST only, and it refuses a fax already delivered. {% endcomment %}
+              <form method="post" action="{% url 'resend_stuck_fax' %}" style="margin:0">
+                {% csrf_token %}
+                <input type="hidden" name="uuid" value="{{ f.uuid }}">
+                <button type="submit"
+                        onclick="return confirm('Send this fax to the insurer now? It was never sent.');">
+                  Send now
+                </button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
     {% endif %}
   </div>
 

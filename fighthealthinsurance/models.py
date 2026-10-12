@@ -1884,6 +1884,8 @@ class FaxesToSend(ExportModelOperationsMixin("FaxesToSend"), models.Model):  # t
     fax_id = models.AutoField(primary_key=True)
     hashed_email = models.CharField(max_length=300, primary_key=False)
     date = models.DateTimeField(auto_now=False, auto_now_add=True)
+    # True once the person asks to send, paid or not (paying is optional);
+    # the staff fax queue reads it as "asked to send".
     paid = models.BooleanField()
     email = models.CharField(max_length=300)
     name = models.CharField(max_length=300, null=True, blank=True)
