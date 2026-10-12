@@ -64,15 +64,6 @@ urlpatterns = [
         rest_views.streaming_appeals_rest_fallback,
         name="streaming_appeals_fallback",
     ),
-    path("check_storage", rest_views.CheckStorage.as_view(), name="check_storage"),
-    path(
-        "external_review_wizard",
-        rest_views.ExternalReviewWizardView.as_view(),
-        name="external_review_wizard",
-    ),
-    path(
-        "check_ml_backend", rest_views.CheckMlBackend.as_view(), name="check_ml_backend"
-    ),
     path(
         "live_models_status",
         rest_views.LiveModelsStatus.as_view(),

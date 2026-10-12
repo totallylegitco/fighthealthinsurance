@@ -1006,9 +1006,9 @@ class Dev(Base):
     # Base points the external storage at /external_data, which only exists
     # inside the container images that create it (see k8s/Dockerfile) or where
     # the shared PVC is mounted. On a dev machine that path is absent, so
-    # listing it -- the staff status page's storage check and the
-    # check_storage REST endpoint both do -- raised FileNotFoundError, and
-    # every CombinedStorage save silently failed for that backend. Point dev at
+    # listing it -- the staff status page's storage check does -- raised
+    # FileNotFoundError, and every CombinedStorage save silently failed for
+    # that backend. Point dev at
     # gitignored directories inside the repo and create them on first use.
     # The defaults are their own constants so the fallback stays assertable
     # without depending on the ambient environment (tox runs with passenv = *,

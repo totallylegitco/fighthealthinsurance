@@ -3,8 +3,8 @@
 Base points EXTERNAL_STORAGE at ``/external_data``, which only exists inside
 the container images that create it (k8s/Dockerfile) or where the shared PVC
 is mounted. Pointing dev at it meant every listing (the staff status page's
-storage check, the check_storage REST endpoint) raised FileNotFoundError and
-every CombinedStorage save silently dropped that backend.
+storage check) raised FileNotFoundError and every CombinedStorage save
+silently dropped that backend.
 """
 
 import os
