@@ -68,7 +68,7 @@ python manage.py loaddata initial followup plan_source insurance_companies pa_re
 ### User System
 - `fhi_users/models.py` defines PatientUser and ProfessionalUser
 - UserDomain provides multi-tenant support for healthcare professionals
-- 2FA/MFA support via django-mfa2 and django-two-factor-auth
+- 2FA/MFA support via django-mfa2
 
 ### Async Processing
 - Ray actors (`*_actor.py`) for distributed background tasks

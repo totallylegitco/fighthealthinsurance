@@ -14,8 +14,7 @@ from the repository root unless a block says otherwise.
   `fighthealthinsurance/static/js/package.json`). The static build runs
   `npm run build`, and `run_local.sh` stops if it fails.
 - **tesseract-ocr**, for OCR of uploaded denial letters.
-- **texlive and pandoc**, for PDF generation. The `pandoc` package in
-  `requirements.txt` is a Python wrapper and does not include the binary.
+- **texlive and pandoc**, for PDF generation.
 - **mkcert**, for the dev server's HTTPS certificate.
 - **git**, for the `git+https` entries in `requirements.txt`, and optionally
   **git-lfs** for a few logo images (`.gitattributes`). Without git-lfs the

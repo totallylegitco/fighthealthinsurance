@@ -98,8 +98,8 @@ fi
 if ! tox --notest -p auto --parallel-no-spinner -e "$TOX_ENVS"; then
   echo "ERROR: tox environment build failed." >&2
   echo "If the failure above is a 'git clone ... 403' for one of the" >&2
-  echo "git+https dependencies in requirements.txt (static-thumbnails," >&2
-  echo "django-cookie-consent, django-encrypted-model-fields, llm-result-utils)," >&2
+  echo "git+https dependencies in requirements.txt (django-cookie-consent," >&2
+  echo "django-encrypted-model-fields, llm-result-utils)," >&2
   echo "this environment's network policy is blocking GitHub egress for those" >&2
   echo "repos. Grant the web environment access to them (or vendor them)." >&2
   exit 1

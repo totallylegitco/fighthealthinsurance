@@ -501,7 +501,6 @@ class Base(Configuration):
 
     LOGIN_URL = "login"
     LOGIN_REDIRECT_URL = "/"
-    THUMBNAIL_DEBUG = True
     DEFF_FETCH_URL_NAME = "fake_fetch_url"
     STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
     SECURE_TOKEN_ROLLOUT_AT = datetime.datetime(2026, 5, 4, tzinfo=datetime.UTC)
@@ -665,14 +664,10 @@ class Base(Configuration):
         "fighthealthinsurance",
         "fhi_users",
         "charts",
-        "easy_thumbnails",
         "cookie_consent",
         "compressor",
-        "compressor_toolkit",
         "django_extensions",
         "django_tables2",
-        "static_thumbnails",
-        "memoize",
         "django_recaptcha",
         "rest_framework",
         "mfa",
@@ -682,11 +677,6 @@ class Base(Configuration):
         "corsheaders",
     ]
 
-    COMPRESS_JS_FILTERS = [
-        "compressor.filters.jsmin.JSMinFilter",
-        "compressor.filters.yuglify.YUglifyJSFilter",
-    ]
-
     STATICFILES_FINDERS = (
         "django.contrib.staticfiles.finders.FileSystemFinder",
         "django.contrib.staticfiles.finders.AppDirectoriesFinder",
@@ -694,12 +684,6 @@ class Base(Configuration):
     )
     COMPRESS_ENABLED = True
     COMPRESS_OFFLINE = False
-    COMPRESS_YUGLIFY_BINARY = "yuglify"
-    COMPRESS_YUGLIFY_JS_ARGUMENTS = "--mangle"
-    COMPRESS_PRECOMPILERS = (
-        ("module", "compressor_toolkit.precompilers.ES6Compiler"),
-        ("css", "compressor_toolkit.precompilers.SCSSCompiler"),
-    )
 
     MIDDLEWARE = [
         # First, so every request is stamped with the thread its cleanup
@@ -717,7 +701,6 @@ class Base(Configuration):
         "django.contrib.messages.middleware.MessageMiddleware",
         "django.middleware.clickjacking.XFrameOptionsMiddleware",
         "cookie_consent.middleware.CleanCookiesMiddleware",
-        "django_user_agents.middleware.UserAgentMiddleware",
         "django.middleware.common.CommonMiddleware",
         "django.middleware.csrf.CsrfViewMiddleware",
         "django.middleware.security.SecurityMiddleware",
