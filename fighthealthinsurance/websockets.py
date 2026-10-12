@@ -31,6 +31,7 @@ from fhi_users.audit import (
     extract_tracking_info_from_scope,
     guess_us_state,
 )
+from fhi_users.fight_paperwork import fight_paperwork_enabled
 from fighthealthinsurance.chat.turn_record import arecord_answer_preference
 from fighthealthinsurance.ml import llm_usage
 from fighthealthinsurance.ml.ml_metrics import record_answer_feedback
@@ -1207,6 +1208,11 @@ class PriorAuthConsumer(
 
     async def connect(self):
         logger.debug("prior-auth ws: connect")
+        if not fight_paperwork_enabled():
+            # Closing before accept refuses the handshake.
+            logger.info("Refused Fight Paperwork websocket /ws/prior-auth/")
+            await self.close()
+            return
         await self.accept()
 
     async def disconnect(self, close_code):
@@ -1366,6 +1372,10 @@ class PriorAuthConsumer(
         return prior_auth
 
 
+# Fight Paperwork's chat types; FHI's chats are patient chats.
+_FIGHT_PAPERWORK_CHAT_TYPES = (ChatType.PROFESSIONAL, ChatType.TRIAL_PROFESSIONAL)
+
+
 async def resolve_chat_type(
     user,
     is_authenticated: bool,
@@ -1377,10 +1387,14 @@ async def resolve_chat_type(
     For anonymous users, checks ChatLeads to distinguish trial professionals from patients.
     Leads with a non-empty drug field are treated as patients (drug-specific leads).
     For authenticated users, always checks ProfessionalUser regardless of client payload.
+    While FIGHT_PAPERWORK_ENABLED is off, every chat is a patient chat.
 
     Returns:
         (chat_type, professional_user) tuple.
     """
+    if not fight_paperwork_enabled():
+        return ChatType.PATIENT, None
+
     if not is_authenticated:
         if session_key:
             lead = (
@@ -1985,6 +1999,13 @@ class OngoingChatConsumer(
                 if chat.user_id and (not user or chat.user_id != user.pk):
                     miss_reason = "user mismatch"
                     raise OngoingChat.DoesNotExist("User mismatch")
+                # A Fight Paperwork chat starts fresh: the reconcile would retype it.
+                if (
+                    chat.chat_type in _FIGHT_PAPERWORK_CHAT_TYPES
+                    and not fight_paperwork_enabled()
+                ):
+                    miss_reason = "Fight Paperwork chat"
+                    raise OngoingChat.DoesNotExist("Fight Paperwork chat")
 
                 # Reconcile resolved identity with stored values so
                 # ChatInterface always sees up-to-date audience flags.

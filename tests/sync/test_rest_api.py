@@ -73,6 +73,7 @@ def assert_letter_like(content: str) -> None:
     ), f"Appeal should open like a letter (salutation or letterhead): {stripped[:200]!r}"
 
 
+@override_settings(FIGHT_PAPERWORK_ENABLED=True)
 class DenialLongEmployerName(APITestCase):
     """Test denial with long employer name."""
 
@@ -146,6 +147,7 @@ from typing import Dict, Any
 from django.http import JsonResponse
 
 
+@override_settings(FIGHT_PAPERWORK_ENABLED=True)
 class DenialEndToEnd(APITestCase):
     """Test end to end, we need to load the initial fixtures so we have denial types."""
 
@@ -1091,6 +1093,7 @@ class NotifyPatientTest(APITestCase):
         self.assertEqual(len(mail.outbox), 0)
 
 
+@override_settings(FIGHT_PAPERWORK_ENABLED=True)
 class SendFaxTest(APITestCase):
     """Test the send_fax API endpoint."""
 
@@ -1425,6 +1428,7 @@ class InviteProviderTest(APITestCase):
         self.assertEqual(len(mail.outbox), 0)
 
 
+@override_settings(FIGHT_PAPERWORK_ENABLED=True)
 class StatisticsTest(APITestCase):
     """Test the statistics API endpoints."""
 
@@ -1696,6 +1700,7 @@ class StatisticsTest(APITestCase):
         self.assertEqual(int(data["success_rate"]), 33)
 
 
+@override_settings(FIGHT_PAPERWORK_ENABLED=True)
 class GetFullDetailsTest(APITestCase):
     """Test the get_full_details action of AppealViewSet."""
 
@@ -1870,6 +1875,7 @@ class GetFullDetailsTest(APITestCase):
 from typing import Any, Dict
 
 
+@override_settings(FIGHT_PAPERWORK_ENABLED=True)
 class DenialCreateWithExistingId(APITestCase):
     """Test creating a denial with an existing denial id."""
 
@@ -2023,6 +2029,7 @@ class DuplicateUserDomainTest(APITestCase):
         self.assertEqual(domains_with_same_name, 1)
 
 
+@override_settings(FIGHT_PAPERWORK_ENABLED=True)
 class InterestedProfessionalEndpointTest(APITestCase):
     """The interested_professional REST endpoint records a professional-interest
     lead (the FPW counterpart to the web /pro_version form) and notifies the

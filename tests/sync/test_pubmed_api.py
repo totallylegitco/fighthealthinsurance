@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from django.test import TestCase, TransactionTestCase
+from django.test import TestCase, TransactionTestCase, override_settings
 from asgiref.sync import async_to_sync, sync_to_async
 
 from rest_framework import status
@@ -35,6 +35,7 @@ else:
     User = get_user_model()
 
 
+@override_settings(FIGHT_PAPERWORK_ENABLED=True)
 class PubmedApiTest(APITestCase):
     """Test the PubMed article API endpoints."""
 

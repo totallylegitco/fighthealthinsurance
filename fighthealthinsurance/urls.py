@@ -30,6 +30,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.generic.base import RedirectView
 
+from fhi_users.fight_paperwork import fight_paperwork_only
 from fighthealthinsurance import (
     agent_docs,
     assistant_handoff_views,
@@ -289,10 +290,10 @@ urlpatterns: List[Union[URLPattern, URLResolver]] = [
         fax_views.FaxPaymentCancelledView.as_view(),
         name="fax_payment_cancelled",
     ),
-    # View an appeal
+    # Fight Paperwork's appeal PDF; FHI builds the letter PDF in the browser.
     path(
         "v0/appeal/<uuid:appeal_uuid>/appeal.pdf",
-        views.AppealFileView.as_view(),
+        fight_paperwork_only(views.AppealFileView.as_view()),
         name="appeal_file_view",
     ),
     path(

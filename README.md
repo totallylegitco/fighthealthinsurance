@@ -19,9 +19,11 @@ explore [patient and market access partnerships](https://www.fighthealthinsuranc
 and reach us for more information from the
 [partner section of the Join the Fight page](https://www.fighthealthinsurance.com/how-to-help#providers).
 
-For development: the professional account endpoints are off in every
-configuration, `Dev` included. Set `FIGHT_PAPERWORK_ENABLED=1` to turn them on
-locally (`FIGHT_PAPERWORK_ENABLED` in `fighthealthinsurance/settings.py`).
+For development: Fight Paperwork's routes (the professional account
+endpoints, its sign-in pages and REST routes, the appeal PDF route, the prior
+auth websocket and professional chats) are off in every configuration, `Dev`
+included. Set `FIGHT_PAPERWORK_ENABLED=1` to turn them on locally
+(`FIGHT_PAPERWORK_ENABLED` in `fighthealthinsurance/settings.py`).
 
 ## For AI agents and new contributors
 

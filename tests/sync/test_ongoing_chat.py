@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, patch
 from channels.testing import WebsocketCommunicator
 
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 
 from rest_framework.test import APITestCase
 
@@ -615,6 +616,7 @@ class OngoingChatWebSocketTest(APITestCase):
         # Clean up
         await self.asyncTearDown()
 
+    @override_settings(FIGHT_PAPERWORK_ENABLED=True)
     async def test_appeal_url_generation_in_response(self):
         """Test that URLs in responses for appeals are properly formatted with the domain."""
         await self.asyncSetUp()
@@ -675,6 +677,7 @@ class OngoingChatWebSocketTest(APITestCase):
             await communicator.disconnect()
         await self.asyncTearDown()
 
+    @override_settings(FIGHT_PAPERWORK_ENABLED=True)
     async def test_prior_auth_url_generation_in_response(self):
         """Test that URLs in responses for prior auths are properly formatted with the domain."""
         await self.asyncSetUp()

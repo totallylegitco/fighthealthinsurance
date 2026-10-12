@@ -6,6 +6,7 @@ from datetime import datetime
 from unittest.mock import patch, MagicMock
 from django.urls import reverse
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -19,6 +20,7 @@ from fighthealthinsurance.ml.ml_router import ml_router
 User = get_user_model()
 
 
+@override_settings(FIGHT_PAPERWORK_ENABLED=True)
 class _ExtractionTestCase(APITestCase):
     """A logged-in professional and a sample of PDF text."""
 
