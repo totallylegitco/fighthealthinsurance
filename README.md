@@ -229,7 +229,7 @@ dev database (both gitignored). Edit `fighthealthinsurance/static/`, not
 
 | Pages | Built with |
 | --- | --- |
-| `/chat` | React (`chat_interface.tsx`, `VoiceIntake.tsx`) with Mantine |
+| `/chat` | React (`chat_interface.tsx`) with Mantine |
 | `/chooser/` | React (`chooser.tsx`) with Mantine |
 | `/blog/`, blog posts, FAQ posts | React (`blog.tsx`, `blog_post.tsx`) |
 | Everything else, including the appeal flow | Django templates in `fighthealthinsurance/templates/`. Some load a plain TypeScript bundle, for example `appeal.ts`, `scrub.ts`, `entity_fetcher.ts`. |
@@ -422,7 +422,6 @@ and how to update it: [docs/geoip.md](docs/geoip.md).
 | [k8s/db-host-configurability.md](k8s/db-host-configurability.md) | How the production database host is configured |
 | [tests/temporal/histories/README.md](tests/temporal/histories/README.md) | Recorded workflow histories replayed by the tests |
 | [fighthealthinsurance/denials/README.md](fighthealthinsurance/denials/README.md) | The algorithmic-review detector |
-| [fighthealthinsurance/static/js/VOICE_INTAKE_NOTES.md](fighthealthinsurance/static/js/VOICE_INTAKE_NOTES.md) | Voice intake |
 
 ## Contributing
 
