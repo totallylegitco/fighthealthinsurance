@@ -256,6 +256,24 @@ def _sequence_value(model, column: str) -> Optional[int]:
     return None
 
 
+# Staging starts a send within seconds, so a request this old with no
+# attempt never started sending.
+REQUESTED_SEND_GRACE = datetime.timedelta(minutes=15)
+# How many of those the fax queue lists.
+REQUESTED_UNSENT_LISTED = 10
+
+
+def _masked_fax_number(destination: Optional[str]) -> str:
+    """The last four digits of a fax number, or that there is none: enough
+    to tell faxes apart and to see one the resend tool would refuse."""
+    digits = "".join(ch for ch in (destination or "") if ch.isdigit())
+    if not digits:
+        return "none on file"
+    if len(digits) <= 4:
+        return "on file"
+    return f"ending {digits[-4:]}"
+
+
 class AdminStatusView(generic.TemplateView):
     """Staff system-status dashboard.
 
@@ -544,13 +562,16 @@ class AdminStatusView(generic.TemplateView):
           not yet sent. The sender picks these up.
         * ``due_now``: the subset older than an hour. A non-zero value here is
           a STUCK fax -- the sender should already have taken it.
-        * ``awaiting_confirmation``: consumer rows never confirmed and never
-          attempted. Mostly drafts whose user never clicked send in the
-          confirmation email (they accumulate for months), but the consumer
-          appeal-staging path also creates paid rows before dispatching, so
-          a dispatch that fails there lands here too; the label does not
-          call this bucket "not actionable" (review). Telling those two apart
-          needs a send-intent flag on the row: follow-up, not this change.
+        * ``awaiting_confirmation``: unpaid consumer drafts, never confirmed
+          and never attempted. Staging (fax_helpers.stage_appeal_as_fax)
+          marks every fax it saves ``paid``, so these are rows saved before
+          payment that nobody went on to send.
+        * ``requested_never_sent``: a consumer asked to send (staging set
+          ``paid`` whether or not they then paid; paying is optional) and no
+          send started within REQUESTED_SEND_GRACE. Staging dispatches at
+          once, so this is a dispatch that failed or never ran, and nothing
+          else retries it. A younger row is still starting and shows on no
+          card. ``requested_never_sent_rows`` lists the newest of them.
         * ``in_flight``: an attempt started in the last two hours that has not
           finished. Unbounded, this counter showed rows from January whose
           ``attempting_to_send_as_of`` was never cleared (2026-09-11).
@@ -570,9 +591,9 @@ class AdminStatusView(generic.TemplateView):
         ``due_now`` counts only rows the sender never touched (no attempt
         timestamp): an attempted leftover is a stale attempt, not "not
         taken", so one fax never lights two red cards. ``awaiting_confirmation``
-        excludes anything ever attempted and anything professional. All the
-        buckets come from ONE aggregate query so a row that moves bucket
-        mid-refresh cannot be counted in two (review).
+        excludes anything ever attempted, anything professional and anything
+        requested. All the buckets come from ONE aggregate query so a row
+        that moves bucket mid-refresh cannot be counted in two (review).
         """
         out: Dict[str, Any] = {"ok": True, "error": None}
         try:
@@ -587,6 +608,12 @@ class AdminStatusView(generic.TemplateView):
             never_attempted = Q(attempting_to_send_as_of__isnull=True)
             live_attempt = Q(attempting_to_send_as_of__gte=two_hours_ago)
             stale_attempt = Q(attempting_to_send_as_of__lt=two_hours_ago)
+            requested_never_sent = (
+                unsent
+                & never_attempted
+                & Q(should_send=False, professional=False, paid=True)
+                & Q(date__lt=now - REQUESTED_SEND_GRACE)
+            )
             counts = FaxesToSend.objects.aggregate(
                 unsent_total=Count("fax_id", filter=unsent),
                 ready_queued=Count("fax_id", filter=unsent & Q(should_send=True)),
@@ -600,8 +627,9 @@ class AdminStatusView(generic.TemplateView):
                     "fax_id",
                     filter=unsent
                     & never_attempted
-                    & Q(should_send=False, professional=False),
+                    & Q(should_send=False, professional=False, paid=False),
                 ),
+                requested_never_sent=Count("fax_id", filter=requested_never_sent),
                 requested_unpicked=Count(
                     "fax_id",
                     filter=unsent
@@ -625,6 +653,23 @@ class AdminStatusView(generic.TemplateView):
                 ),
             )
             out.update(counts)
+            out["requested_grace_minutes"] = int(
+                REQUESTED_SEND_GRACE.total_seconds() // 60
+            )
+            # Only these three columns: never the letter, the email or the name.
+            listed = (
+                FaxesToSend.objects.filter(requested_never_sent)
+                .order_by("-date")
+                .values("uuid", "date", "destination")[:REQUESTED_UNSENT_LISTED]
+            )
+            out["requested_never_sent_rows"] = [
+                {
+                    "uuid": str(row["uuid"]),
+                    "date": row["date"],
+                    "fax_number": _masked_fax_number(row["destination"]),
+                }
+                for row in listed
+            ]
         except Exception as e:
             logger.opt(exception=True).error("Error computing fax queue status")
             out["ok"] = False
@@ -1312,9 +1357,7 @@ class ResendStuckFaxView(View):
     """
 
     def post(self, request):
-        from asgiref.sync import async_to_sync
-
-        from fighthealthinsurance import temporal_client
+        from fighthealthinsurance.helpers.fax_helpers import _dispatch_or_ray_fax
         from fighthealthinsurance.models import FaxesToSend
 
         fax_uuid = (request.POST.get("uuid") or "").strip()
@@ -1349,16 +1392,16 @@ class ResendStuckFaxView(View):
             # for: the workflow id is deterministic per fax, so a failed send
             # whose run is still open would raise WorkflowAlreadyStartedError
             # and this recovery endpoint would answer 502 for the one case it
-            # exists to handle (external review).
-            workflow_id = async_to_sync(temporal_client.start_send_fax_workflow)(
-                fax.hashed_email, str(fax.uuid), force_restart=True
-            )
+            # exists to handle (external review). The same Temporal-else-Ray
+            # switch as staging, so a fax whose first dispatch failed can be
+            # sent with Temporal off or down.
+            _dispatch_or_ray_fax(fax.hashed_email, str(fax.uuid), force_restart=True)
         except Exception as e:
             logger.opt(exception=True).error(
-                f"Staff resend failed to start workflow for fax uuid={fax.uuid}"
+                f"Staff resend failed to start a send for fax uuid={fax.uuid}"
             )
             return HttpResponse(f"Could not start send: {e}", status=502)
-        return HttpResponse(f"Resend started: {workflow_id}")
+        return HttpResponse("Resend started")
 
 
 class ScheduleFollowUps(View):
