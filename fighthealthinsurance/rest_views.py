@@ -1,11 +1,9 @@
 import asyncio
-import datetime
 import json
 import random
 import typing
 from typing import Optional
 
-from django.conf import settings
 from django.core.exceptions import SuspiciousFileOperation
 from django.db import IntegrityError, models
 from django.db.models import Count, Q
@@ -32,7 +30,6 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from stopit import ThreadingTimeout as Timeout
 
 from fhi_users.auth import auth_utils
 from fhi_users.models import PatientUser, ProfessionalUser, UserDomain
@@ -42,10 +39,6 @@ from fighthealthinsurance import (
     rest_serializers as serializers,
 )
 from fighthealthinsurance.denial_context import merge_qa
-from fighthealthinsurance.external_review import (
-    generate_external_review_packet,
-    schedule_external_review_followups,
-)
 from fighthealthinsurance.helpers.fax_helpers import SendFaxHelper
 from fighthealthinsurance.log_redaction import session_key_prefix_for_log
 from fighthealthinsurance.ml import llm_usage
@@ -950,84 +943,12 @@ def streaming_appeals_rest_fallback(request: Request):
     return response
 
 
-class ExternalReviewWizardView(APIView):
-    permission_classes = [AllowAny]
-    authentication_classes = []
-
-    def post(self, request: Request) -> Response:
-        denial_id = request.data.get("denial_id")
-        email = request.data.get("email")
-        semi_sekret = request.data.get("semi_sekret")
-        if not denial_id or not email or not semi_sekret:
-            return Response(
-                {"error": "denial_id, email, and semi_sekret required"}, status=400
-            )
-
-        hashed_email = Denial.get_hashed_email(email)
-        denial = get_object_or_404(
-            Denial,
-            denial_id=denial_id,
-            semi_sekret=semi_sekret,
-            hashed_email=hashed_email,
-        )
-        payload = {
-            "state": request.data.get("state"),
-            "plan_type": request.data.get("plan_type"),
-            "denial_type": request.data.get("denial_type"),
-            "appeal_denial_date": request.data.get("appeal_denial_date"),
-            "urgent": request.data.get("urgent"),
-        }
-        packet = generate_external_review_packet(denial, payload)
-
-        deadline_date = timezone.now().date() + datetime.timedelta(days=120)
-        schedule_external_review_followups(denial, email, deadline_date)
-
-        return Response(
-            {
-                "wizard": {
-                    "steps": [
-                        "upload final internal denial",
-                        "confirm state",
-                        "confirm plan type",
-                        "confirm urgent medical risk",
-                        "collect provider letter/supporting docs",
-                        "generate checklist and cover letter",
-                    ]
-                },
-                "packet": packet,
-            }
-        )
-
-
 class Ping(APIView):
     """Simple health check endpoint that returns 204 No Content."""
 
     @extend_schema(responses=serializers.StatusResponseSerializer)
     def get(self, request: Request) -> Response:
         return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-class CheckStorage(APIView):
-    """Health check endpoint that verifies external storage is accessible."""
-
-    @extend_schema(responses=serializers.StatusResponseSerializer)
-    def get(self, request: Request) -> Response:
-        es = settings.EXTERNAL_STORAGE
-        with Timeout(2.0):
-            es.listdir("./")
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        return Response(status=status.HTTP_503_SERVICE_UNAVAILABLE)
-
-
-class CheckMlBackend(APIView):
-    """Health check endpoint that verifies ML backend models are operational."""
-
-    @extend_schema(responses=serializers.StatusResponseSerializer)
-    def get(self, request: Request) -> Response:
-        if ml_router.working():
-            return Response(status=status.HTTP_204_NO_CONTENT)
-
-        return Response(status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
 class LiveModelsStatus(APIView):

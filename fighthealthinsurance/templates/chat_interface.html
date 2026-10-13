@@ -15,8 +15,6 @@
      data-default-condition="{{ default_condition|default:'' }}" 
      data-microsite-slug="{{ microsite_slug|default:'' }}"
      data-medicare="{{ medicare|default:'' }}"
-     data-initial-message="{{ initial_message|default:''|escapejs }}"
-     data-enable-voice-intake="{{ enable_voice_intake|yesno:'true,false' }}"
-     data-enable-local-stt="{{ enable_local_stt|yesno:'true,false' }}"></div>
+     data-initial-message="{{ initial_message|default:''|escapejs }}"></div>
 <script src="{% bundle 'chat_interface' %}"></script>
 {% endblock %}
