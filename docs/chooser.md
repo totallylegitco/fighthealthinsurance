@@ -13,7 +13,11 @@ appeal flow, and rank the model backends against each other.
   *evidence on file* (PubMed articles, with links). For a chat task: the
   conversation and the question the drafts answer.
 - **The drafts**, blind. The API sends no model name, synthesized flag or
-  metadata (`ChooserCandidateSerializer`), and the drafts are served in random
+  metadata (`ChooserCandidateSerializer`), and no row id or
+  `candidate_index` either: both run in generation order (internal model
+  first, synthesized last). Each draft goes out as an opaque token
+  (`chooser_tokens.candidate_token`, the id encrypted with a fresh nonce)
+  that the vote endpoint resolves back, and the drafts are served in random
   order, so a vote is for the letter, not the brand.
 - **House rules.** Pick the draft you would send; a draft that invents a
   study, a law, a test result, a date or a history that is not in the case is
@@ -28,8 +32,8 @@ appeal flow, and rank the model backends against each other.
 
 1. **Seed pair.** When `CHOOSER_SEED_FROM_RANKINGS` is on (default) the
    scenario is built around a real `(treatment, condition)` pair from
-   `condition_rankings.seed_pairs()`: pairs on at least k distinct denials,
-   both terms vouched for by a medical vocabulary (see below). The pool
+   `condition_rankings.seed_pairs()`: pairs entered by at least k different
+   people, both terms vouched for by a medical vocabulary (see below). The pool
    being empty (no refresh has run yet) falls back to the old behaviour,
    where the writer model invents the pair.
 2. **Scenario.** A general-purpose backend writes the insurer, the denial
@@ -54,7 +58,9 @@ appeal flow, and rank the model backends against each other.
 The public page shows two things, both safe to publish:
 
 - **Model rankings**: `ChooserVote` rows on tasks whose `source` is
-  `synthetic`, and nothing else. Win rate is votes won over votes shown in;
+  `synthetic`, cast since blind voting began (`public_rankings.blind_since`:
+  when migration 0240 was applied, or `PUBLIC_RANKINGS_SINCE`), and nothing
+  else. Win rate is votes won over votes shown in;
   "caught making things up" is flags over votes shown in. Models with fewer
   than `PUBLIC_RANKINGS_MIN_SHOWN` votes are listed as warming up. Real
   patients' picks, call logs, chat turns and session counts stay on the
@@ -66,9 +72,11 @@ The public page shows two things, both safe to publish:
      account (`TEST_ACCOUNT_EMAILS`);
   2. is shaped like a medical term (`looks_like_medical_term`: no digit
      runs, no pronouns, no addresses, no non-answers like "see attached");
-  3. appears on at least `CONDITION_RANKING_MIN_DENIALS` (default 5)
-     distinct denials. A term below that threshold is never shown, never
-     seeded into a case, and never sent to an outside service;
+  3. was entered by at least `CONDITION_RANKING_MIN_PEOPLE` (default 5)
+     different people, counted by distinct hashed email after
+     normalization, so one person filing a case five times, or spelling a
+     term five ways, counts once. A term below that threshold is never
+     shown, never seeded into a case, and never sent to an outside service;
   4. is vouched for by a vocabulary: the microsite list in the repo, RxNorm
      for drug-shaped treatments, then NCBI (a MeSH lookup, and for compound
      phrases a quoted title/abstract search with at least
@@ -94,7 +102,7 @@ data for embedding.
 | `CHOOSER_EVIDENCE_LIMIT` | `5` | Articles attached to a scenario |
 | `CHOOSER_PUBMED_LIVE_SEARCH` | `True` (`False` in tests) | Search PubMed when nothing is cached for the pair |
 | `CHOOSER_PUBMED_SEARCH_TIMEOUT` | `20.0` | Seconds a live search may take |
-| `CONDITION_RANKING_MIN_DENIALS` | `5` | The k in k-anonymity |
+| `CONDITION_RANKING_MIN_PEOPLE` | `5` | The k in k-anonymity: different people per term |
 | `CONDITION_RANKING_LOOKUP_BUDGET` | `30` | Outside lookups per refresh |
 | `CONDITION_RANKING_RECHECK_DAYS` | `365` | When a stored verdict is asked again |
 | `CONDITION_RANKING_MIN_PUBMED_HITS` | `20` | Hits a quoted phrase needs in PubMed |
@@ -102,6 +110,7 @@ data for embedding.
 | `CONDITION_RANKING_LIMIT` | `25` | Rows per list on the public page |
 | `PUBLIC_RANKINGS_CACHE_SECONDS` | `900` | How long the page's numbers are cached |
 | `PUBLIC_RANKINGS_MIN_SHOWN` | `10` | Votes before a model is ranked rather than warming up |
+| `PUBLIC_RANKINGS_SINCE` | migration 0240's applied time | Earliest vote the public page counts; `""` counts all |
 
 ## Exports
 

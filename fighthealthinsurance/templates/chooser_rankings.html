@@ -13,7 +13,7 @@
             <strong>All synthetic, all aggregate.</strong> Every vote below was cast in the
             <a href="{% url 'chooser' %}">Appeal Arena</a> on a made-up case. The condition and
             treatment lists are counts across many people's appeals, shown only for terms that
-            appear on at least {{ data.k_anonymity }} separate cases and that a medical vocabulary
+            at least {{ data.k_anonymity }} different people entered and that a medical vocabulary
             recognizes. Nothing on this page comes from any one person's case.
         </div>
 
@@ -23,6 +23,9 @@
             <div class="fhi-card arena-total"><div class="arena-total-number">{{ data.totals.tasks_ready }}</div><div class="fhi-hint">cases waiting for a referee</div></div>
         </div>
 
+        {% if data.blind_since %}
+        <p class="fhi-hint">Counting votes cast since {{ data.blind_since|slice:":10" }}, when blind voting began. Earlier votes, cast when the API still named the model, are left out.</p>
+        {% endif %}
         {% for w in data.windows %}
         <section id="window-{{ w.slug }}">
             <h2>Model rankings &middot; {{ w.label }}</h2>
@@ -62,7 +65,7 @@
 
         <section id="conditions">
             <h2>What people are fighting over</h2>
-            <p class="fhi-hint">The conditions and treatments named most often on appeals, counted across everyone who used the site. Counts are rounded down to the nearest {{ data.k_anonymity }}.</p>
+            <p class="fhi-hint">The conditions and treatments named most often on appeals: how many different people named each, counted across everyone who used the site and rounded down to the nearest {{ data.k_anonymity }}.</p>
             <div class="arena-columns">
                 <div>
                     <h3>Conditions</h3>
@@ -106,7 +109,7 @@
         <section id="how">
             <h2>How this is counted</h2>
             <ul>
-                <li><strong>Win rate</strong> is votes a model's draft won over votes it was shown in. Drafts are shown blind, in random order, so a vote is for the letter, not the brand.</li>
+                <li><strong>Win rate</strong> is votes a model's draft won over votes it was shown in. Drafts are shown blind (the page gets opaque references, never a model name or a stored order), in random order, so a vote is for the letter, not the brand. Only votes cast since blind voting began count.</li>
                 <li><strong>Caught making things up</strong> is how often a referee flagged the draft for inventing a study, a law, a test result, a date or a history that was not in the case. A draft can be flagged and still lose honestly; a flagged draft can never be the vote.</li>
                 <li><strong>Warming up</strong> marks a model with fewer than {{ data.min_shown }} votes; its rates are listed but not ranked against the rest.</li>
                 <li><strong>Cases are synthetic.</strong> Each one is written by a model about a real condition and treatment pair, with made-up facts and the published evidence already on file for that pair. No real patient's letter is ever shown.</li>

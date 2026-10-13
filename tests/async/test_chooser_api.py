@@ -11,6 +11,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from fhi_users.models import ExtraUserProperties, ProfessionalUser, UserDomain
+from fighthealthinsurance.chooser_tokens import candidate_token, resolve_candidate
 from fighthealthinsurance.models import (
     ChooserCandidate,
     ChooserSkip,
@@ -220,15 +221,16 @@ class ChooserNextTaskAPITest(APITestCase):
         self.assertEqual(data["task_type"], "appeal")
         self.assertEqual(len(data["candidates"]), 2)
         self.assertEqual(data["task_context"]["procedure"], "Physical Therapy")
-        self.assertEqual(
-            set(data["candidates"][0]), {"id", "candidate_index", "kind", "content"}
-        )
+        self.assertEqual(set(data["candidates"][0]), {"id", "kind", "content"})
 
     def test_next_task_is_blind_to_the_author(self):
-        """The payload names no model and carries no synthesized flag or
-        metadata: a voter who opens the network tab must not be able to vote
-        for a brand. Authorship is joined back in when the votes are counted."""
-        ChooserCandidate.objects.create(
+        """The payload names no model and carries no synthesized flag,
+        metadata, row id or candidate_index: the last two run in generation
+        order (internal first, synthesized last), so a voter who opened the
+        network tab could tell the drafts apart by them. Each draft goes out
+        as an opaque token instead. Authorship is joined back in when the
+        votes are counted."""
+        synthesized = ChooserCandidate.objects.create(
             task=self.task,
             candidate_index=2,
             kind="appeal_letter",
@@ -237,9 +239,40 @@ class ChooserNextTaskAPITest(APITestCase):
             content="A blend of the other drafts into one letter.",
             metadata={"source": "synthetic", "synthesized": True},
         )
-        body = self.client.get(reverse("chooser-next-appeal")).content.decode()
-        for leak in ("model_name", "synthesized", "metadata", "model-a", "model-b"):
+        response = self.client.get(reverse("chooser-next-appeal"))
+        body = response.content.decode()
+        for leak in (
+            "model_name",
+            "synthesized",
+            "metadata",
+            "candidate_index",
+            "model-a",
+            "model-b",
+        ):
             self.assertNotIn(leak, body)
+        ids = [c["id"] for c in response.json()["candidates"]]
+        for cid in (self.candidate1.id, self.candidate2.id, synthesized.id):
+            self.assertNotIn(cid, ids)
+            self.assertNotIn(f'"id": {cid}', body)
+        self.assertEqual(
+            {resolve_candidate(t) for t in ids},
+            {self.candidate1.id, self.candidate2.id, synthesized.id},
+        )
+
+    def test_tokens_differ_between_presentations(self):
+        """Two fetches of the same candidate yield different tokens, so
+        tokens cannot be compared across sessions or sorted into an order."""
+        first = {
+            resolve_candidate(c["id"]): c["id"]
+            for c in self.client.get(reverse("chooser-next-appeal")).json()["candidates"]
+        }
+        second = {
+            resolve_candidate(c["id"]): c["id"]
+            for c in self.client.get(reverse("chooser-next-appeal")).json()["candidates"]
+        }
+        self.assertEqual(set(first), set(second))
+        for cid in first:
+            self.assertNotEqual(first[cid], second[cid])
 
     def test_next_task_serves_candidates_in_random_order(self):
         """The voter must be blind to model class: the stored order puts the
@@ -251,15 +284,8 @@ class ChooserNextTaskAPITest(APITestCase):
             side_effect=lambda seq: seq.reverse(),
         ):
             data = self.client.get(url).json()
-        self.assertEqual([c["candidate_index"] for c in data["candidates"]], [1, 0])
-        self.assertEqual(
-            {c["id"] for c in data["candidates"]},
-            set(
-                ChooserCandidate.objects.filter(
-                    task=self.task, is_active=True
-                ).values_list("id", flat=True)
-            ),
-        )
+        served = [resolve_candidate(c["id"]) for c in data["candidates"]]
+        self.assertEqual(served, [self.candidate2.id, self.candidate1.id])
 
     def test_next_task_serves_a_synthesized_candidate_like_any_other(self):
         """A synthesized draft is one more blind contender: served, and not
@@ -277,7 +303,7 @@ class ChooserNextTaskAPITest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         candidates = response.json()["candidates"]
-        self.assertIn(synthesized.id, [c["id"] for c in candidates])
+        self.assertIn(synthesized.id, [resolve_candidate(c["id"]) for c in candidates])
         self.assertEqual(len({frozenset(c) for c in candidates}), 1)
 
     def test_session_exclusion(self):
@@ -462,6 +488,43 @@ class ChooserVoteAPITest(APITestCase):
 
         # Verify vote was created
         self.assertEqual(ChooserVote.objects.filter(task=self.task).count(), 1)
+
+    def test_vote_with_the_served_tokens(self):
+        """The whole blind round trip: the tokens the next-task endpoint
+        served come back on the vote and resolve to the stored ids."""
+        served = self.client.get(reverse("chooser-next-appeal")).json()["candidates"]
+        by_id = {resolve_candidate(c["id"]): c["id"] for c in served}
+        data = {
+            "task_id": self.task.id,
+            "chosen_candidate_id": by_id[self.candidate1.id],
+            "presented_candidate_ids": [c["id"] for c in served],
+            "flagged_candidate_ids": [by_id[self.candidate2.id]],
+        }
+        response = self.client.post(
+            reverse("chooser-vote"), json.dumps(data), content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        vote = ChooserVote.objects.get(task=self.task)
+        self.assertEqual(vote.chosen_candidate_id, self.candidate1.id)
+        self.assertEqual(
+            set(vote.presented_candidate_ids), {self.candidate1.id, self.candidate2.id}
+        )
+        self.assertEqual(vote.flagged_candidate_ids, [self.candidate2.id])
+
+    def test_vote_with_a_bad_token_is_rejected(self):
+        data = {
+            "task_id": self.task.id,
+            "chosen_candidate_id": "not-a-token",
+            "presented_candidate_ids": [self.candidate1.id, self.candidate2.id],
+        }
+        response = self.client.post(
+            reverse("chooser-vote"), json.dumps(data), content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Invalid candidate", response.json()["error"])
+        self.assertEqual(ChooserVote.objects.count(), 0)
 
     def test_vote_records_fabrication_flags(self):
         """A vote may flag presented drafts as making things up; the flags

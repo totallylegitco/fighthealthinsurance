@@ -38,11 +38,53 @@ PUBLIC_RANKINGS_CACHE_SECONDS = getattr(
 # A model's win rate is shown as a rate once it has been in this many votes;
 # below that the row is listed as still warming up and sorted to the end.
 PUBLIC_RANKINGS_MIN_SHOWN = getattr(settings, "PUBLIC_RANKINGS_MIN_SHOWN", 10)
+# The earliest vote the page counts. Votes cast before blind voting shipped
+# were collected under a payload that named the model, so they do not belong
+# in a leaderboard that says a vote is for the letter. By default that is
+# when the migration that shipped with blind voting was applied (read from
+# django_migrations); set to an ISO 8601 datetime to override, or to "" to
+# count every vote.
+PUBLIC_RANKINGS_SINCE = getattr(settings, "PUBLIC_RANKINGS_SINCE", None)
+_BLIND_VOTING_MIGRATION = "0240_chooser_vote_flags_and_medical_term_check"
 SYNTHETIC_SOURCE = "synthetic"
 _CACHE_KEY = "public_rankings:data"
 
 WINDOWS = (("all", "All time", None), ("30d", "Last 30 days", 30))
 KINDS = (("appeal_letter", "Appeal letters"), ("chat_response", "Chat replies"))
+
+
+def blind_since() -> Optional[datetime.datetime]:
+    """When blind voting began here: the lower bound on the votes the page
+    counts (see PUBLIC_RANKINGS_SINCE). None counts every vote."""
+    if PUBLIC_RANKINGS_SINCE is not None:
+        if not PUBLIC_RANKINGS_SINCE:
+            return None
+        parsed = datetime.datetime.fromisoformat(str(PUBLIC_RANKINGS_SINCE))
+        if timezone.is_naive(parsed):
+            parsed = timezone.make_aware(parsed, datetime.timezone.utc)
+        return parsed
+    from django.db.migrations.recorder import MigrationRecorder
+
+    try:
+        applied = (
+            MigrationRecorder.Migration.objects.filter(
+                app="fighthealthinsurance", name=_BLIND_VOTING_MIGRATION
+            )
+            .values_list("applied", flat=True)
+            .first()
+        )
+    except Exception as e:
+        logger.warning(f"Could not read when blind voting began: {e}")
+        return None
+    return cast(Optional[datetime.datetime], applied)
+
+
+def _later(a: Optional[datetime.datetime], b: Optional[datetime.datetime]):
+    if a is None:
+        return b
+    if b is None:
+        return a
+    return max(a, b)
 
 
 def _model_rows(kind: str, since: Optional[datetime.datetime]) -> List[Dict[str, Any]]:
@@ -80,8 +122,10 @@ def _model_rows(kind: str, since: Optional[datetime.datetime]) -> List[Dict[str,
     return out
 
 
-def _totals() -> Dict[str, int]:
+def _totals(since: Optional[datetime.datetime]) -> Dict[str, int]:
     votes = ChooserVote.objects.filter(task__source=SYNTHETIC_SOURCE)
+    if since is not None:
+        votes = votes.filter(created_at__gte=since)
     return {
         "votes": votes.count(),
         "tasks_judged": votes.values("task_id").distinct().count(),
@@ -95,14 +139,15 @@ def _term_rows(kind: str) -> List[Dict[str, Any]]:
     rows = condition_rankings.ranked_terms_cached(
         kind, condition_rankings.CONDITION_RANKING_LIMIT
     )
-    top = rows[0].denials if rows else 0
+    # Bar widths come from the rounded counts, like the numbers beside
+    # them: a width from the true counts would tell two "5+" terms apart.
+    top = rows[0].public_count if rows else 0
     return [
         {
             "rank": i,
             "name": r.display,
             "count": r.public_count,
-            # Bar width, relative to the top term.
-            "share": round(100.0 * r.denials / top) if top else 0,
+            "share": round(100.0 * r.public_count / top) if top else 0,
         }
         for i, r in enumerate(rows, start=1)
     ]
@@ -111,9 +156,10 @@ def _term_rows(kind: str) -> List[Dict[str, Any]]:
 def compute_rankings(now: Optional[datetime.datetime] = None) -> Dict[str, Any]:
     """Everything the page and its JSON show, uncached."""
     now = now or timezone.now()
+    floor = blind_since()
     windows = []
     for slug, label, days in WINDOWS:
-        since = now - datetime.timedelta(days=days) if days else None
+        since = _later(now - datetime.timedelta(days=days) if days else None, floor)
         windows.append(
             {
                 "slug": slug,
@@ -131,8 +177,9 @@ def compute_rankings(now: Optional[datetime.datetime] = None) -> Dict[str, Any]:
     return {
         "generated_at": now.isoformat(),
         "min_shown": PUBLIC_RANKINGS_MIN_SHOWN,
-        "k_anonymity": condition_rankings.CONDITION_RANKING_MIN_DENIALS,
-        "totals": _totals(),
+        "k_anonymity": condition_rankings.CONDITION_RANKING_MIN_PEOPLE,
+        "blind_since": floor.isoformat() if floor else None,
+        "totals": _totals(floor),
         "windows": windows,
         "conditions": _term_rows(condition_rankings.KIND_CONDITION),
         "treatments": _term_rows(condition_rankings.KIND_TREATMENT),

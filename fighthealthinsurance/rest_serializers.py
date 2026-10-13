@@ -912,8 +912,10 @@ class ChooserCandidateSerializer(serializers.Serializer):
     from the database when the votes are counted.
     """
 
-    id = serializers.IntegerField(read_only=True)
-    candidate_index = serializers.IntegerField()
+    # An opaque token (chooser_tokens.candidate_token), not the row id, and
+    # no candidate_index: both run in generation order (internal model
+    # first, synthesized last) and would give the author away.
+    id = serializers.CharField(read_only=True)
     kind = serializers.CharField()
     content = serializers.CharField()
 
@@ -931,14 +933,16 @@ class ChooserVoteRequestSerializer(serializers.Serializer):
     """Serializer for voting on a chooser task."""
 
     task_id = serializers.IntegerField(required=True)
-    chosen_candidate_id = serializers.IntegerField(required=True)
+    # Candidate references as the next-task endpoint served them: opaque
+    # tokens (chooser_tokens). A plain integer id is accepted too.
+    chosen_candidate_id = serializers.CharField(required=True)
     presented_candidate_ids = serializers.ListField(
-        child=serializers.IntegerField(), required=True
+        child=serializers.CharField(), required=True
     )
     # Presented candidates the voter flagged as making things up. Optional;
     # never the chosen one.
     flagged_candidate_ids = serializers.ListField(
-        child=serializers.IntegerField(), required=False, default=list
+        child=serializers.CharField(), required=False, default=list
     )
 
 

@@ -20,10 +20,12 @@ privacy filter first and a ranking second:
    rejects anything shaped like free text or an identifier: sentences with
    pronouns, digit runs (claim numbers, dates, phone numbers), addresses,
    and the non-answers people type ("unknown", "see attached").
-3. k-anonymity: a term must appear on at least
-   ``CONDITION_RANKING_MIN_DENIALS`` distinct denials before it goes
-   anywhere. Not to the page, not to the chooser, and not to an outside
-   vocabulary service: a rare string is never sent off this server.
+3. k-anonymity: a term must come from at least
+   ``CONDITION_RANKING_MIN_PEOPLE`` different people (distinct hashed
+   emails, counted after normalization so one person's several spellings
+   or several filings of one case count once) before it goes anywhere. Not
+   to the page, not to the chooser, and not to an outside vocabulary
+   service: a rare string is never sent off this server.
 4. The term must name a real medical concept. Cheapest first: the microsite
    vocabulary in the repo, then RxNorm for drug-shaped treatments, then NCBI
    (a MeSH lookup, and for compound phrases MeSH cannot place, a quoted
@@ -48,7 +50,7 @@ import aiohttp
 from channels.db import database_sync_to_async
 from django.conf import settings
 from django.core.cache import cache
-from django.db.models import Count, Q, QuerySet
+from django.db.models import Q, QuerySet
 from django.db.models.functions import Trim
 from django.utils import timezone
 from loguru import logger
@@ -56,9 +58,12 @@ from loguru import logger
 from fighthealthinsurance.constants import TEST_ACCOUNT_EMAILS
 from fighthealthinsurance.models import Denial, MedicalTermCheck, ModelHealthAlertState
 
-# The fewest distinct denials a term needs before it is ranked, seeded into
-# the chooser, or sent to an outside vocabulary service (the k in k-anonymity).
-CONDITION_RANKING_MIN_DENIALS = getattr(settings, "CONDITION_RANKING_MIN_DENIALS", 5)
+# The fewest different people (distinct hashed emails) a term needs before it
+# is ranked, seeded into the chooser, or sent to an outside vocabulary service
+# (the k in k-anonymity). People, not denial rows: one person can file the
+# same case several times over, and five of their rows must not make a rare
+# condition of theirs public.
+CONDITION_RANKING_MIN_PEOPLE = getattr(settings, "CONDITION_RANKING_MIN_PEOPLE", 5)
 # Outside lookups (RxNorm, NCBI) one refresh may spend; the rest wait.
 CONDITION_RANKING_LOOKUP_BUDGET = getattr(
     settings, "CONDITION_RANKING_LOOKUP_BUDGET", 30
@@ -177,11 +182,11 @@ def looks_like_medical_term(term: str) -> bool:
 @dataclass(frozen=True)
 class TermCount:
     """One normalized term: its most common spelling as people entered it,
-    and how many distinct denials carry it."""
+    and how many different people entered it."""
 
     term: str
     display: str
-    denials: int
+    people: int
 
 
 @dataclass(frozen=True)
@@ -199,7 +204,7 @@ class SeedPair:
 
     treatment: str
     condition: str
-    denials: int
+    people: int
 
 
 def _excluded_hashed_emails() -> List[str]:
@@ -214,13 +219,14 @@ def _ranking_denials() -> "QuerySet[Denial]":
     )
 
 
-def _spelling_counts(fields: Tuple[str, ...]) -> Iterable[Dict[str, Any]]:
-    """Rows of ``{spelled_<field>: str, ..., n: int}``: distinct denials per
-    spelling (trimmed, case kept) of the fields together, for spellings on
-    at least two denials. The database does the grouping; the one-denial
-    spellings it drops are mostly the free text the heuristics would reject,
-    and a term spelled a new way on every denial is not one the k threshold
-    could keep anyway."""
+def _person_spellings(fields: Tuple[str, ...]) -> Iterable[Dict[str, Any]]:
+    """Rows of ``{spelled_<field>: str, ..., hashed_email: str}``: one per
+    person per spelling (trimmed, case kept) of the fields together. The
+    threshold counts people, and a person's spellings only merge after
+    normalization, so the database hands back who entered what and the
+    counting happens in Python: a GROUP BY per spelling would count one
+    person once per spelling, and five spellings from two people read as
+    five. Bounded by the number of denials; streamed, not loaded."""
     qs = _ranking_denials()
     for field in fields:
         qs = qs.exclude(**{f"{field}__isnull": True}).exclude(**{field: ""})
@@ -230,37 +236,46 @@ def _spelling_counts(fields: Tuple[str, ...]) -> Iterable[Dict[str, Any]]:
     return cast(
         Iterable[Dict[str, Any]],
         qs.order_by()
-        .values(*[f"spelled_{f}" for f in fields])
-        .annotate(n=Count("denial_id"))
-        .filter(n__gte=2)
+        .values(*[f"spelled_{f}" for f in fields], "hashed_email")
+        .distinct()
         .iterator(),
     )
 
 
-def _best_spelling(spellings: Dict[str, int]) -> str:
-    return max(spellings.items(), key=lambda kv: (kv[1], kv[0]))[0]
+def _best_spelling(spellings: Dict[Any, Set[str]]) -> Any:
+    """The spelling the most people used (ties: the later one in sort
+    order, so the result does not depend on row order)."""
+    return max(spellings.items(), key=lambda kv: (len(kv[1]), kv[0]))[0]
 
 
-def count_terms(kind: str, min_denials: Optional[int] = None) -> List[TermCount]:
-    """Every normalized ``kind`` term on at least ``min_denials`` distinct
-    denials that looks like a medical term, most frequent first. Not yet
-    vocabulary-checked: see ranked_terms for the list the public may see."""
-    k = CONDITION_RANKING_MIN_DENIALS if min_denials is None else min_denials
+def _people(spellings: Dict[Any, Set[str]]) -> Set[str]:
+    return set().union(*spellings.values()) if spellings else set()
+
+
+def count_terms(kind: str, min_people: Optional[int] = None) -> List[TermCount]:
+    """Every normalized ``kind`` term entered by at least ``min_people``
+    different people that looks like a medical term, most frequent first.
+    Not yet vocabulary-checked: see ranked_terms for the list the public
+    may see."""
+    k = CONDITION_RANKING_MIN_PEOPLE if min_people is None else min_people
     field = _FIELD[kind]
-    by_term: Dict[str, Counter] = {}
-    for row in _spelling_counts((field,)):
+    # term -> spelling -> the people who entered it that way
+    by_term: Dict[str, Dict[str, Set[str]]] = {}
+    for row in _person_spellings((field,)):
         spelled = str(row[f"spelled_{field}"]).strip()
         term = normalize_term(spelled)
         if term is None:
             continue
-        by_term.setdefault(term, Counter())[spelled] += int(row["n"])
+        by_term.setdefault(term, {}).setdefault(spelled, set()).add(
+            str(row["hashed_email"])
+        )
     out: List[TermCount] = []
     for term, spellings in by_term.items():
-        total = sum(spellings.values())
-        if total < k or not looks_like_medical_term(term):
+        people = _people(spellings)
+        if len(people) < k or not looks_like_medical_term(term):
             continue
-        out.append(TermCount(term, _best_spelling(spellings), total))
-    out.sort(key=lambda t: (-t.denials, t.term))
+        out.append(TermCount(term, _best_spelling(spellings), len(people)))
+    out.sort(key=lambda t: (-t.people, t.term))
     return out
 
 
@@ -277,7 +292,7 @@ def ranked_terms(kind: str, limit: Optional[int] = None) -> List[RankedTerm]:
     term, and vouched for by a vocabulary, most frequent first, with counts
     rounded down to a multiple of the k threshold. Reads stored verdicts
     only; a term no refresh has checked yet is left out, never looked up."""
-    k = CONDITION_RANKING_MIN_DENIALS
+    k = CONDITION_RANKING_MIN_PEOPLE
     real = _real_terms(kind)
     out: List[RankedTerm] = []
     for counted in count_terms(kind, k):
@@ -287,8 +302,8 @@ def ranked_terms(kind: str, limit: Optional[int] = None) -> List[RankedTerm]:
             RankedTerm(
                 term=counted.term,
                 display=real[counted.term].display or counted.display,
-                denials=counted.denials,
-                public_count=(counted.denials // k) * k,
+                people=counted.people,
+                public_count=(counted.people // k) * k,
             )
         )
     return out[:limit] if limit else out
@@ -321,16 +336,17 @@ def ranked_terms_cached(kind: str, limit: Optional[int] = None) -> List[RankedTe
 
 
 def seed_pairs_sync(limit: int = 100) -> List[SeedPair]:
-    """(treatment, condition) pairs on at least k distinct denials whose
-    both terms the vocabularies vouch for, most frequent first. The chooser
-    builds its synthetic cases around these."""
-    k = CONDITION_RANKING_MIN_DENIALS
+    """(treatment, condition) pairs entered by at least k different people
+    whose both terms the vocabularies vouch for, most frequent first. The
+    chooser builds its synthetic cases around these."""
+    k = CONDITION_RANKING_MIN_PEOPLE
     real_treatments = _real_terms(KIND_TREATMENT)
     real_conditions = _real_terms(KIND_CONDITION)
     if not real_treatments or not real_conditions:
         return []
-    by_pair: Dict[Tuple[str, str], Counter] = {}
-    for row in _spelling_counts(("procedure", "diagnosis")):
+    # pair -> (spelled treatment, spelled condition) -> people
+    by_pair: Dict[Tuple[str, str], Dict[Tuple[str, str], Set[str]]] = {}
+    for row in _person_spellings(("procedure", "diagnosis")):
         treatment = normalize_term(row["spelled_procedure"])
         condition = normalize_term(row["spelled_diagnosis"])
         if treatment is None or condition is None:
@@ -341,21 +357,23 @@ def seed_pairs_sync(limit: int = 100) -> List[SeedPair]:
             str(row["spelled_procedure"]).strip(),
             str(row["spelled_diagnosis"]).strip(),
         )
-        by_pair.setdefault((treatment, condition), Counter())[spelled] += int(row["n"])
+        by_pair.setdefault((treatment, condition), {}).setdefault(spelled, set()).add(
+            str(row["hashed_email"])
+        )
     out: List[SeedPair] = []
     for (treatment, condition), spellings in by_pair.items():
-        total = sum(spellings.values())
-        if total < k:
+        people = _people(spellings)
+        if len(people) < k:
             continue
-        best = max(spellings.items(), key=lambda kv: (kv[1], kv[0]))[0]
+        best = _best_spelling(spellings)
         out.append(
             SeedPair(
                 treatment=real_treatments[treatment].display or best[0],
                 condition=real_conditions[condition].display or best[1],
-                denials=total,
+                people=len(people),
             )
         )
-    out.sort(key=lambda p: (-p.denials, p.treatment, p.condition))
+    out.sort(key=lambda p: (-p.people, p.treatment, p.condition))
     return out[:limit]
 
 

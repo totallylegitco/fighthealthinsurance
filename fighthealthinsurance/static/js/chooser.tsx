@@ -29,11 +29,11 @@ import { getCSRFToken } from "./shared";
 // the drafts are blind (the API sends no model names), and a draft that
 // makes things up can be flagged, so a letter cannot win on invented facts.
 
-// Types for Chooser API responses. Candidates carry no model name on
-// purpose; see ChooserCandidateSerializer.
+// Types for Chooser API responses. Candidates carry no model name, row id
+// or stored order on purpose: `id` is an opaque token the vote endpoint
+// resolves; see ChooserCandidateSerializer.
 interface ChooserCandidate {
-  id: number;
-  candidate_index: number;
+  id: string;
   kind: string;
   content: string;
 }
@@ -69,7 +69,7 @@ interface ChooserState {
   mode: "selection" | "loading" | "voting" | "confirmation" | "error";
   task: ChooserTask | null;
   selectedCandidate: ChooserCandidate | null;
-  flaggedIds: number[];
+  flaggedIds: string[];
   error: string | null;
   taskType: TaskType | null;
 }
@@ -551,6 +551,8 @@ const ChooserInterface: React.FC = () => {
     if (state.mode !== "voting" || !state.task) return;
     const task = state.task;
     const handler = (event: KeyboardEvent) => {
+      // Ctrl+C to copy a passage must not also pick Draft C.
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
       const target = event.target as HTMLElement | null;
       if (target && ["INPUT", "TEXTAREA", "SELECT", "A", "BUTTON"].includes(target.tagName)) {
         return;

@@ -53,7 +53,7 @@ class TestCountTerms:
 
         counted = await sync_to_async(cr.count_terms)(cr.KIND_CONDITION, 5)
 
-        assert [(t.term, t.denials) for t in counted] == [("lower back pain", 5)]
+        assert [(t.term, t.people) for t in counted] == [("lower back pain", 5)]
 
     async def test_spellings_merge_and_the_most_common_one_is_displayed(self):
         await _denials(3, "MRI", "Lower back pain")
@@ -63,6 +63,26 @@ class TestCountTerms:
         counted = await sync_to_async(cr.count_terms)(cr.KIND_CONDITION, 5)
 
         assert counted == [cr.TermCount("lower back pain", "Lower back pain", 7)]
+
+    async def test_one_person_filing_many_times_counts_once(self):
+        """k counts people, not rows: one person's six filings of a rare
+        condition must not make it public, seed it, or send it to NCBI."""
+        await _denials(6, "MRI", "A rare condition", hashed_email="one-person")
+
+        assert await sync_to_async(cr.count_terms)(cr.KIND_CONDITION, 5) == []
+        counted = await sync_to_async(cr.count_terms)(cr.KIND_CONDITION, 1)
+        assert [(t.term, t.people) for t in counted] == [("a rare condition", 1)]
+
+    async def test_one_person_is_counted_once_across_spellings(self):
+        """Two people each spelling a term three ways are two people, not
+        six: the count merges spellings before it counts."""
+        for spelling in ("Lower back pain", "lower back pain", "LOWER BACK PAIN"):
+            await _denials(1, "MRI", spelling, hashed_email="person-a")
+            await _denials(1, "MRI", spelling, hashed_email="person-b")
+
+        assert await sync_to_async(cr.count_terms)(cr.KIND_CONDITION, 5) == []
+        counted = await sync_to_async(cr.count_terms)(cr.KIND_CONDITION, 2)
+        assert [(t.term, t.people) for t in counted] == [("lower back pain", 2)]
 
     async def test_flagged_and_test_account_denials_are_left_out(self):
         await _denials(5, "MRI", "Lower back pain", flagged=True)
@@ -95,7 +115,7 @@ class TestRankedTerms:
 
         ranked = await sync_to_async(cr.ranked_terms)(cr.KIND_CONDITION)
 
-        assert [(r.display, r.denials, r.public_count) for r in ranked] == [
+        assert [(r.display, r.people, r.public_count) for r in ranked] == [
             ("Lower back pain", 12, 10),
             ("Knee pain (patellofemoral)", 7, 5),
         ]
@@ -122,7 +142,14 @@ class TestRankedTerms:
 @pytest.mark.asyncio
 @pytest.mark.django_db(transaction=True)
 class TestSeedPairs:
-    async def test_a_pair_needs_k_denials_and_two_vouched_for_terms(self):
+    async def test_a_pair_counts_people_not_rows(self):
+        await _denials(6, "MRI", "Lower back pain", hashed_email="one-person")
+        await _verdict("mri", cr.KIND_TREATMENT, display="MRI")
+        await _verdict("lower back pain", cr.KIND_CONDITION)
+
+        assert await cr.seed_pairs() == []
+
+    async def test_a_pair_needs_k_people_and_two_vouched_for_terms(self):
         await _denials(6, "MRI", "Lower back pain")
         await _denials(6, "MRI", "Knee pain")
         await _denials(3, "CT scan", "Lower back pain")

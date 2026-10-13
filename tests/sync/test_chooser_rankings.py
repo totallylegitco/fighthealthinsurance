@@ -1,9 +1,11 @@
 """The public Appeal Arena rankings page: synthetic votes only, aggregate
 conditions and treatments only, nothing about any one person."""
 
+import datetime
 import json
+from unittest import mock
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -110,6 +112,30 @@ class ChooserRankingsPageTest(TestCase):
         self.assertEqual(data["totals"]["votes"], 3)
         self.assertEqual([w["slug"] for w in data["windows"]], ["all", "30d"])
 
+    def test_votes_cast_before_blind_voting_began_are_left_out(self):
+        """A vote from before the blind payload shipped was cast with the
+        model name in the JSON; it does not belong in a leaderboard that
+        says a vote is for the letter."""
+        floor = public_rankings.blind_since()
+        self.assertIsNotNone(floor)
+        task, (a, b) = _task(models=("model-old", "model-older"))
+        old = _vote(task, [a, b], a, "session-secret-old")
+        ChooserVote.objects.filter(pk=old.pk).update(
+            created_at=floor - datetime.timedelta(days=1)
+        )
+
+        data = public_rankings.compute_rankings()
+
+        rows = data["windows"][0]["tables"][0]["rows"]
+        self.assertNotIn("model-old", {r["model"] for r in rows})
+        self.assertEqual(data["totals"]["votes"], 3)
+        self.assertEqual(data["blind_since"], floor.isoformat())
+
+    @override_settings(PUBLIC_RANKINGS_SINCE="")
+    def test_an_empty_since_setting_counts_every_vote(self):
+        with mock.patch.object(public_rankings, "PUBLIC_RANKINGS_SINCE", ""):
+            self.assertIsNone(public_rankings.blind_since())
+
     def test_models_with_too_few_votes_are_warming_up_and_sort_last(self):
         task, (e, f) = _task(models=("model-e", "model-f"))
         for i in range(public_rankings.PUBLIC_RANKINGS_MIN_SHOWN):
@@ -161,7 +187,25 @@ class ChooserRankingsTermsTest(TestCase):
         self.assertEqual(
             [(r["name"], r["count"]) for r in data["treatments"]], [("MRI", 5)]
         )
-        self.assertEqual(data["k_anonymity"], cr.CONDITION_RANKING_MIN_DENIALS)
+        self.assertEqual(data["k_anonymity"], cr.CONDITION_RANKING_MIN_PEOPLE)
+
+    def test_bar_widths_come_from_the_rounded_counts(self):
+        """Two terms shown as "5+" must get the same bar: a width from the
+        true counts would tell them apart."""
+        for i in range(9):
+            Denial.objects.create(
+                hashed_email=f"knee-{i}",
+                denial_text="denied",
+                procedure="MRI",
+                diagnosis="Knee pain",
+            )
+        MedicalTermCheck.objects.create(
+            term="knee pain", kind=cr.KIND_CONDITION, is_real=True, checked_at=timezone.now()
+        )
+
+        rows = public_rankings.compute_rankings()["conditions"]
+
+        self.assertEqual([(r["count"], r["share"]) for r in rows], [(5, 100), (5, 100)])
 
     def test_the_page_shows_the_terms_and_not_the_rejected_ones(self):
         body = self.client.get(reverse("chooser_rankings")).content.decode()
