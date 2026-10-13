@@ -3294,35 +3294,8 @@ class CompletePaymentView(View):
             if token:
                 lost_session = models.LostStripeSession.objects.get(secure_token=token)
             elif session_id:
-                # Legacy emails sent before secure_token rollout used the row
-                # id as ?session_id=<int>. Accept those links only for rows
-                # created before SECURE_TOKEN_ROLLOUT_AT; otherwise require
-                # secure_token-based access.
-                legacy_id: typing.Optional[int] = None
-                try:
-                    legacy_id = int(session_id)
-                except (TypeError, ValueError):
-                    pass
-                if legacy_id is None or legacy_id <= 0:
-                    return None, ("Invalid or expired link", 400)
-                rollout_at = getattr(settings, "SECURE_TOKEN_ROLLOUT_AT", None)
-                legacy_max_id = int(
-                    getattr(settings, "SECURE_TOKEN_LEGACY_MAX_ID", 1000)
-                )
-                legacy_queryset = models.LostStripeSession.objects.filter(id=legacy_id)
-                if rollout_at is not None:
-                    legacy_queryset = legacy_queryset.filter(created_at__lt=rollout_at)
-                lost_session_opt = legacy_queryset.first()
-                # Some very old rows can have auto_now_add-updated created_at values
-                # after data migrations/copies. Keep legacy links working by allowing
-                # IDs from the pre-rollout range as a secondary check.
-                if lost_session_opt is None and legacy_id <= legacy_max_id:
-                    lost_session_opt = models.LostStripeSession.objects.filter(
-                        id=legacy_id
-                    ).first()
-                if lost_session_opt is None:
-                    return None, ("Invalid or expired link", 400)
-                lost_session = lost_session_opt
+                # Only a token resumes a checkout; a row-id link reads as expired.
+                return None, ("Invalid or expired link", 400)
             else:
                 return None, ("Missing token", 400)
             continue_url = lost_session.success_url
