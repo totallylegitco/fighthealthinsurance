@@ -42,6 +42,8 @@ class Migration(migrations.Migration):
                 ("display", models.CharField(blank=True, default="", max_length=160)),
                 ("source", models.CharField(blank=True, default="", max_length=20)),
                 ("checked_at", models.DateTimeField(blank=True, null=True)),
+                ("people", models.IntegerField(default=0)),
+                ("counted_at", models.DateTimeField(blank=True, null=True)),
                 ("created_at", models.DateTimeField(auto_now_add=True)),
             ],
             options={

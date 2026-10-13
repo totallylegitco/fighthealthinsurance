@@ -251,9 +251,10 @@ class ChooserNextTaskAPITest(APITestCase):
         ):
             self.assertNotIn(leak, body)
         ids = [c["id"] for c in response.json()["candidates"]]
+        # DRF renders compact JSON ("id":5, no space).
         for cid in (self.candidate1.id, self.candidate2.id, synthesized.id):
-            self.assertNotIn(cid, ids)
-            self.assertNotIn(f'"id": {cid}', body)
+            self.assertNotIn(f'"id":{cid}', body)
+        self.assertTrue(all(isinstance(i, str) and not i.isdigit() for i in ids))
         self.assertEqual(
             {resolve_candidate(t) for t in ids},
             {self.candidate1.id, self.candidate2.id, synthesized.id},
@@ -475,8 +476,8 @@ class ChooserVoteAPITest(APITestCase):
         url = reverse("chooser-vote")
         data = {
             "task_id": self.task.id,
-            "chosen_candidate_id": self.candidate1.id,
-            "presented_candidate_ids": [self.candidate1.id, self.candidate2.id],
+            "chosen_candidate_id": candidate_token(self.candidate1.id),
+            "presented_candidate_ids": [candidate_token(self.candidate1.id), candidate_token(self.candidate2.id)],
         }
         response = self.client.post(
             url, json.dumps(data), content_type="application/json"
@@ -516,7 +517,10 @@ class ChooserVoteAPITest(APITestCase):
         data = {
             "task_id": self.task.id,
             "chosen_candidate_id": "not-a-token",
-            "presented_candidate_ids": [self.candidate1.id, self.candidate2.id],
+            "presented_candidate_ids": [
+                candidate_token(self.candidate1.id),
+                candidate_token(self.candidate2.id),
+            ],
         }
         response = self.client.post(
             reverse("chooser-vote"), json.dumps(data), content_type="application/json"
@@ -526,15 +530,48 @@ class ChooserVoteAPITest(APITestCase):
         self.assertIn("Invalid candidate", response.json()["error"])
         self.assertEqual(ChooserVote.objects.count(), 0)
 
+    def test_vote_does_not_take_plain_ids(self):
+        """A plain id is refused like any bad token: accepting it would let
+        a client learn a token's id by guessing, since the endpoint answers
+        differently for an id inside the task and one outside it."""
+        for guess in (self.candidate1.id, str(self.candidate1.id), 99999):
+            data = {
+                "task_id": self.task.id,
+                "chosen_candidate_id": candidate_token(self.candidate1.id),
+                "presented_candidate_ids": [guess, candidate_token(self.candidate2.id)],
+            }
+            response = self.client.post(
+                reverse("chooser-vote"), json.dumps(data), content_type="application/json"
+            )
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertIn("Invalid candidate", response.json()["error"])
+        self.assertEqual(ChooserVote.objects.count(), 0)
+
+    def test_a_vote_with_one_presented_candidate_is_rejected(self):
+        """The page offers no vote when a task has one draft left, so a
+        single-candidate ballot did not come from the page."""
+        data = {
+            "task_id": self.task.id,
+            "chosen_candidate_id": candidate_token(self.candidate1.id),
+            "presented_candidate_ids": [candidate_token(self.candidate1.id)],
+        }
+        response = self.client.post(
+            reverse("chooser-vote"), json.dumps(data), content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("at least two", response.json()["error"])
+        self.assertEqual(ChooserVote.objects.count(), 0)
+
     def test_vote_records_fabrication_flags(self):
         """A vote may flag presented drafts as making things up; the flags
         are stored with the vote, deduplicated."""
         url = reverse("chooser-vote")
         data = {
             "task_id": self.task.id,
-            "chosen_candidate_id": self.candidate1.id,
-            "presented_candidate_ids": [self.candidate1.id, self.candidate2.id],
-            "flagged_candidate_ids": [self.candidate2.id, self.candidate2.id],
+            "chosen_candidate_id": candidate_token(self.candidate1.id),
+            "presented_candidate_ids": [candidate_token(self.candidate1.id), candidate_token(self.candidate2.id)],
+            "flagged_candidate_ids": [candidate_token(self.candidate2.id), candidate_token(self.candidate2.id)],
         }
         response = self.client.post(
             url, json.dumps(data), content_type="application/json"
@@ -548,8 +585,8 @@ class ChooserVoteAPITest(APITestCase):
         url = reverse("chooser-vote")
         data = {
             "task_id": self.task.id,
-            "chosen_candidate_id": self.candidate1.id,
-            "presented_candidate_ids": [self.candidate1.id, self.candidate2.id],
+            "chosen_candidate_id": candidate_token(self.candidate1.id),
+            "presented_candidate_ids": [candidate_token(self.candidate1.id), candidate_token(self.candidate2.id)],
         }
         self.client.post(url, json.dumps(data), content_type="application/json")
 
@@ -562,9 +599,9 @@ class ChooserVoteAPITest(APITestCase):
         url = reverse("chooser-vote")
         data = {
             "task_id": self.task.id,
-            "chosen_candidate_id": self.candidate1.id,
-            "presented_candidate_ids": [self.candidate1.id, self.candidate2.id],
-            "flagged_candidate_ids": [self.candidate1.id],
+            "chosen_candidate_id": candidate_token(self.candidate1.id),
+            "presented_candidate_ids": [candidate_token(self.candidate1.id), candidate_token(self.candidate2.id)],
+            "flagged_candidate_ids": [candidate_token(self.candidate1.id)],
         }
         response = self.client.post(
             url, json.dumps(data), content_type="application/json"
@@ -589,9 +626,9 @@ class ChooserVoteAPITest(APITestCase):
         url = reverse("chooser-vote")
         data = {
             "task_id": self.task.id,
-            "chosen_candidate_id": self.candidate1.id,
-            "presented_candidate_ids": [self.candidate1.id, self.candidate2.id],
-            "flagged_candidate_ids": [elsewhere.id],
+            "chosen_candidate_id": candidate_token(self.candidate1.id),
+            "presented_candidate_ids": [candidate_token(self.candidate1.id), candidate_token(self.candidate2.id)],
+            "flagged_candidate_ids": [candidate_token(elsewhere.id)],
         }
         response = self.client.post(
             url, json.dumps(data), content_type="application/json"
@@ -606,8 +643,8 @@ class ChooserVoteAPITest(APITestCase):
         url = reverse("chooser-vote")
         data = {
             "task_id": 99999,
-            "chosen_candidate_id": self.candidate1.id,
-            "presented_candidate_ids": [self.candidate1.id],
+            "chosen_candidate_id": candidate_token(self.candidate1.id),
+            "presented_candidate_ids": [candidate_token(self.candidate1.id)],
         }
         response = self.client.post(
             url, json.dumps(data), content_type="application/json"
@@ -620,8 +657,8 @@ class ChooserVoteAPITest(APITestCase):
         url = reverse("chooser-vote")
         data = {
             "task_id": self.task.id,
-            "chosen_candidate_id": 99999,
-            "presented_candidate_ids": [99999],
+            "chosen_candidate_id": candidate_token(99999),
+            "presented_candidate_ids": [candidate_token(99999)],
         }
         response = self.client.post(
             url, json.dumps(data), content_type="application/json"
@@ -634,8 +671,8 @@ class ChooserVoteAPITest(APITestCase):
         url = reverse("chooser-vote")
         data = {
             "task_id": self.task.id,
-            "chosen_candidate_id": self.candidate1.id,
-            "presented_candidate_ids": [self.candidate1.id, self.candidate2.id],
+            "chosen_candidate_id": candidate_token(self.candidate1.id),
+            "presented_candidate_ids": [candidate_token(self.candidate1.id), candidate_token(self.candidate2.id)],
         }
 
         # First vote should succeed
@@ -656,8 +693,8 @@ class ChooserVoteAPITest(APITestCase):
         url = reverse("chooser-vote")
         data = {
             "task_id": self.task.id,
-            "chosen_candidate_id": self.candidate1.id,
-            "presented_candidate_ids": [self.candidate2.id],  # candidate1 not included
+            "chosen_candidate_id": candidate_token(self.candidate1.id),
+            "presented_candidate_ids": [candidate_token(self.candidate2.id)],  # candidate1 not included
         }
         response = self.client.post(
             url, json.dumps(data), content_type="application/json"
@@ -681,8 +718,8 @@ class ChooserVoteAPITest(APITestCase):
         url = reverse("chooser-vote")
         data = {
             "task_id": self.task.id,
-            "chosen_candidate_id": self.candidate1.id,
-            "presented_candidate_ids": [self.candidate1.id, self.candidate2.id],
+            "chosen_candidate_id": candidate_token(self.candidate1.id),
+            "presented_candidate_ids": [candidate_token(self.candidate1.id), candidate_token(self.candidate2.id)],
         }
         response = self.client.post(
             url, json.dumps(data), content_type="application/json"
@@ -785,8 +822,8 @@ class ChooserSessionFallbackTest(APITestCase):
         url = reverse("chooser-vote")
         data = {
             "task_id": self.task.id,
-            "chosen_candidate_id": self.candidate1.id,
-            "presented_candidate_ids": [self.candidate1.id, self.candidate2.id],
+            "chosen_candidate_id": candidate_token(self.candidate1.id),
+            "presented_candidate_ids": [candidate_token(self.candidate1.id), candidate_token(self.candidate2.id)],
         }
         response1 = self.client.post(
             url, json.dumps(data), content_type="application/json"
@@ -1116,8 +1153,11 @@ class ChooserVoteIntegrityTest(APITestCase):
     def test_presented_ids_from_another_task_are_rejected(self):
         data = {
             "task_id": self.task.id,
-            "chosen_candidate_id": self.mine[0].id,
-            "presented_candidate_ids": [self.mine[0].id, self.foreign.id],
+            "chosen_candidate_id": candidate_token(self.mine[0].id),
+            "presented_candidate_ids": [
+                candidate_token(self.mine[0].id),
+                candidate_token(self.foreign.id),
+            ],
         }
         response = self.client.post(
             reverse("chooser-vote"), json.dumps(data), content_type="application/json"
@@ -1134,8 +1174,11 @@ class ChooserVoteIntegrityTest(APITestCase):
         retired.save()
         data = {
             "task_id": self.task.id,
-            "chosen_candidate_id": self.mine[0].id,
-            "presented_candidate_ids": [self.mine[0].id, retired.id],
+            "chosen_candidate_id": candidate_token(self.mine[0].id),
+            "presented_candidate_ids": [
+                candidate_token(self.mine[0].id),
+                candidate_token(retired.id),
+            ],
         }
         response = self.client.post(
             reverse("chooser-vote"), json.dumps(data), content_type="application/json"

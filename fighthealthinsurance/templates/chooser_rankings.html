@@ -32,6 +32,7 @@
             {% for t in w.tables %}
             <h3>{{ t.label }}</h3>
             {% if t.rows %}
+            <div class="arena-scroll">
             <table class="arena-table">
                 <thead>
                     <tr>
@@ -56,6 +57,7 @@
                     {% endfor %}
                 </tbody>
             </table>
+            </div>
             {% else %}
             <p class="fhi-hint">No votes yet. <a href="{% url 'chooser' %}">Be the first referee.</a></p>
             {% endif %}
@@ -130,7 +132,9 @@
     .arena-totals { gap: 1rem; }
     .arena-total { padding: 1rem 1.5rem; text-align: center; min-width: 9rem; }
     .arena-total-number { font-size: 2rem; font-weight: 700; color: #5a6b1b; }
-    .arena-table { width: 100%; border-collapse: collapse; margin: 0.5rem 0 1.5rem; }
+    /* A model label can be one long token; on a phone the table scrolls, the page does not. */
+    .arena-scroll { overflow-x: auto; margin: 0.5rem 0 1.5rem; }
+    .arena-table { width: 100%; border-collapse: collapse; }
     .arena-table th, .arena-table td { padding: 0.4rem 0.6rem; text-align: left; border-bottom: 1px solid #e5e7eb; }
     .arena-table th.num, .arena-table td.num { text-align: right; }
     .arena-table tr.warming-up td { color: #6b7280; }

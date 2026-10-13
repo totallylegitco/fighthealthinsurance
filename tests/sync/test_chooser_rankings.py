@@ -5,7 +5,7 @@ import datetime
 import json
 from unittest import mock
 
-from django.test import TestCase, override_settings
+from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -20,6 +20,15 @@ from fighthealthinsurance.models import (
     MedicalTermCheck,
     ProposedAppeal,
 )
+
+
+def _store_counts():
+    """What a refresh stores for the page, without its outside lookups: the
+    people count of every k-anonymous term (synchronously, on the test's
+    own connection)."""
+    now = timezone.now()
+    for kind in cr.KINDS:
+        cr._record_counts(kind, cr.count_terms(kind), now)
 
 
 def _task(source="synthetic", models=("model-a", "model-b")):
@@ -131,10 +140,44 @@ class ChooserRankingsPageTest(TestCase):
         self.assertEqual(data["totals"]["votes"], 3)
         self.assertEqual(data["blind_since"], floor.isoformat())
 
-    @override_settings(PUBLIC_RANKINGS_SINCE="")
     def test_an_empty_since_setting_counts_every_vote(self):
+        task, (a, b) = _task(models=("model-old", "model-older"))
+        old = _vote(task, [a, b], a, "session-secret-old")
+        ChooserVote.objects.filter(pk=old.pk).update(
+            created_at=timezone.now() - datetime.timedelta(days=400)
+        )
+        # The module reads the setting at import time, so patch the module.
         with mock.patch.object(public_rankings, "PUBLIC_RANKINGS_SINCE", ""):
             self.assertIsNone(public_rankings.blind_since())
+            data = public_rankings.compute_rankings()
+
+        self.assertEqual(data["totals"]["votes"], 4)
+        all_time = {r["model"] for r in data["windows"][0]["tables"][0]["rows"]}
+        self.assertIn("model-old", all_time)
+
+    def test_a_malformed_since_setting_counts_no_votes(self):
+        """A bad override must not 500 the page, and must not count votes
+        that may predate blind voting: it fails closed."""
+        before = timezone.now()
+        with mock.patch.object(public_rankings, "PUBLIC_RANKINGS_SINCE", "yesterday"):
+            floor = public_rankings.blind_since()
+            data = public_rankings.compute_rankings()
+
+        self.assertIsNotNone(floor)
+        self.assertGreaterEqual(floor, before)
+        self.assertEqual(data["totals"]["votes"], 0)
+
+    def test_no_migration_record_counts_no_votes(self):
+        with mock.patch(
+            "django.db.migrations.recorder.MigrationRecorder.Migration.objects"
+        ) as objects:
+            objects.filter.return_value.values_list.return_value.first.return_value = None
+            floor = public_rankings.blind_since()
+            data = public_rankings.compute_rankings()
+
+        self.assertIsNotNone(floor)
+        self.assertEqual(data["totals"]["votes"], 0)
+        self.assertEqual(data["windows"][0]["tables"][0]["rows"], [])
 
     def test_models_with_too_few_votes_are_warming_up_and_sort_last(self):
         task, (e, f) = _task(models=("model-e", "model-f"))
@@ -176,6 +219,8 @@ class ChooserRankingsTermsTest(TestCase):
         MedicalTermCheck.objects.create(
             term="jane doe", kind=cr.KIND_CONDITION, is_real=False, checked_at=now
         )
+        # The page reads the counts a refresh stored, never the denials.
+        _store_counts()
 
     def test_only_vouched_for_terms_with_rounded_counts(self):
         data = public_rankings.compute_rankings()
@@ -202,6 +247,7 @@ class ChooserRankingsTermsTest(TestCase):
         MedicalTermCheck.objects.create(
             term="knee pain", kind=cr.KIND_CONDITION, is_real=True, checked_at=timezone.now()
         )
+        _store_counts()
 
         rows = public_rankings.compute_rankings()["conditions"]
 

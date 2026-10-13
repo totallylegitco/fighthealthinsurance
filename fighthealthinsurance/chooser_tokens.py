@@ -15,7 +15,7 @@ where the blindness is.
 
 import base64
 import hashlib
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
@@ -36,19 +36,15 @@ def candidate_token(candidate_id: int) -> str:
     return _fernet().encrypt(str(int(candidate_id)).encode("ascii")).decode("ascii")
 
 
-def resolve_candidate(value: Union[int, str, Any]) -> Optional[int]:
-    """The candidate id ``value`` names: a token from candidate_token, or a
-    plain integer (or its decimal string). None when it is neither."""
-    if isinstance(value, bool):
+def resolve_candidate(value: Any) -> Optional[int]:
+    """The candidate id a token from candidate_token names; None for
+    anything else, a plain id included. Ids are what the token hides, and
+    an endpoint that took them back would let a client learn a token's id by
+    guessing: the vote endpoint answers differently for an id in the task
+    and one outside it."""
+    if not isinstance(value, str) or not value.strip():
         return None
-    if isinstance(value, int):
-        return value
-    if not isinstance(value, str):
-        return None
-    text = value.strip()
-    if text.isdigit():
-        return int(text)
     try:
-        return int(_fernet().decrypt(text.encode("ascii")).decode("ascii"))
+        return int(_fernet().decrypt(value.strip().encode("ascii")).decode("ascii"))
     except (InvalidToken, ValueError, UnicodeEncodeError):
         return None

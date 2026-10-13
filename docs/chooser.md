@@ -17,8 +17,10 @@ appeal flow, and rank the model backends against each other.
   `candidate_index` either: both run in generation order (internal model
   first, synthesized last). Each draft goes out as an opaque token
   (`chooser_tokens.candidate_token`, the id encrypted with a fresh nonce)
-  that the vote endpoint resolves back, and the drafts are served in random
-  order, so a vote is for the letter, not the brand.
+  that the vote endpoint resolves back (and takes nothing else: accepting
+  plain ids would let a client learn a token's id by guessing), and the
+  drafts are served in random order, so a vote is for the letter, not the
+  brand.
 - **House rules.** Pick the draft you would send; a draft that invents a
   study, a law, a test result, a date or a history that is not in the case is
   a foul and should never win; skip if unsure.
@@ -68,8 +70,10 @@ The public page shows two things, both safe to publish:
 - **Most-appealed conditions and treatments**: aggregates over
   `Denial.diagnosis` / `Denial.procedure`. A term is shown only if it
 
-  1. comes from a denial that is not flagged for exclusion or from a test
-     account (`TEST_ACCOUNT_EMAILS`);
+  1. comes from a denial that is not flagged for exclusion, not from a test
+     account (`TEST_ACCOUNT_EMAILS`), and not filed through a professional
+     account (`condition_rankings.eligible_denials`, the same base as the
+     de-identified export);
   2. is shaped like a medical term (`looks_like_medical_term`: no digit
      runs, no pronouns, no addresses, no non-answers like "see attached");
   3. was entered by at least `CONDITION_RANKING_MIN_PEOPLE` (default 5)
@@ -84,15 +88,22 @@ The public page shows two things, both safe to publish:
      `MedicalTermCheck`, so each term costs outside lookups once; a refresh
      spends at most `CONDITION_RANKING_LOOKUP_BUDGET` of them.
 
-  Counts are rounded down to a multiple of the threshold ("25+").
+  Counts are rounded down to a multiple of the threshold ("25+"), and the
+  list is ordered by the rounded count (ties by name), so neither the order
+  nor the top-N cut tells two "5+" terms apart.
 
-The verdicts are refreshed in the background: the chooser refill actor calls
-`condition_rankings.refresh_if_due()` after each tick (once an hour
-fleet-wide, via the `ModelHealthAlertState` claim), and
+The counts and verdicts are refreshed in the background: the chooser refill
+actor calls `condition_rankings.refresh_if_due()` after each tick (once an
+hour fleet-wide, via the `ModelHealthAlertState` claim, and bounded by
+`CONDITION_RANKING_REFRESH_TIMEOUT`), and
 `python manage.py refresh_condition_rankings [--budget N]` does it by hand.
-A page load reads stored verdicts only and never calls NCBI. Page data is
-cached for `PUBLIC_RANKINGS_CACHE_SECONDS`; `?format=json` returns the same
-data for embedding.
+One refresh runs at a time; a second caller is told to come back. Each
+refresh stores every k-anonymous term's people count on its
+`MedicalTermCheck` row, so a page load is a read of that table: it never
+scans the denials and never calls NCBI. Page data is cached for
+`PUBLIC_RANKINGS_CACHE_SECONDS`; `?format=json` returns the same data for
+embedding. All of these settings are defined on `settings.Base` from
+environment variables of the same name.
 
 ## Settings
 
@@ -107,6 +118,7 @@ data for embedding.
 | `CONDITION_RANKING_RECHECK_DAYS` | `365` | When a stored verdict is asked again |
 | `CONDITION_RANKING_MIN_PUBMED_HITS` | `20` | Hits a quoted phrase needs in PubMed |
 | `CONDITION_RANKING_REFRESH_SECONDS` | `3600` | How often `refresh_if_due` refreshes |
+| `CONDITION_RANKING_REFRESH_TIMEOUT` | `180` | Seconds the refill actor waits on one refresh |
 | `CONDITION_RANKING_LIMIT` | `25` | Rows per list on the public page |
 | `PUBLIC_RANKINGS_CACHE_SECONDS` | `900` | How long the page's numbers are cached |
 | `PUBLIC_RANKINGS_MIN_SHOWN` | `10` | Votes before a model is ranked rather than warming up |

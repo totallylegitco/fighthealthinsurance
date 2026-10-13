@@ -13,8 +13,9 @@ Both are built from ``Denial.procedure`` and ``Denial.diagnosis``, which
 people typed or confirmed about their own case, so the whole module is a
 privacy filter first and a ranking second:
 
-1. Denials flagged for exclusion and test accounts' denials are left out,
-   the same base the de-identified export uses.
+1. Denials flagged for exclusion, test accounts' denials and denials filed
+   through professional accounts are left out: ``eligible_denials``, the
+   same base the de-identified export uses.
 2. Each string is normalized (lower-cased, whitespace collapsed, edge
    punctuation dropped) and run through ``looks_like_medical_term``, which
    rejects anything shaped like free text or an identifier: sentences with
@@ -34,9 +35,11 @@ privacy filter first and a ranking second:
    ``CONDITION_RANKING_LOOKUP_BUDGET`` of them.
 5. Counts shown in public are rounded down to a multiple of the k threshold.
 
-Refreshing the verdicts is background work (``refresh_if_due``, run by the
-chooser refill actor and the ``refresh_condition_rankings`` command); a page
-load only reads verdicts already stored and never calls NCBI.
+Refreshing the verdicts and the counts is background work
+(``refresh_if_due``, run by the chooser refill actor, and the
+``refresh_condition_rankings`` command; one refresh runs at a time,
+fleet-wide); a page load reads the stored rows (``ranked_terms``) and never
+scans the denials or calls NCBI.
 """
 
 import asyncio
@@ -81,6 +84,14 @@ CONDITION_RANKING_MIN_PUBMED_HITS = getattr(
 CONDITION_RANKING_REFRESH_SECONDS = getattr(
     settings, "CONDITION_RANKING_REFRESH_SECONDS", 60 * 60
 )
+# The longest the refill actor lets one refresh run before giving up on it
+# (the rows saved so far stay saved).
+CONDITION_RANKING_REFRESH_TIMEOUT = getattr(
+    settings, "CONDITION_RANKING_REFRESH_TIMEOUT", 180
+)
+# How long one refresh holds the fleet-wide "running" claim at most, so a
+# process that dies mid-refresh does not hold the next one off for longer.
+_RUN_CLAIM_SECONDS = 30 * 60
 # Rows per list on the public page.
 CONDITION_RANKING_LIMIT = getattr(settings, "CONDITION_RANKING_LIMIT", 25)
 # Pause between NCBI calls: 3 requests a second without an API key.
@@ -211,12 +222,25 @@ def _excluded_hashed_emails() -> List[str]:
     return [Denial.get_hashed_email(e) for e in TEST_ACCOUNT_EMAILS]
 
 
-def _ranking_denials() -> "QuerySet[Denial]":
-    """The denials the rankings count: not flagged for exclusion, and not a
-    test account's."""
-    return Denial.objects.exclude(hashed_email__in=_excluded_hashed_emails()).filter(
-        Q(flag_for_exclude=False) | Q(flag_for_exclude__isnull=True)
+def eligible_denials() -> "QuerySet[Denial]":
+    """The denials any aggregate shown in public, or sent to an outside
+    service, may draw on: not a test account's, not flagged for exclusion,
+    and not filed through a professional account (a clinic's cases are its
+    patients', entered under the professional terms). The same base as the
+    de-identified export, which reads it from here."""
+    return (
+        Denial.objects.exclude(hashed_email__in=_excluded_hashed_emails())
+        .filter(
+            creating_professional__isnull=True,
+            primary_professional__isnull=True,
+            domain__isnull=True,
+        )
+        .filter(Q(flag_for_exclude=False) | Q(flag_for_exclude__isnull=True))
     )
+
+
+def _ranking_denials() -> "QuerySet[Denial]":
+    return eligible_denials()
 
 
 def _person_spellings(fields: Tuple[str, ...]) -> Iterable[Dict[str, Any]]:
@@ -288,24 +312,27 @@ def _real_terms(kind: str) -> Dict[str, MedicalTermCheck]:
 
 
 def ranked_terms(kind: str, limit: Optional[int] = None) -> List[RankedTerm]:
-    """The ``kind`` terms the public may see: k-anonymous, shaped like a
-    term, and vouched for by a vocabulary, most frequent first, with counts
-    rounded down to a multiple of the k threshold. Reads stored verdicts
-    only; a term no refresh has checked yet is left out, never looked up."""
+    """The ``kind`` terms the public may see: k-anonymous at the last
+    refresh, shaped like a term, and vouched for by a vocabulary, with
+    counts rounded down to a multiple of the k threshold. A read of the
+    stored rows, so an anonymous page load never scans the denials; a term
+    no refresh has checked yet is left out, never looked up."""
     k = CONDITION_RANKING_MIN_PEOPLE
-    real = _real_terms(kind)
-    out: List[RankedTerm] = []
-    for counted in count_terms(kind, k):
-        if counted.term not in real:
-            continue
-        out.append(
-            RankedTerm(
-                term=counted.term,
-                display=real[counted.term].display or counted.display,
-                people=counted.people,
-                public_count=(counted.people // k) * k,
-            )
+    out = [
+        RankedTerm(
+            term=row.term,
+            display=row.display or row.term,
+            people=row.people,
+            public_count=(row.people // k) * k,
         )
+        for row in MedicalTermCheck.objects.filter(
+            kind=kind, is_real=True, people__gte=k
+        )
+    ]
+    # Ordered by the rounded count, ties by name: an order by the true
+    # count would tell two "5+" terms apart, and so would which one a
+    # top-N cut keeps.
+    out.sort(key=lambda r: (-r.public_count, r.term))
     return out[:limit] if limit else out
 
 
@@ -508,28 +535,55 @@ async def vocabulary_verdict(
         return (True, SOURCE_MESH)
     await asyncio.sleep(_NCBI_PAUSE_SECONDS)
     hits = await _pubmed_phrase_count(term, session)
-    if hits is None and mesh is None:
+    if hits is None:
+        # The deciding lookup did not answer: the term stays unchecked and
+        # is asked again, rather than rejected on MeSH's silence.
         return None
-    if hits is not None and hits >= CONDITION_RANKING_MIN_PUBMED_HITS:
+    if hits >= CONDITION_RANKING_MIN_PUBMED_HITS:
         return (True, SOURCE_PUBMED)
-    return (False, SOURCE_PUBMED if hits is not None else SOURCE_MESH)
+    return (False, SOURCE_PUBMED)
 
 
 # --- refreshing the verdicts ---------------------------------------------
 
 
-def _ensure_rows(kind: str, counted: List[TermCount]) -> int:
-    """A MedicalTermCheck row for every counted term; returns how many were
-    new. Only k-anonymous terms reach here (count_terms applied k)."""
-    existing = set(
-        MedicalTermCheck.objects.filter(
-            kind=kind, term__in=[t.term for t in counted]
-        ).values_list("term", flat=True)
+def _record_counts(kind: str, counted: List[TermCount], now: datetime.datetime) -> int:
+    """A MedicalTermCheck row for every counted term, with its people count
+    and most-used spelling as of ``now``; a row whose term is no longer
+    counted (below k now) is set to 0 people, which takes it off the page.
+    Returns how many rows were new. Only k-anonymous terms reach here
+    (count_terms applied k)."""
+    # A spelling is the raw field (up to 300 chars); the column is shorter.
+    width = MedicalTermCheck._meta.get_field("display").max_length or 160
+    by_term = {t.term: t for t in counted}
+    existing = list(MedicalTermCheck.objects.filter(kind=kind))
+    stale = [row for row in existing if row.term not in by_term and row.people]
+    for row in stale:
+        row.people = 0
+        row.counted_at = now
+    known = set()
+    for row in existing:
+        known.add(row.term)
+        t = by_term.get(row.term)
+        if t is not None:
+            row.people = t.people
+            row.display = t.display[:width]
+            row.counted_at = now
+    MedicalTermCheck.objects.bulk_update(
+        [row for row in existing if row.term in by_term] + stale,
+        ["people", "display", "counted_at"],
+        batch_size=500,
     )
     new = [
-        MedicalTermCheck(term=t.term, kind=kind, display=t.display)
+        MedicalTermCheck(
+            term=t.term,
+            kind=kind,
+            display=t.display[:width],
+            people=t.people,
+            counted_at=now,
+        )
         for t in counted
-        if t.term not in existing
+        if t.term not in known
     ]
     MedicalTermCheck.objects.bulk_create(new, ignore_conflicts=True)
     return len(new)
@@ -550,22 +604,65 @@ def _rows_to_check(now: datetime.datetime) -> List[MedicalTermCheck]:
     return unchecked + rechecks
 
 
+_RUN_CLAIM_KEY = "condition_rankings_running"
+# What a released run claim's timestamp is set to: older than any window,
+# so the next refresh can start at once.
+_RELEASED = datetime.datetime(1970, 1, 1, tzinfo=datetime.timezone.utc)
+
+
+def _release_run_claim() -> None:
+    ModelHealthAlertState.objects.filter(key=_RUN_CLAIM_KEY).update(
+        last_alert_sent=_RELEASED
+    )
+
+
 async def refresh_term_checks(budget: Optional[int] = None) -> Dict[str, int]:
     """Bring MedicalTermCheck up to date with the denials: a row for every
-    k-anonymous term, offline verdicts for free, then outside lookups for up
-    to ``budget`` terms. Returns counts of what it did."""
+    k-anonymous term with its count, offline verdicts for free, then outside
+    lookups for up to ``budget`` terms. Returns counts of what it did.
+
+    One refresh at a time, fleet-wide: the actor's hourly refresh and the
+    management command would otherwise look up the same terms side by side
+    and spend the NCBI budget twice. A second caller gets ``{"skipped": 1}``.
+    """
     if budget is None:
         budget = CONDITION_RANKING_LOOKUP_BUDGET
     stats: Counter = Counter()
+    if not await database_sync_to_async(ModelHealthAlertState.try_claim)(
+        _RUN_CLAIM_KEY, _RUN_CLAIM_SECONDS
+    ):
+        logger.info("Condition rankings: another refresh is running; skipping")
+        return {"skipped": 1}
+    try:
+        return await _refresh_term_checks(budget, stats)
+    finally:
+        try:
+            await database_sync_to_async(_release_run_claim)()
+        except Exception as e:
+            logger.warning(f"Condition rankings: could not release the run claim: {e}")
+
+
+async def _refresh_term_checks(budget: int, stats: Counter) -> Dict[str, int]:
+    now = timezone.now()
+    # The terms k-anonymous right now. A row is looked up only while its
+    # term is among them: a term can fall below k after its row was made
+    # (a denial deleted, the threshold raised), and the rule is that no
+    # string below k is ever sent off this server.
+    anonymous: Set[Tuple[str, str]] = set()
     for kind in KINDS:
         counted = await database_sync_to_async(count_terms)(kind)
-        stats["new_rows"] += await database_sync_to_async(_ensure_rows)(kind, counted)
-    now = timezone.now()
+        anonymous.update((kind, t.term) for t in counted)
+        stats["new_rows"] += await database_sync_to_async(_record_counts)(
+            kind, counted, now
+        )
     rows = await database_sync_to_async(_rows_to_check)(now)
     looked_up = 0
     session: Optional[aiohttp.ClientSession] = None
     try:
         for row in rows:
+            if (row.kind, row.term) not in anonymous:
+                stats["below_k_now"] += 1
+                continue
             verdict = offline_verdict(row.term, row.kind)
             if verdict is None:
                 if looked_up >= budget:

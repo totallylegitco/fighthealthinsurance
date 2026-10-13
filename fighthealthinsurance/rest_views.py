@@ -2558,8 +2558,8 @@ class ChooserViewSet(viewsets.ViewSet):
         session_key = self._get_session_key(request)
         task_id = serializer.validated_data["task_id"]
         # The references come back as the tokens the next-task endpoint
-        # served (or plain ids); anything that resolves to no candidate is
-        # a bad request, not a candidate that happens not to match.
+        # served; anything that resolves to no candidate is a bad request,
+        # not a candidate that happens not to match.
         chosen_candidate_id = resolve_candidate(
             serializer.validated_data["chosen_candidate_id"]
         )
@@ -2631,6 +2631,16 @@ class ChooserViewSet(viewsets.ViewSet):
             return Response(
                 serializers.ErrorSerializer(
                     {"error": "Chosen candidate was not in the presented candidates"}
+                ).data,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # One draft on screen is no comparison: the page never offers a vote
+        # then, so a request that claims one came from somewhere else.
+        if len(presented_candidate_ids) < 2:
+            return Response(
+                serializers.ErrorSerializer(
+                    {"error": "A vote needs at least two presented candidates"}
                 ).data,
                 status=status.HTTP_400_BAD_REQUEST,
             )

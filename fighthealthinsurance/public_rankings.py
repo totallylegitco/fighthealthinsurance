@@ -55,11 +55,21 @@ KINDS = (("appeal_letter", "Appeal letters"), ("chat_response", "Chat replies"))
 
 def blind_since() -> Optional[datetime.datetime]:
     """When blind voting began here: the lower bound on the votes the page
-    counts (see PUBLIC_RANKINGS_SINCE). None counts every vote."""
+    counts (see PUBLIC_RANKINGS_SINCE). None counts every vote, and only an
+    explicit empty setting says so; when the date cannot be established the
+    page fails closed and counts nothing, since a leaderboard of votes that
+    may have seen the model name is worse than an empty one."""
     if PUBLIC_RANKINGS_SINCE is not None:
         if not PUBLIC_RANKINGS_SINCE:
             return None
-        parsed = datetime.datetime.fromisoformat(str(PUBLIC_RANKINGS_SINCE))
+        try:
+            parsed = datetime.datetime.fromisoformat(str(PUBLIC_RANKINGS_SINCE))
+        except ValueError:
+            logger.warning(
+                f"PUBLIC_RANKINGS_SINCE is not an ISO 8601 datetime: "
+                f"{PUBLIC_RANKINGS_SINCE!r}; counting no votes until it is fixed"
+            )
+            return timezone.now()
         if timezone.is_naive(parsed):
             parsed = timezone.make_aware(parsed, datetime.timezone.utc)
         return parsed
@@ -75,8 +85,11 @@ def blind_since() -> Optional[datetime.datetime]:
         )
     except Exception as e:
         logger.warning(f"Could not read when blind voting began: {e}")
-        return None
-    return cast(Optional[datetime.datetime], applied)
+        applied = None
+    if applied is None:
+        # No record of the migration: nothing says which votes were blind.
+        return timezone.now()
+    return cast(datetime.datetime, applied)
 
 
 def _later(a: Optional[datetime.datetime], b: Optional[datetime.datetime]):

@@ -3,13 +3,16 @@ with case facts and the evidence already on file. Every model and every
 outside service is a mock; a live PubMed search is off in tests
 (CHOOSER_PUBMED_LIVE_SEARCH) and asserted never to run."""
 
+import datetime
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from django.test import override_settings
+from django.utils import timezone
 
 from fighthealthinsurance.chooser_tasks import (
+    _cached_pmids,
     _evidence_for,
     _generate_appeal_candidates,
 )
@@ -32,8 +35,13 @@ def _writer(scenario):
     return model
 
 
-async def _cached_search(query, pmids):
-    await PubMedQueryData.objects.acreate(query=query, articles=json.dumps(pmids))
+async def _cached_search(query, pmids, age_minutes=0):
+    """A cached search row; ``age_minutes`` sets its age explicitly, since
+    two rows created back to back can share a millisecond timestamp."""
+    row = await PubMedQueryData.objects.acreate(query=query, articles=json.dumps(pmids))
+    await PubMedQueryData.objects.filter(pk=row.pk).aupdate(
+        created=timezone.now() - datetime.timedelta(minutes=age_minutes)
+    )
 
 
 async def _article(pmid, title, url=None):
@@ -51,8 +59,8 @@ def _no_live_search():
 @pytest.mark.django_db(transaction=True)
 class TestEvidenceFor:
     async def test_cached_searches_are_reused_newest_first(self):
-        await _cached_search("MRI Lower back pain", ["1", "2"])
-        await _cached_search("mri lower back pain", ["3"])
+        await _cached_search("MRI Lower back pain", ["1", "2"], age_minutes=10)
+        await _cached_search("mri lower back pain", ["3"], age_minutes=1)
         await _article("1", "Imaging for low back pain", "https://example.org/1")
         await _article("2", "")  # no title: never shown
         await _article("3", "A newer study")
@@ -68,6 +76,19 @@ class TestEvidenceFor:
     async def test_nothing_cached_and_no_live_search_means_no_evidence(self):
         with _no_live_search():
             assert await _evidence_for("MRI", "Lower back pain") == []
+
+    @override_settings(CHOOSER_PUBMED_LIVE_SEARCH=True)
+    async def test_a_cached_search_is_used_before_a_live_one(self):
+        """With live search allowed, a pair that was searched before still
+        costs no NCBI call."""
+        await _cached_search("MRI Lower back pain", ["1"])
+        await _article("1", "Imaging for low back pain")
+        assert await _cached_pmids("MRI Lower back pain") == ["1"]
+
+        with _no_live_search():
+            evidence = await _evidence_for("MRI", "Lower back pain")
+
+        assert [e["pmid"] for e in evidence] == ["1"]
 
     @override_settings(CHOOSER_PUBMED_LIVE_SEARCH=True)
     async def test_live_search_runs_only_when_nothing_is_cached(self):

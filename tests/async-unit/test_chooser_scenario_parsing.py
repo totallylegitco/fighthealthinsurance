@@ -102,3 +102,42 @@ def test_appeal_prompt_without_evidence_says_to_cite_nothing():
     prompt = _build_appeal_prompt({"procedure": "MRI", "diagnosis": "Lower back pain"})
     assert "Case facts" not in prompt
     assert "there is none on file, so cite no studies" in prompt
+
+
+def test_facts_keep_their_leading_numbers():
+    """"45-55 years old" is a fact whose first word is a number, not a list
+    marker; the label-markup strip used to leave "years old"."""
+    text = _SCENARIO + (
+        "Case Facts: 45-55 years old; 6 months of lower back pain; "
+        "3 rounds of physical therapy failed; 2.5 cm disc protrusion on prior imaging.\n"
+    )
+    assert _facts_from_response(text) == [
+        "45-55 years old",
+        "6 months of lower back pain",
+        "3 rounds of physical therapy failed",
+        "2.5 cm disc protrusion on prior imaging",
+    ]
+
+
+def test_a_numbered_list_marker_is_still_stripped():
+    text = "Case Facts:\n1. Patient in their 40s\n2) 6 months of symptoms\n10. Tried NSAIDs\n"
+    assert _facts_from_response(text) == [
+        "Patient in their 40s",
+        "6 months of symptoms",
+        "Tried NSAIDs",
+    ]
+
+
+def test_a_bulleted_fact_with_a_colon_is_a_fact_not_the_next_field():
+    text = (
+        "Case Facts:\n"
+        "- Age range: 45-55\n"
+        "- **Symptoms:** eight months of back pain\n"
+        "- Tried PT, no improvement\n"
+        "Denial Reason: not medically necessary.\n"
+    )
+    assert _facts_from_response(text) == [
+        "Age range: 45-55",
+        "Symptoms: eight months of back pain",
+        "Tried PT, no improvement",
+    ]

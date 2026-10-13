@@ -92,10 +92,22 @@ class ChooserRefillActor:
         page and the seed pool the chooser's synthetic cases draw from, so
         this loop, the pool's supplier, keeps them current. Never a failed
         tick: the pool was refilled whether or not the lookups worked."""
-        from fighthealthinsurance.condition_rankings import refresh_if_due
+        from fighthealthinsurance.condition_rankings import (
+            CONDITION_RANKING_REFRESH_TIMEOUT,
+            refresh_if_due,
+        )
 
         try:
-            await refresh_if_due()
+            # Bounded: with NCBI black-holed, a full budget of lookups could
+            # otherwise hold this loop, and the pool, for ten minutes or more.
+            await asyncio.wait_for(
+                refresh_if_due(), timeout=CONDITION_RANKING_REFRESH_TIMEOUT
+            )
+        except asyncio.TimeoutError:
+            self._logger.warning(
+                "Condition rankings refresh gave up after "
+                f"{CONDITION_RANKING_REFRESH_TIMEOUT}s; the rows it saved stay saved"
+            )
         except Exception:
             self._logger.opt(exception=True).warning(
                 "Condition rankings refresh failed; the chooser pool is unaffected"

@@ -28,6 +28,12 @@ class Command(BaseCommand):
         stats = async_to_sync(condition_rankings.refresh_term_checks)(
             budget=options["budget"]
         )
+        if stats.get("skipped"):
+            self.stdout.write(
+                "Another refresh is running (the chooser refill actor's, most "
+                "likely); nothing done. Try again in a few minutes."
+            )
+            return
         self.stdout.write(f"Refreshed: {stats}")
         for kind in condition_rankings.KINDS:
             rows = condition_rankings.ranked_terms(kind, limit=10)

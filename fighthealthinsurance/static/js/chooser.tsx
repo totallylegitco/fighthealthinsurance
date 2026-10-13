@@ -310,8 +310,25 @@ const CandidateCard: React.FC<{
       padding="lg"
       radius="md"
       withBorder
-      onClick={onSelect}
+      role="button"
+      tabIndex={0}
       aria-pressed={isSelected}
+      aria-label={`Pick draft ${label}`}
+      onClick={() => {
+        // Highlighting a passage to re-read it ends in a click on the card;
+        // that is not a pick.
+        if (window.getSelection()?.toString()) return;
+        onSelect();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          // Picks the draft; must not also reach the page-level Enter
+          // handler, which casts the vote.
+          event.preventDefault();
+          event.stopPropagation();
+          onSelect();
+        }
+      }}
       style={{
         cursor: "pointer",
         border,
@@ -336,15 +353,23 @@ const CandidateCard: React.FC<{
             </Badge>
           )}
         </Group>
-        <Checkbox
-          size="sm"
-          color="red"
-          checked={isFlagged}
+        {/* The whole flag control, label included, stays out of the card's
+            click and key handling: Mantine renders the label beside the
+            input, so a click on its text would otherwise bubble to the
+            card and pick the draft it was meant to flag. */}
+        <div
           onClick={(event) => event.stopPropagation()}
-          onChange={() => onToggleFlag()}
-          aria-label={`Flag draft ${label} as making things up`}
-          label={<Text size="xs">Makes things up</Text>}
-        />
+          onKeyDown={(event) => event.stopPropagation()}
+        >
+          <Checkbox
+            size="sm"
+            color="red"
+            checked={isFlagged}
+            onChange={() => onToggleFlag()}
+            aria-label={`Flag draft ${label} as making things up`}
+            label={<Text size="xs">Makes things up</Text>}
+          />
+        </div>
       </Group>
       <ScrollArea h={expanded ? undefined : 320} offsetScrollbars>
         <Text size="sm" style={{ whiteSpace: "pre-wrap" }}>
@@ -467,12 +492,12 @@ const ChooserInterface: React.FC = () => {
   }, [state.task, state.selectedCandidate, state.flaggedIds, scoreboard]);
 
   const handleSelectCandidate = useCallback((candidate: ChooserCandidate) => {
-    // Picking a draft clears its flag: a foul cannot also be the winner.
-    setState((prev) => ({
-      ...prev,
-      selectedCandidate: candidate,
-      flaggedIds: prev.flaggedIds.filter((id) => id !== candidate.id),
-    }));
+    // A flagged draft cannot be picked: the voter clears the flag first.
+    // Silently dropping the flag on a click (a stray one, say, after
+    // highlighting text) would turn a foul into the winner.
+    setState((prev) =>
+      prev.flaggedIds.includes(candidate.id) ? prev : { ...prev, selectedCandidate: candidate },
+    );
   }, []);
 
   const handleToggleFlag = useCallback((candidate: ChooserCandidate) => {
@@ -548,7 +573,8 @@ const ChooserInterface: React.FC = () => {
 
   // Keyboard: A to F pick a draft, Enter casts the vote.
   useEffect(() => {
-    if (state.mode !== "voting" || !state.task) return;
+    // Not on the single-draft screen either: it offers no vote.
+    if (state.mode !== "voting" || !state.task || state.task.candidates.length < 2) return;
     const task = state.task;
     const handler = (event: KeyboardEvent) => {
       // Ctrl+C to copy a passage must not also pick Draft C.
@@ -834,7 +860,8 @@ const ChooserInterface: React.FC = () => {
 
           <Text size="sm" c="dimmed" ta="center">
             Click a draft (or press its letter) to pick it, flag any that make things up, then
-            cast your vote. Skip if you are unsure.
+            cast your vote. A flagged draft cannot be picked until you clear the flag. Skip if
+            you are unsure.
           </Text>
         </Stack>
       </Container>

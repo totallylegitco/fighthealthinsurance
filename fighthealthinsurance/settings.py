@@ -311,6 +311,42 @@ class Base(Configuration):
     ]
     # The spend ledger's background thread (off in tests, like the banner).
     FHI_SPEND_BACKGROUND = True
+
+    # The Appeal Arena (chooser) and the public rankings; see docs/chooser.md.
+    # Each module reads these with a default, so unset means the default.
+    CHOOSER_SEED_FROM_RANKINGS = (
+        os.getenv("CHOOSER_SEED_FROM_RANKINGS", "true").lower() != "false"
+    )
+    CHOOSER_EVIDENCE_LIMIT = int(os.getenv("CHOOSER_EVIDENCE_LIMIT", "5"))
+    CHOOSER_PUBMED_LIVE_SEARCH = (
+        os.getenv("CHOOSER_PUBMED_LIVE_SEARCH", "true").lower() != "false"
+    )
+    CHOOSER_PUBMED_SEARCH_TIMEOUT = float(
+        os.getenv("CHOOSER_PUBMED_SEARCH_TIMEOUT", "20")
+    )
+    CONDITION_RANKING_MIN_PEOPLE = int(os.getenv("CONDITION_RANKING_MIN_PEOPLE", "5"))
+    CONDITION_RANKING_LOOKUP_BUDGET = int(
+        os.getenv("CONDITION_RANKING_LOOKUP_BUDGET", "30")
+    )
+    CONDITION_RANKING_RECHECK_DAYS = int(
+        os.getenv("CONDITION_RANKING_RECHECK_DAYS", "365")
+    )
+    CONDITION_RANKING_MIN_PUBMED_HITS = int(
+        os.getenv("CONDITION_RANKING_MIN_PUBMED_HITS", "20")
+    )
+    CONDITION_RANKING_REFRESH_SECONDS = int(
+        os.getenv("CONDITION_RANKING_REFRESH_SECONDS", str(60 * 60))
+    )
+    CONDITION_RANKING_REFRESH_TIMEOUT = int(
+        os.getenv("CONDITION_RANKING_REFRESH_TIMEOUT", "180")
+    )
+    CONDITION_RANKING_LIMIT = int(os.getenv("CONDITION_RANKING_LIMIT", "25"))
+    PUBLIC_RANKINGS_CACHE_SECONDS = int(
+        os.getenv("PUBLIC_RANKINGS_CACHE_SECONDS", str(15 * 60))
+    )
+    PUBLIC_RANKINGS_MIN_SHOWN = int(os.getenv("PUBLIC_RANKINGS_MIN_SHOWN", "10"))
+    # None when unset: the page then counts from when blind voting shipped.
+    PUBLIC_RANKINGS_SINCE = os.getenv("PUBLIC_RANKINGS_SINCE")
     # MCP call counts are written on their own thread (mcp_server.py); off in
     # tests, where that thread's writes would escape the test's transaction.
     FHI_MCP_CALL_COUNT_OWN_THREAD = True

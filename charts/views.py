@@ -13,6 +13,7 @@ from django.db.utils import NotSupportedError
 from django.utils import timezone
 from datetime import timedelta
 
+from fighthealthinsurance.condition_rankings import eligible_denials
 from fighthealthinsurance.constants import TEST_ACCOUNT_EMAILS
 from fighthealthinsurance.models import (
     Appeal,
@@ -53,16 +54,10 @@ def _get_excluded_hashed_emails():
 
 
 def _non_pro_unflagged_denials():
-    """Return base Denial queryset excluding pro users, flagged, and test emails."""
-    return (
-        Denial.objects.exclude(hashed_email__in=_get_excluded_hashed_emails())
-        .filter(
-            creating_professional__isnull=True,
-            primary_professional__isnull=True,
-            domain__isnull=True,
-        )
-        .filter(Q(flag_for_exclude=False) | Q(flag_for_exclude__isnull=True))
-    )
+    """Return base Denial queryset excluding pro users, flagged, and test
+    emails: the one base every de-identified or public aggregate shares
+    (condition_rankings.eligible_denials)."""
+    return eligible_denials()
 
 
 def _get_verified_or_raw(denial, field):

@@ -303,13 +303,19 @@ def _parse_conversation(text: str):
 
 
 _FACT_SPLIT_RE = re.compile(r"\s*;\s*|\s*\n\s*")
+# The list markup a fact may start with: bullets, and a list number followed
+# by a period or bracket and a space. Not every leading digit, as the label
+# regex strips: "45-55 years old" and "6 months of symptoms" are facts whose
+# first word is a number, and the old strip left "years old".
+_FACT_MARKUP_RE = re.compile(r"^(?:[\s\-\*\u2022>#]+|\d{1,2}[.)]\s+)+")
+_FACT_BULLET_RE = re.compile(r"^\s*(?:[\-\*\u2022]|\d{1,2}[.)])\s+")
 
 
 def _clean_fact(raw: str) -> str:
     """One case fact without list markup, emphasis or a trailing period,
     cut to _MAX_FACT_CHARS."""
-    fact = _strip_label_emphasis(_LABEL_MARKUP_RE.sub("", raw.strip()))
-    fact = fact.strip().rstrip(".").strip()
+    fact = _strip_label_emphasis(_FACT_MARKUP_RE.sub("", raw.strip()))
+    fact = fact.replace("**", "").replace("__", "").strip().rstrip(".").strip()
     return fact[:_MAX_FACT_CHARS]
 
 
@@ -333,6 +339,10 @@ def _facts_from_response(text: str) -> List[str]:
                     pieces.extend(p for p in _FACT_SPLIT_RE.split(split[1]) if p)
                 continue
             if not collecting:
+                continue
+            if _FACT_BULLET_RE.match(raw):
+                # A bullet is a fact even when it reads "Age range: 45-55".
+                pieces.append(raw)
                 continue
             if split is not None and split[1]:
                 # The next labelled field ends the list.
@@ -376,7 +386,9 @@ async def _cached_pmids(query: str) -> List[str]:
         PubMedQueryData.objects.filter(query__iexact=query, denial_id__isnull=True)
         .exclude(articles__isnull=True)
         .exclude(articles="")
-        .order_by("-created")[:6]
+        # Newest first; the id breaks the tie two searches in one
+        # millisecond would otherwise leave to row order.
+        .order_by("-created", "-internal_id")[:6]
     )
     async for row in rows:
         try:

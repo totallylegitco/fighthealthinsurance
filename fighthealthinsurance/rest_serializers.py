@@ -934,7 +934,7 @@ class ChooserVoteRequestSerializer(serializers.Serializer):
 
     task_id = serializers.IntegerField(required=True)
     # Candidate references as the next-task endpoint served them: opaque
-    # tokens (chooser_tokens). A plain integer id is accepted too.
+    # tokens (chooser_tokens), and nothing else (see resolve_candidate).
     chosen_candidate_id = serializers.CharField(required=True)
     presented_candidate_ids = serializers.ListField(
         child=serializers.CharField(), required=True

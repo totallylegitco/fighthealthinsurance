@@ -1448,8 +1448,9 @@ class MedicalTermCheck(models.Model):
     vocabulary service or shown on the public rankings. ``is_real`` is None
     while the term waits for a check; ``source`` says which vocabulary
     answered (microsites, rxnorm, mesh) or ``heuristic`` when the string was
-    rejected before any lookup. ``display`` is the vocabulary's preferred
-    spelling, when it gave one, else the normalized term.
+    rejected before any lookup. ``display`` is the spelling most people
+    used. ``people`` is the term's count at the last refresh, so the public
+    page is a read of this table and never a scan of the denials.
     """
 
     KIND_CHOICES = [("condition", "Condition"), ("treatment", "Treatment")]
@@ -1460,6 +1461,11 @@ class MedicalTermCheck(models.Model):
     display = models.CharField(max_length=160, blank=True, default="")
     source = models.CharField(max_length=20, blank=True, default="")
     checked_at = models.DateTimeField(null=True, blank=True)
+    # How many different people entered the term, as of the last refresh
+    # (counted_at); 0 once it has fallen below k. The public page reads
+    # this rather than scanning the denials on an anonymous request.
+    people = models.IntegerField(default=0)
+    counted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
