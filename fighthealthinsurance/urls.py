@@ -23,7 +23,7 @@ from django.contrib import admin
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
-from django.http import HttpRequest, HttpResponseBase
+from django.http import HttpRequest, HttpResponseBase, HttpResponseNotFound
 from django.urls import URLPattern, URLResolver, include, path, re_path
 from django.views.decorators.cache import cache_control, cache_page
 from django.views.decorators.csrf import csrf_exempt
@@ -43,14 +43,14 @@ from fighthealthinsurance import (
 from fighthealthinsurance.sitemap import sitemap_view
 
 
-def trigger_error(request: HttpRequest) -> HttpResponseBase:
-    raise Exception("Test error")
+def no_file_here(request: HttpRequest, path: str) -> HttpResponseBase:
+    # Encrypted files are never served by URL; their .url only needs a route.
+    return HttpResponseNotFound()
 
 
 urlpatterns: List[Union[URLPattern, URLResolver]] = [
     # Internal-ish-views
     path("ziggy/rest/", include("fighthealthinsurance.rest_urls")),
-    path("timbit/sentry-debug/", trigger_error),
     # Add webhook handler
     path(
         "webhook/stripe/",
@@ -77,7 +77,8 @@ urlpatterns: List[Union[URLPattern, URLResolver]] = [
         views.PwywThanksView.as_view(),
         name="pwyw_thanks",
     ),
-    re_path("timbit/sentry-debug/(?P<path>.+)", trigger_error, name="fake_fetch_url"),
+    # DEFF_FETCH_URL_NAME: the encrypted file fields reverse this for .url.
+    path("timbit/no-file/<path:path>", no_file_here, name="fake_fetch_url"),
     path("timbit/charts/", include(("charts.urls", "charts"), namespace="charts")),
     path("timbit/admin/", admin.site.urls),
     path("", include("django_prometheus.urls")),
