@@ -2453,6 +2453,22 @@ _NOT_ANSWERS = frozenset(
 )
 
 
+def plan_context_for_models(denial) -> Optional[str]:
+    """The plan context the appeal models get: the denial's *merged*
+    plan_context (merge_plan_context) plus its plan-documents summary.
+
+    Shared by the wizard and the chat letter path. The wizard once
+    interpolated its raw `plan_context` set, which both dropped the merged
+    fragments and leaked a Python set repr ("{'a', 'b'}") into the prompt.
+    """
+    plan_parts: list[str] = []
+    if denial.plan_context:
+        plan_parts.append(str(denial.plan_context))
+    if denial.plan_documents_summary:
+        plan_parts.append(denial.plan_documents_summary)
+    return "\n\n".join(plan_parts) or None
+
+
 def servable_drafts(denial) -> QuerySet:
     """The denial's ProposedAppeal rows that may be shown to the user.
 
@@ -6783,17 +6799,7 @@ class AppealsBackendHelper:
             }
         ) + "\n"
 
-        # Feed the prompt the *merged* plan_context (built by
-        # merge_plan_context above) plus the plan-documents summary. The old
-        # code interpolated the raw `plan_context` set, which both dropped
-        # the merged fragments and leaked a Python set repr ("{'a', 'b'}")
-        # into the model prompt.
-        plan_parts: list[str] = []
-        if denial.plan_context:
-            plan_parts.append(str(denial.plan_context))
-        if denial.plan_documents_summary:
-            plan_parts.append(denial.plan_documents_summary)
-        model_plan_context: Optional[str] = "\n\n".join(plan_parts) or None
+        model_plan_context = plan_context_for_models(denial)
 
         # Cadence + ceiling for the generating-phase heartbeat. make_appeals
         # blocks (commonly 10s-2min, worst case several minutes across the
