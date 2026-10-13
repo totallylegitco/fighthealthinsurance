@@ -210,7 +210,7 @@ pull request.
 | `fighthealthinsurance/agent_docs.py` | The live site's markdown twins (`<url>.md`) and `/llms.txt`. |
 | `fighthealthinsurance/templates/` | Django templates; shared pieces in `fighthealthinsurance/templates/partials/`. |
 | `fighthealthinsurance/static/` | CSS (`fighthealthinsurance/static/css/custom.css`, `main.css`), images, blog and FAQ posts, `microsites.json`. |
-| `fighthealthinsurance/static/js/` | TypeScript and React sources, all at the top level. Each `.ts`/`.tsx` except `icons.tsx` is a webpack entry built to `dist/<name>.bundle.js` (gitignored). Run npm from this directory. |
+| `fighthealthinsurance/static/js/` | TypeScript and React sources, all at the top level. The page bundles listed in `entryFiles` in `webpack.config.js` build to `dist/<name>.bundle.js` (gitignored); the other modules ship inside them. Run npm from this directory. |
 | `fighthealthinsurance/management/commands/` | `manage.py` commands. |
 | `fighthealthinsurance/migrations/`, `fighthealthinsurance/fixtures/` | Migrations, and the fixtures `setup_local_db` loads. |
 | `fhi_users/` | Users (`PatientUser`, `ProfessionalUser`, `UserDomain`), login and REST auth under `/v0/auth/` (`fhi_users/auth/`), and `fhi_users/audit.py` (audit log, GeoIP lookups). |

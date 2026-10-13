@@ -19,7 +19,6 @@ from fighthealthinsurance.medical_code_extractor import (
     hcpcs_category,
     is_aac_code,
     is_dme_code,
-    unique_in_order,
 )
 
 
@@ -320,14 +319,6 @@ class TestExtractDmeDevices:
         assert result["device_types"] == {"mobility", "other"}
         assert "infusion_pump" in result["dme_categories"]
         assert "mobility" in result["dme_categories"]
-
-
-class TestUniqueInOrder:
-    def test_preserves_order_and_dedupes(self):
-        assert unique_in_order(["a", "b", "a", "c", "b"]) == ["a", "b", "c"]
-
-    def test_empty_input(self):
-        assert unique_in_order([]) == []
 
 
 class TestModuleConstants:

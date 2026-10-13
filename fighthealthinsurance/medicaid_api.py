@@ -1,5 +1,4 @@
 import difflib
-import json
 import re
 from datetime import date
 from pathlib import Path
@@ -34,36 +33,6 @@ class MedicaidDataUnavailableError(Exception):
 
     def __str__(self) -> str:
         return f"No Medicaid resource data for {self.state}: {self.reason}"
-
-
-def _explode_scraped_faq(df: pd.DataFrame) -> pd.DataFrame:
-    if "scraped_faq" not in df.columns:
-        return pd.DataFrame(
-            columns=["faq_question", "faq_answer", "faq_source_url", "faq_fetched"]
-        )
-    rows: List[dict] = []
-    for _, r in df.iterrows():
-        blob = r.get("scraped_faq")
-        if pd.isna(blob) or not str(blob).strip():
-            continue
-        for line in str(blob).splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                j = json.loads(line)
-                rows.append(
-                    {
-                        "state": r.get("state"),
-                        "faq_question": j.get("question"),
-                        "faq_answer": j.get("answer"),
-                        "faq_source_url": j.get("source_url"),
-                        "faq_fetched": j.get("fetched"),
-                    }
-                )
-            except json.JSONDecodeError:
-                continue
-    return pd.DataFrame(rows)
 
 
 # Canonical full-name -> 2-letter abbreviation (lowercase)

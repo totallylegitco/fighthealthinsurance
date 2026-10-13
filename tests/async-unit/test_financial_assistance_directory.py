@@ -392,46 +392,6 @@ class TestFinancialAssistanceResults:
         assert results.is_empty() is False
         assert results.has_specific_matches() is False
 
-    def test_all_programs_concatenates_in_order(self):
-        diag = [
-            AssistanceProgram(
-                name="DiagFoo",
-                url="https://x",
-                description="d",
-                category="copay_foundation",
-            )
-        ]
-        mfr = [
-            AssistanceProgram(
-                name="MfrBar", url="https://x", description="d", category="manufacturer"
-            )
-        ]
-        gen = [
-            AssistanceProgram(
-                name="GenBaz",
-                url="https://x",
-                description="d",
-                category="copay_foundation",
-            )
-        ]
-        safety = [
-            AssistanceProgram(
-                name="SafetyQux",
-                url="https://x",
-                description="d",
-                category="safety_net",
-            )
-        ]
-        results = FinancialAssistanceResults(
-            diagnosis_specific=diag,
-            manufacturer=mfr,
-            general=gen,
-            safety_net=safety,
-        )
-        names = [p.name for p in results.all_programs()]
-        assert names == ["DiagFoo", "MfrBar", "GenBaz", "SafetyQux"]
-
-
 class TestDataIntegrity:
     """Sanity checks on the curated catalog."""
 

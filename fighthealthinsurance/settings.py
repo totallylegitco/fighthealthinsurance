@@ -12,7 +12,6 @@ https://docs.djangoproject.com/en/4.0/ref/settings/
 
 import datetime
 import os
-import re
 import time
 import traceback
 from functools import cached_property
@@ -501,7 +500,6 @@ class Base(Configuration):
 
     LOGIN_URL = "login"
     LOGIN_REDIRECT_URL = "/"
-    THUMBNAIL_DEBUG = True
     DEFF_FETCH_URL_NAME = "fake_fetch_url"
     STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
     SECURE_TOKEN_ROLLOUT_AT = datetime.datetime(2026, 5, 4, tzinfo=datetime.UTC)
@@ -546,13 +544,6 @@ class Base(Configuration):
     # never use it: those don't involve Cofactor unless the professional replies
     # to us.
     COFACTOR_INTRO_CONTACT = os.getenv("COFACTOR_INTRO_CONTACT", "")
-
-    # Demo-request notifications always go to support42@; additional recipients
-    # can be configured via the DEMO_REQUEST_EXTRA_NOTIFICATION_EMAILS env var
-    # (comma-separated).
-    DEMO_REQUEST_NOTIFICATION_EMAILS = [
-        "support42@fighthealthinsurance.com"
-    ] + _env_list("DEMO_REQUEST_EXTRA_NOTIFICATION_EMAILS")
 
     # Professional-signup notifications — the web /pro_version interest form and
     # the Fight Paperwork (FPW) REST professional sign-up endpoint — default to
@@ -665,14 +656,10 @@ class Base(Configuration):
         "fighthealthinsurance",
         "fhi_users",
         "charts",
-        "easy_thumbnails",
         "cookie_consent",
         "compressor",
-        "compressor_toolkit",
         "django_extensions",
         "django_tables2",
-        "static_thumbnails",
-        "memoize",
         "django_recaptcha",
         "rest_framework",
         "mfa",
@@ -682,11 +669,6 @@ class Base(Configuration):
         "corsheaders",
     ]
 
-    COMPRESS_JS_FILTERS = [
-        "compressor.filters.jsmin.JSMinFilter",
-        "compressor.filters.yuglify.YUglifyJSFilter",
-    ]
-
     STATICFILES_FINDERS = (
         "django.contrib.staticfiles.finders.FileSystemFinder",
         "django.contrib.staticfiles.finders.AppDirectoriesFinder",
@@ -694,12 +676,6 @@ class Base(Configuration):
     )
     COMPRESS_ENABLED = True
     COMPRESS_OFFLINE = False
-    COMPRESS_YUGLIFY_BINARY = "yuglify"
-    COMPRESS_YUGLIFY_JS_ARGUMENTS = "--mangle"
-    COMPRESS_PRECOMPILERS = (
-        ("module", "compressor_toolkit.precompilers.ES6Compiler"),
-        ("css", "compressor_toolkit.precompilers.SCSSCompiler"),
-    )
 
     MIDDLEWARE = [
         # First, so every request is stamped with the thread its cleanup
@@ -717,17 +693,12 @@ class Base(Configuration):
         "django.contrib.messages.middleware.MessageMiddleware",
         "django.middleware.clickjacking.XFrameOptionsMiddleware",
         "cookie_consent.middleware.CleanCookiesMiddleware",
-        "django_user_agents.middleware.UserAgentMiddleware",
         "django.middleware.common.CommonMiddleware",
         "django.middleware.csrf.CsrfViewMiddleware",
         "django.middleware.security.SecurityMiddleware",
         "fighthealthinsurance.middleware.AuditMiddleware",
         "django_prometheus.middleware.PrometheusAfterMiddleware",
     ]
-
-    GOOGLE_ANALYTICS = {
-        "google_analytics_id": "G-2EDT623L0V",
-    }
 
     ROOT_URLCONF = "fighthealthinsurance.urls"
 
@@ -948,9 +919,6 @@ class Base(Configuration):
     METRICS_ALLOWED_FORWARDED_CIDRS = _env_list("METRICS_ALLOWED_FORWARDED_CIDRS")
 
     # STRIPE SETTINGS
-    STRIPE_LIVE_MODE = False
-    STRIPE_API_VERSION = "2024-09-30.acacia"
-
     @property
     def STRIPE_API_SECRET_KEY(self):
         return os.getenv(
@@ -996,15 +964,6 @@ class Base(Configuration):
             self.EXTERNAL_STORAGE_B,
             self.EXTERNAL_STORAGE_C,
         )
-
-    # Ignore some 404 errors
-    IGNORABLE_404_URLS = [
-        re.compile(r"\.(php|cgi)$"),
-        re.compile(r"^/phpmyadmin/"),
-        re.compile(r"^/apple-touch-icon.*\.png$"),
-        re.compile(r"^/favicon\.ico$"),
-        re.compile(r"^/robots\.txt$"),
-    ]
 
     # Seconds the appeal-generation flow waits for in-flight background
     # PubMed/citation cache-warming before falling through to an inline
@@ -1459,8 +1418,6 @@ class Prod(Base):
     FIDO_SERVER_ID = "fighthealthinsurance.com"  # Server rp id for FIDO2, it is the full domain of your project
     FIGHT_PAPERWORK_DOMAIN = "www.fightpaperwork.com"
     FIGHT_HEALTH_INSURANCE_DOMAIN = "www.fighthealthinsurance.com"
-
-    STRIPE_LIVE_MODE = True
 
     @property
     def SECRET_KEY(self):  # type: ignore

@@ -14,7 +14,6 @@ from fighthealthinsurance.chat.context_manager import (
     prepare_history_for_llm,
     should_store_summary,
     strip_previous_summary_blocks,
-    get_current_context,
     ensure_message_alternation,
     DEFAULT_MESSAGES_TO_KEEP,
     SUMMARIZATION_INTERVAL,
@@ -235,33 +234,6 @@ class TestShouldStoreSummary:
     def test_same_summary(self):
         """Test returns False when summary matches last stored."""
         assert should_store_summary(["same summary"], "same summary") is False
-
-
-class TestGetCurrentContext:
-    """Tests for get_current_context function."""
-
-    def test_no_summaries(self):
-        """Test returns None when no summaries."""
-        assert get_current_context(None) is None
-        assert get_current_context([]) is None
-
-    def test_returns_last_summary(self):
-        """Test returns the last summary from list."""
-        summaries = ["first", "second", "third"]
-        assert get_current_context(summaries) == "third"
-
-    def test_includes_pubmed_context(self):
-        """Test includes PubMed context when provided."""
-        summaries = ["base context"]
-        result = get_current_context(summaries, pubmed_context="PubMed results here")
-        assert "base context" in result
-        assert "PubMed context:" in result
-        assert "PubMed results here" in result
-
-    def test_pubmed_only(self):
-        """Test returns PubMed context when no summaries."""
-        result = get_current_context(None, pubmed_context="PubMed results")
-        assert result == "PubMed context: PubMed results"
 
 
 class TestEnsureMessageAlternation:

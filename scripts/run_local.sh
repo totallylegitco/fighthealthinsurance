@@ -212,7 +212,7 @@ done
 # If --devserver is passed, use Django's dev server for hot-reloading templates
 if [[ "$1" == "--devserver" ]]; then
   shift
-  RECAPTCHA_TESTING=true OAUTHLIB_RELAX_TOKEN_SCOPE=1 python manage.py runserver_plus --cert-file cert.pem --key-file key.pem "$@"
+  RECAPTCHA_TESTING=true python manage.py runserver_plus --cert-file cert.pem --key-file key.pem "$@"
   exit 0
 fi
 
@@ -226,4 +226,4 @@ fi
 # - Large data files (*.csv, *.m4a, *.pdf in static)
 # - Migration files (migrations/* - only changed intentionally, not during normal dev)
 RELOAD_EXCLUDE="*.pyc,__pycache__/*,*.pyo,*~,#*#,.#*,node_modules/*,dist/*,.tox/*,*sqlite*,./tox/*,./tests/*,fhi-0.1.0/*,migrations/*,*.csv,*.m4a,*.pdf,*.png,*.jpg,*.jpeg,*.gif,*.svg,*.woff,*.woff2,*.ttf,*.eot,*.ico"
-RECAPTCHA_TESTING=true OAUTHLIB_RELAX_TOKEN_SCOPE=1 uvicorn fighthealthinsurance.asgi:application --reload --reload-dir fighthealthinsurance --reload-exclude "$RELOAD_EXCLUDE" --access-log --log-config conf/uvlog_config.yaml --port 8000 --ssl-keyfile key.pem --ssl-certfile cert.pem "$@" --host 0.0.0.0
+RECAPTCHA_TESTING=true uvicorn fighthealthinsurance.asgi:application --reload --reload-dir fighthealthinsurance --reload-exclude "$RELOAD_EXCLUDE" --access-log --log-config conf/uvlog_config.yaml --port 8000 --ssl-keyfile key.pem --ssl-certfile cert.pem "$@" --host 0.0.0.0

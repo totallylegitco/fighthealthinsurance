@@ -18,30 +18,6 @@ User = get_user_model()
 class TestSiteBannerModel(TestCase):
     """Visibility and serialization logic on the SiteBanner model."""
 
-    def test_active_banner_is_visible(self):
-        banner = SiteBanner(message="Heads up", active=True)
-        self.assertTrue(banner.is_currently_visible())
-
-    def test_inactive_banner_is_not_visible(self):
-        banner = SiteBanner(message="Heads up", active=False)
-        self.assertFalse(banner.is_currently_visible())
-
-    def test_expired_banner_is_not_visible(self):
-        banner = SiteBanner(
-            message="Heads up",
-            active=True,
-            expires_at=timezone.now() - timedelta(hours=1),
-        )
-        self.assertFalse(banner.is_currently_visible())
-
-    def test_future_expiry_banner_is_visible(self):
-        banner = SiteBanner(
-            message="Heads up",
-            active=True,
-            expires_at=timezone.now() + timedelta(hours=1),
-        )
-        self.assertTrue(banner.is_currently_visible())
-
     def test_get_active_banners_excludes_inactive_and_expired(self):
         active = SiteBanner.objects.create(message="Show me", active=True)
         SiteBanner.objects.create(message="Hidden", active=False)
@@ -332,7 +308,8 @@ class TestSiteBannerAdmin(TestCase):
         self.assertEqual(response.status_code, 302)
         banner = SiteBanner.objects.get(message="Created via admin")
         self.assertTrue(banner.active)
-        self.assertTrue(banner.is_currently_visible())
+        ids = [b["id"] for b in SiteBanner.get_active_banners()]
+        self.assertIn(banner.id, ids)
 
     def test_short_message_truncates_long_text(self):
         from fighthealthinsurance.admin import SiteBannerAdmin

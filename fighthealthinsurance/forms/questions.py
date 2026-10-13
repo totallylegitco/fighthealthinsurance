@@ -168,12 +168,6 @@ class MedicalNecessaryQuestions(InsuranceQuestions):
         response = self._append_context(response, "age", "The patient age is")
         return response
 
-    def generate_reason(self):
-        """Return the reason OR the special tag {medical_reason} where we will ask the LLM why it might be medically necessary."""
-        if not self.cleaned_data.get("medical_reason"):
-            return "{medical_reason}"
-        return [self.cleaned_data["medical_reason"]]
-
     def main(self):
         return [
             "The claim was denied as not medically necessary; however, it is medically necessary for {medical_reason}."

@@ -1,5 +1,4 @@
 const path = require('path');
-const glob = require('glob');
 const TerserPlugin = require('terser-webpack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
 const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
@@ -56,21 +55,25 @@ const workerAssets = [
 // Check if bundle analysis is requested
 const shouldAnalyze = process.env.ANALYZE === 'true';
 
-// Dynamically find all .tsx and .ts files in static/js (excluding files like icons.tsx if desired)
-const jsDir = path.join(__dirname);
-const entries = {};
-try {
-  glob.sync(path.join(jsDir, '*.{ts,tsx}')).forEach(file => {
-    const name = path.basename(file).replace(/\.(tsx|ts)$/, '');
-    // Exclude utility files and test files from being entry points
-    if (!['icons', 'utils', 'types'].includes(name) && !name.includes('.test') && !name.includes('.spec')) {
-      entries[name] = file;
-    }
-  });
-} catch (error) {
-  console.error('Error scanning for entry points:', error);
-  process.exit(1);
-}
+// Only bundles a page loads; tests/sync/test_bundle_urls.py checks them against the templates.
+const entryFiles = [
+  'appeal.ts',
+  'appeal_fetcher.ts',
+  'blog.tsx',
+  'blog_post.tsx',
+  'chat_interface.tsx',
+  'chooser.tsx',
+  'entity_fetcher.ts',
+  'escalation_packet_review.ts',
+  'explain_denial.ts',
+  'formPersistence.ts',
+  'model_status.ts',
+  'scrub.ts',
+  'user_info_storage.ts',
+];
+const entries = Object.fromEntries(
+  entryFiles.map((file) => [path.parse(file).name, path.join(__dirname, file)]),
+);
 
 // Determine if we're in production mode
 // Production unless a developer explicitly asks for a development build.
@@ -87,7 +90,7 @@ try {
 // isProduction is decided INSIDE the exported function, from the CLI's --mode
 // when one is given, so see below.
 
-module.exports = async (env, argv) => {
+module.exports = (env, argv) => {
   // One source of truth for mode and optimization.
   // `webpack --mode X` overrides the configured mode after this file has
   // run, so if this flag came only from NODE_ENV the two could disagree:
@@ -101,17 +104,14 @@ module.exports = async (env, argv) => {
   const isProduction = argv && argv.mode
     ? argv.mode === 'production'
     : process.env.NODE_ENV !== 'development';
-  // Load ESM-only plugins with dynamic import()
-  const [{ default: remarkGfm }, { default: rehypeHighlight }] = await Promise.all([
-    import('remark-gfm'),
-    import('rehype-highlight'),
-  ]);
   return {
   context: __dirname,
   mode: isProduction ? 'production' : 'development',
   entry: entries,
   output: {
     path: path.resolve(__dirname, 'dist'),
+    // Bundles dropped from the list would otherwise keep shipping from an old dist/.
+    clean: true,
     filename: '[name].bundle.js',
     // Chunks a bundle loads itself carry their own hash, so a CDN can't
     // serve an old one; entry bundles are versioned by {% bundle %}.
@@ -144,31 +144,13 @@ module.exports = async (env, argv) => {
       path.resolve(__dirname, 'node_modules'),
       'node_modules'
     ],
-  extensions: ['.tsx', '.ts', '.js', '.md'],
+  extensions: ['.tsx', '.ts', '.js'],
     alias: {
       '@sentry/browser': require.resolve('@sentry/browser'),
     },
   },
   module: {
     rules: [
-      {
-        test: /\.md?$/,
-        use: [
-          {
-            loader: 'babel-loader',
-            options: {
-              presets: ['@babel/preset-react']
-            }
-          },
-          {
-            loader: '@mdx-js/loader',
-            options: {
-              remarkPlugins: [remarkGfm],
-              rehypePlugins: [rehypeHighlight]
-            }
-          }
-        ]
-      },
       {
         test: /\.(ts|tsx)$/,
         use: {
@@ -178,31 +160,6 @@ module.exports = async (env, argv) => {
           }
         },
         exclude: /node_modules/,
-      },
-      {
-        test: /\.(js|jsx)$/,
-        use: 'babel-loader',
-        exclude: /node_modules/,
-      },
-      {
-        test: /\.css$/,
-        exclude: /\.module\.css$/,
-        use: ['style-loader', 'css-loader'],
-      },
-      {
-        test: /\.module\.css$/,
-        use: [
-          'style-loader',
-          {
-            loader: 'css-loader',
-            options: {
-              modules: {
-                localIdentName: '[name]__[local]--[hash:base64:5]',
-              },
-              importLoaders: 1,
-            },
-          },
-        ],
       },
     ],
   },

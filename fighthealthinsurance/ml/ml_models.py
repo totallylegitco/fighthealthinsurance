@@ -5621,13 +5621,6 @@ class DeepInfra(RemoteFullOpenLike):
 
     # Model context lengths (in tokens) - most modern models support 128k
     MODEL_CONTEXT_LENGTHS: ClassVar[dict[str, int]] = {
-        "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8": 128000,
-        "meta-llama/Llama-4-Scout-17B-16E-Instruct": 128000,
-        "google/gemma-3-27b-it": 128000,
-        "meta-llama/Meta-Llama-3.1-70B-Instruct": 128000,
-        "meta-llama/Llama-3.2-3B-Instruct": 128000,
-        "meta-llama/Llama-3.3-70B-Instruct-Turbo": 128000,
-        "deepseek-ai/DeepSeek-R1-Turbo": 64000,
         "google/gemma-4-26B-A4B-it": 260000,
         "deepseek-ai/DeepSeek-V4-Pro": 1048000,
     }
@@ -5640,14 +5633,6 @@ class DeepInfra(RemoteFullOpenLike):
         # Currently registered by models() (flagship Pro deepseek + gemma-4).
         "deepseek-ai/DeepSeek-V4-Pro": 92,
         "google/gemma-4-26B-A4B-it": 80,
-        # Retained for _old_models() should it be re-enabled.
-        "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8": 90,
-        "meta-llama/Llama-4-Scout-17B-16E-Instruct": 85,
-        "google/gemma-3-27b-it": 80,
-        "meta-llama/Meta-Llama-3.1-70B-Instruct": 84,
-        "meta-llama/Llama-3.2-3B-Instruct": 68,
-        "meta-llama/Llama-3.3-70B-Instruct-Turbo": 84,
-        "deepseek-ai/DeepSeek-R1-0528-Turbo": 90,
     }
 
     @classmethod
@@ -5722,51 +5707,6 @@ class DeepInfra(RemoteFullOpenLike):
                 cost=35,
                 name="google/gemma-4-26B-A4B-it",
                 internal_name="google/gemma-4-26B-A4B-it",
-            ),
-        ]
-
-    @classmethod
-    def _old_models(cls) -> List[ModelDescription]:
-        return [
-            ModelDescription(
-                cost=80,
-                name="meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
-                internal_name="meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
-            ),
-            ModelDescription(
-                cost=40,
-                name="meta-llama/Llama-4-Scout-17B-16E-Instruct",
-                internal_name="meta-llama/Llama-4-Scout-17B-16E-Instruct",
-            ),
-            ModelDescription(
-                cost=20,
-                name="google/gemma-3-27b-it",
-                internal_name="google/gemma-3-27b-it",
-            ),
-            ModelDescription(
-                cost=179,
-                name="meta-llama/meta-llama-3.1-405B-instruct",
-                internal_name="meta-llama/Meta-Llama-3.1-70B-Instruct",
-            ),
-            ModelDescription(
-                cost=40,
-                name="meta-llama/meta-llama-3.1-70B-instruct",
-                internal_name="meta-llama/Meta-Llama-3.1-70B-Instruct",
-            ),
-            ModelDescription(
-                cost=8,
-                name="meta-llama/llama-3.2-3B-instruct",
-                internal_name="meta-llama/Llama-3.2-3B-Instruct",
-            ),
-            ModelDescription(
-                cost=30,
-                name="meta-llama/Llama-3.3-70B-Instruct-Turbo",
-                internal_name="meta-llama/Llama-3.3-70B-Instruct-Turbo",
-            ),
-            ModelDescription(
-                cost=400,
-                name="deepseek",
-                internal_name="deepseek-ai/DeepSeek-R1-0528-Turbo",
             ),
         ]
 

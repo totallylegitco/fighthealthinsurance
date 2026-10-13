@@ -116,10 +116,6 @@ interface OCREngine {
   promise: Promise<string>;
 }
 
-function isUsableOCRState(state: SettledState<string>): boolean {
-  return state.status === "fulfilled" && state.value.trim().length > 0;
-}
-
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -801,14 +797,4 @@ async function getPDFPageText(
   // A line of text per line of the page (pdf_text.ts), so the letter box
   // reads like the letter and its address block can be found.
   return textFromPDFItems(tokenizedText.items);
-}
-
-async function getPDFText(pdf: PDFDocumentProxy): Promise<string> {
-  const maxPages = pdf.numPages;
-  const pageTextPromises: Promise<string>[] = [];
-  for (let pageNo = 1; pageNo <= maxPages; pageNo += 1) {
-    pageTextPromises.push(getPDFPageText(pdf, pageNo));
-  }
-  const pageTexts = await Promise.all(pageTextPromises);
-  return pageTexts.join(" ");
 }

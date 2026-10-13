@@ -11,7 +11,9 @@ from django.test import SimpleTestCase, override_settings
 
 from fighthealthinsurance.templatetags import bundles
 
-TEMPLATES = Path(__file__).resolve().parents[2] / "fighthealthinsurance/templates"
+REPO = Path(__file__).resolve().parents[2]
+TEMPLATES = REPO / "fighthealthinsurance/templates"
+WEBPACK = REPO / "fighthealthinsurance/static/js/webpack.config.js"
 
 
 class BundleTagTest(SimpleTestCase):
@@ -72,3 +74,25 @@ def test_every_template_links_dist_bundles_through_the_tag():
         if plain.search(p.read_text())
     ]
     assert offenders == []
+
+
+def _bundles_templates_load() -> set[str]:
+    tag = re.compile(r"\{%\s*bundle\s+['\"]([^'\"]+)['\"]")
+    plain = re.compile(r"static ['\"]js/dist/([^'\"/]+)\.bundle\.js")
+    names: set[str] = set()
+    for folder in ("fighthealthinsurance", "charts", "fhi_users"):
+        for path in (REPO / folder / "templates").rglob("*.html"):
+            text = path.read_text()
+            names.update(tag.findall(text), plain.findall(text))
+    return names
+
+
+def _webpack_entries() -> set[str]:
+    listed = re.search(r"const entryFiles = \[(.*?)\];", WEBPACK.read_text(), re.S)
+    assert listed, "webpack.config.js no longer lists its entries in entryFiles"
+    return {Path(f).stem for f in re.findall(r"'([^']+\.tsx?)'", listed.group(1))}
+
+
+def test_webpack_builds_exactly_the_bundles_pages_load():
+    # A page bundle missing from the list 404s; an extra one ships unused.
+    assert _webpack_entries() == _bundles_templates_load()

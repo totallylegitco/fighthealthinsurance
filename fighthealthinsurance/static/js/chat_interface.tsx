@@ -17,7 +17,6 @@ import {
   ActionIcon,
   FileButton,
   Tooltip,
-  Switch,
 } from "@mantine/core";
 
 import { IconPaperclip, IconSend, IconUser, IconRefresh } from "./icons";
@@ -28,11 +27,8 @@ import VoiceIntake from "./VoiceIntake";
 import {
   getExternalModelsPreference,
   getUserInfo,
-  saveExternalModelsPreference,
-  saveUserInfo,
   scrubPersonalInfo,
   restorePersonalInfo,
-  type UserInfo,
 } from "./user_info_storage";
 
 // Declare UET tracking function from base.html
@@ -1165,11 +1161,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ defaultProcedure, default
       requestStartTime: Date.now(),
       statusMessage: null,
     }));
-  };
-// Handle toggling external models
-  const handleToggleExternalModels = (checked: boolean) => {
-    saveExternalModelsPreference(checked);
-    setState((prev) => ({ ...prev, useExternalModels: checked }));
   };
 
   // Handle starting a new chat

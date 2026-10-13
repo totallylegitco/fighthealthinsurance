@@ -302,16 +302,6 @@ class RateLimiter:
 
         return True
 
-    def record_request(self) -> None:
-        """
-        Legacy method - no longer tracks requests.
-
-        In multi-container deployments, client-side request counting is
-        inaccurate. We now rely solely on 429 responses from the API.
-        This method is kept for backwards compatibility but is a no-op.
-        """
-        pass
-
     def mark_exhausted(self, retry_after_seconds: float = 60.0) -> None:
         """
         Mark the rate limiter as temporarily exhausted (backing off).
@@ -962,29 +952,6 @@ def sekret_gen():
     return str(UUID(bytes=os.urandom(16), version=4)) + str(
         UUID(bytes=os.urandom(16), version=4)
     )
-
-
-class UnwrapIterator(Iterator[T]):
-    def __init__(self, iterators: Iterator[Iterator[T]]):
-        self.iterators = iterators
-        self.head: Optional[Iterator[T]] = None
-
-    def __next__(self) -> T:
-        # Iterative, not recursive: the old `return self.__next__()` grew one
-        # stack frame per exhausted-empty sub-iterator, a RecursionError
-        # waiting on any large fan-out.
-        while True:
-            if self.head is None:
-                self.head = self.iterators.__next__()
-            try:
-                return self.head.__next__()
-            except StopIteration:
-                self.head = None
-
-
-def as_available_nested(futures: List[Future[Iterator[U]]]) -> Iterator[U]:
-    iterators = as_available(futures)
-    return UnwrapIterator(iterators)
 
 
 def as_available(futures: List[Future[U]]) -> Iterator[U]:
@@ -2198,117 +2165,6 @@ async def best_two_within_timelimit(
     return BestTwo(None, None, float("-inf"), float("-inf"), None, None)
 
 
-async def best_within_timelimit_static(
-    task_scores: Dict[Awaitable[T], float],
-    timeout: float,
-    extended_timeout: float = 600.0,
-) -> T:
-    """
-    A simplified version of best_within_timelimit where scores are provided in advance.
-    Returns early if the highest-scored task finishes before the time limit.
-    If the highest-scored task doesn't finish in time, returns the best task completed so far,
-    or if none have completed, waits for the next available task.
-
-    Args:
-        task_scores: Dictionary mapping awaitable tasks to their static scores
-        timeout: Maximum time to wait for optimal result (seconds)
-        extended_timeout: Additional time to wait for any result if needed (default: 10 minutes)
-
-    Returns:
-        - The result from a highest-scored task if one completes within timeout
-        - Otherwise, the result from the best task that completed within timeout
-        - If no tasks completed within the timeout, the result from the next task to complete
-    """
-    # Should not happen :)
-    if not task_scores:
-        raise ValueError("No tasks provided for best_within_timelimit_static")
-
-    # Find all tasks with the maximum score
-    max_score = max(task_scores.values())
-
-    tasks: List[asyncio.Task[Tuple[T, float]]] = []
-
-    # Create the wrapped tasks
-    for task, score in task_scores.items():
-
-        async def run_and_return_with_score(
-            t: Awaitable[T], s: float
-        ) -> Tuple[T, float]:
-            result = await t
-            return result, s
-
-        tasks.append(asyncio.create_task(run_and_return_with_score(task, score)))
-
-    best_result_so_far: Optional[T] = None
-    best_score_so_far = float("-inf")
-
-    def _cancel_stragglers() -> None:
-        """Fire-and-forget cancellation of unfinished tasks (non-blocking)."""
-        _spawn_cancellation([t for t in tasks if not t.done()])
-
-    try:
-        # Wait for tasks to complete as they finish
-        for future in asyncio.as_completed(tasks, timeout=timeout):
-            try:
-                result, score = await future
-
-                # Track the best result seen so far
-                if score > best_score_so_far:
-                    best_score_so_far = score
-                    best_result_so_far = result
-
-                # If this is one of our best tasks, return immediately
-                if score == max_score:
-                    _cancel_stragglers()
-                    return result
-
-            except Exception as e:
-                _log_fanout_task_error(e, "best_within_timelimit_static")
-                continue
-    except asyncio.CancelledError:
-        # Caller cancelled (turn budget / client gone): as_completed does not
-        # cancel its children, so do it here before re-raising.
-        _cancel_stragglers()
-        raise
-
-    # If we got here, timeout occurred or all tasks finished but none of the best ones succeeded
-
-    # Return the best result we've seen so far
-    if best_result_so_far is not None:
-        _cancel_stragglers()
-        return best_result_so_far
-
-    # Ok wait for any task to complete - don't filter for non-done tasks
-    try:
-        done, _ = await asyncio.wait(
-            tasks, timeout=extended_timeout, return_when=asyncio.FIRST_COMPLETED
-        )
-        for completed_task in done:
-            try:
-                result, score = await completed_task
-
-                # Track the best result seen so far
-                if score > best_score_so_far:
-                    best_score_so_far = score
-                    best_result_so_far = result
-
-            except Exception:
-                continue
-    except Exception as e:
-        logger.opt(exception=True).warning(
-            f"Error waiting for tasks after timeout: {e}"
-        )
-
-    # Whatever happens next, don't leak still-running tasks.
-    _cancel_stragglers()
-
-    # Return the best result we've found, or None if everything failed
-    if best_result_so_far is not None:
-        return best_result_so_far
-    else:
-        raise ValueError("No tasks completed successfully within the time limit.")
-
-
 # Possible future TODO: Add a grace period after required to finish some optional tasks
 async def execute_critical_optional_fireandforget(
     required: Sequence[Coroutine[Any, Any, T]],
@@ -2506,29 +2362,6 @@ async def _try_pandoc_engines(command: list[str]):
         except CalledProcessError as e:
             logger.debug(f"Error with engine {engine}: {e}")
     raise Exception(f"Failed {command} with all engines {engines}")
-
-
-def extract_file_text(path: str) -> str:
-    """Extract text from a PDF or text file at the given path."""
-    if path.lower().endswith(".pdf"):
-        try:
-            import pymupdf
-        except ImportError:
-            logger.warning("pymupdf is not installed; cannot extract PDF text")
-            return ""
-        try:
-            with pymupdf.open(path) as doc:
-                return "\n".join(page.get_text() for page in doc)
-        except Exception as e:
-            logger.warning(f"Error reading PDF {path}: {e}")
-            return ""
-    else:
-        try:
-            with open(path, "r", encoding="utf-8", errors="ignore") as f:
-                return f.read()
-        except Exception as e:
-            logger.warning(f"Could not read {path} as text: {e}")
-            return ""
 
 
 def ai_assistants_page_enabled() -> bool:

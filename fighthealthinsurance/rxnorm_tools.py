@@ -17,10 +17,6 @@ Public entry points:
 
 * :py:meth:`RxNormTools.normalize` -- normalize one input string to a
   :py:class:`NormalizedDrug` (canonical name + RxCUI + score). Cached.
-* :py:meth:`RxNormTools.expand_query_terms` -- given a free-text drug name,
-  return an ordered, deduplicated list of search-friendly terms (canonical
-  name first, then brand names and ingredients) suitable for feeding into
-  PubMed / policy search queries.
 * :py:meth:`RxNormTools.get_brands_and_generics` -- structured view of a
   drug: its canonical name, generic ingredients, and known brand names.
 """
@@ -35,7 +31,6 @@ from typing import Any, AsyncIterator, Dict, List, Optional
 from urllib.parse import quote
 
 import aiohttp
-from asgiref.sync import async_to_sync
 from django.utils import timezone
 from loguru import logger
 
@@ -149,10 +144,9 @@ class RxNormTools:
     """Async client for RxNav with database-backed caching.
 
     Sessions are owned at the level of a single :py:meth:`normalize` (or
-    :py:meth:`expand_query_terms` / :py:meth:`get_brands_and_generics`)
-    call: we open one :py:class:`aiohttp.ClientSession` at the start of
-    each call and reuse it for the 1-3 HTTP requests that follow, then
-    close it. Callers can also pass in an external session via the
+    :py:meth:`get_brands_and_generics`) call: we open one
+    :py:class:`aiohttp.ClientSession` at the start of each call and reuse
+    it for the 1-3 HTTP requests that follow, then close it. Callers can also pass in an external session via the
     constructor, in which case all calls share that session and we never
     close it.
     """
@@ -420,46 +414,6 @@ class RxNormTools:
             related=related,
         )
 
-    async def expand_query_terms(
-        self, name: str, include_brands: bool = True, max_terms: int = 8
-    ) -> List[str]:
-        """Return search-friendly terms for ``name`` ordered by relevance.
-
-        Use this to broaden a PubMed / policy search beyond what the user
-        typed. The canonical name comes first, then ingredient names, then
-        brand names. The original input is appended last when no RxNorm
-        match exists, so callers can always feed the result back into a
-        search engine without losing the user's intent.
-        """
-        normalized = await self.normalize(name)
-        terms: List[str] = []
-        seen: set[str] = set()
-
-        def add(term: str) -> None:
-            cleaned = (term or "").strip()
-            if not cleaned:
-                return
-            key = cleaned.lower()
-            if key in seen:
-                return
-            seen.add(key)
-            terms.append(cleaned)
-
-        if normalized.matched:
-            add(normalized.canonical_name)
-            for tty in (TTY_INGREDIENT, TTY_PRECISE_INGREDIENT):
-                for concept in normalized.related.get(tty, []):
-                    add(concept.get("name", ""))
-            if include_brands:
-                for concept in normalized.related.get(TTY_BRAND_NAME, []):
-                    add(concept.get("name", ""))
-
-        # Always include the original cleaned query so callers don't lose
-        # the user's input (and so a miss still returns something useful).
-        add(_clean_query(name))
-
-        return terms[:max_terms]
-
     async def get_brands_and_generics(self, name: str) -> Dict[str, Any]:
         """Structured view of a drug for display / chat answers.
 
@@ -502,36 +456,3 @@ class RxNormTools:
             "ingredients": ingredients,
             "brand_names": brand_names,
         }
-
-
-_default_tools: Optional[RxNormTools] = None
-
-
-def get_default_rxnorm_tools() -> RxNormTools:
-    """Process-wide singleton for callers that don't manage their own."""
-    global _default_tools
-    if _default_tools is None:
-        _default_tools = RxNormTools()
-    return _default_tools
-
-
-async def normalize_drug_name(name: str) -> NormalizedDrug:
-    """Convenience wrapper around the default :py:class:`RxNormTools`."""
-    return await get_default_rxnorm_tools().normalize(name)
-
-
-async def expand_drug_query_terms(name: str, max_terms: int = 8) -> List[str]:
-    """Convenience wrapper around :py:meth:`RxNormTools.expand_query_terms`."""
-    return await get_default_rxnorm_tools().expand_query_terms(
-        name, max_terms=max_terms
-    )
-
-
-def normalize_drug_name_sync(name: str) -> NormalizedDrug:
-    """Sync wrapper for callers that aren't async-aware (e.g., admin views).
-
-    Internally runs :py:func:`normalize_drug_name` on a private event loop
-    via ``asgiref``. Avoid in tight loops.
-    """
-    result: NormalizedDrug = async_to_sync(normalize_drug_name)(name)
-    return result
