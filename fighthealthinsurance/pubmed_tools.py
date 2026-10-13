@@ -131,6 +131,8 @@ _PDF_READ_TIMEOUT_SECS = 30.0
 # full article holds.
 _PDF_MAX_TEXT_CHARS = 500_000
 
+# NCBI E-utilities REST API base URL, for direct E-utilities calls.
+_EUTILS_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 # NCBI requests that ``tool`` and ``email`` be supplied per their usage
 # guidelines. When NCBI_API_KEY is set, NCBI raises per-IP limits from
 # 3 -> 10 req/s for both metapub and direct E-utilities calls.
