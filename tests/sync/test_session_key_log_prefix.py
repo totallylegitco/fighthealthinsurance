@@ -23,7 +23,7 @@ from unittest.mock import patch
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.test import Client, SimpleTestCase, TestCase
+from django.test import Client, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from loguru import logger
 from rest_framework.test import APITestCase
@@ -200,6 +200,7 @@ class ConsumerFormSessionKeyLogTest(_SessionKeyLogAssertions, TestCase):
         )
 
 
+@override_settings(FIGHT_PAPERWORK_ENABLED=True)
 class RestSessionKeyLogTest(_SessionKeyLogAssertions, APITestCase):
     """The professional denial API and the client error report."""
 

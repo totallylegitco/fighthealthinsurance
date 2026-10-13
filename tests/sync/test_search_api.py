@@ -1,5 +1,6 @@
 from django.urls import reverse
 from django.utils import timezone
+from django.test import override_settings
 from rest_framework.test import APITestCase
 from rest_framework import status
 from contextlib import contextmanager
@@ -15,6 +16,7 @@ def suppress_deprecation_warnings():
         yield
 
 
+@override_settings(FIGHT_PAPERWORK_ENABLED=True)
 class SearchAPITest(APITestCase):
     @classmethod
     def setUpTestData(cls):

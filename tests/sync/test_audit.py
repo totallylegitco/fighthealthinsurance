@@ -242,7 +242,7 @@ class AuditMiddlewareTest(TestCase):
             password="testpass123",
         )
         PatientUser.objects.create(user=self.patient, active=True)
-        # A REST endpoint a patient can call: there is no such denial, so 404.
+        # A REST path under the audited prefix that answers 404 (the route is off with Fight Paperwork).
         self.denial_path = reverse("denials-detail", args=[999999])
 
     def test_the_audited_prefix_is_where_the_rest_api_is_mounted(self):

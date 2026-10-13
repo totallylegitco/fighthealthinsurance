@@ -1,6 +1,6 @@
 """Test referral_source field in mailing list subscription and chat leads."""
 
-from django.test import TestCase, Client
+from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -119,6 +119,7 @@ class ReferralSourceAppealFlowTest(TestCase):
         self.assertEqual(subscriber.referral_source_details, "")
 
 
+@override_settings(FIGHT_PAPERWORK_ENABLED=True)
 class ReferralSourceChatLeadsTest(TestCase):
     """Test that referral_source field works during chat leads flow."""
 

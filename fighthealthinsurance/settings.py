@@ -152,7 +152,9 @@ class Base(Configuration):
         os.getenv("PRO_VERSION_AVAILABLE", "false").lower() == "true"
     )
     # Fight Paperwork's account endpoints (sign-up, login, invites, password
-    # reset, patient notices, the professional checkout) and so their emails.
+    # reset, patient notices, the professional checkout) and so their emails,
+    # plus its sign-in pages, REST routes (all but the chooser), the appeal
+    # PDF route, /ws/prior-auth/ and professional and trial chats.
     # Off in every configuration, Dev included; tests turn it on per test.
     FIGHT_PAPERWORK_ENABLED = _env_flag("FIGHT_PAPERWORK_ENABLED")
     # Experimental Medicaid eligibility landing page. Off by default: while

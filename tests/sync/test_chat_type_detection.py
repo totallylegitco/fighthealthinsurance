@@ -11,7 +11,7 @@ import uuid
 
 from asgiref.sync import async_to_sync
 from django.contrib.auth import get_user_model
-from django.test import TransactionTestCase
+from django.test import TransactionTestCase, override_settings
 
 from fhi_users.models import ProfessionalUser
 from fighthealthinsurance.models import ChatLeads, ChatType, OngoingChat
@@ -131,6 +131,7 @@ class ChatTypeModelTest(TransactionTestCase):
         self.assertIn(display_name, str(pro_chat).lower())
 
 
+@override_settings(FIGHT_PAPERWORK_ENABLED=True)
 class ChatLeadsTrialDetectionTest(TransactionTestCase):
     """Test that resolve_chat_type() distinguishes trial professionals from drug-specific leads."""
 

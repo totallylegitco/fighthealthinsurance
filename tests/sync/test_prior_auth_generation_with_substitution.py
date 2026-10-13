@@ -5,7 +5,7 @@ import asyncio
 import uuid
 from unittest.mock import patch, MagicMock, AsyncMock
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.contrib.auth import get_user_model
 
 from fighthealthinsurance.models import (
@@ -59,6 +59,7 @@ class MockPriorAuthModel:
         """
 
 
+@override_settings(FIGHT_PAPERWORK_ENABLED=True)
 class PriorAuthGenerationSubstitutionTest(TestCase):
     """Test the substitution of placeholders during prior auth generation"""
 

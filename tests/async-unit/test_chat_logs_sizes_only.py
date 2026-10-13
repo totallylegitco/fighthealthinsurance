@@ -18,6 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from channels.testing import WebsocketCommunicator
+from django.test import override_settings
 from loguru import logger
 
 from fighthealthinsurance.chat.context_manager import _summarize_history
@@ -637,6 +638,7 @@ class TestChatConsumerLogs:
 
     # django_db: resolve_chat_type runs the lookup through
     # database_sync_to_async, which sweeps DB connections around it.
+    @override_settings(FIGHT_PAPERWORK_ENABLED=True)
     @pytest.mark.django_db
     @pytest.mark.asyncio
     async def test_non_professional_user_logged_by_id_not_username(self):

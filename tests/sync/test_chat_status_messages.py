@@ -6,6 +6,7 @@ from channels.testing import WebsocketCommunicator
 import asyncio
 
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 from rest_framework.test import APITestCase
 
 from fighthealthinsurance.models import (
@@ -232,6 +233,7 @@ class ChatStatusMessageTest(APITestCase):
 
         await self.asyncTearDown()
 
+    @override_settings(FIGHT_PAPERWORK_ENABLED=True)
     async def test_websocket_status_message_handling(self):
         """Test that WebSocket properly handles and forwards status messages."""
         await self.asyncSetUp()
@@ -465,6 +467,7 @@ class ChatStatusMessageTest(APITestCase):
 
         await self.asyncTearDown()
 
+    @override_settings(FIGHT_PAPERWORK_ENABLED=True)
     async def test_status_cleared_on_response(self):
         """Test that status is cleared when a response is received."""
         await self.asyncSetUp()

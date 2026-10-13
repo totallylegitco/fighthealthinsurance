@@ -79,6 +79,7 @@ class WsOriginValidationTest(APITestCase):
         await communicator.disconnect()
 
 
+@override_settings(FIGHT_PAPERWORK_ENABLED=True)
 class ChatViewSetAuthTest(APITestCase):
     async def test_anonymous_list_is_rejected_not_500(self):
         url = reverse("chats-list")

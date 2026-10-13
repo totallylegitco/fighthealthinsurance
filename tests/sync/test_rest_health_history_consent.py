@@ -11,13 +11,14 @@ The flags live on the serializer now. A caller who sends one is obeyed; a
 caller who sends nothing leaves it alone.
 """
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from rest_framework.test import APIClient
 
 from fighthealthinsurance.models import Denial
 
 
+@override_settings(FIGHT_PAPERWORK_ENABLED=True)
 class RestHealthHistoryConsentTest(TestCase):
     EMAIL = "someone@example.com"
 

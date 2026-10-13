@@ -1,12 +1,13 @@
 """Test mailing list subscription during chat leads flow."""
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from rest_framework.test import APIClient
 from rest_framework import status
 from fighthealthinsurance.models import ChatLeads, MailingListSubscriber
 
 
+@override_settings(FIGHT_PAPERWORK_ENABLED=True)
 class ChatLeadsSubscriptionTest(TestCase):
     """Test that mailing list subscription works during chat leads flow."""
 
