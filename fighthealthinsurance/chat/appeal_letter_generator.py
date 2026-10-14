@@ -87,9 +87,7 @@ def _declined_by_lead_in(lead_in: str) -> bool:
     after = lead_in[last.end() :]
     if _NEW_ASK_RE.search(after):
         return False
-    return not (
-        _DESCRIBING_NEGATION_RE.match(last.group(0)) and _WANT_RE.search(after)
-    )
+    return not (_DESCRIBING_NEGATION_RE.match(last.group(0)) and _WANT_RE.search(after))
 
 
 # A request for a new letter (a redo, another version): a draft made
