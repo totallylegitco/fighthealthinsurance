@@ -11,6 +11,7 @@ from channels.testing import WebsocketCommunicator
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.test import override_settings
 
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -34,6 +35,7 @@ else:
     User = get_user_model()
 
 
+@override_settings(FIGHT_PAPERWORK_ENABLED=True)
 class PriorAuthAPITest(APITestCase):
     """Test the prior authorization API endpoints."""
 
@@ -316,6 +318,7 @@ class PriorAuthAPITest(APITestCase):
         self.assertIn("text", response.data)
 
 
+@override_settings(FIGHT_PAPERWORK_ENABLED=True)
 class PriorAuthWebSocketTest(APITestCase):
     """Test the WebSocket endpoints for prior authorization."""
 

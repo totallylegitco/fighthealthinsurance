@@ -18,7 +18,6 @@ from django import forms
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
 from django.contrib.staticfiles.storage import staticfiles_storage
-from django.core.exceptions import SuspiciousOperation
 from django.http import (
     HttpRequest,
     HttpResponse,
@@ -375,47 +374,6 @@ class BRB(TemplateView):
         response = super().get(request, *args, **kwargs)
         response.status_code = 503  # Set HTTP status to 503
         return response
-
-
-def safe_redirect(request, url):
-    """
-    Safely redirect to a URL after validating it's safe.
-
-    Args:
-        request: The HTTP request
-        url: The URL to redirect to
-
-    Returns:
-        HttpResponseRedirect to a safe URL
-
-    Raises:
-        SuspiciousOperation if the URL is not safe
-    """
-    ALLOWED_HOSTS = [
-        request.get_host(),
-        "checkout.stripe.com",
-    ]
-
-    if url:
-        if url.startswith("//"):
-            raise SuspiciousOperation(f"Untrusted redirect: {url}")
-        elif not url.startswith("/"):
-            # For complete URLs, we need to validate the domain
-            from urllib.parse import urlparse
-
-            parsed_url = urlparse(url)
-
-            if parsed_url.netloc and parsed_url.netloc not in ALLOWED_HOSTS:
-                logger.warning(f"Suspicious redirect attempt to: {url}")
-                raise SuspiciousOperation(
-                    f"Redirect to untrusted domain: {parsed_url.netloc}"
-                )
-
-        logger.info(f"Redirecting to: {url}")
-
-        return HttpResponseRedirect(url)
-    else:
-        raise Exception(f"Asked to redirect to non-existing url.")
 
 
 def mark_session_consent(session, email: str) -> None:
@@ -840,15 +798,6 @@ class BlogPostView(StaticIshView):
             }
         )
         return context
-
-
-class ScanView(generic.TemplateView):
-    """Initial scan/scrub page for uploading denial letters."""
-
-    template_name = "scrub.html"
-
-    def get_context_data(self, **kwargs):
-        return {"ocr_result": "", "upload_more": True}
 
 
 class PrivacyPolicyView(StaticIshView):
@@ -3345,35 +3294,8 @@ class CompletePaymentView(View):
             if token:
                 lost_session = models.LostStripeSession.objects.get(secure_token=token)
             elif session_id:
-                # Legacy emails sent before secure_token rollout used the row
-                # id as ?session_id=<int>. Accept those links only for rows
-                # created before SECURE_TOKEN_ROLLOUT_AT; otherwise require
-                # secure_token-based access.
-                legacy_id: typing.Optional[int] = None
-                try:
-                    legacy_id = int(session_id)
-                except (TypeError, ValueError):
-                    pass
-                if legacy_id is None or legacy_id <= 0:
-                    return None, ("Invalid or expired link", 400)
-                rollout_at = getattr(settings, "SECURE_TOKEN_ROLLOUT_AT", None)
-                legacy_max_id = int(
-                    getattr(settings, "SECURE_TOKEN_LEGACY_MAX_ID", 1000)
-                )
-                legacy_queryset = models.LostStripeSession.objects.filter(id=legacy_id)
-                if rollout_at is not None:
-                    legacy_queryset = legacy_queryset.filter(created_at__lt=rollout_at)
-                lost_session_opt = legacy_queryset.first()
-                # Some very old rows can have auto_now_add-updated created_at values
-                # after data migrations/copies. Keep legacy links working by allowing
-                # IDs from the pre-rollout range as a secondary check.
-                if lost_session_opt is None and legacy_id <= legacy_max_id:
-                    lost_session_opt = models.LostStripeSession.objects.filter(
-                        id=legacy_id
-                    ).first()
-                if lost_session_opt is None:
-                    return None, ("Invalid or expired link", 400)
-                lost_session = lost_session_opt
+                # Only a token resumes a checkout; a row-id link reads as expired.
+                return None, ("Invalid or expired link", 400)
             else:
                 return None, ("Missing token", 400)
             continue_url = lost_session.success_url
@@ -3514,8 +3436,6 @@ def chat_interface_view(request):
         "medicare": medicare,
         "microsite_slug": microsite_slug,
         "initial_message": initial_message,
-        "enable_voice_intake": getattr(settings, "ENABLE_VOICE_INTAKE", False),
-        "enable_local_stt": getattr(settings, "ENABLE_LOCAL_STT", True),
     }
     logger.debug(
         f"Rendering chat interface: microsite_slug={microsite_slug}, has_default_procedure={bool(default_procedure)}, has_default_condition={bool(default_condition)}, medicare={medicare}, has_initial_message={bool(initial_message)}"

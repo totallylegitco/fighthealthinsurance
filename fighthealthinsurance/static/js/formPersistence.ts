@@ -166,38 +166,6 @@ export function setupTextareaPersistence(textareaId: string, options?: { alwaysR
   }
 }
 
-// Helper to setup persistence for an input element
-// Options:
-// - alwaysRestore: if true, always restore from localStorage (for PII fill-in page)
-export function setupInputPersistence(inputId: string, options?: { alwaysRestore?: boolean }): void {
-  const input = document.getElementById(inputId) as HTMLInputElement | null;
-  if (input) {
-    // Determine if we should restore (same logic as textarea)
-    const shouldRestore = () => {
-      if (input.value !== '') {
-        return false;
-      }
-      if (options?.alwaysRestore || isAlwaysRestorePage()) {
-        return true;
-      }
-      if (isPostResponse()) {
-        return false;
-      }
-      return true;
-    };
-
-    // Restore saved value if conditions are met
-    const saved = getLocalStorageItemWithTTL(inputId);
-    if (saved && shouldRestore()) {
-      input.value = saved;
-    }
-    // Save on change
-    input.addEventListener('change', function() {
-      setLocalStorageItemWithTTL(inputId, input.value);
-    });
-  }
-}
-
 // Auto-initialize for known form elements when DOM is ready
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', function() {
@@ -213,7 +181,6 @@ if (typeof document !== 'undefined') {
 if (typeof window !== 'undefined') {
   (window as any).formPersistence = {
     setupTextareaPersistence,
-    setupInputPersistence,
     getLocalStorageItemWithTTL,
     setLocalStorageItemWithTTL,
     clearLocalStorageItem,

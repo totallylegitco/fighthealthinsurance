@@ -19,9 +19,11 @@ explore [patient and market access partnerships](https://www.fighthealthinsuranc
 and reach us for more information from the
 [partner section of the Join the Fight page](https://www.fighthealthinsurance.com/how-to-help#providers).
 
-For development: the professional account endpoints are off in every
-configuration, `Dev` included. Set `FIGHT_PAPERWORK_ENABLED=1` to turn them on
-locally (`FIGHT_PAPERWORK_ENABLED` in `fighthealthinsurance/settings.py`).
+For development: Fight Paperwork's routes (the professional account
+endpoints, its sign-in pages and REST routes, the appeal PDF route, the prior
+auth websocket and professional chats) are off in every configuration, `Dev`
+included. Set `FIGHT_PAPERWORK_ENABLED=1` to turn them on locally
+(`FIGHT_PAPERWORK_ENABLED` in `fighthealthinsurance/settings.py`).
 
 ## For AI agents and new contributors
 
@@ -210,7 +212,7 @@ pull request.
 | `fighthealthinsurance/agent_docs.py` | The live site's markdown twins (`<url>.md`) and `/llms.txt`. |
 | `fighthealthinsurance/templates/` | Django templates; shared pieces in `fighthealthinsurance/templates/partials/`. |
 | `fighthealthinsurance/static/` | CSS (`fighthealthinsurance/static/css/custom.css`, `main.css`), images, blog and FAQ posts, `microsites.json`. |
-| `fighthealthinsurance/static/js/` | TypeScript and React sources, all at the top level. Each `.ts`/`.tsx` except `icons.tsx` is a webpack entry built to `dist/<name>.bundle.js` (gitignored). Run npm from this directory. |
+| `fighthealthinsurance/static/js/` | TypeScript and React sources, all at the top level. The page bundles listed in `entryFiles` in `webpack.config.js` build to `dist/<name>.bundle.js` (gitignored); the other modules ship inside them. Run npm from this directory. |
 | `fighthealthinsurance/management/commands/` | `manage.py` commands. |
 | `fighthealthinsurance/migrations/`, `fighthealthinsurance/fixtures/` | Migrations, and the fixtures `setup_local_db` loads. |
 | `fhi_users/` | Users (`PatientUser`, `ProfessionalUser`, `UserDomain`), login and REST auth under `/v0/auth/` (`fhi_users/auth/`), and `fhi_users/audit.py` (audit log, GeoIP lookups). |
@@ -229,7 +231,7 @@ dev database (both gitignored). Edit `fighthealthinsurance/static/`, not
 
 | Pages | Built with |
 | --- | --- |
-| `/chat` | React (`chat_interface.tsx`, `VoiceIntake.tsx`) with Mantine |
+| `/chat` | React (`chat_interface.tsx`) with Mantine |
 | `/chooser/` | React (`chooser.tsx`) with Mantine |
 | `/blog/`, blog posts, FAQ posts | React (`blog.tsx`, `blog_post.tsx`) |
 | Everything else, including the appeal flow | Django templates in `fighthealthinsurance/templates/`. Some load a plain TypeScript bundle, for example `appeal.ts`, `scrub.ts`, `entity_fetcher.ts`. |
@@ -422,7 +424,6 @@ and how to update it: [docs/geoip.md](docs/geoip.md).
 | [k8s/db-host-configurability.md](k8s/db-host-configurability.md) | How the production database host is configured |
 | [tests/temporal/histories/README.md](tests/temporal/histories/README.md) | Recorded workflow histories replayed by the tests |
 | [fighthealthinsurance/denials/README.md](fighthealthinsurance/denials/README.md) | The algorithmic-review detector |
-| [fighthealthinsurance/static/js/VOICE_INTAKE_NOTES.md](fighthealthinsurance/static/js/VOICE_INTAKE_NOTES.md) | Voice intake |
 
 ## Contributing
 

@@ -2944,10 +2944,6 @@ class ConfirmedStateTest(TestCase):
     def test_a_failed_zip_lookup_leaves_the_stored_state_pair_alone(self):
         """A changed zip whose lookup fails has no replacement to offer, so it
         must not clear the pair the appeal consumers read."""
-        from fighthealthinsurance.external_review import (
-            generate_external_review_packet,
-        )
-
         denial = self._submit_upload_page(self.NY_ZIP)
         denial = self._submit_review_page(denial, your_state="CA")
 
@@ -2961,9 +2957,6 @@ class ConfirmedStateTest(TestCase):
         # the same zip read as unchanged, and the lookup would never be
         # retried.
         self.assertEqual(denial.service_zip, self.NY_ZIP[:3])
-        self.assertEqual(
-            generate_external_review_packet(denial, {})["regulator"]["state"], "CA"
-        )
         denial_type = DenialTypes.objects.get(name="Gender Affirming Care")
         # The hook is async (it reads the plan documents): run it the way
         # the appeal generator does.

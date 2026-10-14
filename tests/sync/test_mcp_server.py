@@ -986,7 +986,7 @@ class SiteSearchAndPagesTest(TestCase):
             "/glossary/": "one term at a time",
             "/no-such-page-here": "There is no page at /no-such-page-here",
             "/microsite/no-such-guide-denial/": "no treatment guide at",
-            "/timbit/sentry-debug/x": "not one of the site's public reading pages",
+            "/timbit/help/status": "not one of the site's public reading pages",
         }
         for url, said in cases.items():
             with self.subTest(url=url):
@@ -1039,7 +1039,7 @@ class SiteSearchAndPagesTest(TestCase):
 
     async def test_get_page_never_reaches_a_route_outside_the_twins(self):
         with mock.patch.object(mcp_server, "_get_in_process") as fetch:
-            result = await call("get_page", {"url": "/timbit/sentry-debug/x"})
+            result = await call("get_page", {"url": "/timbit/help/status"})
         self.assertTrue(result.isError)
         fetch.assert_not_called()
 

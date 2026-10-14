@@ -23,13 +23,14 @@ from django.contrib import admin
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.staticfiles.storage import staticfiles_storage
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
-from django.http import HttpRequest, HttpResponseBase
+from django.http import HttpRequest, HttpResponseBase, HttpResponseNotFound
 from django.urls import URLPattern, URLResolver, include, path, re_path
 from django.views.decorators.cache import cache_control, cache_page
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.generic.base import RedirectView
 
+from fhi_users.fight_paperwork import fight_paperwork_only
 from fighthealthinsurance import (
     agent_docs,
     assistant_handoff_views,
@@ -43,14 +44,14 @@ from fighthealthinsurance import (
 from fighthealthinsurance.sitemap import sitemap_view
 
 
-def trigger_error(request: HttpRequest) -> HttpResponseBase:
-    raise Exception("Test error")
+def no_file_here(request: HttpRequest, path: str) -> HttpResponseBase:
+    # Encrypted files are never served by URL; their .url only needs a route.
+    return HttpResponseNotFound()
 
 
 urlpatterns: List[Union[URLPattern, URLResolver]] = [
     # Internal-ish-views
     path("ziggy/rest/", include("fighthealthinsurance.rest_urls")),
-    path("timbit/sentry-debug/", trigger_error),
     # Add webhook handler
     path(
         "webhook/stripe/",
@@ -77,7 +78,8 @@ urlpatterns: List[Union[URLPattern, URLResolver]] = [
         views.PwywThanksView.as_view(),
         name="pwyw_thanks",
     ),
-    re_path("timbit/sentry-debug/(?P<path>.+)", trigger_error, name="fake_fetch_url"),
+    # DEFF_FETCH_URL_NAME: the encrypted file fields reverse this for .url.
+    path("timbit/no-file/<path:path>", no_file_here, name="fake_fetch_url"),
     path("timbit/charts/", include(("charts.urls", "charts"), namespace="charts")),
     path("timbit/admin/", admin.site.urls),
     path("", include("django_prometheus.urls")),
@@ -290,10 +292,10 @@ urlpatterns: List[Union[URLPattern, URLResolver]] = [
         fax_views.FaxPaymentCancelledView.as_view(),
         name="fax_payment_cancelled",
     ),
-    # View an appeal
+    # Fight Paperwork's appeal PDF; FHI builds the letter PDF in the browser.
     path(
         "v0/appeal/<uuid:appeal_uuid>/appeal.pdf",
-        views.AppealFileView.as_view(),
+        fight_paperwork_only(views.AppealFileView.as_view()),
         name="appeal_file_view",
     ),
     path(
@@ -578,8 +580,7 @@ urlpatterns: List[Union[URLPattern, URLResolver]] = [
     ),
     path(
         "favicon.ico",
-        # The optimized icon is 984 bytes; images/favicon.ico is a 3 MB
-        # photograph, and every browser asks for this path unprompted.
+        # Every browser asks for this path unprompted; send it the small icon.
         RedirectView.as_view(
             url=staticfiles_storage.url("images/favicon-optimized.ico")
         ),

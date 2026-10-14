@@ -22,6 +22,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from channels.testing import WebsocketCommunicator
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
+from django.test import override_settings
 from loguru import logger
 from rest_framework.test import APITestCase
 
@@ -509,6 +510,7 @@ class ChatLookupLogsTest(APITestCase):
         )
 
 
+@override_settings(FIGHT_PAPERWORK_ENABLED=True)
 class ChatConsumerSessionKeyLogsTest(APITestCase):
     async def test_anonymous_chat_logs_key_prefix_and_bounded_chat_id(self):
         # A trial professional's lead row is found by the full key.

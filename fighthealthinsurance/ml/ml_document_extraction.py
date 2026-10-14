@@ -85,36 +85,6 @@ def extract_text_from_pdf_bytes(data: bytes) -> tuple[str, Dict[int, str]]:
     return full_text, page_dict
 
 
-def extract_text_from_pdf_path(
-    path: str, search_terms: Optional[list[str]] = None
-) -> tuple[str, Dict[int, str]]:
-    """
-    Extract text from a PDF file path with optional search-term filtering.
-
-    If search_terms is provided, only pages containing at least one term are
-    included. Returns (full_text, page_dict).
-    """
-    full_text = ""
-    page_dict: Dict[int, str] = {}
-
-    try:
-        with pymupdf.open(path) as doc:
-            for page_num, page in enumerate(doc, start=1):
-                page_text = page.get_text()
-                if not page_text.strip():
-                    continue
-                if search_terms:
-                    page_lower = page_text.lower()
-                    if not any(t.lower() in page_lower for t in search_terms):
-                        continue
-                page_dict[page_num] = page_text
-                full_text += f"\n\n[Page {page_num}]\n{page_text}"
-    except Exception as e:
-        logger.warning(f"Error reading PDF {path}: {e}")
-
-    return full_text, page_dict
-
-
 #: What a .docx may weigh once it is unpacked. Generous for a real plan
 #: document, which is a few megabytes of text and some scanned pages.
 MAX_DOCX_UNPACKED_BYTES = 64 * 1024 * 1024

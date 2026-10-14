@@ -399,21 +399,7 @@ textarea.fhi-field {
     min-height: var(--fhi-space-11);
 }
 
-/* Bootstrap's .form-check reserves 1.5em of left padding and expects the
-   box to float back into it. Ours has to do the same for as long as that
-   wrapper is still in the templates, or the label wraps under the box it
-   belongs to. Goes when .form-check does. */
-.form-check .fhi-check {
-    float: left;
-    margin-left: -1.5em;
-}
-
-.form-check .fhi-check:disabled ~ .form-check-label {
-    opacity: 0.5;
-}
-
-/* The same fade in the row that replaces .form-check: a box this browser
-   cannot use greys out its label too. */
+/* A box this browser cannot use greys out its label too. */
 .fhi-check-row > .fhi-check:disabled ~ label {
     opacity: 0.5;
 }
@@ -998,8 +984,6 @@ li > a.link {
 .hero-inner > .hero-cta-group {justify-content:center;}
 /* A badge above a hero's tagline, such as Medicaid's "Experimental". */
 .hero-inner > .hero-badge {margin-bottom: var(--fhi-space-4);}
-.trust-bullets {justify-content:center;}
-.trust-bullets li {text-align:center;}
 .hero-subcopy, .hero-tagline, .hero-headline {margin-left:auto; margin-right:auto;}
 .hero-subcopy {text-align:center;}
 @media (max-width: 768px){
@@ -1349,9 +1333,6 @@ li > a.link {
     color: var(--fhi-muted);
 }
 
-/* Pro version text container */
-.pro-version-text {margin-top: 1.5rem; margin-bottom: 0.5rem; text-align: center; width: 100%;}
-
 /* Appeal page reuse */
 .appeal-donate-wrapper {margin:1.25rem 0;}
 .appeal-donate-wrapper .pwyw-panel {background: #fff; color: #333; border: 2px solid var(--fhi-lime);}
@@ -1370,7 +1351,6 @@ li > a.link {
 @media (max-width: 768px) {
   .hero-inner {padding:1rem .9rem 1.4rem;}
   .hero-cta-group {flex-direction:column;}
-  .trust-bullets {flex-direction:column;}
   .how-it-works {flex-direction:column;}
   /* Stacked steps have nothing beside them to point at. */
   .how-step:not(:last-child)::after {display:none;}
@@ -1379,47 +1359,12 @@ li > a.link {
 }
 @media (min-width: 992px) {
     .pwyw-panel {margin-top: .5rem;}
-    .trust-bullets, .how-it-works {max-width:1100px;}
+    .how-it-works {max-width:1100px;}
     .how-step {flex:0 0 250px;}
     .hero-inner {max-width: 1200px; width:92%;}
 }
 @media (min-width:1200px){
     .hero-inner {max-width:none; width:100%; padding:2rem 4vw 2.75rem;}
-    .hero-grid {max-width:1600px; margin:0 auto;}
-}
-
-
-.custom-angle-up {
-  display: inline-block;
-  position: relative;
-  height: 30px;
-  width: 100px; /* adjust width as needed */
-  font-size: 20px; /* adjust font size as needed */
-  text-indent: -1000px;
-  overflow: hidden;
-  transition: transform 0.2s ease-in-out;
-}
-
-.custom-angle-up::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  transform-origin: center;
-  animation-name: arrow-up;
-  animation-duration: 1s;
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: infinite;
-}
-
-@keyframes arrow-up {
-  0% {
-    transform: translate(0, 0);
-  }
-  100% {
-    transform: translate(0, -10px);
-  }
 }
 
 .main-form {
@@ -1473,11 +1418,6 @@ li > a.link {
 .appeal_text {
     width: 100%;
     height: 20em;
-}
-
-.full_address {
-    height: 5em;
-    width: 80em;
 }
 
 .comments {
@@ -1995,14 +1935,6 @@ section:not(.slider) .share-subcopy,
     margin-bottom: 2rem;
 }
 
-/* Info/Help panels */
-.help-panel {
-    background: #f8f9fa;
-    padding: 1rem;
-    border-radius: 4px;
-    margin-bottom: 1rem;
-}
-
 /* Table styling (outside help) */
 .simple-table {
     width: 100%;
@@ -2018,12 +1950,6 @@ section:not(.slider) .share-subcopy,
 .simple-table td {
     padding: 0.75rem;
     border-bottom: 1px solid #eee;
-}
-
-/* Social icon sizing */
-.social-icon-sm {
-    width: 28px;
-    height: 28px;
 }
 
 /* Insurance Bullshit Bingo Styles */
@@ -2736,17 +2662,6 @@ main :where(table) {
     font-size: 0.85rem;
     letter-spacing: 2px;
     margin-bottom: 0.75rem;
-}
-
-/* ===== Section Divider Utility ===== */
-.section-divider {
-    border: 0;
-    height: 1px;
-    background: linear-gradient(to right, transparent, #e0e0e0, transparent);
-    margin: 0;
-    width: 80%;
-    margin-left: auto;
-    margin-right: auto;
 }
 
 /* ===== Mobile Responsive: New Sections ===== */

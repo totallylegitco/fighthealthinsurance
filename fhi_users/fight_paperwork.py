@@ -1,8 +1,10 @@
-"""The FIGHT_PAPERWORK_ENABLED switch for Fight Paperwork's account endpoints.
+"""The FIGHT_PAPERWORK_ENABLED switch for Fight Paperwork's routes.
 
 Fight Paperwork is paused, so its sign-up, login, invite, notification and
-professional checkout endpoints answer 404 unless the setting is on. The
-main Fight Health Insurance site uses none of them.
+professional checkout endpoints, its REST routes, the appeal PDF route and
+the prior auth websocket answer 404 (or refuse) unless the setting is on,
+and chats never start as professional or trial professional chats. The main
+Fight Health Insurance site uses none of them.
 """
 
 import functools
@@ -10,7 +12,7 @@ from typing import Any, Callable, Iterable, Optional
 
 from django.conf import settings
 from django.http import JsonResponse
-from django.urls import URLPattern
+from django.urls import URLPattern, URLResolver
 from loguru import logger
 
 PROFESSIONAL_SUBSCRIPTION_PAYMENT_TYPE = "professional_domain_subscription"
@@ -44,10 +46,23 @@ def fight_paperwork_only(view: Callable[..., Any]) -> Callable[..., Any]:
 def gate_patterns(
     patterns: Iterable[Any], names: Optional[set[str]] = None
 ) -> list[Any]:
-    """Gate URL patterns: those named in names, or all of them when None."""
+    """Gate URL patterns: those named in names, or all of them when None.
+
+    Included patterns (a URLResolver) are gated the same way, recursively.
+    """
     gated: list[Any] = []
     for pattern in patterns:
-        if isinstance(pattern, URLPattern) and (names is None or pattern.name in names):
+        if isinstance(pattern, URLResolver):
+            pattern = URLResolver(
+                pattern.pattern,
+                gate_patterns(pattern.url_patterns, names),
+                pattern.default_kwargs,
+                pattern.app_name,
+                pattern.namespace,
+            )
+        elif isinstance(pattern, URLPattern) and (
+            names is None or pattern.name in names
+        ):
             pattern = URLPattern(
                 pattern.pattern,
                 fight_paperwork_only(pattern.callback),

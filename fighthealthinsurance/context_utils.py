@@ -7,11 +7,6 @@ Centralizes patterns that were previously scattered across the codebase:
   ``text[:N] + "..."`` slicing in extralink, RAG, PubMed, and plan-doc
   helpers.
 
-- ``dedupe_blocks`` / ``merge_context_blocks`` — normalize-and-dedupe
-  optional context strings before joining them with a separator, with an
-  optional cumulative ``max_chars`` budget so a single oversized block
-  cannot crowd out the rest of the prompt.
-
 - ``flatten_citation_context`` / ``attach_supplemental_to_citations`` —
   the recurring pattern in ``common_view_logic`` where microsite/IMR
   context is appended to the ML citation context if present, else to the
@@ -21,7 +16,7 @@ Centralizes patterns that were previously scattered across the codebase:
 from __future__ import annotations
 
 import re
-from typing import Any, Iterable, List, Optional, Sequence, Tuple, Union
+from typing import Any, List, Optional, Sequence, Tuple, Union
 
 # Sentence-ending punctuation followed by whitespace or end-of-string.
 _SENTENCE_END_RE = re.compile(r"[.!?](?=\s|$)")
@@ -192,70 +187,6 @@ def truncate_at_boundary(
 def _normalize_for_dedup(s: str) -> str:
     """Collapse whitespace and lowercase for dedup comparisons."""
     return " ".join(s.lower().split())
-
-
-def dedupe_blocks(
-    blocks: Iterable[Optional[str]],
-    *,
-    min_chars: int = 1,
-) -> List[str]:
-    """Drop empty, whitespace-only, and duplicate blocks.
-
-    Comparison is case- and whitespace-insensitive. The first occurrence
-    of each unique block is kept; later duplicates are dropped.
-    ``min_chars`` filters trivially short blocks (default keeps every
-    non-empty block).
-    """
-    seen: set[str] = set()
-    out: List[str] = []
-    for block in blocks:
-        if not block:
-            continue
-        stripped = block.strip()
-        if len(stripped) < min_chars:
-            continue
-        key = _normalize_for_dedup(stripped)
-        if not key or key in seen:
-            continue
-        seen.add(key)
-        out.append(stripped)
-    return out
-
-
-def merge_context_blocks(
-    blocks: Iterable[Optional[str]],
-    *,
-    separator: str = "\n\n",
-    dedupe: bool = True,
-    max_chars: Optional[int] = None,
-) -> str:
-    """Join non-empty context blocks into a single string.
-
-    When ``dedupe`` is set, duplicate blocks (case- and
-    whitespace-insensitive) are removed before joining. When
-    ``max_chars`` is set, blocks are added in order until the next would
-    exceed the budget; remaining blocks are dropped. Returns the empty
-    string when no usable blocks remain.
-    """
-    if dedupe:
-        cleaned = dedupe_blocks(blocks)
-    else:
-        cleaned = [b.strip() for b in blocks if b and b.strip()]
-    if not cleaned:
-        return ""
-    if max_chars is None:
-        return separator.join(cleaned)
-
-    parts: List[str] = []
-    used = 0
-    sep_len = len(separator)
-    for block in cleaned:
-        cost = len(block) + (sep_len if parts else 0)
-        if used + cost > max_chars:
-            break
-        parts.append(block)
-        used += cost
-    return separator.join(parts)
 
 
 def _supplemental_already_present(existing: str, supplemental: str) -> bool:

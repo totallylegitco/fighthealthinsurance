@@ -1774,9 +1774,12 @@ Or to create a prior auth for the same fake patient with the prior auth text "pr
 (note those two are just examples, not the actual prior auth or appeal).
 IMPORTANT: Do NOT ask the user for the patient's name. The patient's name is provided automatically by the system when creating appeals or prior auth requests. You can use a placeholder like "Patient Name" in examples — the system will fill it in.
 
-**Drafting the appeal letter itself**: When the user asks you to actually draft/write/generate the appeal letter (e.g. "please draft the letter", "write my appeal"), do NOT write the whole letter yourself and do NOT put a letter you wrote into create_or_update_appeal. Instead emit, on its own line (same line-format rules as above):
-**generate_appeal_letter**{"procedure": "...", "diagnosis": "...", "denial_text": "...", "insurance_company": "...", "medical_reason": "..."}
-Include whichever fields you know from the conversation — all are optional, but include at least one of procedure, diagnosis, or denial_text (ask the user if you know none of them). "medical_reason" is a short summary of why the care is medically necessary, from what the user told you. The system routes this to our dedicated appeal-letter generator (appeal-tuned models plus curated legal/clinical templates), creates or updates the appeal record, and shows the user the drafted letter with a link. Use create_or_update_appeal only for setting/correcting fields or when the user hands you exact letter text to save; use generate_appeal_letter to produce the letter. Don't emit both in the same message unless the user asked for both.
+**Drafting the appeal letter itself**: When the user asks you to draft/write/generate the appeal letter (e.g. "please draft the letter", "write my appeal"), you have two options. Pick the one that will give the better letter.
+1. Delegate to our dedicated appeal-letter generator by emitting, on its own line (same line-format rules as above):
+**generate_appeal_letter**{"procedure": "...", "diagnosis": "...", "denial_text": "...", "insurance_company": "...", "medical_reason": "...", "additional_context": "..."}
+Include whichever fields you know from the conversation. All are optional, but include at least one of procedure, diagnosis, or denial_text (ask the user if you know none of them). "medical_reason" is a short summary of why the care is medically necessary, from what the user told you; "additional_context" carries anything else from the conversation the letter should use. The generator uses appeal-tuned models, curated legal and clinical templates, and the PubMed and ClinicalTrials.gov results found in this chat. It creates or updates the appeal record and shows the user the drafted letter with a link. This is usually the better choice for a first draft.
+2. Write the letter yourself when you have better context than those fields can carry: for example, the user has given you details, a timeline or wording they want in the letter, or asked for changes to a letter already in this conversation. Show the full letter to the user in your reply, and save it to the appeal as "appeal_text" with create_or_update_appeal.
+Use one option or the other for a letter, not both in the same message. Use create_or_update_appeal on its own to set or correct fields, or to save exact letter text the user hands you.
 """
 
         # Conditionally include logged-in instructions
@@ -5618,13 +5621,6 @@ class DeepInfra(RemoteFullOpenLike):
 
     # Model context lengths (in tokens) - most modern models support 128k
     MODEL_CONTEXT_LENGTHS: ClassVar[dict[str, int]] = {
-        "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8": 128000,
-        "meta-llama/Llama-4-Scout-17B-16E-Instruct": 128000,
-        "google/gemma-3-27b-it": 128000,
-        "meta-llama/Meta-Llama-3.1-70B-Instruct": 128000,
-        "meta-llama/Llama-3.2-3B-Instruct": 128000,
-        "meta-llama/Llama-3.3-70B-Instruct-Turbo": 128000,
-        "deepseek-ai/DeepSeek-R1-Turbo": 64000,
         "google/gemma-4-26B-A4B-it": 260000,
         "deepseek-ai/DeepSeek-V4-Pro": 1048000,
     }
@@ -5637,14 +5633,6 @@ class DeepInfra(RemoteFullOpenLike):
         # Currently registered by models() (flagship Pro deepseek + gemma-4).
         "deepseek-ai/DeepSeek-V4-Pro": 92,
         "google/gemma-4-26B-A4B-it": 80,
-        # Retained for _old_models() should it be re-enabled.
-        "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8": 90,
-        "meta-llama/Llama-4-Scout-17B-16E-Instruct": 85,
-        "google/gemma-3-27b-it": 80,
-        "meta-llama/Meta-Llama-3.1-70B-Instruct": 84,
-        "meta-llama/Llama-3.2-3B-Instruct": 68,
-        "meta-llama/Llama-3.3-70B-Instruct-Turbo": 84,
-        "deepseek-ai/DeepSeek-R1-0528-Turbo": 90,
     }
 
     @classmethod
@@ -5719,51 +5707,6 @@ class DeepInfra(RemoteFullOpenLike):
                 cost=35,
                 name="google/gemma-4-26B-A4B-it",
                 internal_name="google/gemma-4-26B-A4B-it",
-            ),
-        ]
-
-    @classmethod
-    def _old_models(cls) -> List[ModelDescription]:
-        return [
-            ModelDescription(
-                cost=80,
-                name="meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
-                internal_name="meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
-            ),
-            ModelDescription(
-                cost=40,
-                name="meta-llama/Llama-4-Scout-17B-16E-Instruct",
-                internal_name="meta-llama/Llama-4-Scout-17B-16E-Instruct",
-            ),
-            ModelDescription(
-                cost=20,
-                name="google/gemma-3-27b-it",
-                internal_name="google/gemma-3-27b-it",
-            ),
-            ModelDescription(
-                cost=179,
-                name="meta-llama/meta-llama-3.1-405B-instruct",
-                internal_name="meta-llama/Meta-Llama-3.1-70B-Instruct",
-            ),
-            ModelDescription(
-                cost=40,
-                name="meta-llama/meta-llama-3.1-70B-instruct",
-                internal_name="meta-llama/Meta-Llama-3.1-70B-Instruct",
-            ),
-            ModelDescription(
-                cost=8,
-                name="meta-llama/llama-3.2-3B-instruct",
-                internal_name="meta-llama/Llama-3.2-3B-Instruct",
-            ),
-            ModelDescription(
-                cost=30,
-                name="meta-llama/Llama-3.3-70B-Instruct-Turbo",
-                internal_name="meta-llama/Llama-3.3-70B-Instruct-Turbo",
-            ),
-            ModelDescription(
-                cost=400,
-                name="deepseek",
-                internal_name="deepseek-ai/DeepSeek-R1-0528-Turbo",
             ),
         ]
 

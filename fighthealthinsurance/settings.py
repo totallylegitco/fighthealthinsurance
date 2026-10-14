@@ -10,9 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.0/ref/settings/
 """
 
-import datetime
 import os
-import re
 import time
 import traceback
 from functools import cached_property
@@ -146,15 +144,15 @@ class Base(Configuration):
     except ValueError:
         # Misconfigured env var should not block app startup.
         IMR_REFRESH_INTERVAL_HOURS = 168
-    ENABLE_VOICE_INTAKE = os.getenv("ENABLE_VOICE_INTAKE", "false").lower() == "true"
-    ENABLE_LOCAL_STT = os.getenv("ENABLE_LOCAL_STT", "true").lower() == "true"
     # When true, /pro_version shows a "professional version is here" page with
     # trial / learn-more CTAs instead of the "coming soon" interest form.
     PRO_VERSION_AVAILABLE = (
         os.getenv("PRO_VERSION_AVAILABLE", "false").lower() == "true"
     )
     # Fight Paperwork's account endpoints (sign-up, login, invites, password
-    # reset, patient notices, the professional checkout) and so their emails.
+    # reset, patient notices, the professional checkout) and so their emails,
+    # plus its sign-in pages, REST routes (all but the chooser), the appeal
+    # PDF route, /ws/prior-auth/ and professional and trial chats.
     # Off in every configuration, Dev included; tests turn it on per test.
     FIGHT_PAPERWORK_ENABLED = _env_flag("FIGHT_PAPERWORK_ENABLED")
     # Experimental Medicaid eligibility landing page. Off by default: while
@@ -537,10 +535,8 @@ class Base(Configuration):
 
     LOGIN_URL = "login"
     LOGIN_REDIRECT_URL = "/"
-    THUMBNAIL_DEBUG = True
     DEFF_FETCH_URL_NAME = "fake_fetch_url"
     STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
-    SECURE_TOKEN_ROLLOUT_AT = datetime.datetime(2026, 5, 4, tzinfo=datetime.UTC)
     REST_FRAMEWORK = {
         "DEFAULT_AUTHENTICATION_CLASSES": [
             "rest_framework.authentication.SessionAuthentication",
@@ -582,13 +578,6 @@ class Base(Configuration):
     # never use it: those don't involve Cofactor unless the professional replies
     # to us.
     COFACTOR_INTRO_CONTACT = os.getenv("COFACTOR_INTRO_CONTACT", "")
-
-    # Demo-request notifications always go to support42@; additional recipients
-    # can be configured via the DEMO_REQUEST_EXTRA_NOTIFICATION_EMAILS env var
-    # (comma-separated).
-    DEMO_REQUEST_NOTIFICATION_EMAILS = [
-        "support42@fighthealthinsurance.com"
-    ] + _env_list("DEMO_REQUEST_EXTRA_NOTIFICATION_EMAILS")
 
     # Professional-signup notifications — the web /pro_version interest form and
     # the Fight Paperwork (FPW) REST professional sign-up endpoint — default to
@@ -701,14 +690,10 @@ class Base(Configuration):
         "fighthealthinsurance",
         "fhi_users",
         "charts",
-        "easy_thumbnails",
         "cookie_consent",
         "compressor",
-        "compressor_toolkit",
         "django_extensions",
         "django_tables2",
-        "static_thumbnails",
-        "memoize",
         "django_recaptcha",
         "rest_framework",
         "mfa",
@@ -718,11 +703,6 @@ class Base(Configuration):
         "corsheaders",
     ]
 
-    COMPRESS_JS_FILTERS = [
-        "compressor.filters.jsmin.JSMinFilter",
-        "compressor.filters.yuglify.YUglifyJSFilter",
-    ]
-
     STATICFILES_FINDERS = (
         "django.contrib.staticfiles.finders.FileSystemFinder",
         "django.contrib.staticfiles.finders.AppDirectoriesFinder",
@@ -730,12 +710,6 @@ class Base(Configuration):
     )
     COMPRESS_ENABLED = True
     COMPRESS_OFFLINE = False
-    COMPRESS_YUGLIFY_BINARY = "yuglify"
-    COMPRESS_YUGLIFY_JS_ARGUMENTS = "--mangle"
-    COMPRESS_PRECOMPILERS = (
-        ("module", "compressor_toolkit.precompilers.ES6Compiler"),
-        ("css", "compressor_toolkit.precompilers.SCSSCompiler"),
-    )
 
     MIDDLEWARE = [
         # First, so every request is stamped with the thread its cleanup
@@ -753,17 +727,12 @@ class Base(Configuration):
         "django.contrib.messages.middleware.MessageMiddleware",
         "django.middleware.clickjacking.XFrameOptionsMiddleware",
         "cookie_consent.middleware.CleanCookiesMiddleware",
-        "django_user_agents.middleware.UserAgentMiddleware",
         "django.middleware.common.CommonMiddleware",
         "django.middleware.csrf.CsrfViewMiddleware",
         "django.middleware.security.SecurityMiddleware",
         "fighthealthinsurance.middleware.AuditMiddleware",
         "django_prometheus.middleware.PrometheusAfterMiddleware",
     ]
-
-    GOOGLE_ANALYTICS = {
-        "google_analytics_id": "G-2EDT623L0V",
-    }
 
     ROOT_URLCONF = "fighthealthinsurance.urls"
 
@@ -984,9 +953,6 @@ class Base(Configuration):
     METRICS_ALLOWED_FORWARDED_CIDRS = _env_list("METRICS_ALLOWED_FORWARDED_CIDRS")
 
     # STRIPE SETTINGS
-    STRIPE_LIVE_MODE = False
-    STRIPE_API_VERSION = "2024-09-30.acacia"
-
     @property
     def STRIPE_API_SECRET_KEY(self):
         return os.getenv(
@@ -1033,15 +999,6 @@ class Base(Configuration):
             self.EXTERNAL_STORAGE_C,
         )
 
-    # Ignore some 404 errors
-    IGNORABLE_404_URLS = [
-        re.compile(r"\.(php|cgi)$"),
-        re.compile(r"^/phpmyadmin/"),
-        re.compile(r"^/apple-touch-icon.*\.png$"),
-        re.compile(r"^/favicon\.ico$"),
-        re.compile(r"^/robots\.txt$"),
-    ]
-
     # Seconds the appeal-generation flow waits for in-flight background
     # PubMed/citation cache-warming before falling through to an inline
     # fetch (fighthealthinsurance.context_barrier). Tests override this to
@@ -1085,9 +1042,9 @@ class Dev(Base):
     # Base points the external storage at /external_data, which only exists
     # inside the container images that create it (see k8s/Dockerfile) or where
     # the shared PVC is mounted. On a dev machine that path is absent, so
-    # listing it -- the staff status page's storage check and the
-    # check_storage REST endpoint both do -- raised FileNotFoundError, and
-    # every CombinedStorage save silently failed for that backend. Point dev at
+    # listing it -- the staff status page's storage check does -- raised
+    # FileNotFoundError, and every CombinedStorage save silently failed for
+    # that backend. Point dev at
     # gitignored directories inside the repo and create them on first use.
     # The defaults are their own constants so the fallback stays assertable
     # without depending on the ambient environment (tox runs with passenv = *,
@@ -1499,8 +1456,6 @@ class Prod(Base):
     FIDO_SERVER_ID = "fighthealthinsurance.com"  # Server rp id for FIDO2, it is the full domain of your project
     FIGHT_PAPERWORK_DOMAIN = "www.fightpaperwork.com"
     FIGHT_HEALTH_INSURANCE_DOMAIN = "www.fighthealthinsurance.com"
-
-    STRIPE_LIVE_MODE = True
 
     @property
     def SECRET_KEY(self):  # type: ignore

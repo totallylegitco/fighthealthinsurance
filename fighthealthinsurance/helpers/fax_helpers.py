@@ -128,6 +128,7 @@ class SendFaxHelper:
         if not appeal_text:
             raise Exception("No appeal text")
         fts = FaxesToSend.objects.create(
+            # Asked to send, paid or not: how the staff page finds a failed dispatch.
             paid=True,
             pmids=appeal.pubmed_ids_json,
             hashed_email=hashed_email,

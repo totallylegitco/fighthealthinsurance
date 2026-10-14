@@ -301,19 +301,6 @@ class ClinicalTrialsTools(object):
         )
         return trial
 
-    async def get_trial(
-        self, nct_id: str, timeout: float = 20.0
-    ) -> Optional[ClinicalTrial]:
-        """Fetch a single trial by NCT ID, using DB cache when present."""
-        nct_id = (nct_id or "").strip().upper()
-        if not nct_id:
-            return None
-        cached = await ClinicalTrial.objects.filter(nct_id=nct_id).afirst()
-        if cached:
-            return cached
-        async with aiohttp.ClientSession(headers=_FETCH_HEADERS) as session:
-            return await self._fetch_trial(nct_id, session, timeout=timeout)
-
     async def get_trials(
         self, nct_ids: List[str], timeout: float = 30.0
     ) -> List[ClinicalTrial]:

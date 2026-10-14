@@ -77,49 +77,6 @@ label,
     padding: 4px;
 }
 
-/*---
-Our extras
----*/
-
-.options-table {
-    table-layout: fixed;
-    border-collapse: collapse;
-    width: 100%;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    background-color: #fff;
-}
-
-.options-table th,.options-table td {
-    border: 1px solid #ddd;
-    padding: 10px;
-    text-align: left;
-}
-
-.options-table th {
-    background-color: #f2f2f2;
-}
-
-.options-table tr:hover {
-    background-color: #f5f5f5;
-}
-
-.select-option {
-    display: inline-block;
-    padding: 8px 12px;
-    font-size: 14px;
-    cursor: pointer;
-    background-color: #4caf50;
-    color: #fff;
-    border: none;
-    border-radius: 4px;
-    text-align: center;
-    text-decoration: none;
-    transition: background-color 0.3s;
-}
-
-.select-option:hover {
-    background-color: #3e8e41;
-}
 
 /*---------------------------------------
      TYPOGRAPHY
@@ -230,74 +187,14 @@ a:focus {
     margin-top: 0;
 }
 
-.text-align-right {
-    text-align: right;
-}
-
 .text-align-center {
     text-align: center;
 }
 
-.news-thumb {
-    background: #ffffff;
-    border-radius: 10px;
-}
-
-.news-thumb img {
-    border-radius: 10px 10px 0 0;
-}
-
-.news-info {
-    padding: 30px;
-    text-align: left;
-}
-
-.news-info span {
-    display: block;
-    letter-spacing: 0.5px;
-}
-
-.news-info h3 {
-    margin-top: 10px;
-    margin-bottom: 10px;
-}
-
-.author {
-    border-top: 1px solid #f0f0f0;
-    padding-top: 1.5em;
-    margin-top: 2em;
-}
-
-.author img,
-.author .author-info {
-    display: inline-block;
-    vertical-align: top;
-}
-
-.author-info h5 {
-    margin-bottom: 0;
-}
-
-.author img {
-    border-radius: 100%;
-    width: 50px;
-    height: 50px;
-    margin-right: 10px;
-}
-
-
-#about,
-#team,
-#news,
-#news-detail {
+#about {
     position: relative;
     padding-top: 100px;
     padding-bottom: 100px;
-}
-
-#news,
-#service {
-    text-align: center;
 }
 
 
@@ -310,7 +207,6 @@ a:focus {
    against the bare element they landed on any <header> at all: the page
    title block, a <header>, came out 45px tall, in a row, with a rule under
    it. Gone rather than overridden. */
-
 
 
 /*---------------------------------------
@@ -415,23 +311,6 @@ a:focus {
     background-image: url(../images/crinkledcolors-optimized.jpg);
 }
 
-.slider .item-first .pro-version-text a {
-    color: #a5c422;
-}
-
-.slider .item-first .pro-version-text a:visited {
-    color: #a5c422;
-}
-
-
-.slider .item-second {
-    background-image: url(../images/slider2.jpg);
-}
-
-.slider .item-third {
-    background-image: url(../images/alpaca-laptop.jpg);
-}
-
 
 /*---------------------------------------
       ABOUT
@@ -465,278 +344,6 @@ a:focus {
 #about h6 {
     color: var(--fhi-muted);
     margin: 0;
-}
-
-
-
-/*---------------------------------------
-      TEAM MEMBERS
-  -----------------------------------------*/
-
-.team-thumb {
-    background-color: #f9f9f9;
-    border-radius: 0 0 10px 10px;
-    position: relative;
-    overflow: hidden;
-    cursor: pointer;
-}
-
-.team-info {
-    padding: 20px 30px 0 30px;
-}
-
-.team-contact-info {
-    border-top: 1px solid #e9e9e9;
-    padding-top: 1.2em;
-    margin-top: 1.5em;
-}
-
-.team-contact-info .fa {
-    margin-right: 5px;
-    display: inline-block;
-}
-
-.team-contact-info p {
-    margin-bottom: 2px;
-}
-
-.team-contact-info a {
-    color: #757575;
-}
-
-.team-thumb .social-icon li {
-    font-weight: 500;
-}
-
-.team-thumb .social-icon li a {
-    background: #ffffff;
-    border-radius: 100%;
-    font-size: 20px;
-    width: 50px;
-    height: 50px;
-    line-height: 50px;
-    margin: 0 2px 0 2px;
-}
-
-.team-thumb .social-icon {
-    opacity: 0;
-    transform: translateY(100%);
-    transition: 0.5s 0.2s;
-    text-align: center;
-    position: relative;
-    top: 0;
-}
-
-.team-thumb:hover .social-icon {
-    opacity: 1;
-    transition-delay: 0.3s;
-    transform: translateY(0px);
-    top: -22em;
-}
-
-
-
-/*---------------------------------------
-     SERVICE
-  -----------------------------------------*/
-
-#service {
-    background: #a5c422;
-}
-
-#service h2,
-#service h4 {
-    color: #ffffff;
-}
-
-#service p {
-    color: #d9d9d9;
-}
-
-#service .service-thumb {
-    padding: 0 22px;
-}
-
-#service .fa {
-    font-size: 50px;
-    margin-bottom: 10px;
-    background: #ffffff;
-    color: #a5c422;
-    width: 120px;
-    height: 120px;
-    line-height: 120px;
-    border-radius: 100%;
-}
-
-
-/*---------------------------------------
-      NEWS
-  -----------------------------------------*/
-
-#news,
-#news-detail {
-    background: #f9f9f9;
-}
-
-#news-detail blockquote {
-    margin: 30px 0;
-}
-
-.news-detail-thumb .news-image img {
-    border-radius: 10px;
-}
-
-.news-detail-thumb h3 {
-    margin-bottom: 8px;
-}
-
-.news-image {
-    margin-bottom: 30px;
-    position: relative;
-}
-
-.news-image img {
-    width: 100%;
-}
-
-.news-detail-thumb ul {
-    margin: 32px 12px 22px 0px;
-}
-
-.news-detail-thumb ul li {
-    list-style: circle;
-    font-weight: normal;
-    padding: 6px 12px 6px 0px;
-}
-
-.news-sidebar {
-    margin-top: 16px;
-}
-
-.news-social-share {
-    text-align: center;
-    padding-top: 22px;
-}
-
-.news-social-share a .fa {
-    padding-right: 4px;
-}
-
-.recent-post {
-    padding-top: 2px;
-    padding-bottom: 18px;
-}
-
-.recent-post .media img {
-    border-radius: 100%;
-    width: 80px;
-    height: 80px;
-    margin-right: 5px;
-}
-
-.recent-post .media-heading {
-    font-size: 16px;
-    font-weight: 500;
-    line-height: inherit;
-    margin-top: 5px;
-}
-
-.news-categories {
-    margin-top: 8px;
-}
-
-.news-categories li a {
-    color: #2b2b2b;
-}
-
-.news-ads {
-    background: #ffffff;
-    border-right: 4px solid #2b2b2b;
-    padding: 42px;
-    text-align: center;
-    margin: 26px 0 26px 0;
-}
-
-.news-ads.sidebar-ads {
-    border-left: 4px solid #2b2b2b;
-    border-right: 0px;
-}
-
-.news-ads h4 {
-    font-size: 18px;
-}
-
-.news-tags h4 {
-    padding-bottom: 6px;
-}
-
-.news-categories li,
-.news-tags li {
-    list-style: none;
-    display: inline-block;
-    margin: 4px;
-}
-
-.news-tags li a {
-    background: #393939;
-    border-radius: 50px;
-    color: #ffffff;
-    display: inline-block;
-    font-size: 12px;
-    font-weight: 500;
-    text-decoration: none;
-    float: left;
-    min-width: 30px;
-    padding: 6px 12px;
-    -webkit-transition: all ease-in-out 0.4s;
-    transition: all ease-in-out 0.4s;
-}
-
-.news-tags li a:hover {
-    background: #4267b2;
-}
-
-
-
-/*---------------------------------------
-      APPOINTMENT
-  -----------------------------------------*/
-
-#appointment {
-    padding-top: 100px;
-}
-
-#appointment label {
-    color: #393939;
-    font-weight: 500;
-}
-
-#appointment .form-control {
-    background: #f9f9f9;
-    border: none;
-    border-radius: 3px;
-    box-shadow: none;
-    font-size: var(--fhi-text-input);
-    font-weight: normal;
-    margin-bottom: 15px;
-    transition: all ease-in-out 0.4s;
-}
-
-#appointment input,
-#appointment select {
-    height: 45px;
-}
-
-#appointment button#cf-submit {
-    background: #a5c422;
-    color: #ffffff;
-    font-weight: 600;
-    height: 55px;
-}
-
-#appointment button#cf-submit:hover {
-    background: #393939;
-    color: #ffffff;
 }
 
 
@@ -782,67 +389,10 @@ footer a:hover {
     padding-top: 10px;
 }
 
-.contact-info .fa {
-    background: #393939;
-    border-radius: 100%;
-    color: #ffffff;
-    font-size: 15px;
-    width: 35px;
-    height: 35px;
-    line-height: 35px;
-    text-align: center;
-    margin-right: 5px;
-    margin-bottom: 2px;
-}
-
-.latest-stories {
-    margin-bottom: 20px;
-}
-
-.stories-image,
-.stories-info {
-    display: inline-block;
-    vertical-align: top;
-}
-
-.stories-image img {
-    border-radius: 100%;
-    width: 65px;
-    height: 65px;
-}
-
-.stories-info {
-    margin-left: 15px;
-}
-
-.stories-info h5 {
-    margin-bottom: 2px;
-}
-
-.stories-info span {
-    color: #858585;
-    font-size: 12px;
-}
-
-.opening-hours p {
-    line-height: 18px;
-}
-
-.opening-hours span {
-    font-weight: 500;
-    display: inline-block;
-    padding-left: 10px;
-}
-
-.copyright-text p,
 .footer-link a {
     color: var(--fhi-muted) !important;
     font-size: 14px !important;
     font-weight: 500 !important;
-}
-
-.footer-link a {
-    font-size: 14px;
     display: inline-flex;
     align-items: center;
     min-height: 44px;
@@ -853,67 +403,6 @@ footer a:hover {
        counted in the backlog rather than forced onto the grid. */
     padding: 0 10px;
     margin-top: var(--fhi-space-1);
-}
-
-.angle-up-btn {
-    position: relative;
-    bottom: 4em;
-    display: block;
-}
-
-.angle-up-btn a {
-    background: #ffffff;
-    border: 1px solid #f2f2f2;
-    border-radius: 3px;
-    font-size: 20px;
-    color: #393939;
-    display: inline-block;
-    text-align: center;
-    width: 40px;
-    height: 40px;
-    line-height: 38px;
-    transition: transform 0.1s ease-in;
-    transform: translateX(0);
-}
-
-.angle-up-btn a:hover {
-    background: #4267b2;
-    color: #ffffff;
-    transform: translateY(-5px);
-}
-
-
-/*---------------------------------------
-     SOCIAL ICON
-  -----------------------------------------*/
-
-.social-icon {
-    position: relative;
-    padding: 0;
-    margin: 0;
-}
-
-.social-icon li {
-    display: inline-block;
-    list-style: none;
-}
-
-.social-icon li a {
-    border-radius: 100px;
-    color: #464646;
-    font-size: 15px;
-    width: 35px;
-    height: 35px;
-    line-height: 35px;
-    text-decoration: none;
-    text-align: center;
-    transition: all 0.4s ease-in-out;
-    position: relative;
-}
-
-.social-icon li a:hover {
-    background: #4267b2;
-    color: #ffffff;
 }
 
 
@@ -932,31 +421,9 @@ footer a:hover {
 }
 
 @media only screen and (max-width: 767px) {
-
-    .news-sidebar {
-	margin-top: 2em;
-    }
-
-    #appointment-form {
-	padding-top: 4em;
-	padding-bottom: 4em;
-    }
-
     footer {
 	padding-top: var(--fhi-space-10);
 	padding-bottom: 0;
-    }
-
-    .footer-thumb {
-	padding-bottom: var(--fhi-space-3);
-    }
-
-    .copyright-text {
-	margin-top: var(--fhi-space-3);
-    }
-
-    .angle-up-btn {
-	bottom: 10em;
     }
 }
 

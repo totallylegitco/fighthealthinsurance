@@ -168,12 +168,6 @@ class MedicalNecessaryQuestions(InsuranceQuestions):
         response = self._append_context(response, "age", "The patient age is")
         return response
 
-    def generate_reason(self):
-        """Return the reason OR the special tag {medical_reason} where we will ask the LLM why it might be medically necessary."""
-        if not self.cleaned_data.get("medical_reason"):
-            return "{medical_reason}"
-        return [self.cleaned_data["medical_reason"]]
-
     def main(self):
         return [
             "The claim was denied as not medically necessary; however, it is medically necessary for {medical_reason}."
@@ -209,45 +203,12 @@ class NotCoveredByQuestions(NotCoveredQuestions):
     """Alt name to match the db entry (my bad)"""
 
 
-class OutOfNetworkReimbursement(forms.Form):
-    why_need_out_of_network = forms.CharField(
-        max_length=300,
-        # Optional, like every other question on the questions page.
-        required=False,
-        label="Why do you need to go out of network?",
-        help_text="E.g., no in-network provider, in-network providers don't meet standards of care, don't accept new patients, or don't perform the needed service.",
-    )
-
-    def __init__(self, *args, prof_pov: bool = False, **kwargs):
-        self.prof_pov = prof_pov
-        super().__init__(*args, **kwargs)
-
-    def medical_context(self):
-        r = self.cleaned_data.get("why_need_out_of_network")
-        if r:
-            return f"One reason why this out of network claim should be accepted could be {r}"
-        return ""
-
-    def main(self):
-        reason = self.cleaned_data.get("why_need_out_of_network")
-        if not reason:
-            return []
-        if self.prof_pov:
-            return [
-                f"Based on my professional assessment, out-of-network services are medically necessary in this case because {reason}"
-            ]
-        return [
-            f"I believe you should cover this out of network service since {reason}"
-        ]
-
-
 class UnderpaidOutOfNetworkQuestions(InsuranceQuestions):
     """Questions for the seeded "Underpaid Out of Network" denial type.
 
-    Inherits ``InsuranceQuestions`` rather than the similar
-    ``OutOfNetworkReimbursement`` because the appeal builder calls
-    ``preface()``, ``main()`` and ``footer()`` unguarded on every form a
-    denial type resolves to, and only this line defines all three.
+    Inherits ``InsuranceQuestions`` for ``preface()``, ``main()`` and
+    ``footer()``, which the appeal builder calls unguarded on every form a
+    denial type resolves to.
     """
 
     why_need_out_of_network = forms.CharField(
@@ -275,32 +236,6 @@ class UnderpaidOutOfNetworkQuestions(InsuranceQuestions):
         return [
             f"I believe you should pay this out of network claim in full since {reason}"
         ]
-
-
-class BalanceBillQuestions(forms.Form):
-    """Questions to ask for surprise billing."""
-
-    emergency = forms.BooleanField(required=False, label="This was an emergency")
-    match_eob = forms.BooleanField(
-        required=False,
-        label="The bill does not match the explanation of benefits I was sent",
-    )
-
-    def __init__(self, *args, prof_pov: bool = False, **kwargs):
-        self.prof_pov = prof_pov
-        super().__init__(*args, **kwargs)
-
-    def preface(self):
-        if "emergency" in self.cleaned_data:
-            if self.prof_pov:
-                return [
-                    "The No Surprises Act prohibits balance billing and similar practices in the majority of emergency cases (see https://www.cms.gov/newsroom/fact-sheets/no-surprises-understand-your-rights-against-surprise-medical-bills). Please ensure full compliance with these federal requirements in the processing of claim {claim_id}{denial_date_info}."
-                ]
-            return [
-                "As you are aware the no-surprises act prohibits balance billing and similar practices in the majority of emergency cases (see https://www.cms.gov/newsroom/fact-sheets/no-surprises-understand-your-rights-against-surprise-medical-bills)"
-            ]
-        else:
-            return [""]
 
 
 # This is related to why weren't you able to get a prior auth.
@@ -517,16 +452,6 @@ class ThirdPartyQuestions(InsuranceQuestions):
                 ]
             return [f"As requested, the third-party insurance is {details}"]
         return super().preface()
-
-
-class StepTherapy(MedicalNecessaryQuestions):
-    """Question to ask for step therapy."""
-
-    medically_necessary = forms.CharField(
-        required=False,
-        label="Why doesn't the insurance supported care option work?",
-        help_text="E.g., you've tried the suggested medication, are allergic, it is not recommended, or it was ineffective. Briefly explain why the insurer's alternative is not appropriate in your case.",
-    )
 
 
 class FormularyChangeQuestions(InsuranceQuestions):

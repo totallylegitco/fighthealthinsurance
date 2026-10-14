@@ -2,9 +2,11 @@
 Simple audit logging for security and analytics.
 
 This module provides a straightforward audit logging system that tracks:
-- Authentication events (login, logout, failed attempts)
 - API access patterns
-- Important user actions
+- Unhandled API exceptions
+
+It also holds the request tracking helpers (user agent, network and a
+coarse US state guess) used by the denial, chat and payment flows.
 
 Design goals:
 - Simple: One model, minimal dependencies
@@ -265,32 +267,6 @@ def log_event(
 
 
 # Convenience functions
-def log_login_success(request, user) -> Optional[AuditLog]:
-    """Log successful login."""
-    return log_event(EventType.LOGIN_SUCCESS, request=request, user=user)
-
-
-def log_login_failure(
-    request, username: str = "", reason: str = ""
-) -> Optional[AuditLog]:
-    """Log failed login attempt."""
-    return log_event(
-        EventType.LOGIN_FAILED,
-        request=request,
-        description=(
-            f"Failed login for {username}: {reason}"
-            if reason
-            else f"Failed login for {username}"
-        ),
-        extra_data={"attempted_username": username, "reason": reason},
-    )
-
-
-def log_logout(request, user) -> Optional[AuditLog]:
-    """Log user logout."""
-    return log_event(EventType.LOGOUT, request=request, user=user)
-
-
 def log_exception_error(
     request,
     error_type: str = "",

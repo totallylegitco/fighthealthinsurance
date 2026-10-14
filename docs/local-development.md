@@ -14,8 +14,7 @@ from the repository root unless a block says otherwise.
   `fighthealthinsurance/static/js/package.json`). The static build runs
   `npm run build`, and `run_local.sh` stops if it fails.
 - **tesseract-ocr**, for OCR of uploaded denial letters.
-- **texlive and pandoc**, for PDF generation. The `pandoc` package in
-  `requirements.txt` is a Python wrapper and does not include the binary.
+- **texlive and pandoc**, for PDF generation.
 - **mkcert**, for the dev server's HTTPS certificate.
 - **git**, for the `git+https` entries in `requirements.txt`, and optionally
   **git-lfs** for a few logo images (`.gitattributes`). Without git-lfs the
@@ -30,8 +29,8 @@ sudo apt-get install -y tesseract-ocr texlive pandoc mkcert git git-lfs
 Install Node.js 20+ separately: the production image uses NodeSource's
 `setup_20.x` (`k8s/Dockerfile`), and nvm also works.
 
-- CI also installs `libgirepository1.0-dev pkg-config python3-dev`. Add them if
-  pip fails to build a package.
+- CI also installs `pkg-config python3-dev`. Add them if pip fails to build a
+  package.
 - `libpango1.0-dev` and `libgdk-pixbuf2.0-dev`, listed here before, are not
   needed by the app. They only matter for weasyprint, one of the optional PDF
   engines pandoc may try (`_try_pandoc_engines` in
@@ -197,8 +196,7 @@ runs the same script.
      Without cluster access these print a message and are skipped.
 5. Serves **https://localhost:8000** with uvicorn
    (`fighthealthinsurance.asgi:application`, auto-reload, bound to `0.0.0.0`)
-   with `RECAPTCHA_TESTING=true` and `OAUTHLIB_RELAX_TOKEN_SCOPE=1`. Extra
-   arguments are passed to uvicorn.
+   with `RECAPTCHA_TESTING=true`. Extra arguments are passed to uvicorn.
 
 To skip the static build and the database setup on later runs:
 

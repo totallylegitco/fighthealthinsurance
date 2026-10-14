@@ -129,10 +129,13 @@ def advanced_ocr_context(request):
 
 
 def feature_pages_context(request):
-    """Which staged pages the footer may link to, and whether the AI
+    """Which staged pages other pages may link to, and whether the AI
     assistants blurb on the home and Resources pages may promise help
     starting an appeal from the chat (only while an appeal tool is on)."""
-    from fighthealthinsurance.utils import ai_assistants_page_enabled
+    from fighthealthinsurance.utils import (
+        ai_assistants_page_enabled,
+        medicaid_eligibility_page_enabled,
+    )
 
     ai_assistants_on = ai_assistants_page_enabled()
     ai_assistants_appeal_on = False
@@ -143,4 +146,5 @@ def feature_pages_context(request):
     return {
         "ai_assistants_on": ai_assistants_on,
         "ai_assistants_appeal_on": ai_assistants_appeal_on,
+        "medicaid_eligibility_on": medicaid_eligibility_page_enabled(),
     }

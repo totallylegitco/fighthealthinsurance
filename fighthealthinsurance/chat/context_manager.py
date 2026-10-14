@@ -279,34 +279,6 @@ def should_store_summary(
     return len(chat_summary_list) == 0 or chat_summary_list[-1] != new_summary
 
 
-def get_current_context(
-    chat_summary_list: Optional[List[str]],
-    pubmed_context: Optional[str] = None,
-) -> Optional[str]:
-    """
-    Get the current LLM context from stored summaries.
-
-    Args:
-        chat_summary_list: List of stored summaries
-        pubmed_context: Optional PubMed context to include
-
-    Returns:
-        Combined context string, or None if no context available
-    """
-    current_context = None
-
-    if chat_summary_list and len(chat_summary_list) > 0:
-        current_context = chat_summary_list[-1]
-
-    # Add PubMed context if present
-    if pubmed_context and current_context:
-        current_context = f"{current_context}\n\nPubMed context: {pubmed_context}"
-    elif pubmed_context:
-        current_context = f"PubMed context: {pubmed_context}"
-
-    return current_context
-
-
 async def background_generate_summary(chat_id: uuid.UUID, placeholder_tag: str) -> None:
     """
     Generate a context summary in the background when the model omitted the panda emoji.

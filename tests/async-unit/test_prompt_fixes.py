@@ -558,10 +558,12 @@ class RecordingChat(RemoteOpenLike):
         return ("Sure, tell me more.🐼 Appeal chat.", None)
 
 
-async def _chat_system_prompt(message: str, history=None) -> str:
+async def _chat_system_prompt(
+    message: str, history=None, is_logged_in: bool = False
+) -> str:
     model = RecordingChat()
     await model.generate_chat_response(
-        message, history=history, is_professional=False, is_logged_in=False
+        message, history=history, is_professional=False, is_logged_in=is_logged_in
     )
     assert len(model.system_prompts) == 1
     return model.system_prompts[0]
@@ -598,6 +600,18 @@ class TestChatSystemPrompt:
         sp = await _chat_system_prompt("What else do I need?", history=history)
         assert "**medicaid_eligibility" in sp
         assert "**medicaid_info" in sp
+
+    @pytest.mark.asyncio
+    async def test_logged_in_users_get_the_letter_generator(self):
+        sp = await _chat_system_prompt("Please draft my letter.", is_logged_in=True)
+        assert "**generate_appeal_letter**{" in sp
+
+    @pytest.mark.asyncio
+    async def test_the_model_may_still_write_the_letter_itself(self):
+        """Delegating is an option, not a rule: with context the generator's
+        fields can't carry, the model writes the letter and saves it."""
+        sp = await _chat_system_prompt("Please draft my letter.", is_logged_in=True)
+        assert "Write the letter yourself" in sp
 
 
 def test_medicaid_detection_scans_the_whole_history():

@@ -23,7 +23,7 @@ STATIC = APP / "static"
 BASE_HTML = TEMPLATES / "base.html"
 MAIN_CSS = STATIC / "css" / "main.css"
 CUSTOM_CSS = STATIC / "css" / "custom.css"
-CUSTOM_JS = STATIC / "js" / "custom.js"
+SMOOTHSCROLL_JS = STATIC / "js" / "smoothscroll.js"
 
 # Elements that never carry a closing tag, so an HTML nesting check must not
 # expect one.
@@ -380,12 +380,12 @@ class NothingCoversThePageTest(TestCase):
     def test_no_script_hides_a_covering_layer_on_load(self):
         # Moving such a handler to a different event does not help: the page
         # is covered until script runs at all. There must be no handler.
-        source = read(CUSTOM_JS)
+        source = read(SMOOTHSCROLL_JS)
         for name in full_viewport_overlay_classes() | {"preloader"}:
             self.assertNotIn(
                 name,
                 source,
-                f"custom.js still reaches for .{name}; the page's visible state "
+                f"smoothscroll.js reaches for .{name}; the page's visible state "
                 "must not depend on the bundle arriving",
             )
 

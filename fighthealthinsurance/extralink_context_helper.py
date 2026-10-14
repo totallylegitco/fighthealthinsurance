@@ -156,29 +156,6 @@ class ExtraLinkContextHelper:
             return []
 
     @staticmethod
-    async def has_extralinks(microsite_slug: str) -> bool:
-        """
-        Check if a microsite has any successfully fetched extralinks.
-
-        Args:
-            microsite_slug: The microsite identifier
-
-        Returns:
-            True if extralinks exist, False otherwise
-        """
-        if not microsite_slug:
-            return False
-
-        try:
-            return await MicrositeExtraLink.objects.filter(
-                microsite_slug=microsite_slug,
-                document__fetch_status="success",
-            ).aexists()
-
-        except Exception:
-            return False
-
-    @staticmethod
     async def fetch_extralink_context_for_microsite(
         microsite_slug: str,
         max_docs: int = 5,

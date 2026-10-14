@@ -162,3 +162,9 @@ class ProSignupsDashboardTest(ProSignupChartViewTestBase):
         response = self.client.get(reverse("charts:pro_signups_dashboard"))
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"Pro Signups Dashboard", response.content)
+
+    def test_staff_dashboard_links_to_it(self):
+        response = self.client.get(reverse("staff_dashboard"))
+        self.assertContains(
+            response, f'href="{reverse("charts:pro_signups_dashboard")}"'
+        )

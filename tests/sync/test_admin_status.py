@@ -266,8 +266,8 @@ class AdminStatusFaxQueueTest(TestCase):
         self._make_fax(should_send=True, sent=False, date=two_hours_ago)
         # B: queued but recent (not yet due).
         self._make_fax(should_send=True, sent=False)
-        # C: awaiting confirmation (not marked should_send).
-        self._make_fax(should_send=False, sent=False)
+        # C: awaiting confirmation: an unpaid draft, never sent.
+        self._make_fax(should_send=False, sent=False, paid=False)
         # D: in-flight / attempting to send.
         self._make_fax(should_send=True, sent=False, attempting_to_send_as_of=now)
         # E: a recent failure.
@@ -311,17 +311,25 @@ class AdminStatusFaxQueueTest(TestCase):
         # J: a professional's fax. That path dispatches without should_send;
         # unattempted, it is a stranded request, not an abandoned draft.
         self._make_fax(should_send=False, sent=False, professional=True)
+        # L: a consumer asked to send half an hour ago (staging marks it
+        # paid) and no send ever started: requested, never sent.
+        self._make_fax(
+            should_send=False, sent=False, date=now - datetime.timedelta(minutes=30)
+        )
+        # M: asked to send a moment ago; still starting, on no card yet.
+        self._make_fax(should_send=False, sent=False)
 
         response = self.client.get(reverse("admin_status"))
         self.assertEqual(response.status_code, 200)
         q = response.context["fax_queue"]
         self.assertTrue(q["ok"])
-        self.assertEqual(q["unsent_total"], 8)  # A, B, C, D, G, H, I, J
+        self.assertEqual(q["unsent_total"], 10)  # A, B, C, D, G, H, I, J, L, M
         self.assertEqual(q["ready_queued"], 5)  # A, B, D, H, I
         self.assertEqual(q["due_now"], 1)  # A only: H and I were picked up
         self.assertEqual(
             q["awaiting_confirmation"], 1
-        )  # C only: G attempted, J professional
+        )  # C only: G attempted, J professional, L and M requested
+        self.assertEqual(q["requested_never_sent"], 1)  # L; M is too new
         self.assertEqual(q["requested_unpicked"], 1)  # J
         self.assertEqual(q["in_flight"], 2)  # D, H; G and I are hours old
         self.assertEqual(q["stale_attempts"], 2)  # G, I
@@ -332,6 +340,7 @@ class AdminStatusFaxQueueTest(TestCase):
         self.assertContains(response, "Attempting now")
         self.assertContains(response, "Stale attempt")
         self.assertContains(response, "Professional send never picked up")
+        self.assertContains(response, "Requested, never sent")
         self.assertNotContains(response, "not actionable")
         # The all-time delivered count lives in the delivery panel: F only.
         outcomes = response.context["fax_outcomes"]
@@ -589,6 +598,151 @@ class AdminStatusFaxQueueTest(TestCase):
             body.index("Intake funnel"),
         ]
         self.assertEqual(order, sorted(order), "fax sections are not contiguous")
+
+
+class RequestedFaxNeverSentTest(TestCase):
+    """A fax someone asked to send whose send never started gets its own red
+    card and list, apart from the unpaid drafts nobody confirmed."""
+
+    EMAIL = "rebecca.crumpler@example.com"
+    LETTER = "Please reconsider the denied knee MRI for my patient."
+    NAME = "Rebecca Lee Crumpler"
+    NUMBER = "15551234567"
+
+    def setUp(self):
+        self.staff = User.objects.create_user(
+            username="staff", password="pw123", is_staff=True
+        )
+        self.client.login(username="staff", password="pw123")
+
+    def _stage_with_failed_dispatch(self, age=datetime.timedelta(minutes=30)):
+        """Stage a fax through the real path while neither Temporal nor Ray
+        can take it, then age it past the grace period."""
+        from fighthealthinsurance.helpers.fax_helpers import SendFaxHelper
+        from fighthealthinsurance.models import Appeal
+
+        hashed = Denial.get_hashed_email(self.EMAIL)
+        denial = Denial.objects.create(
+            hashed_email=hashed,
+            denial_text="denied",
+            insurance_company="TestIns",
+            appeal_fax_number=self.NUMBER,
+        )
+        appeal = Appeal.objects.create(
+            for_denial=denial, appeal_text=self.LETTER, hashed_email=hashed
+        )
+        with (
+            mock.patch(
+                "fighthealthinsurance.helpers.fax_helpers.dispatch_fax_send",
+                return_value=False,
+            ),
+            mock.patch(
+                "fighthealthinsurance.helpers.fax_helpers.fax_actor_ref"
+            ) as actor_ref,
+        ):
+            actor_ref.get.do_send_fax.remote.side_effect = RuntimeError("no Ray")
+            with self.assertRaises(RuntimeError):
+                SendFaxHelper.stage_appeal_as_fax(appeal=appeal, email=self.EMAIL)
+        fax = FaxesToSend.objects.get(denial_id=denial)
+        FaxesToSend.objects.filter(pk=fax.pk).update(
+            date=timezone.now() - age, name=self.NAME
+        )
+        return fax
+
+    def _unpaid_draft(self):
+        fax = FaxesToSend.objects.create(
+            hashed_email="h",
+            paid=False,
+            email="draft@example.com",
+            appeal_text="x",
+            destination=self.NUMBER,
+        )
+        FaxesToSend.objects.filter(pk=fax.pk).update(
+            date=timezone.now() - datetime.timedelta(days=30)
+        )
+        return fax
+
+    def _queue(self):
+        from fighthealthinsurance.staff_views import AdminStatusView
+
+        q = AdminStatusView._fax_queue_status()
+        self.assertTrue(q["ok"], q)
+        return q
+
+    def test_a_staged_fax_whose_dispatch_failed_is_requested_never_sent(self):
+        self._stage_with_failed_dispatch()
+        q = self._queue()
+        self.assertEqual(
+            (q["requested_never_sent"], q["awaiting_confirmation"]), (1, 0)
+        )
+
+    def test_an_unpaid_draft_is_awaiting_confirmation_not_requested(self):
+        self._unpaid_draft()
+        q = self._queue()
+        self.assertEqual(
+            (q["requested_never_sent"], q["awaiting_confirmation"]), (0, 1)
+        )
+
+    def test_a_request_inside_the_grace_period_is_on_neither_card(self):
+        self._stage_with_failed_dispatch(age=datetime.timedelta(minutes=1))
+        q = self._queue()
+        self.assertEqual(
+            (q["requested_never_sent"], q["awaiting_confirmation"]), (0, 0)
+        )
+
+    def test_a_request_that_started_sending_is_not_listed(self):
+        fax = self._stage_with_failed_dispatch()
+        FaxesToSend.objects.filter(pk=fax.pk).update(
+            attempting_to_send_as_of=timezone.now()
+        )
+        q = self._queue()
+        self.assertEqual((q["requested_never_sent"], q["in_flight"]), (0, 1))
+
+    @mock.patch(_FAX)
+    @mock.patch(_ACTORS)
+    @mock.patch(_MODELS)
+    def test_the_list_shows_age_and_masked_number_with_a_send_button(
+        self, mock_models, mock_actors, mock_fax
+    ):
+        mock_models.return_value = []
+        mock_actors.return_value = {"alive_actors": 0, "total_actors": 0, "details": []}
+        mock_fax.return_value = _ok_fax_backends()
+        fax = self._stage_with_failed_dispatch()
+        response = self.client.get(reverse("admin_status"))
+        self.assertEqual(response.status_code, 200)
+        rows = response.context["fax_queue"]["requested_never_sent_rows"]
+        self.assertEqual(
+            [(r["uuid"], r["fax_number"]) for r in rows],
+            [(str(fax.uuid), "ending 4567")],
+        )
+        self.assertContains(response, "30\xa0minutes ago")
+        self.assertContains(
+            response, f'name="uuid" value="{fax.uuid}"', count=1, html=False
+        )
+        self.assertContains(response, 'action="/timbit/help/resend_stuck_fax"')
+
+    @mock.patch(_FAX)
+    @mock.patch(_ACTORS)
+    @mock.patch(_MODELS)
+    def test_the_list_shows_no_letter_text_email_name_or_full_number(
+        self, mock_models, mock_actors, mock_fax
+    ):
+        mock_models.return_value = []
+        mock_actors.return_value = {"alive_actors": 0, "total_actors": 0, "details": []}
+        mock_fax.return_value = _ok_fax_backends()
+        self._stage_with_failed_dispatch()
+        response = self.client.get(reverse("admin_status"))
+        body = response.content.decode()
+        for secret in (self.LETTER, self.EMAIL, self.NAME, self.NUMBER):
+            self.assertNotIn(secret, body)
+
+    def test_a_number_is_masked_to_its_last_four_digits(self):
+        from fighthealthinsurance.staff_views import _masked_fax_number
+
+        self.assertEqual(
+            [_masked_fax_number(n) for n in ("1 (555) 123-4567", None, "   ", "123")],
+            ["ending 4567", "none on file", "none on file", "on file"],
+        )
 
 
 class FaxOutcomeStatusOrderingTest(TestCase):

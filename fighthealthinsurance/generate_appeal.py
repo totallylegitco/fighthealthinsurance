@@ -1534,15 +1534,12 @@ def _appeals_as_futures_complete(
 ) -> Iterator["GeneratedAppeal"]:
     """Yield each mapper's appeals in the order the MODEL futures complete.
 
-    The previous shape -- ``submit_pool.submit(_generated_to_appeals_text,...)``
-    then ``as_available_nested`` -- looked like a completion-ordered fan-in but
-    wasn't: ``_generated_to_appeals_text`` is a generator FUNCTION, so the
-    submitted future resolved instantly with a fresh generator object,
-    ``as_completed`` ordering was meaningless, and the sub-iterators were then
-    drained serially in that arbitrary order. One hung backend at the front of
-    the line blocked consumption of every other model's already-finished
-    appeals -- and once make_appeals' overall budget expired, those finished
-    appeals were abandoned along with it.
+    Completion is keyed on the model futures, not on pool-submitted mappers:
+    ``_generated_to_appeals_text`` is a generator FUNCTION, so a pool future
+    for it resolves at once and says nothing about when the model answers.
+    Keyed that way, the mappers drain in arbitrary order, and one hung
+    backend at the front blocks every other model's finished appeals until
+    make_appeals' overall budget expires and they are abandoned with it.
 
     Here the mappers stay lazy (no pool round-trip; the model calls themselves
     were already submitted by parallel_infer) and we key completion on the
@@ -2317,12 +2314,6 @@ class AppealGenerator(object):
             raise ExtractionUnavailable("no model answered get_procedure_and_diagnosis")
         logger.debug(f"Returning (procedure, diagnosis)=({proc}, {diag})")
         return (proc, diag)
-
-    def make_open_procedure_prompt(self, denial_text=None) -> Optional[str]:
-        if denial_text is not None:
-            return f"What was the procedure/treatment and what is the diagnosis from the following denial (remember to provide two strings seperated by MAGIC as your response): {denial_text}"
-        else:
-            return None
 
     def make_open_prompt(
         self,

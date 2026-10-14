@@ -199,7 +199,7 @@
                 <h3>From us</h3>
                 <ul class="prep-links fhi-bare-list fhi-stack">
                     <li><a href="{% url 'medicaid-faq' %}">Medicaid work requirements FAQ</a></li>
-                    <li><a href="{% url 'medicaid-eligibility' %}">Check if you may qualify for Medicaid (experimental)</a></li>
+                    {% if medicaid_eligibility_on %}<li><a href="{% url 'medicaid-eligibility' %}">Check if you may qualify for Medicaid (experimental)</a></li>{% endif %}
                     <li><a href="{% url 'blog-post' slug='250903-glp1-denials-what-to-do' %}">GLP-1 denials: what to do</a></li>
                     <li><a href="{% url 'blog' %}">All blog posts</a></li>
                 </ul>

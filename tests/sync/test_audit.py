@@ -16,9 +16,6 @@ from fhi_users.audit import (
     AuditLog,
     EventType,
     log_event,
-    log_login_success,
-    log_login_failure,
-    log_logout,
     log_api_access,
     log_exception_error,
     is_audit_enabled,
@@ -95,37 +92,6 @@ class AuditLoggingEnabledTest(TestCase):
         self.assertEqual(log.user, self.user)
         # Usernames are kept for professionals only
         self.assertEqual(log.username, "")
-
-    def test_log_login_success(self):
-        """Test login success logging."""
-        request = self.factory.get("/")
-        request.user = self.user
-
-        log = log_login_success(request, self.user)
-
-        self.assertIsNotNone(log)
-        self.assertEqual(log.event_type, "login_success")
-
-    def test_log_login_failure(self):
-        """Test login failure logging."""
-        request = self.factory.post("/login/")
-
-        log = log_login_failure(request, username="baduser", reason="invalid_password")
-
-        self.assertIsNotNone(log)
-        self.assertEqual(log.event_type, "login_failed")
-        self.assertIn("baduser", log.description)
-        self.assertEqual(log.extra_data["attempted_username"], "baduser")
-
-    def test_log_logout(self):
-        """Test logout logging."""
-        request = self.factory.get("/logout/")
-        request.user = self.user
-
-        log = log_logout(request, self.user)
-
-        self.assertIsNotNone(log)
-        self.assertEqual(log.event_type, "logout")
 
     def test_log_api_access(self):
         """Test API access logging."""
@@ -242,7 +208,7 @@ class AuditMiddlewareTest(TestCase):
             password="testpass123",
         )
         PatientUser.objects.create(user=self.patient, active=True)
-        # A REST endpoint a patient can call: there is no such denial, so 404.
+        # A REST path under the audited prefix that answers 404 (the route is off with Fight Paperwork).
         self.denial_path = reverse("denials-detail", args=[999999])
 
     def test_the_audited_prefix_is_where_the_rest_api_is_mounted(self):

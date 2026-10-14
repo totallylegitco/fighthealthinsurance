@@ -64,16 +64,16 @@ workers.
   primary.
 - **`k8s/deploy_dev.yaml`** (`web-dev`) — dev uses SQLite (`DEV_DB_LOC=/tmp/db.sqlite3`),
   not Postgres. No `PDBHOST` involved.
-- **`k8s/ray/cluster-back.yaml`** — stale `-back` backup copy, not applied by
-  the deploy pipeline. Left as-is to avoid drift; update it only if it is ever
-  reactivated. (The equivalent `k8s/deploy-back.yaml` and
-  `k8s/deploy_staging-back.yaml` copies have been deleted — they defined the
-  same `web`/`web-staging` Deployment names as the live manifests but with
-  pre-incident config, so an accidental `kubectl apply` would have clobbered
-  the live Deployments; for prod `web` it would also have repointed `PDBHOST`
-  at the old secrets-sourced database host (staging is secrets-sourced either
-  way, see above). The uploads PVC they carried now lives in
-  `k8s/uploads-pvc.yaml`.)
+- **Old `-back` backup copies** have all been deleted. `k8s/deploy-back.yaml`
+  and `k8s/deploy_staging-back.yaml` defined the same `web`/`web-staging`
+  Deployment names as the live manifests but with pre-incident config, so an
+  accidental `kubectl apply` would have clobbered the live Deployments; for
+  prod `web` it would also have repointed `PDBHOST` at the old secrets-sourced
+  database host (staging is secrets-sourced either way, see above). The
+  uploads PVC they carried now lives in `k8s/uploads-pvc.yaml`.
+  `k8s/ray/cluster-back.yaml` went for the same reason: it used the live
+  cluster's name, `raycluster-kuberay`, with pre-cutover config and no
+  `PDBHOST`, so applying it would have overwritten the live Ray cluster.
 - **`pg-*.yaml`, `k8s/deploy.yaml` service names** — the remaining legacy
   `fhi-pg*` references are CNPG **Cluster manifests** (`pg-copy.yaml`,
   `pg-recover.yaml`) naming clusters/buckets, and app **Service** names

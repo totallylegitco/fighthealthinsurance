@@ -16,7 +16,6 @@ from fighthealthinsurance.generate_appeal import (
     _appeals_as_futures_complete,
     _generated_to_appeals_text,
 )
-from fighthealthinsurance.utils import UnwrapIterator
 
 
 def _mapper(name, future):
@@ -100,11 +99,3 @@ class TestMapperOutcomeRanking:
         assert [i.text for i in items] == ["no."]
         assert [r.outcome for r in recorded] == ["error"]
         assert "backend fell over" in recorded[0].error_detail
-
-
-class TestUnwrapIteratorIterative:
-    def test_many_empty_subiterators_do_not_recurse(self):
-        # 5000 empty sub-iterators then one with a value: the old recursive
-        # implementation blew the stack around ~1000.
-        iterators = iter([iter([]) for _ in range(5000)] + [iter(["x"])])
-        assert list(UnwrapIterator(iterators)) == ["x"]

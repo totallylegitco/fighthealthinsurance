@@ -9,10 +9,11 @@ import asyncio
 import os
 import re
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Optional, Tuple, Union
+from typing import Any, Awaitable, Callable, List, Optional, Tuple, Union
 
 from loguru import logger
 
+from fighthealthinsurance.chat.research_context import pubmed_block
 from fighthealthinsurance.pubmed_tools import PubMedTools
 from fighthealthinsurance.rxnorm_tools import RxNormTools, looks_like_single_drug_query
 
@@ -42,6 +43,7 @@ class PubMedTool(BaseTool):
             Callable[..., Awaitable[Tuple[Optional[str], Optional[str]]]]
         ] = None,
         rxnorm_tools: Optional[RxNormTools] = None,
+        research_found: Optional[List[str]] = None,
     ):
         """
         Initialize the PubMed tool.
@@ -51,11 +53,16 @@ class PubMedTool(BaseTool):
             pubmed_tools: PubMedTools instance (created if not provided)
             call_llm_callback: Callback to call LLM with additional context
             rxnorm_tools: RxNormTools for normalizing drug-name queries
+            research_found: The turn's list of research blocks, owned by
+                ChatInterface; each block found is added before the follow-up
+                pass, so a letter drafted in that pass can use it (the turn's
+                context is only stored once the turn ends).
         """
         super().__init__(send_status_message)
         self.pubmed_tools = pubmed_tools or PubMedTools()
         self.call_llm_callback = call_llm_callback
         self.rxnorm_tools = rxnorm_tools or RxNormTools()
+        self.research_found = research_found
 
     async def execute(
         self,
@@ -141,6 +148,8 @@ class PubMedTool(BaseTool):
 
         if not pubmed_context:
             return cleaned_response, context
+        if self.research_found is not None:
+            self.research_found.append(pubmed_context)
 
         # If we have a callback to call the LLM with the new context, use it
         if self.call_llm_callback and model_backends:
@@ -284,8 +293,4 @@ class PubMedTool(BaseTool):
         if not summaries:
             return ""
 
-        return (
-            "\n\nWe got back pubmedcontext:[:\n"
-            + "\n\n".join(summaries)
-            + "]. If you reference them make sure to include the title and journal.\n"
-        )
+        return pubmed_block(summaries)

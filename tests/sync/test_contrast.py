@@ -1545,10 +1545,6 @@ UNRESOLVED: tuple[Exempt, ...] = (
 
 # -------------------------------------------------------------- the unreached
 
-BOUGHT_THEME = (
-    "Selector appears on no page the gate can build: leftover from the bought "
-    "theme. Deleting the unused half of main.css is its own change."
-)
 WRITTEN_AT_RUNTIME = (
     "The class is put on by script or by Django's form rendering, not by a "
     "template, so the gate can read the colour but not the ground under it. "
@@ -1576,26 +1572,6 @@ UNREACHED: tuple[Exempt, ...] = (
     Exempt(
         "custom.css", ".pro-interest-form > .fhi-notice .errorlist", WRITTEN_AT_RUNTIME
     ),
-    Exempt("main.css", ".select-option", BOUGHT_THEME),
-    Exempt("main.css", ".slider .item-first .pro-version-text a", BOUGHT_THEME),
-    Exempt("main.css", ".slider .item-first .pro-version-text a:visited", BOUGHT_THEME),
-    Exempt("main.css", ".team-contact-info a", BOUGHT_THEME),
-    Exempt("main.css", "#service h2", BOUGHT_THEME),
-    Exempt("main.css", "#service h4", BOUGHT_THEME),
-    Exempt("main.css", "#service p", BOUGHT_THEME),
-    Exempt("main.css", "#service .fa", BOUGHT_THEME),
-    Exempt("main.css", ".news-categories li a", BOUGHT_THEME),
-    Exempt("main.css", ".news-tags li a", BOUGHT_THEME),
-    Exempt("main.css", "#appointment label", BOUGHT_THEME),
-    Exempt("main.css", "#appointment button#cf-submit", BOUGHT_THEME),
-    Exempt("main.css", "#appointment button#cf-submit:hover", BOUGHT_THEME),
-    Exempt("main.css", ".contact-info .fa", BOUGHT_THEME),
-    Exempt("main.css", ".stories-info span", BOUGHT_THEME),
-    Exempt("main.css", ".copyright-text p", BOUGHT_THEME),
-    Exempt("main.css", ".angle-up-btn a", BOUGHT_THEME),
-    Exempt("main.css", ".angle-up-btn a:hover", BOUGHT_THEME),
-    Exempt("main.css", ".social-icon li a", BOUGHT_THEME),
-    Exempt("main.css", ".social-icon li a:hover", BOUGHT_THEME),
 )
 
 

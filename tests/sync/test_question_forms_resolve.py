@@ -10,8 +10,8 @@ Pinned regressions:
 - two question forms declared booleans with no label, so Django derived the
   label from the field name and a real prior-auth case was asked to tick
   "Emergency" and "Told prior auth not needed";
-- ``OutOfNetworkReimbursement.why_need_out_of_network`` was required on a
-  page where every other question is optional.
+- a question was required on a page where every other question is
+  optional.
 
 The last two rules are checked against every form in the module rather than
 only the ones a fixture reaches today, so a class becomes safe to seed
@@ -20,9 +20,11 @@ before anyone seeds it.
 Also pins the contract the appeal builder relies on:
 ``AppealsBackendHelper._generate_appeals_body`` calls ``preface()``,
 ``main()`` and ``footer()`` on every form a denial type resolves to, inside
-``if parsed.is_valid():`` and with no guard. Two classes in this module are
-plain ``forms.Form`` and define only some of the three, so seeding a denial
-type against one of those would raise AttributeError mid-generation.
+``if parsed.is_valid():`` and with no guard.
+
+The ``form`` on a denial type is free text in admin, so it can name a class
+that has since been removed. That resolves to no form, and the questions
+page carries on without it.
 """
 
 import inspect
@@ -32,16 +34,15 @@ from django import forms
 from django.forms.utils import pretty_name
 from django.test import TestCase
 
+from fighthealthinsurance.common_view_logic import FindNextStepsHelper
 from fighthealthinsurance.forms import questions as question_forms
-from fighthealthinsurance.models import DenialTypes
+from fighthealthinsurance.models import Denial, DenialTypes
 
 _FIXTURE = "fighthealthinsurance/fixtures/initial.yaml"
 
 # Seeded denial types that ask nothing: either a grouping parent, or a type
 # whose questions have never been written. Listed one by one so a NEW row
-# arriving with no form has to be added here on purpose. Two of them have a
-# plausible class sitting unused in forms/questions.py; wiring those up is a
-# seeded-data decision, not a code one.
+# arriving with no form has to be added here on purpose.
 _TYPES_WITH_NO_QUESTIONS = {
     "Co-Ordination of Benefits",
     "Denied Out-Of-Network Provider",
@@ -139,6 +140,38 @@ class SeededDenialTypeFormTest(TestCase):
 
         self.assertIsNotNone(form_class)
         self.assertIn("why_need_out_of_network", _instantiate(form_class).fields)
+
+
+class RemovedFormNameTest(TestCase):
+    """A denial type can still name a question form that was removed."""
+
+    _REMOVED = ("OutOfNetworkReimbursement", "BalanceBillQuestions", "StepTherapy")
+
+    def _denial_type(self, name, form):
+        return DenialTypes.objects.create(
+            name=name, regex="zzz-never-matches", form=form
+        )
+
+    def test_a_removed_form_name_resolves_to_no_form(self):
+        for name in self._REMOVED:
+            with self.subTest(form=name):
+                self.assertIsNone(self._denial_type(f"Uses {name}", name).get_form())
+
+    def test_the_questions_page_skips_a_removed_form(self):
+        denial = Denial.objects.create(
+            denial_text="Step therapy is required before this medication.",
+            hashed_email=Denial.get_hashed_email("rebecca.crumpler@example.com"),
+        )
+        denial.denial_type.add(
+            self._denial_type("Uses StepTherapy", "StepTherapy"),
+            self._denial_type("Medically Necessary", "MedicalNecessaryQuestions"),
+        )
+
+        built = FindNextStepsHelper._build_question_forms(denial)
+
+        self.assertEqual(
+            [type(form).__name__ for form in built], ["MedicalNecessaryQuestions"]
+        )
 
 
 class QuestionFieldTest(TestCase):

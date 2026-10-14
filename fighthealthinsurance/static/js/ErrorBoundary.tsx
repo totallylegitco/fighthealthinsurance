@@ -1,5 +1,5 @@
-import React, { Component, ErrorInfo, ReactNode } from "react";
-import { Alert, Box, Button, Stack, Text, Title } from "@mantine/core";
+import { Component, ErrorInfo, ReactNode } from "react";
+import { Alert, Box, Button, Stack, Text } from "@mantine/core";
 
 interface Props {
   children: ReactNode;

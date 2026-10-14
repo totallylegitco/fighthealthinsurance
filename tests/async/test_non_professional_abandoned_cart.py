@@ -105,20 +105,76 @@ def test_raw_stripe_session_id_string_rejected():
 
 
 @pytest.mark.django_db
-def test_legacy_session_id_link_still_works():
-    """Pre-rollout emails used ?session_id=<row_id>; those old links still work."""
-    legacy_session = _make_lost_session(pk=42, session_id="legacy_stripe_session")
+def test_an_id_link_to_a_pre_rollout_row_is_refused():
+    """An email from before May 2026 linked by row id; that link no longer resumes."""
+    old_session = _make_lost_session(pk=42, session_id="old_stripe_session")
     # auto_now_add ignores constructor values, so backdate created_at via UPDATE
-    # into the pre-rollout window.
-    LostStripeSession.objects.filter(pk=legacy_session.pk).update(
+    # to before the May 2026 token rollout.
+    LostStripeSession.objects.filter(pk=old_session.pk).update(
         created_at=datetime.datetime(2026, 5, 3, tzinfo=datetime.UTC)
     )
     with patch("stripe.checkout.Session.create") as mock_create:
-        mock_create.return_value.url = "https://checkout.stripe.com/legacy"
-        query = urlencode({"session_id": legacy_session.pk, "format": "json"})
+        mock_create.return_value.url = "https://checkout.stripe.com/old"
+        query = urlencode({"session_id": old_session.pk, "format": "json"})
         response = Client().get(f"{reverse('complete_payment')}?{query}")
-    assert response.status_code == 200
-    assert response.json()["next_url"] == "https://checkout.stripe.com/legacy"
+    assert response.status_code == 400
+    assert response.json() == {"error": "Invalid or expired link"}
+    mock_create.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_an_id_link_at_or_under_1000_is_refused_in_the_browser():
+    """A low row id opens the error page, not Stripe, whenever the row was made."""
+    low_id_session = _make_lost_session(pk=1000, session_id="low_id_stripe_session")
+    with patch("stripe.checkout.Session.create") as mock_create:
+        mock_create.return_value.url = "https://checkout.stripe.com/low-id"
+        query = urlencode({"session_id": low_id_session.pk})
+        response = Client().get(f"{reverse('complete_payment')}?{query}")
+    assert response.status_code == 400
+    assert response["Content-Type"].startswith("text/html")
+    assert b"Invalid or expired link" in response.content
+    mock_create.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_a_posted_session_id_is_refused():
+    """A POST naming a row id gets the same answer as an id link."""
+    posted_session = _make_lost_session(pk=7, session_id="posted_stripe_session")
+    with patch("stripe.checkout.Session.create") as mock_create:
+        mock_create.return_value.url = "https://checkout.stripe.com/posted"
+        response = Client().post(
+            reverse("complete_payment"),
+            data=json.dumps({"session_id": posted_session.pk}),
+            content_type="application/json",
+        )
+    assert response.status_code == 400
+    assert response.json() == {"error": "Invalid or expired link"}
+    mock_create.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_a_link_with_both_token_and_session_id_uses_the_token():
+    """The token picks the checkout; a row id alongside it changes nothing."""
+    other_session = _make_lost_session(
+        pk=7,
+        session_id="other_stripe_session",
+        success_url="https://www.fighthealthinsurance.com/other-row",
+    )
+    token_session = _make_lost_session(
+        success_url="https://www.fighthealthinsurance.com/token-row"
+    )
+    with patch("stripe.checkout.Session.create") as mock_create:
+        mock_create.return_value.url = "https://checkout.stripe.com/token-row"
+        query = urlencode(
+            {"token": token_session.secure_token, "session_id": other_session.pk}
+        )
+        response = Client().get(f"{reverse('complete_payment')}?{query}")
+    assert response.status_code == 302
+    assert response["Location"] == "https://checkout.stripe.com/token-row"
+    assert (
+        mock_create.call_args.kwargs["success_url"]
+        == "https://www.fighthealthinsurance.com/token-row"
+    )
 
 
 @pytest.mark.django_db

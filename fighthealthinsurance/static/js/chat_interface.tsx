@@ -17,22 +17,17 @@ import {
   ActionIcon,
   FileButton,
   Tooltip,
-  Switch,
 } from "@mantine/core";
 
 import { IconPaperclip, IconSend, IconUser, IconRefresh } from "./icons";
 import { recognize } from "./scrub_ocr";
 import { THEME } from "./theme";
 import ErrorBoundary from "./ErrorBoundary";
-import VoiceIntake from "./VoiceIntake";
 import {
   getExternalModelsPreference,
   getUserInfo,
-  saveExternalModelsPreference,
-  saveUserInfo,
   scrubPersonalInfo,
   restorePersonalInfo,
-  type UserInfo,
 } from "./user_info_storage";
 
 // Declare UET tracking function from base.html
@@ -160,7 +155,6 @@ interface ChatState {
   statusMessage: string | null;
   requestStartTime: number | null;
   useExternalModels: boolean;
-  showVoiceIntake: boolean;
 }
 
 // Shared styles that keep long/no-space content (URLs, claim IDs, OCR strings)
@@ -440,8 +434,6 @@ const getSessionKey = (): string => {
 };
 
 interface ChatInterfaceProps {
-  enableVoiceIntake?: boolean;
-  enableLocalSTT?: boolean;
   defaultProcedure?: string;
   defaultCondition?: string;
   medicare?: string;
@@ -449,7 +441,7 @@ interface ChatInterfaceProps {
   initialMessage?: string;
 }
 
-const ChatInterface: React.FC<ChatInterfaceProps> = ({ defaultProcedure, defaultCondition, medicare, micrositeSlug, initialMessage, enableVoiceIntake, enableLocalSTT }) => {
+const ChatInterface: React.FC<ChatInterfaceProps> = ({ defaultProcedure, defaultCondition, medicare, micrositeSlug, initialMessage }) => {
   // State for our chat interface. Lazy initializer: the object literal (with
   // its localStorage reads) would otherwise be rebuilt on every render.
   const [state, setState] = useState<ChatState>(() => ({
@@ -467,7 +459,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ defaultProcedure, default
     // (the raw === "true" read here used to silently disable external models
     // for anyone who never went through the consent form).
     useExternalModels: getExternalModelsPreference(),
-    showVoiceIntake: Boolean(enableVoiceIntake),
   }));
 
   // Track when to show retry button (separate state to avoid re-render issues)
@@ -1033,7 +1024,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ defaultProcedure, default
     [state.chatId],
   );
 
-  const sendChatMessage = (content: string, source?: "typed" | "voice_transcript") => {
+  const sendChatMessage = (content: string) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
       return false;
     }
@@ -1048,7 +1039,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ defaultProcedure, default
       is_patient: true,
       session_key: getSessionKey(),
       use_external_models: state.useExternalModels,
-      metadata: source ? { intake_source: source } : undefined,
       debug: isChatDebugEnabled() || undefined,
     };
 
@@ -1080,7 +1070,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ defaultProcedure, default
   const handleSendMessage = () => {
     if (!state.input.trim() || state.isLoading) return;
 
-    const didSend = sendChatMessage(state.input, "typed");
+    const didSend = sendChatMessage(state.input);
     if (!didSend) {
       setState((prev) => ({
         ...prev,
@@ -1120,7 +1110,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ defaultProcedure, default
 
     if (!lastUserMessage) return;
 
-    const didSend = sendChatMessage(lastUserMessage.content, "typed");
+    const didSend = sendChatMessage(lastUserMessage.content);
     if (!didSend) {
       setState((prev) => ({
         ...prev,
@@ -1137,39 +1127,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ defaultProcedure, default
       statusMessage: null,
       error: null,
     }));
-  };
-
-  
-  const submitVoiceTranscript = (transcript: string) => {
-    if (!transcript.trim() || state.isLoading) return;
-    const didSend = sendChatMessage(transcript, "voice_transcript");
-    if (!didSend) {
-      setState((prev) => ({
-        ...prev,
-        error: "Connection is still starting. Please submit your transcript again in a moment.",
-      }));
-      return;
-    }
-
-    const userMessage: ChatMessage = {
-      role: "user",
-      content: transcript,
-      timestamp: new Date().toISOString(),
-      status: "done",
-    };
-    setState((prev) => ({
-      ...prev,
-      messages: [...prev.messages, userMessage],
-      input: "",
-      isLoading: true,
-      requestStartTime: Date.now(),
-      statusMessage: null,
-    }));
-  };
-// Handle toggling external models
-  const handleToggleExternalModels = (checked: boolean) => {
-    saveExternalModelsPreference(checked);
-    setState((prev) => ({ ...prev, useExternalModels: checked }));
   };
 
   // Handle starting a new chat
@@ -1200,7 +1157,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ defaultProcedure, default
       statusMessage: null,
       requestStartTime: null,
       useExternalModels: useExternalModels,
-      showVoiceIntake: Boolean(enableVoiceIntake),
     });
 
     // Handle WebSocket for a new chat
@@ -1488,14 +1444,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ defaultProcedure, default
           </Box>
         </ScrollArea>
 
-        {state.showVoiceIntake && (
-          <VoiceIntake
-            enabledLocalSTT={Boolean(enableLocalSTT)}
-            onSubmitTranscript={submitVoiceTranscript}
-            onSwitchToTyping={() => setState((prev) => ({ ...prev, showVoiceIntake: false }))}
-          />
-        )}
-
         <Box p="xs" style={{ width: "100%", marginTop: "10px" }}>
           <Paper
             radius="lg"
@@ -1636,8 +1584,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const medicare = chatRoot.dataset.medicare || undefined;
     const micrositeSlug = chatRoot.dataset.micrositeSlug || undefined;
     const initialMessage = chatRoot.dataset.initialMessage || undefined;
-    const enableVoiceIntake = chatRoot.dataset.enableVoiceIntake === "true";
-    const enableLocalSTT = chatRoot.dataset.enableLocalStt === "true";
     // Don't dump chatRoot.dataset: it can include data-initial-message, which
     // is built from the user's denial text. Non-PHI fields are logged below.
     console.log("Using microsite settings");
@@ -1668,8 +1614,6 @@ document.addEventListener("DOMContentLoaded", () => {
             medicare={medicare}
             micrositeSlug={micrositeSlug}
             initialMessage={initialMessage}
-            enableVoiceIntake={enableVoiceIntake}
-            enableLocalSTT={enableLocalSTT}
           />
         </ErrorBoundary>
       </MantineProvider>,

@@ -159,9 +159,8 @@ class TheStylesheetDefinesThemTest(TestCase):
         ).read_text()
 
         self.assertIn("\n.%s {" % FIELD, css)
-        # Anchored, because ".fhi-check {" also matches the compatibility
-        # rule ".form-check .fhi-check {", so the standalone rule could be
-        # deleted with this still passing.
+        # Anchored, so a compound rule ending in ".fhi-check {" can't stand
+        # in for the standalone one.
         self.assertIn("\n.%s {" % CHECK, css)
         # Built from tokens, not from literals, or the next scale change
         # leaves the inputs behind.
@@ -170,12 +169,7 @@ class TheStylesheetDefinesThemTest(TestCase):
         self.assertIn("var(--fhi-radius)", block)
         self.assertIn("var(--fhi-space-", block)
 
-    def test_the_checkbox_still_sits_where_its_label_expects(self):
-        """The wrapper reserves padding and expects the box to float back.
-
-        Without it a long consent label wraps under its own checkbox on a
-        phone, which is the layout this change was accused of breaking.
-        """
+    def test_a_box_the_browser_cannot_use_greys_out_its_label(self):
         from pathlib import Path
 
         css = (
@@ -186,10 +180,6 @@ class TheStylesheetDefinesThemTest(TestCase):
             / "custom.css"
         ).read_text()
 
-        rule = css[css.index(".form-check .%s {" % CHECK) :][:200]
-        self.assertIn("float: left", rule)
-        self.assertIn("margin-left: -1.5em", rule)
-        self.assertIn(":disabled ~ .form-check-label", css)
         self.assertIn(".fhi-check-row > .fhi-check:disabled ~ label", css)
 
     def test_the_focus_ring_covers_them(self):

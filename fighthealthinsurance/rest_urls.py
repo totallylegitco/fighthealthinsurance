@@ -13,6 +13,7 @@ if settings.DEBUG:
 else:
     RouterClass = routers.SimpleRouter
 
+# Fight Paperwork's routes; FHI's pages call none of them.
 router = RouterClass()
 
 router.register(r"denials", rest_views.DenialViewSet, basename="denials")
@@ -44,7 +45,10 @@ router.register(
     rest_views.ProposedPriorAuthViewSet,
     basename="prior-auth-proposals",
 )
-router.register(r"chooser", rest_views.ChooserViewSet, basename="chooser")
+
+# The public chooser, which FHI's pages use.
+chooser_router = RouterClass()
+chooser_router.register(r"chooser", rest_views.ChooserViewSet, basename="chooser")
 
 urlpatterns = [
     # Non-viewset but still rest API endpoints.
@@ -64,15 +68,6 @@ urlpatterns = [
         rest_views.streaming_appeals_rest_fallback,
         name="streaming_appeals_fallback",
     ),
-    path("check_storage", rest_views.CheckStorage.as_view(), name="check_storage"),
-    path(
-        "external_review_wizard",
-        rest_views.ExternalReviewWizardView.as_view(),
-        name="external_review_wizard",
-    ),
-    path(
-        "check_ml_backend", rest_views.CheckMlBackend.as_view(), name="check_ml_backend"
-    ),
     path(
         "live_models_status",
         rest_views.LiveModelsStatus.as_view(),
@@ -83,14 +78,7 @@ urlpatterns = [
         rest_views.ActorHealthStatus.as_view(),
         name="actor_health_status",
     ),
-    # Router. The two appeal notices email Fight Paperwork patients and coworkers.
-    path(
-        "",
-        include(
-            gate_patterns(
-                router.urls,
-                names={"appeals-notify-patient", "appeals-invite-provider"},
-            )
-        ),
-    ),
+    # Routers. Fight Paperwork's comes first so its DEBUG API index wins.
+    path("", include(gate_patterns(router.urls))),
+    path("", include(chooser_router.urls)),
 ]

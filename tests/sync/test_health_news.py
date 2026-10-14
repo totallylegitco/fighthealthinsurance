@@ -48,7 +48,7 @@ RSS_UTF7 = b'<?xml version="1.0" encoding="utf-7"?>' + RSS_ENTITIES.split("?>", 
     1
 ].encode("utf-7")
 
-# The same again, three ways feedparser could be talked into UTF-7 after a
+# The same again, three ways the parser could be talked into UTF-7 after a
 # declaration says utf-8: a second processing instruction on the first
 # line, a processing instruction with no declaration at all, and an
 # element on the first line carrying an encoding attribute.
@@ -446,7 +446,7 @@ class HealthNewsTest(TestCase):
 
     def test_entity_declarations_are_refused_before_parsing(self):
         """A few hundred bytes of nested entities become gigabytes of
-        title inside feedparser; the byte limit cannot see that."""
+        title inside the parser; the byte limit cannot see that."""
         before = self._primed()
         started = time.monotonic()
         kff = FakeKff(entities="uninsured")
@@ -467,7 +467,7 @@ class HealthNewsTest(TestCase):
         self.assertTrue(cache.get(health_news._failed_key("uninsured")))
 
     def test_a_declared_utf7_encoding_cannot_smuggle_declarations_past_the_check(self):
-        """feedparser honours the declaration's encoding; the body is decoded
+        """The parser honours the declaration's encoding; the body is decoded
         here as UTF-8 and made to say so, so "+ADwAIQ-" stays four characters."""
         before = self._primed()
         started = time.monotonic()

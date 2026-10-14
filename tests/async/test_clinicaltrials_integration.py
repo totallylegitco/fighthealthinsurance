@@ -233,7 +233,7 @@ class TestFindTrialsForQuery:
         ).aget()
         assert denial_audit.nct_ids == "[]"
 
-    async def test_get_trial_uses_db_cache(self):
+    async def test_get_trials_uses_db_cache(self):
         tools = ClinicalTrialsTools()
         await ClinicalTrial.objects.acreate(
             nct_id="NCT44444444",
@@ -244,11 +244,11 @@ class TestFindTrialsForQuery:
             "fighthealthinsurance.clinicaltrials_tools.aiohttp.ClientSession",
             side_effect=AssertionError("should not hit network"),
         ):
-            trial = await tools.get_trial("NCT44444444")
+            trials = await tools.get_trials(["NCT44444444"])
 
-        assert trial is not None
-        assert trial.study_url == "https://clinicaltrials.gov/study/NCT44444444"
-        assert trial.brief_title == "Cached title"
+        assert [t.nct_id for t in trials] == ["NCT44444444"]
+        assert trials[0].study_url == "https://clinicaltrials.gov/study/NCT44444444"
+        assert trials[0].brief_title == "Cached title"
 
     async def test_get_context_for_denial_returns_none_when_no_prefetch(self):
         """No audit row from the prefetch means no context — appeal-gen must

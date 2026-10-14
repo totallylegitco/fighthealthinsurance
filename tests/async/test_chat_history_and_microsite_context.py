@@ -15,6 +15,7 @@ from unittest.mock import patch, AsyncMock, MagicMock
 from channels.testing import WebsocketCommunicator
 
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 from rest_framework.test import APITestCase
 
 from fighthealthinsurance.models import OngoingChat, ProfessionalUser, Appeal, Denial
@@ -180,6 +181,7 @@ class CrisisResponseHistoryTest(APITestCase):
             await communicator.disconnect()
 
 
+@override_settings(FIGHT_PAPERWORK_ENABLED=True)
 class LinkMessageHistoryTest(APITestCase):
     """Test that appeal/prior auth link messages are persisted to chat history."""
 

@@ -40,8 +40,8 @@ REMOVED_PLUGIN = re.compile(
     r"stellar|owl[.-]carousel|owl\.theme|jquery[.-]sticky", re.IGNORECASE
 )
 
-# Calling a plugin once its file is gone throws, and in custom.js that would
-# stop the WOW start that follows it.
+# Calling a plugin once its file is gone throws and stops the script that
+# called it.
 PLUGIN_CALL = re.compile(r"\.stellar\s*\(|\.owlCarousel\s*\(|\.sticky\s*\(")
 
 # The classes the plugins put on the page themselves. A rule written against
@@ -133,9 +133,9 @@ class NoPluginLeftWithNothingToDoTest(SimpleTestCase):
             for path in scripts + list(templates())
             for match in PLUGIN_CALL.finditer(read(path))
         ]
-        # custom.js is where Stellar and Owl were started; if the walk never
-        # reaches it, an empty list here means nothing.
-        self.assertIn(STATIC / "js" / "custom.js", scripts)
+        # If the walk never reaches the site's own scripts, an empty list here
+        # means nothing.
+        self.assertIn(STATIC / "js" / "smoothscroll.js", scripts)
         self.assertEqual(
             calls,
             [],

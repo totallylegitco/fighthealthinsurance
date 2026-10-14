@@ -17,7 +17,7 @@ heuristics like DME keyword detection).
 from __future__ import annotations
 
 import re
-from typing import Any, Iterable, Optional
+from typing import Any, Optional
 
 # CPT codes are five characters: typically 5 digits (Category I), or
 # 4 digits + a letter (Category II ends in F; Category III ends in T).
@@ -351,17 +351,6 @@ def extract_dme_devices(text: str) -> dict[str, object]:
         "dme_categories": dme_categories,
         "matched_keywords": matched_keywords,
     }
-
-
-def unique_in_order(items: Iterable[str]) -> list[str]:
-    """De-duplicate *items* while preserving first-seen order."""
-    seen: set[str] = set()
-    out: list[str] = []
-    for item in items:
-        if item not in seen:
-            seen.add(item)
-            out.append(item)
-    return out
 
 
 def collect_denial_text(denial: Any, *fields: str) -> str:

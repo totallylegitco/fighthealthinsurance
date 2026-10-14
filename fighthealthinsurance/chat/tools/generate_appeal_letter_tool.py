@@ -1,14 +1,16 @@
 """Generate-appeal-letter tool handler for the chat interface.
 
-Handles ``**generate_appeal_letter {...}**`` calls from the LLM. Instead of
-the chat model writing a full appeal letter inline (the longest and most
-failure-prone chat generation -- see the "Please go ahead and draft a
-letter." total-failure incidents), the model emits this small call with the
-denial details it knows and the dedicated appeal-generation pipeline
-(appeal-tuned models, curated specialized templates, the shed ladder) writes
-the letter. The tool creates/updates the chat-linked Appeal + Denial from
-the same payload, saves the drafted letter to the appeal, and replaces the
-call with the letter text plus a link.
+Handles ``**generate_appeal_letter {...}**`` calls from the LLM. Rather than
+write a full appeal letter inline (the longest and most failure-prone chat
+generation -- see the "Please go ahead and draft a letter." total-failure
+incidents), the model can emit this small call with the denial details it
+knows, and the dedicated appeal-generation pipeline (appeal-tuned models,
+curated specialized templates, the shed ladder) writes the letter. The chat
+prompt leaves the choice to the model: it still writes the letter itself,
+saved through create_or_update_appeal, when the conversation holds context
+the call's fields can't carry. The tool creates/updates the chat-linked
+Appeal + Denial from the same payload, saves the drafted letter to the
+appeal, and replaces the call with the letter text plus a link.
 """
 
 import json
@@ -23,6 +25,7 @@ from fighthealthinsurance.chat.appeal_letter_generator import (
     draft_letter_for_chat,
     letter_placement_note,
 )
+from fighthealthinsurance.chat.research_context import research_for_chat
 from fighthealthinsurance.client_gone import ClientGone
 from fighthealthinsurance.denial_context import merge_qa
 
@@ -74,7 +77,8 @@ class GenerateAppealLetterTool(AppealTool):
     # ONE letter per turn, unlike AppealTool's 3: each execution runs a full
     # (deadline-bounded) generation, so a duplicate call would double the
     # model spend and blow the turn budget. Straggler calls past the first
-    # are stripped instead (see _replace_call); calls in LATER passes of the
+    # are stripped by BaseTool.handle (anchored_calls, inherited from
+    # AppealTool), with dropped_calls_notice; calls in LATER passes of the
     # same turn are caught by the drafted_this_turn slot.
     max_calls_per_reply: int = 1
 
@@ -87,6 +91,7 @@ class GenerateAppealLetterTool(AppealTool):
         deadline_seconds: Optional[float] = None,
         drafted_this_turn: Optional[List[Optional[DraftedLetter]]] = None,
         use_reserve: bool = True,
+        research_found: Optional[List[str]] = None,
     ):
         """
         Args:
@@ -109,12 +114,20 @@ class GenerateAppealLetterTool(AppealTool):
             use_reserve: Whether a stored draft may stand in when generation
                 fails. False when the user asked for a new letter (a redo,
                 another version): a stored draft predates that request.
+            research_found: The research blocks the chat's tools found this
+                turn (owned by ChatInterface, see PubMedTool). The letter
+                draws on them and on the chat's stored context, so it argues
+                from the evidence the person just saw discussed.
         """
         super().__init__(send_status_message, send_error_message, domain)
         self.use_external = use_external
         self.deadline_seconds = deadline_seconds
         self.drafted_this_turn = drafted_this_turn
         self.use_reserve = use_reserve
+        self.research_found = research_found
+        # Whether this reply's call drafted a letter: decides
+        # dropped_calls_notice for the straggler calls after it.
+        self._drafted_letter = False
 
     def _appeal_link(self, appeal: Any) -> str:
         return f"[Appeal #{appeal.id}]({self.domain}/appeals/{appeal.id})"
@@ -133,31 +146,17 @@ class GenerateAppealLetterTool(AppealTool):
             ),
         )
 
-    def _replace_call(
-        self,
-        response_text: str,
-        match: re.Match[str],
-        call_span: str,
-        replacement: str,
-        drafted: bool = False,
-    ) -> str:
-        """Replace this call's exact span, then strip straggler calls.
+    def dropped_calls_notice(self) -> Optional[str]:
+        """Said when BaseTool.handle strips the calls after this reply's
+        first, each of which would have run another full generation.
 
-        A reply should carry at most one generate_appeal_letter call; any
-        further ones would each run another full generation, so they are
-        removed (span-bounded) rather than executed or left to render raw.
-        When a letter was drafted, the notice keeps the drop visible to the
-        user and to the model, which reads this text back as history.
+        Only when a letter was drafted: the notice keeps the drop visible to
+        the user and to the model, which reads this text back as history.
         Otherwise the replacement already says why there is no letter, a
         repeat call would have met the same end, and a notice saying a
         letter was drafted would contradict it.
         """
-        updated = replace_anchored_call(response_text, match, call_span, replacement)
-        if self.detect(updated):
-            updated = strip_anchored_calls(
-                self, updated, notice=_ONE_LETTER_NOTICE if drafted else None
-            )
-        return updated
+        return _ONE_LETTER_NOTICE if self._drafted_letter else None
 
     async def _status_after_draft(self, message: str) -> None:
         """Send a status frame once drafting is over, best-effort.
@@ -186,12 +185,12 @@ class GenerateAppealLetterTool(AppealTool):
         chat: Any = None,
         **kwargs,
     ) -> Tuple[str, str]:
+        self._drafted_letter = False
         if not chat:
             logger.warning("GenerateAppealLetterTool called without chat object")
             await self.send_error_message("Cannot draft a letter: no chat context")
-            # Stripped here: with max_calls_per_reply == 1, handle() leaves a
-            # declined call in place, which would render its raw payload.
-            return self.strip_calls_on_error(response_text), context
+            # Declined: BaseTool.handle strips the call (strip_calls_on_error).
+            return response_text, context
 
         if self.drafted_this_turn is not None and self.drafted_this_turn[0]:
             # An earlier pass of this turn already drafted the letter (e.g.
@@ -240,7 +239,7 @@ class GenerateAppealLetterTool(AppealTool):
             if not appeal or not denial:
                 await self.send_status_message("Failed to create or update appeal.")
                 return (
-                    self._replace_call(
+                    replace_anchored_call(
                         response_text,
                         match,
                         call_span,
@@ -262,7 +261,7 @@ class GenerateAppealLetterTool(AppealTool):
                 # Nothing to write a letter ABOUT yet; asking beats generating
                 # a letter of blanks.
                 return (
-                    self._replace_call(
+                    replace_anchored_call(
                         response_text,
                         match,
                         call_span,
@@ -284,11 +283,13 @@ class GenerateAppealLetterTool(AppealTool):
                 use_external=self.use_external,
                 use_reserve=self.use_reserve,
                 deadline_seconds=self.deadline_seconds,
+                research=research_for_chat(chat, self.research_found or ()),
             )
             if drafted and self.drafted_this_turn is not None:
                 self.drafted_this_turn[0] = drafted
 
             if drafted:
+                self._drafted_letter = True
                 await self._status_after_draft(
                     f"Appeal letter drafted and saved to Appeal #{appeal.id}."
                     if drafted.saved_to_appeal
@@ -312,13 +313,7 @@ class GenerateAppealLetterTool(AppealTool):
                     f"the letter, or ask me to try again in a few minutes."
                 )
             return (
-                self._replace_call(
-                    response_text,
-                    match,
-                    call_span,
-                    replacement,
-                    drafted=drafted is not None,
-                ),
+                replace_anchored_call(response_text, match, call_span, replacement),
                 context,
             )
 
