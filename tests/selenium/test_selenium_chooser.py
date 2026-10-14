@@ -82,11 +82,11 @@ class SeleniumTestChooserPageLoad(FHISeleniumBase, StaticLiveServerTestCase):
         self.open(f"{self.live_server_url}/chooser/")
 
         # Check page title/heading
-        self.assert_text("Help Us Improve Our AI Responses", timeout=10)
+        self.assert_text("Appeal Arena", timeout=10)
 
         # Check that both buttons exist
-        self.assert_text("Score Appeal Letters")
-        self.assert_text("Score Chat Responses")
+        self.assert_text("Judge Appeal Letters")
+        self.assert_text("Judge Chat Replies")
 
         # Check the warning about synthetic data
         self.assert_text("synthetic/anonymized for training purposes")
@@ -96,17 +96,18 @@ class SeleniumTestChooserPageLoad(FHISeleniumBase, StaticLiveServerTestCase):
         self.open(f"{self.live_server_url}/chooser/")
 
         # Verify buttons are present
-        self.assert_element("button:contains('Score Appeal Letters')")
-        self.assert_element("button:contains('Score Chat Responses')")
+        self.assert_element("button:contains('Judge Appeal Letters')")
+        self.assert_element("button:contains('Judge Chat Replies')")
 
     def test_chooser_page_shows_help_text(self):
         """
-        Verify the chooser page displays the main help heading "Help Us Improve Our AI Responses".
+        Verify the chooser page displays the Appeal Arena heading and house rules.
         """
         self.open(f"{self.live_server_url}/chooser/")
 
-        # Should explain what the user is doing
-        self.assert_text("Help Us Improve Our AI Responses", timeout=10)
+        # Should explain what the user is doing, and that making things up is a foul
+        self.assert_text("Appeal Arena", timeout=10)
+        self.assert_text("Making things up is a foul")
 
     def test_chooser_page_requires_tos_agreement(self):
         """Verify chooser entry buttons are gated behind an explicit Terms of Service agreement."""
@@ -117,15 +118,15 @@ class SeleniumTestChooserPageLoad(FHISeleniumBase, StaticLiveServerTestCase):
         self.assert_element("input[type='checkbox']")
         href = self.get_attribute("a:contains('Terms of Service')", "href")
         self.assertTrue(href.rstrip("/").endswith("/tos"))
-        self.assert_attribute("button:contains('Score Appeal Letters')", "disabled")
-        self.assert_attribute("button:contains('Score Chat Responses')", "disabled")
+        self.assert_attribute("button:contains('Judge Appeal Letters')", "disabled")
+        self.assert_attribute("button:contains('Judge Chat Replies')", "disabled")
 
         self.click("input[type='checkbox']")
         self.assert_false(
-            self.is_element_present("button:contains('Score Appeal Letters')[disabled]")
+            self.is_element_present("button:contains('Judge Appeal Letters')[disabled]")
         )
         self.assert_false(
-            self.is_element_present("button:contains('Score Chat Responses')[disabled]")
+            self.is_element_present("button:contains('Judge Chat Replies')[disabled]")
         )
 
     def test_chooser_page_has_privacy_disclaimer(self):

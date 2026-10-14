@@ -904,15 +904,20 @@ class ExtractPatientFieldsResponseSerializer(serializers.Serializer):
 
 # Chooser Serializers
 class ChooserCandidateSerializer(serializers.Serializer):
-    """Serializer for individual chooser candidates."""
+    """Serializer for individual chooser candidates.
 
-    id = serializers.IntegerField(read_only=True)
-    candidate_index = serializers.IntegerField()
+    Blind on purpose: no model name, no synthesized flag, no metadata. The
+    voter is comparing drafts, and a vote that could see the author would
+    rank the brand as much as the letter. The authorship is joined back in
+    from the database when the votes are counted.
+    """
+
+    # An opaque token (chooser_tokens.candidate_token), not the row id, and
+    # no candidate_index: both run in generation order (internal model
+    # first, synthesized last) and would give the author away.
+    id = serializers.CharField(read_only=True)
     kind = serializers.CharField()
-    model_name = serializers.CharField()
-    synthesized = serializers.BooleanField(required=False, default=False)
     content = serializers.CharField()
-    metadata = serializers.JSONField(required=False, allow_null=True)
 
 
 class ChooserTaskSerializer(serializers.Serializer):
@@ -928,9 +933,16 @@ class ChooserVoteRequestSerializer(serializers.Serializer):
     """Serializer for voting on a chooser task."""
 
     task_id = serializers.IntegerField(required=True)
-    chosen_candidate_id = serializers.IntegerField(required=True)
+    # Candidate references as the next-task endpoint served them: opaque
+    # tokens (chooser_tokens), and nothing else (see resolve_candidate).
+    chosen_candidate_id = serializers.CharField(required=True)
     presented_candidate_ids = serializers.ListField(
-        child=serializers.IntegerField(), required=True
+        child=serializers.CharField(), required=True
+    )
+    # Presented candidates the voter flagged as making things up. Optional;
+    # never the chosen one.
+    flagged_candidate_ids = serializers.ListField(
+        child=serializers.CharField(), required=False, default=list
     )
 
 

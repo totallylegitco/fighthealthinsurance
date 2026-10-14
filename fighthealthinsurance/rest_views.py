@@ -49,6 +49,7 @@ from fighthealthinsurance.ml.ml_models import (
     describe_model_error,
 )
 from fighthealthinsurance.ml.ml_router import ml_router
+from fighthealthinsurance.chooser_tokens import candidate_token, resolve_candidate
 from fighthealthinsurance.models import (
     Appeal,
     AppealAttachment,
@@ -2405,16 +2406,17 @@ class ChooserViewSet(viewsets.ViewSet):
         if task.context_json:
             context = task.context_json
 
-        # Serialize candidates
+        # Serialize candidates. Blind: no model name, synthesized flag or
+        # metadata leaves the server (see ChooserCandidateSerializer); the
+        # old payload carried all three, so a voter who opened the network
+        # tab could vote for a brand. Nor the row id or candidate_index:
+        # both run in generation order (internal first, synthesized last),
+        # so each candidate goes out as an opaque token instead.
         candidate_data = [
             {
-                "id": c.id,
-                "candidate_index": c.candidate_index,
+                "id": candidate_token(c.id),
                 "kind": c.kind,
-                "model_name": c.model_name,
-                "synthesized": c.synthesized,
                 "content": c.content,
-                "metadata": c.metadata,
             }
             for c in candidates
         ]
@@ -2476,11 +2478,34 @@ class ChooserViewSet(viewsets.ViewSet):
 
         session_key = self._get_session_key(request)
         task_id = serializer.validated_data["task_id"]
-        chosen_candidate_id = serializer.validated_data["chosen_candidate_id"]
+        # The references come back as the tokens the next-task endpoint
+        # served; anything that resolves to no candidate is a bad request,
+        # not a candidate that happens not to match.
+        chosen_candidate_id = resolve_candidate(
+            serializer.validated_data["chosen_candidate_id"]
+        )
+        presented_resolved = [
+            resolve_candidate(v)
+            for v in serializer.validated_data["presented_candidate_ids"]
+        ]
+        flagged_resolved = [
+            resolve_candidate(v)
+            for v in serializer.validated_data.get("flagged_candidate_ids") or []
+        ]
+        if chosen_candidate_id is None or None in presented_resolved + flagged_resolved:
+            return Response(
+                serializers.ErrorSerializer(
+                    {"error": "Invalid candidate reference"}
+                ).data,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         # Deduplicate (order-preserving): a candidate was shown once per vote
         # event, and repeated ids would inflate presented counts downstream.
         presented_candidate_ids = list(
-            dict.fromkeys(serializer.validated_data["presented_candidate_ids"])
+            dict.fromkeys(cid for cid in presented_resolved if cid is not None)
+        )
+        flagged_candidate_ids = list(
+            dict.fromkeys(cid for cid in flagged_resolved if cid is not None)
         )
 
         # Validate task exists and is in valid state
@@ -2531,6 +2556,35 @@ class ChooserViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # One draft on screen is no comparison: the page never offers a vote
+        # then, so a request that claims one came from somewhere else.
+        if len(presented_candidate_ids) < 2:
+            return Response(
+                serializers.ErrorSerializer(
+                    {"error": "A vote needs at least two presented candidates"}
+                ).data,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # A flag says "this one made things up"; it cannot also be the pick,
+        # and it must be one of the drafts the voter actually saw.
+        if chosen_candidate_id in flagged_candidate_ids:
+            return Response(
+                serializers.ErrorSerializer(
+                    {"error": "The chosen candidate cannot also be flagged"}
+                ).data,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if any(cid not in presented_candidate_ids for cid in flagged_candidate_ids):
+            return Response(
+                serializers.ErrorSerializer(
+                    {
+                        "error": "Flagged candidates must be among the presented candidates"
+                    }
+                ).data,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         # Every presented id must be one of this task's active candidates,
         # the only ones the next-task endpoint serves: the usage dashboard
         # counts each as a presentation of its model, so an id from another
@@ -2555,6 +2609,7 @@ class ChooserViewSet(viewsets.ViewSet):
                 task=task,
                 chosen_candidate=chosen_candidate,
                 presented_candidate_ids=presented_candidate_ids,
+                flagged_candidate_ids=flagged_candidate_ids,
                 session_key=session_key,
             )
         except IntegrityError:

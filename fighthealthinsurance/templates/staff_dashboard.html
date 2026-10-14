@@ -217,6 +217,12 @@
         </a>
       </li>
       <li>
+        <a href="{% url 'chooser_rankings' %}">
+          <strong>Appeal Arena Rankings (public)</strong>
+          <div class="link-description">The public, synthetic-only view of the chooser's votes: model win rates and how often each model is flagged for making things up, plus the most-appealed conditions and treatments (k-anonymous, vocabulary-checked). What the world sees; check it before a promo</div>
+        </a>
+      </li>
+      <li>
         <a href="{% url 'model_backend_status' %}">
           <strong>Model Backend Status</strong>
           <div class="link-description">Every model backend the code knows about: which request paths route to it on this pod, its quality and tier, configuration and registry state, what weights it reports serving and since when, and its latest health check with the deploy it ran under, flagged when older than the current deploy</div>

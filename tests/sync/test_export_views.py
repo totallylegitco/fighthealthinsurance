@@ -162,10 +162,12 @@ class ChooserRankedExportContentTest(StaffExportTestBase):
             presented_candidate_ids=[candidate_a.id, candidate_b.id],
             session_key="session-2",
         )
+        # The third voter picked B and flagged A as making things up.
         ChooserVote.objects.create(
             task=task,
             chosen_candidate=candidate_b,
             presented_candidate_ids=[candidate_a.id, candidate_b.id],
+            flagged_candidate_ids=[candidate_a.id],
             session_key="session-3",
         )
 
@@ -180,6 +182,11 @@ class ChooserRankedExportContentTest(StaffExportTestBase):
         self.assertEqual(record["vote_count"], 2)
         self.assertEqual(record["total_votes"], 3)
         self.assertEqual(len(record["all_candidates"]), 2)
+        # Fabrication flags travel with the preference data.
+        self.assertEqual(
+            {c["id"]: c["flag_count"] for c in record["all_candidates"]},
+            {candidate_a.id: 1, candidate_b.id: 0},
+        )
 
 
 class DenialAppealExportContentTest(StaffExportTestBase):

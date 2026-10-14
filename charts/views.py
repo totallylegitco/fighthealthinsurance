@@ -1,5 +1,6 @@
 import json
 import os
+from collections import Counter
 from functools import wraps
 
 from django.http import HttpResponse, HttpResponseForbidden, StreamingHttpResponse
@@ -12,6 +13,8 @@ from django.db.utils import NotSupportedError
 from django.utils import timezone
 from datetime import timedelta
 
+from fighthealthinsurance.condition_rankings import eligible_denials
+from fighthealthinsurance.constants import TEST_ACCOUNT_EMAILS
 from fighthealthinsurance.models import (
     Appeal,
     Denial,
@@ -47,31 +50,14 @@ def export_enabled_required(view_func):
 
 def _get_excluded_hashed_emails():
     """Return hashed test emails to exclude from exports."""
-    return [
-        Denial.get_hashed_email(e)
-        for e in (
-            "farts@farts.com",
-            "holden@pigscanfly.ca",
-            "holden.karau@gmail.com",
-            "holden@fighthealthinsurance.com",
-            "warrick@fighthealthinsurance.com",
-            "test@test.com",
-            "",
-        )
-    ]
+    return [Denial.get_hashed_email(e) for e in TEST_ACCOUNT_EMAILS]
 
 
 def _non_pro_unflagged_denials():
-    """Return base Denial queryset excluding pro users, flagged, and test emails."""
-    return (
-        Denial.objects.exclude(hashed_email__in=_get_excluded_hashed_emails())
-        .filter(
-            creating_professional__isnull=True,
-            primary_professional__isnull=True,
-            domain__isnull=True,
-        )
-        .filter(Q(flag_for_exclude=False) | Q(flag_for_exclude__isnull=True))
-    )
+    """Return base Denial queryset excluding pro users, flagged, and test
+    emails: the one base every de-identified or public aggregate shares
+    (condition_rankings.eligible_denials)."""
+    return eligible_denials()
 
 
 def _get_verified_or_raw(denial, field):
@@ -494,6 +480,14 @@ def generate_chooser_ranked_lines():
     for task_id in votes_by_task:
         votes_by_task[task_id].sort(key=lambda x: x[1], reverse=True)
 
+    # How often each candidate was flagged as making things up, by task.
+    flags_by_task: dict[int, Counter] = {}
+    for task_id, flagged_ids in ChooserVote.objects.filter(
+        task__in=tasks_with_votes
+    ).values_list("task_id", "flagged_candidate_ids"):
+        if flagged_ids:
+            flags_by_task.setdefault(task_id, Counter()).update(set(flagged_ids))
+
     for task in tasks_with_votes:
         task_votes = votes_by_task.get(task.id)
         if not task_votes:
@@ -508,6 +502,7 @@ def generate_chooser_ranked_lines():
 
         total_votes = sum(vc for _, vc in task_votes)
 
+        task_flags = flags_by_task.get(task.id, Counter())
         all_candidates = [
             {
                 "id": c.id,
@@ -517,6 +512,7 @@ def generate_chooser_ranked_lines():
                 "synthesized": c.synthesized,
                 "content": c.content,
                 "metadata": c.metadata,
+                "flag_count": task_flags.get(c.id, 0),
             }
             for c in candidates_by_id.values()
             if c.is_active

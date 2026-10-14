@@ -70,6 +70,8 @@ class ChooserRefillActor:
                         f"(consecutive failures: {self._consecutive_failures})"
                     )
 
+                await self._refresh_condition_rankings()
+
                 # Sleep for 5 minutes between checks
                 await asyncio.sleep(300)
             except Exception:
@@ -83,6 +85,33 @@ class ChooserRefillActor:
 
         self._logger.warning("ChooserRefillActor stopped running")
         return None
+
+    async def _refresh_condition_rankings(self) -> None:
+        """The rankings' vocabulary verdicts, refreshed once an hour fleet-wide
+        (condition_rankings.refresh_if_due). They feed the public rankings
+        page and the seed pool the chooser's synthetic cases draw from, so
+        this loop, the pool's supplier, keeps them current. Never a failed
+        tick: the pool was refilled whether or not the lookups worked."""
+        from fighthealthinsurance.condition_rankings import (
+            CONDITION_RANKING_REFRESH_TIMEOUT,
+            refresh_if_due,
+        )
+
+        try:
+            # Bounded: with NCBI black-holed, a full budget of lookups could
+            # otherwise hold this loop, and the pool, for ten minutes or more.
+            await asyncio.wait_for(
+                refresh_if_due(), timeout=CONDITION_RANKING_REFRESH_TIMEOUT
+            )
+        except asyncio.TimeoutError:
+            self._logger.warning(
+                "Condition rankings refresh gave up after "
+                f"{CONDITION_RANKING_REFRESH_TIMEOUT}s; the rows it saved stay saved"
+            )
+        except Exception:
+            self._logger.opt(exception=True).warning(
+                "Condition rankings refresh failed; the chooser pool is unaffected"
+            )
 
     def stop(self) -> None:
         """Stop the actor."""

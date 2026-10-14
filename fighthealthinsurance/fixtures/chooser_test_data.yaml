@@ -11,6 +11,19 @@
       diagnosis: Lower back pain
       insurance_company: Test Insurance
       denial_text_preview: Not medically necessary
+      facts:
+        - Patient in their 40s
+        - Low back pain for eight months, now radiating down the left leg
+        - Six weeks of physical therapy and NSAIDs with no improvement
+        - Treating physician documented a positive straight-leg raise
+      evidence:
+        - pmid: "9001"
+          title: Imaging strategies for low back pain with radicular symptoms
+          url: https://pubmed.ncbi.nlm.nih.gov/9001/
+        - pmid: "9002"
+          title: Outcomes of delayed MRI in suspected lumbar radiculopathy
+          url: https://pubmed.ncbi.nlm.nih.gov/9002/
+      seeded: true
     source: test_fixture
     num_candidates_expected: 2
     num_candidates_generated: 2

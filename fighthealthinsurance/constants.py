@@ -45,3 +45,16 @@ SITE_BANNER_CANNED_MESSAGES = [
         ),
     ),
 ]
+
+# Accounts whose denials are test traffic, left out of the de-identified
+# exports (charts/views.py) and the public condition rankings
+# (condition_rankings.py). Compared by Denial.get_hashed_email.
+TEST_ACCOUNT_EMAILS: tuple[str, ...] = (
+    "farts@farts.com",
+    "holden@pigscanfly.ca",
+    "holden.karau@gmail.com",
+    "holden@fighthealthinsurance.com",
+    "warrick@fighthealthinsurance.com",
+    "test@test.com",
+    "",
+)

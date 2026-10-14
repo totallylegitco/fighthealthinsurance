@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+
+{% block title %}Appeal Arena Rankings - Fight Health Insurance{% endblock title %}
+{% block metatitle %}Appeal Arena Rankings - Fight Health Insurance{% endblock metatitle %}
+{% block metadescription %}Which AI models write the appeal letters people pick, how often each gets caught making things up, and the conditions and treatments people fight insurance denials over most.{% endblock metadescription %}
+
+{% block content %}
+<div class="fhi-page-wide arena-rankings">
+    {% include "partials/page_title.html" with title="Appeal Arena Rankings" lede="Which AI drafts win when people judge them side by side, which ones get caught making things up, and what people are fighting insurance over." %}
+
+    <div class="fhi-stack fhi-stack-loose">
+        <div class="fhi-notice fhi-notice-info">
+            <strong>All synthetic, all aggregate.</strong> Every vote below was cast in the
+            <a href="{% url 'chooser' %}">Appeal Arena</a> on a made-up case. The condition and
+            treatment lists are counts across many people's appeals, shown only for terms that
+            at least {{ data.k_anonymity }} different people entered and that a medical vocabulary
+            recognizes. Nothing on this page comes from any one person's case.
+        </div>
+
+        <div class="fhi-cluster arena-totals">
+            <div class="fhi-card arena-total"><div class="arena-total-number">{{ data.totals.votes }}</div><div class="fhi-hint">votes cast</div></div>
+            <div class="fhi-card arena-total"><div class="arena-total-number">{{ data.totals.tasks_judged }}</div><div class="fhi-hint">cases judged</div></div>
+            <div class="fhi-card arena-total"><div class="arena-total-number">{{ data.totals.tasks_ready }}</div><div class="fhi-hint">cases waiting for a referee</div></div>
+        </div>
+
+        {% if data.blind_since %}
+        <p class="fhi-hint">Counting votes cast since {{ data.blind_since|slice:":10" }}, when blind voting began. Earlier votes, cast when the API still named the model, are left out.</p>
+        {% endif %}
+        {% for w in data.windows %}
+        <section id="window-{{ w.slug }}">
+            <h2>Model rankings &middot; {{ w.label }}</h2>
+            {% for t in w.tables %}
+            <h3>{{ t.label }}</h3>
+            {% if t.rows %}
+            <div class="arena-scroll">
+            <table class="arena-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Model</th>
+                        <th class="num" title="Votes this model's draft won">Won</th>
+                        <th class="num" title="Votes this model's draft was shown in">Shown</th>
+                        <th class="num" title="Won / shown">Win rate</th>
+                        <th class="num" title="Votes in which a referee flagged this model's draft as making things up, over votes shown in">Caught making things up</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in t.rows %}
+                    <tr{% if r.warming_up %} class="warming-up"{% endif %}>
+                        <td>{{ r.rank }}</td>
+                        <td>{{ r.model }}{% if r.warming_up %} <span class="fhi-badge fhi-badge-info" title="Fewer than {{ data.min_shown }} votes so far">warming up</span>{% endif %}</td>
+                        <td class="num">{{ r.won }}</td>
+                        <td class="num">{{ r.shown }}</td>
+                        <td class="num">{% if r.win_rate is None %}&mdash;{% else %}{{ r.win_rate|floatformat:0 }}%{% endif %}</td>
+                        <td class="num">{% if r.flag_rate is None %}&mdash;{% else %}{{ r.flag_rate|floatformat:0 }}%{% endif %}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            {% else %}
+            <p class="fhi-hint">No votes yet. <a href="{% url 'chooser' %}">Be the first referee.</a></p>
+            {% endif %}
+            {% endfor %}
+        </section>
+        {% endfor %}
+
+        <section id="conditions">
+            <h2>What people are fighting over</h2>
+            <p class="fhi-hint">The conditions and treatments named most often on appeals: how many different people named each, counted across everyone who used the site and rounded down to the nearest {{ data.k_anonymity }}.</p>
+            <div class="arena-columns">
+                <div>
+                    <h3>Conditions</h3>
+                    {% if data.conditions %}
+                    <ol class="arena-terms">
+                        {% for r in data.conditions %}
+                        <li>
+                            <div class="arena-term-row">
+                                <span class="arena-term-name">{{ r.name }}</span>
+                                <span class="arena-term-count">{{ r.count }}+</span>
+                            </div>
+                            <div class="arena-bar"><div class="arena-bar-fill" style="width: {{ r.share }}%"></div></div>
+                        </li>
+                        {% endfor %}
+                    </ol>
+                    {% else %}
+                    <p class="fhi-hint">Nothing to show yet.</p>
+                    {% endif %}
+                </div>
+                <div>
+                    <h3>Treatments</h3>
+                    {% if data.treatments %}
+                    <ol class="arena-terms">
+                        {% for r in data.treatments %}
+                        <li>
+                            <div class="arena-term-row">
+                                <span class="arena-term-name">{{ r.name }}</span>
+                                <span class="arena-term-count">{{ r.count }}+</span>
+                            </div>
+                            <div class="arena-bar"><div class="arena-bar-fill" style="width: {{ r.share }}%"></div></div>
+                        </li>
+                        {% endfor %}
+                    </ol>
+                    {% else %}
+                    <p class="fhi-hint">Nothing to show yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+
+        <section id="how">
+            <h2>How this is counted</h2>
+            <ul>
+                <li><strong>Win rate</strong> is votes a model's draft won over votes it was shown in. Drafts are shown blind (the page gets opaque references, never a model name or a stored order), in random order, so a vote is for the letter, not the brand. Only votes cast since blind voting began count.</li>
+                <li><strong>Caught making things up</strong> is how often a referee flagged the draft for inventing a study, a law, a test result, a date or a history that was not in the case. A draft can be flagged and still lose honestly; a flagged draft can never be the vote.</li>
+                <li><strong>Warming up</strong> marks a model with fewer than {{ data.min_shown }} votes; its rates are listed but not ranked against the rest.</li>
+                <li><strong>Cases are synthetic.</strong> Each one is written by a model about a real condition and treatment pair, with made-up facts and the published evidence already on file for that pair. No real patient's letter is ever shown.</li>
+                <li>The same data is available as <a href="?format=json">JSON</a>. Counts refresh every few minutes.</li>
+            </ul>
+        </section>
+
+        <div class="fhi-cluster fhi-cluster-center">
+            <a href="{% url 'chooser' %}" class="fhi-button fhi-button-primary fhi-button-large">Step into the Arena</a>
+            <a href="{% url 'scan' %}" class="fhi-button fhi-button-secondary fhi-button-large">Fight your own denial</a>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+{% block extra_style %}
+<style>
+    .arena-totals { gap: 1rem; }
+    .arena-total { padding: 1rem 1.5rem; text-align: center; min-width: 9rem; }
+    .arena-total-number { font-size: 2rem; font-weight: 700; color: #5a6b1b; }
+    /* A model label can be one long token; on a phone the table scrolls, the page does not. */
+    .arena-scroll { overflow-x: auto; margin: 0.5rem 0 1.5rem; }
+    .arena-table { width: 100%; border-collapse: collapse; }
+    .arena-table th, .arena-table td { padding: 0.4rem 0.6rem; text-align: left; border-bottom: 1px solid #e5e7eb; }
+    .arena-table th.num, .arena-table td.num { text-align: right; }
+    .arena-table tr.warming-up td { color: #6b7280; }
+    .arena-columns { display: grid; grid-template-columns: 1fr; gap: 2rem; }
+    @media (min-width: 768px) { .arena-columns { grid-template-columns: 1fr 1fr; } }
+    .arena-terms { list-style: none; padding: 0; margin: 0; counter-reset: term; }
+    .arena-terms li { margin: 0 0 0.6rem; }
+    .arena-term-row { display: flex; justify-content: space-between; gap: 1rem; }
+    .arena-term-name::before { counter-increment: term; content: counter(term) ". "; color: #6b7280; }
+    .arena-term-count { color: #6b7280; white-space: nowrap; }
+    .arena-bar { height: 6px; background: #eef2e4; border-radius: 3px; overflow: hidden; }
+    .arena-bar-fill { height: 100%; background: #a5c422; }
+</style>
+{% endblock extra_style %}
