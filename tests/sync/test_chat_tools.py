@@ -2095,6 +2095,7 @@ class TestLetterRequestDetector(TestCase):
             "The insurer never responded help me write the appeal",
             "It was not covered I need you to draft an appeal letter",
             "They won't approve it and I'd like you to write the letter",
+            "My MRI was not approved, I need you to write an appeal",
         ]:
             with self.subTest(message=message):
                 self.assertTrue(looks_like_letter_request(message))
@@ -2109,6 +2110,8 @@ class TestLetterRequestDetector(TestCase):
             "Please don’t draft the letter yet",
             "Never write an appeal for me",
             "Do not help me write the appeal letter",
+            "Don't help me write the appeal letter",
+            "Stop, I need you to not write the letter",
             "I don't think I want you to write an appeal letter",
             "I don't think I need you to draft the appeal letter",
             "I never want you to write an appeal letter",
