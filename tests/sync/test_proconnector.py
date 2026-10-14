@@ -104,7 +104,11 @@ class _FakeModel:
         self.last_system_prompts = None
         self.last_prompt = None
 
-    async def _infer_no_context(self, system_prompts, prompt, temperature=0.7):
+    async def _infer_no_context(
+        self, system_prompts, prompt, temperature=0.7, timeout=None, **kwargs
+    ):
+        # The keyword arguments the real method takes (ml_models.py), so the
+        # helper under test can pass its timeout down the way it does there.
         self.calls += 1
         self.last_system_prompts = system_prompts
         self.last_prompt = prompt
