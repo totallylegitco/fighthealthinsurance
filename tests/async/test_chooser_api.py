@@ -1213,3 +1213,21 @@ class ChooserVoteIntegrityTest(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(ChooserVote.objects.count(), 0)
+
+    def test_a_full_ballot_in_display_order_is_accepted(self):
+        """The page sends every draft in the shuffled order it rendered. A
+        three-draft task, the shape synthesis leaves, votes fine in any
+        order, and the order sent is the order stored."""
+        ordered = list(reversed(self.mine))
+        data = {
+            "task_id": self.task.id,
+            "chosen_candidate_id": candidate_token(self.mine[1].id),
+            "presented_candidate_ids": [candidate_token(c.id) for c in ordered],
+        }
+        response = self.client.post(
+            reverse("chooser-vote"), json.dumps(data), content_type="application/json"
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        vote = ChooserVote.objects.get(task=self.task)
+        self.assertEqual(vote.chosen_candidate_id, self.mine[1].id)
+        self.assertEqual(vote.presented_candidate_ids, [c.id for c in ordered])

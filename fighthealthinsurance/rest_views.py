@@ -2464,7 +2464,7 @@ class ChooserViewSet(viewsets.ViewSet):
         """
         Register a user's vote for a chooser task.
 
-        Validates the task exists and is in a votable state, the chosen candidate belongs to the task and was presented, and the session has not already voted on the task; then creates a ChooserVote.
+        Validates the task exists and is in a votable state, the chosen candidate belongs to the task and was presented, the presented candidates are exactly the drafts the next-task endpoint served (as opaque tokens), and the session has not already voted on the task; then creates a ChooserVote.
 
         Returns:
             response (Response): On success, a 200 response containing {"success": True, "message": "Vote recorded successfully", "vote_id": <id>}. On failure, a 4xx response with an error message.
