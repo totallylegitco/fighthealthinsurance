@@ -542,6 +542,22 @@ class TestMLRouterAppealOnlyBackends(unittest.TestCase):
             pool = self.router.general_purpose_internal_models()
         self.assertEqual(pool, [self.general])
 
+    def test_general_purpose_internal_models_keeps_a_down_general_backend_over_the_appeal_only_one(
+        self,
+    ):
+        """Capability before availability: when the only general-purpose
+        backend is down, the pool fails open to it, never to the appeal
+        fine-tune the sweep still finds up."""
+        from fighthealthinsurance.ml.health_status import health_status
+
+        self.general.health_checked_live = False
+        self.appeal_only.health_checked_live = False
+        with patch.object(
+            health_status, "model_ok", side_effect=lambda m: m is not self.general
+        ):
+            pool = self.router.general_purpose_internal_models()
+        self.assertEqual(pool, [self.general])
+
     def test_entity_extraction_excludes_the_appeal_only_backend(self):
         self.assertNotIn(
             self.appeal_only, self.router.entity_extract_backends(use_external=False)

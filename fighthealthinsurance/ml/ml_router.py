@@ -1167,12 +1167,17 @@ class MLRouter(object):
 
         The default pool for one-shot inference helpers (entity extraction,
         document/policy parsing, chat synthesis). Backends the sweep found
-        down go last, as in every other pool, so a hung one is not tried
-        first by every helper. Fails open, so it is never empty when
-        ``internal_models_by_cost`` isn't.
+        down are left out, as in every other pool, so a hung one is not
+        tried first by every helper. Fails open, so it is never empty when
+        ``internal_models_by_cost`` isn't: the capability filter runs first,
+        so when every general-purpose backend is down the pool keeps those
+        rather than switching to the appeal fine-tune, which does not follow
+        these helpers' instructions.
         """
-        return self._general_purpose_only(
-            self._filter_available(self.internal_models_by_cost, "internal-inference"),
+        return self._filter_available(
+            self._general_purpose_only(
+                self.internal_models_by_cost, "internal-inference"
+            ),
             "internal-inference",
         )
 
