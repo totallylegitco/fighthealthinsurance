@@ -1191,7 +1191,7 @@ class ChooserVoteIntegrityTest(APITestCase):
             reverse("chooser-vote"), json.dumps(data), content_type="application/json"
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("this task", response.json()["error"])
+        self.assertIn("all of this task", response.json()["error"])
         self.assertEqual(ChooserVote.objects.count(), 0)
 
     def test_a_presented_candidate_out_of_rotation_is_rejected(self):
