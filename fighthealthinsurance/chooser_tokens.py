@@ -8,9 +8,8 @@ however the drafts were shuffled on the page. The next-task endpoint
 therefore hands out tokens instead: each is the candidate id encrypted
 with a fresh random nonce (Fernet), so two tokens for the same candidate
 differ, tokens do not sort, and only this server can read them back. The
-vote endpoint resolves a token to its id; a plain integer is still
-accepted there, for older clients and tests, since the request is not
-where the blindness is.
+vote endpoint resolves a token back to its id and takes nothing else:
+accepting plain ids would let a client learn a token's id by guessing.
 """
 
 import base64

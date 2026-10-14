@@ -84,6 +84,10 @@ interface Scoreboard {
 const SCOREBOARD_KEY = "fhi-arena-scoreboard";
 const RANKINGS_URL = "/chooser/rankings/";
 const LABELS = ["A", "B", "C", "D", "E", "F"];
+// Controls whose keys are their own: neither the page's shortcuts nor a
+// card's pick may take them.
+const CONTROL_TAGS = ["INPUT", "TEXTAREA", "SELECT", "A", "BUTTON"];
+const CONTROL_SELECTOR = CONTROL_TAGS.map((tag) => tag.toLowerCase()).join(", ");
 
 const readScoreboard = (): Scoreboard => {
   try {
@@ -321,12 +325,14 @@ const CandidateCard: React.FC<{
         onSelect();
       }}
       onKeyDown={(event) => {
-        // Only keys sent to the card itself: Enter on the nested "Read it
-        // all" button stays that button's, rather than becoming a pick.
-        if (event.target !== event.currentTarget) return;
-        if (event.key === "Enter" || event.key === " ") {
-          // Picks the draft; must not also reach the page-level Enter
-          // handler, which casts the vote.
+        // A key sent to a nested control ("Read it all") stays that
+        // control's. Anywhere else in the card, the scrolling draft text
+        // included, Enter picks: left alone it would reach the page-level
+        // handler, which casts the vote. Space picks only on the card
+        // itself, so in the text it scrolls.
+        const target = event.target as HTMLElement;
+        if (target !== event.currentTarget && target.closest(CONTROL_SELECTOR)) return;
+        if (event.key === "Enter" || (event.key === " " && target === event.currentTarget)) {
           event.preventDefault();
           event.stopPropagation();
           onSelect();
@@ -583,7 +589,7 @@ const ChooserInterface: React.FC = () => {
       // Ctrl+C to copy a passage must not also pick Draft C.
       if (event.ctrlKey || event.metaKey || event.altKey) return;
       const target = event.target as HTMLElement | null;
-      if (target && ["INPUT", "TEXTAREA", "SELECT", "A", "BUTTON"].includes(target.tagName)) {
+      if (target && CONTROL_TAGS.includes(target.tagName)) {
         return;
       }
       const index = LABELS.indexOf(event.key.toUpperCase());
