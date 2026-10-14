@@ -61,9 +61,11 @@ _LETTER_REQUEST_RE = re.compile(
 # my diagnosis" still counts. "Help me", "I need", "I want" and "I'd like"
 # start a new ask too, but only after a negation that described the denial
 # ("they never responded help me write the appeal", "it was not covered I
-# need you to draft an appeal letter"): after "do not", "don't" or "stop"
-# they are what is refused ("do not help me write the letter", "I don't
-# think I want you to write an appeal").
+# need you to draft an appeal letter"), with the thing described between
+# the two: after "do not", "don't" or "stop", or right after any negation
+# ("never help me write the letter"), they are what is refused ("do not
+# help me write the letter", "I don't think I want you to write an
+# appeal").
 _NEGATION = r"\b(?:don['’]?t|do\s+not|not|never|won['’]?t|stop)\b"
 _DESCRIBING_NEGATION_RE = re.compile(r"^(?:not|never|won['’]?t)$", re.IGNORECASE)
 _DECLINED_RE = re.compile(_NEGATION + r"|\bmy\s+own\b", re.IGNORECASE)
@@ -87,7 +89,12 @@ def _declined_by_lead_in(lead_in: str) -> bool:
     after = lead_in[last.end() :]
     if _NEW_ASK_RE.search(after):
         return False
-    return not (_DESCRIBING_NEGATION_RE.match(last.group(0)) and _WANT_RE.search(after))
+    want = _WANT_RE.search(after)
+    return not (
+        want is not None
+        and _DESCRIBING_NEGATION_RE.match(last.group(0))
+        and after[: want.start()].strip()
+    )
 
 
 # A request for a new letter (a redo, another version): a draft made

@@ -2111,6 +2111,7 @@ class TestLetterRequestDetector(TestCase):
             "Never write an appeal for me",
             "Do not help me write the appeal letter",
             "Don't help me write the appeal letter",
+            "Never help me write the appeal letter",
             "Stop, I need you to not write the letter",
             "I don't think I want you to write an appeal letter",
             "I don't think I need you to draft the appeal letter",
