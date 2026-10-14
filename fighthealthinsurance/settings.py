@@ -312,37 +312,52 @@ class Base(Configuration):
 
     # The Appeal Arena (chooser) and the public rankings; see docs/chooser.md.
     # Each module reads these with a default, so unset means the default.
+    # The numbers go through _env_int/_env_float: a malformed ("5s") or
+    # implausible value falls back to the default rather than failing every
+    # process at import over an optional setting.
     CHOOSER_SEED_FROM_RANKINGS = (
         os.getenv("CHOOSER_SEED_FROM_RANKINGS", "true").lower() != "false"
     )
-    CHOOSER_EVIDENCE_LIMIT = int(os.getenv("CHOOSER_EVIDENCE_LIMIT", "5"))
+    CHOOSER_EVIDENCE_LIMIT = _env_int(
+        "CHOOSER_EVIDENCE_LIMIT", 5, minimum=0, maximum=50
+    )
     CHOOSER_PUBMED_LIVE_SEARCH = (
         os.getenv("CHOOSER_PUBMED_LIVE_SEARCH", "true").lower() != "false"
     )
-    CHOOSER_PUBMED_SEARCH_TIMEOUT = float(
-        os.getenv("CHOOSER_PUBMED_SEARCH_TIMEOUT", "20")
+    CHOOSER_PUBMED_SEARCH_TIMEOUT = _env_float(
+        "CHOOSER_PUBMED_SEARCH_TIMEOUT", 20.0, minimum=1.0, maximum=300.0
     )
-    CONDITION_RANKING_MIN_PEOPLE = int(os.getenv("CONDITION_RANKING_MIN_PEOPLE", "5"))
-    CONDITION_RANKING_LOOKUP_BUDGET = int(
-        os.getenv("CONDITION_RANKING_LOOKUP_BUDGET", "30")
+    # The k in k-anonymity; below 2 nobody is anonymous.
+    CONDITION_RANKING_MIN_PEOPLE = _env_int(
+        "CONDITION_RANKING_MIN_PEOPLE", 5, minimum=2, maximum=1000
     )
-    CONDITION_RANKING_RECHECK_DAYS = int(
-        os.getenv("CONDITION_RANKING_RECHECK_DAYS", "365")
+    CONDITION_RANKING_LOOKUP_BUDGET = _env_int(
+        "CONDITION_RANKING_LOOKUP_BUDGET", 30, minimum=0, maximum=10_000
     )
-    CONDITION_RANKING_MIN_PUBMED_HITS = int(
-        os.getenv("CONDITION_RANKING_MIN_PUBMED_HITS", "20")
+    CONDITION_RANKING_RECHECK_DAYS = _env_int(
+        "CONDITION_RANKING_RECHECK_DAYS", 365, minimum=1, maximum=3650
     )
-    CONDITION_RANKING_REFRESH_SECONDS = int(
-        os.getenv("CONDITION_RANKING_REFRESH_SECONDS", str(60 * 60))
+    CONDITION_RANKING_MIN_PUBMED_HITS = _env_int(
+        "CONDITION_RANKING_MIN_PUBMED_HITS", 20, minimum=1, maximum=1_000_000
     )
-    CONDITION_RANKING_REFRESH_TIMEOUT = int(
-        os.getenv("CONDITION_RANKING_REFRESH_TIMEOUT", "180")
+    CONDITION_RANKING_REFRESH_SECONDS = _env_int(
+        "CONDITION_RANKING_REFRESH_SECONDS",
+        60 * 60,
+        minimum=60,
+        maximum=7 * 24 * 60 * 60,
     )
-    CONDITION_RANKING_LIMIT = int(os.getenv("CONDITION_RANKING_LIMIT", "25"))
-    PUBLIC_RANKINGS_CACHE_SECONDS = int(
-        os.getenv("PUBLIC_RANKINGS_CACHE_SECONDS", str(15 * 60))
+    CONDITION_RANKING_REFRESH_TIMEOUT = _env_int(
+        "CONDITION_RANKING_REFRESH_TIMEOUT", 180, minimum=1, maximum=3600
     )
-    PUBLIC_RANKINGS_MIN_SHOWN = int(os.getenv("PUBLIC_RANKINGS_MIN_SHOWN", "10"))
+    CONDITION_RANKING_LIMIT = _env_int(
+        "CONDITION_RANKING_LIMIT", 25, minimum=1, maximum=500
+    )
+    PUBLIC_RANKINGS_CACHE_SECONDS = _env_int(
+        "PUBLIC_RANKINGS_CACHE_SECONDS", 15 * 60, minimum=0, maximum=24 * 60 * 60
+    )
+    PUBLIC_RANKINGS_MIN_SHOWN = _env_int(
+        "PUBLIC_RANKINGS_MIN_SHOWN", 10, minimum=1, maximum=1_000_000
+    )
     # None when unset: the page then counts from when blind voting shipped.
     PUBLIC_RANKINGS_SINCE = os.getenv("PUBLIC_RANKINGS_SINCE")
     # MCP call counts are written on their own thread (mcp_server.py); off in

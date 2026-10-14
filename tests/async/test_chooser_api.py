@@ -638,6 +638,34 @@ class ChooserVoteAPITest(APITestCase):
         self.assertIn("presented", response.json()["error"])
         self.assertEqual(ChooserVote.objects.count(), 0)
 
+    def test_vote_must_present_every_draft_the_task_serves(self):
+        """The page renders every draft the next-task endpoint serves, so a
+        ballot that leaves one out came from somewhere else, and would spare
+        the omitted draft's model a loss on the dashboards."""
+        ChooserCandidate.objects.create(
+            task=self.task,
+            candidate_index=2,
+            kind="appeal_letter",
+            model_name="model-c",
+            content="Content C",
+        )
+        url = reverse("chooser-vote")
+        data = {
+            "task_id": self.task.id,
+            "chosen_candidate_id": candidate_token(self.candidate1.id),
+            "presented_candidate_ids": [
+                candidate_token(self.candidate1.id),
+                candidate_token(self.candidate2.id),
+            ],
+        }
+        response = self.client.post(
+            url, json.dumps(data), content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("all of this task", response.json()["error"])
+        self.assertEqual(ChooserVote.objects.count(), 0)
+
     def test_vote_invalid_task(self):
         """Test voting on a non-existent task."""
         url = reverse("chooser-vote")
@@ -1163,7 +1191,7 @@ class ChooserVoteIntegrityTest(APITestCase):
             reverse("chooser-vote"), json.dumps(data), content_type="application/json"
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("belong", response.json()["error"])
+        self.assertIn("this task", response.json()["error"])
         self.assertEqual(ChooserVote.objects.count(), 0)
 
     def test_a_presented_candidate_out_of_rotation_is_rejected(self):

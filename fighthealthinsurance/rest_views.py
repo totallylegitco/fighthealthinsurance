@@ -2585,20 +2585,22 @@ class ChooserViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Every presented id must be one of this task's active candidates,
-        # the only ones the next-task endpoint serves: the usage dashboard
-        # counts each as a presentation of its model, so an id from another
-        # task, or a candidate taken out of rotation, could deflate that
-        # model's win rate at will.
+        # The presented ids must be exactly this task's active candidates:
+        # the set the next-task endpoint serves, fixed before the task turns
+        # READY, and the page renders every one. The usage dashboard counts
+        # each as a presentation of its model, so an id from another task,
+        # or a candidate taken out of rotation, could deflate that model's
+        # win rate at will, and a ballot that leaves a served draft off
+        # would spare its model the loss.
         task_candidate_ids = set(
             ChooserCandidate.objects.filter(task=task, is_active=True).values_list(
                 "id", flat=True
             )
         )
-        if any(cid not in task_candidate_ids for cid in presented_candidate_ids):
+        if set(presented_candidate_ids) != task_candidate_ids:
             return Response(
                 serializers.ErrorSerializer(
-                    {"error": "Presented candidates do not all belong to this task"}
+                    {"error": "Presented candidates must be all of this task's drafts"}
                 ).data,
                 status=status.HTTP_400_BAD_REQUEST,
             )

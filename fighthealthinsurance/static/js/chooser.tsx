@@ -321,6 +321,9 @@ const CandidateCard: React.FC<{
         onSelect();
       }}
       onKeyDown={(event) => {
+        // Only keys sent to the card itself: Enter on the nested "Read it
+        // all" button stays that button's, rather than becoming a pick.
+        if (event.target !== event.currentTarget) return;
         if (event.key === "Enter" || event.key === " ") {
           // Picks the draft; must not also reach the page-level Enter
           // handler, which casts the vote.

@@ -20,7 +20,8 @@ appeal flow, and rank the model backends against each other.
   that the vote endpoint resolves back (and takes nothing else: accepting
   plain ids would let a client learn a token's id by guessing), and the
   drafts are served in random order, so a vote is for the letter, not the
-  brand.
+  brand. A ballot lists every draft served: the server rejects one that
+  leaves a draft out, which would spare that draft's model the loss.
 - **House rules.** Pick the draft you would send; a draft that invents a
   study, a law, a test result, a date or a history that is not in the case is
   a foul and should never win; skip if unsure.
