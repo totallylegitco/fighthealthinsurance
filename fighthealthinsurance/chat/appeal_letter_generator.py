@@ -65,7 +65,10 @@ _LETTER_REQUEST_RE = re.compile(
 # the two: after "do not", "don't" or "stop", or right after any negation
 # ("never help me write the letter"), they are what is refused ("do not
 # help me write the letter", "I don't think I want you to write an
-# appeal").
+# appeal"). So are they right after the person's own negated verb of
+# asking or saying ("I never asked you to help me", "I never said I want
+# you to"): the ask is its object. The insurer's ("they never said help
+# me write an appeal") is still the denial described.
 _NEGATION = r"\b(?:don['’]?t|do\s+not|not|never|won['’]?t|stop)\b"
 _DESCRIBING_NEGATION_RE = re.compile(r"^(?:not|never|won['’]?t)$", re.IGNORECASE)
 _DECLINED_RE = re.compile(_NEGATION + r"|\bmy\s+own\b", re.IGNORECASE)
@@ -75,6 +78,20 @@ _NEW_ASK_RE = re.compile(
 )
 _WANT_RE = re.compile(
     r"\b(?:help\s+me|i\s+need|i\s+want|i(?:['’]?d|\s+would)\s+like)\b",
+    re.IGNORECASE,
+)
+_REPORTED_ASK_RE = re.compile(
+    r"(?:\b(?:ask(?:s|ed|ing)?|want(?:s|ed|ing)?|need(?:s|ed|ing)?|say(?:s|ing)?"
+    r"|said|tell(?:s|ing)?|told|request(?:s|ed|ing)?|mean(?:s|t|ing)?"
+    r"|expect(?:s|ed|ing)?|agree(?:s|d|ing)?|wish(?:es|ed|ing)?)"
+    r"(?:\s+(?:you|me|us|them|him|her))?(?:\s+(?:to|that))?"
+    r"|\b(?:to|that))(?:\s+you)?$",
+    re.IGNORECASE,
+)
+# The negation's subject is the person: "I" or "we" just before it, or no
+# subject at all ("never asked you to help me...").
+_SPEAKER_BEFORE_RE = re.compile(
+    r"(?:^|\b(?:i|we)(?:['’](?:d|ll|ve|m))?(?:\s+[\w'’]+){0,2})\s*$",
     re.IGNORECASE,
 )
 
@@ -90,10 +107,13 @@ def _declined_by_lead_in(lead_in: str) -> bool:
     if _NEW_ASK_RE.search(after):
         return False
     want = _WANT_RE.search(after)
-    return not (
-        want is not None
-        and _DESCRIBING_NEGATION_RE.match(last.group(0))
-        and after[: want.start()].strip()
+    if want is None or not _DESCRIBING_NEGATION_RE.match(last.group(0)):
+        return True
+    between = after[: want.start()].strip()
+    if not between:
+        return True
+    return bool(_REPORTED_ASK_RE.search(between)) and bool(
+        _SPEAKER_BEFORE_RE.search(lead_in[: last.start()])
     )
 
 
