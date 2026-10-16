@@ -93,29 +93,49 @@ class _Found:
 
     def date_of_birth(self, dob: Optional[datetime.date]) -> None:
         """The date as people type it: numeric with slashes, dashes or dots,
-        zero-padded or not, with a two- or four-digit year, and spelled out
-        with the month's name."""
+        month and day each zero-padded or not, with a two- or four-digit
+        year, and spelled out with the month's name, the day plain or as an
+        ordinal ("March 7th, 1984", "the 7th of March 1984")."""
         if dob is None:
             return
-        month, day, year, short_year = dob.month, dob.day, dob.year, dob.year % 100
-        spellings = [dob.isoformat(), dob.strftime("%Y/%m/%d")]
+        month, day, year = dob.month, dob.day, dob.year
+        spellings = [
+            dob.isoformat(),
+            dob.strftime("%Y/%m/%d"),
+            dob.strftime("%m%d%Y"),
+        ]
         for sep in ("/", "-", "."):
-            spellings += [
-                dob.strftime(f"%m{sep}%d{sep}%Y"),
-                f"{month}{sep}{day}{sep}{year}",
-                dob.strftime(f"%m{sep}%d{sep}%y"),
-                f"{month}{sep}{day}{sep}{short_year:02d}",
-            ]
-        for name in (dob.strftime("%B"), dob.strftime("%b")):
-            spellings += [
-                f"{name} {day}, {year}",
-                f"{name} {day} {year}",
-                f"{name} {day:02d}, {year}",
-                f"{day} {name} {year}",
-                f"{day:02d} {name} {year}",
-            ]
+            for m in dict.fromkeys((f"{month:02d}", str(month))):
+                for d in dict.fromkeys((f"{day:02d}", str(day))):
+                    for y in (str(year), f"{year % 100:02d}"):
+                        spellings.append(f"{m}{sep}{d}{sep}{y}")
+        names = [dob.strftime("%B"), dob.strftime("%b"), dob.strftime("%b") + "."]
+        if month == 9:
+            names += ["Sept", "Sept."]
+        days = dict.fromkeys((str(day), f"{day:02d}", str(day) + _ordinal(day)))
+        for name in names:
+            for d in days:
+                spellings += [
+                    f"{name} {d}, {year}",
+                    f"{name} {d},{year}",
+                    f"{name} {d} {year}",
+                    f"{d} {name} {year}",
+                    f"{d} {name}, {year}",
+                    f"{d} of {name} {year}",
+                    f"{d} of {name}, {year}",
+                ]
+        # Day-month-year with dashes, as health records print it (07-Mar-1984).
+        for d in dict.fromkeys((f"{day:02d}", str(day))):
+            for y in (str(year), f"{year % 100:02d}"):
+                spellings.append(f"{d}-{dob.strftime('%b')}-{y}")
         for spelling in dict.fromkeys(spellings):
             self.add(spelling, "DOB")
+
+
+def _ordinal(day: int) -> str:
+    if 11 <= day % 100 <= 13:
+        return "th"
+    return {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
 
 
 def chat_redactions(chat_id: Any) -> List[Tuple[str, str]]:

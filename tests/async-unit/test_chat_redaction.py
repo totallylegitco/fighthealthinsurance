@@ -205,3 +205,55 @@ def test_a_deleted_chat_raises():
 @pytest.mark.django_db
 def test_an_anonymous_unlinked_chat_has_none():
     assert chat_redactions(OngoingChat.objects.create().id) == []
+
+
+def test_a_birth_date_is_found_however_it_is_padded_or_spelled():
+    from fighthealthinsurance.chat.redaction import _Found
+
+    found = _Found()
+    found.date_of_birth(datetime.date(1984, 3, 7))
+    spellings = {value for value, category in found.out if category == "DOB"}
+    for value in (
+        "03/7/1984",
+        "3/07/1984",
+        "03/7/84",
+        "3.07.84",
+        "March 7th, 1984",
+        "March 7th 1984",
+        "7th March 1984",
+        "7th of March, 1984",
+        "Mar. 7, 1984",
+        "March 07, 1984",
+        "March 7,1984",
+        "07-Mar-1984",
+        "7-Mar-84",
+        "03071984",
+    ):
+        assert value in spellings, value
+
+
+def test_a_birth_date_ordinal_follows_the_day():
+    from fighthealthinsurance.chat.redaction import _Found
+
+    for day, ordinal in ((1, "1st"), (2, "2nd"), (3, "3rd"), (11, "11th"),
+                         (12, "12th"), (13, "13th"), (21, "21st"), (22, "22nd"),
+                         (23, "23rd"), (30, "30th")):
+        found = _Found()
+        found.date_of_birth(datetime.date(1990, 9, day))
+        spellings = {value for value, _ in found.out}
+        assert f"September {ordinal}, 1990" in spellings, day
+        assert f"Sept. {ordinal}, 1990" in spellings, day
+
+
+def test_a_typed_birth_date_never_reaches_the_scorer():
+    from fighthealthinsurance.chat.redaction import _Found
+    from fighthealthinsurance.ml.letter_quality import Redactor
+
+    found = _Found()
+    found.date_of_birth(datetime.date(1984, 3, 7))
+    redactor = Redactor(found.out)
+    for typed in ("03/7/1984", "3/07/1984", "March 7th, 1984", "the 7th of March 1984"):
+        text = f"The patient was born {typed} and needs the scan."
+        out = redactor.redact(text)
+        assert "1984" not in out, out
+        assert "[DOB_" in out, out
