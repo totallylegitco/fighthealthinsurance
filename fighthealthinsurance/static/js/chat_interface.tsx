@@ -433,6 +433,14 @@ const getSessionKey = (): string => {
   return newKey;
 };
 
+// A document read on this device, ready to send to the chat.
+interface ChatUpload {
+  name: string;
+  // Scrubbed of the person's details, the way it is sent.
+  content: string;
+  chars: number;
+}
+
 interface ChatInterfaceProps {
   defaultProcedure?: string;
   defaultCondition?: string;
@@ -464,6 +472,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ defaultProcedure, default
   // Track when to show retry button (separate state to avoid re-render issues)
   const [showRetryButton, setShowRetryButton] = useState(false);
 
+  // One retry at a time: the ref stops a double click, the state disables the button.
+  const retryInFlightRef = useRef(false);
+  const [retryInFlight, setRetryInFlightState] = useState(false);
+  const setRetryInFlight = (value: boolean) => {
+    retryInFlightRef.current = value;
+    setRetryInFlightState(value);
+  };
+
+  // A document that was read but couldn't be sent; Retry sends it.
+  const unsentUploadRef = useRef<ChatUpload | null>(null);
+
   // Track if we've sent the initial procedure message
   const hasSentInitialMessage = useRef(false);
 
@@ -490,6 +509,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ defaultProcedure, default
 
     return () => clearInterval(interval);
   }, [state.requestStartTime, state.isLoading]);
+
+  // A retry is over once its turn ends.
+  useEffect(() => {
+    if (!state.isLoading) {
+      setRetryInFlight(false);
+    }
+  }, [state.isLoading]);
 
   // Show PWYW after a few exchanges (to not be intrusive)
   useEffect(() => {
@@ -923,6 +949,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ defaultProcedure, default
         console.log("WebSocket disconnected");
         wsRef.current = null;
         if (unmounted) return;
+        // A retry sent on this socket died with it.
+        setRetryInFlight(false);
         // Exponential backoff: 3s, 6s, 12s, ... capped at 60s. A server
         // rejecting connections gets breathing room instead of a thundering
         // 3s retry loop from every open tab.
@@ -950,10 +978,54 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ defaultProcedure, default
     };
   }, []);
 
+  // Send a read document; false when the connection isn't open.
+  const sendUpload = (upload: ChatUpload): boolean => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      return false;
+    }
+
+    const userInfo = getUserInfo();
+    wsRef.current.send(
+      JSON.stringify({
+        chat_id: state.chatId,
+        content: upload.content,
+        is_patient: true,
+        session_key: getSessionKey(),
+        email: userInfo?.email, // Include email for server-side processing
+        is_document: true,
+        document_name: upload.name,
+        use_external_models: state.useExternalModels,
+        debug: isChatDebugEnabled() || undefined,
+      }),
+    );
+    unsentUploadRef.current = null;
+
+    // Show the upload in the chat only once it has actually gone.
+    const userMessage: ChatMessage = {
+      role: "user",
+      content: `I've uploaded a document: **${upload.name}** (${upload.chars.toLocaleString()} characters). The document is being analyzed.`,
+      timestamp: new Date().toISOString(),
+      status: "done",
+    };
+
+    setState((prev) => ({
+      ...prev,
+      messages: [...prev.messages, userMessage],
+      isLoading: true,
+      requestStartTime: Date.now(),
+      statusMessage: `Analyzing document: ${upload.name}...`,
+      error: null,
+    }));
+    return true;
+  };
+
   // Handle file upload
   const handleFileUpload = useCallback(
     async (file: File | null) => {
-      if (!file || !wsRef.current) return;
+      // Reading happens on this device, so it needn't wait for the connection.
+      if (!file) return;
+      // A new file replaces one that never went.
+      unsentUploadRef.current = null;
 
       try {
         setState((prev) => ({ ...prev, isProcessingFile: true }));
@@ -969,46 +1041,23 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ defaultProcedure, default
         // Use the local OCR implementation
         await recognize(file, addText);
 
-        // Add a user message showing the file was uploaded
-        const charCount = fileContent.length.toLocaleString();
-        const userMessage: ChatMessage = {
-          role: "user",
-          content: `I've uploaded a document: **${file.name}** (${charCount} characters). The document is being analyzed.`,
-          timestamp: new Date().toISOString(),
-          status: "done",
+        // Scrub personal information in the extracted content
+        const userInfo = getUserInfo();
+        const upload: ChatUpload = {
+          name: file.name,
+          content: userInfo
+            ? scrubPersonalInfo(fileContent, userInfo)
+            : fileContent,
+          chars: fileContent.length,
         };
 
-        setState((prev) => ({
-          ...prev,
-          messages: [...prev.messages, userMessage],
-          isLoading: true,
-          requestStartTime: Date.now(),
-          statusMessage: `Analyzing document: ${file.name}...`,
-        }));
-
-        // Get user info for scrubbing
-        const userInfo = getUserInfo();
-
-        // Scrub personal information in the extracted content
-        const scrubbedContent = userInfo
-          ? scrubPersonalInfo(fileContent, userInfo)
-          : fileContent;
-
-        // Send extracted content to the chat
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-          const messageToSend = {
-            chat_id: state.chatId,
-            content: scrubbedContent, // Use scrubbed content
-            is_patient: true,
-            session_key: getSessionKey(),
-            email: userInfo?.email, // Include email for server-side processing
-            is_document: true,
-            document_name: file.name,
-            use_external_models: state.useExternalModels,
-            debug: isChatDebugEnabled() || undefined,
-          };
-
-          wsRef.current.send(JSON.stringify(messageToSend));
+        if (!sendUpload(upload)) {
+          // Kept so Retry can send it without reading the file again.
+          unsentUploadRef.current = upload;
+          setState((prev) => ({
+            ...prev,
+            error: `Your document ${upload.name} wasn't sent because the chat isn't connected right now. We're reconnecting. Press Retry to send it; you don't need to upload it again.`,
+          }));
         }
       } catch (error) {
         console.error("Error processing file:", error);
@@ -1021,7 +1070,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ defaultProcedure, default
         setState((prev) => ({ ...prev, isProcessingFile: false }));
       }
     },
-    [state.chatId],
+    [state.chatId, state.useExternalModels],
   );
 
   const sendChatMessage = (content: string) => {
@@ -1100,7 +1149,23 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ defaultProcedure, default
 
   // Handle retrying the last message
   const handleRetryLastMessage = () => {
-    if (!wsRef.current) return;
+    // A second retry would send the same turn again.
+    if (retryInFlightRef.current) return;
+
+    // A document that never reached the server is what needs sending.
+    const unsentUpload = unsentUploadRef.current;
+    if (unsentUpload) {
+      if (sendUpload(unsentUpload)) {
+        setRetryInFlight(true);
+      } else {
+        setState((prev) => ({
+          ...prev,
+          error: `Still reconnecting, so ${unsentUpload.name} hasn't been sent yet. Press Retry again in a moment.`,
+        }));
+      }
+      return;
+    }
+
     // Allow retry even while loading so long-running requests can be manually re-sent.
 
     // Find the last user message
@@ -1120,6 +1185,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ defaultProcedure, default
       return;
     }
 
+    setRetryInFlight(true);
     setState((prev) => ({
       ...prev,
       isLoading: true,
@@ -1141,6 +1207,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ defaultProcedure, default
     }
 
     let chatId = localStorage.getItem("fhi_chat_id");
+
+    // A new chat doesn't carry the old one's unsent document.
+    unsentUploadRef.current = null;
 
     console.log("Resetting the chat state");
     // Reset the chat state but preserve useExternalModels setting
@@ -1390,6 +1459,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ defaultProcedure, default
                       size="xs"
                       onClick={handleRetryLastMessage}
                       disabled={!state.isLoading}
+                      loading={retryInFlight}
                       style={{
                         ...THEME.buttonSharedStyles,
                         borderRadius: THEME.borderRadius.buttonDefault,
@@ -1424,6 +1494,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ defaultProcedure, default
                   <Button
                     size="xs"
                     onClick={handleRetryLastMessage}
+                    loading={retryInFlight}
                     style={{
                       ...THEME.buttonSharedStyles,
                       borderRadius: THEME.borderRadius.buttonDefault,
