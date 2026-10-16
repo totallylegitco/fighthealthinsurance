@@ -184,10 +184,10 @@ PRIOR_AUTH_SYSTEM_PROMPT = (
 MEDICAID_WORK_REQUIREMENTS_BLOCK = """New federal rules require many adults (ages 19-64) who got Medicaid through the ACA expansion to meet a work rule to get or keep Medicaid. Most states start on January 1, 2027, and a few started earlier.
 
 **Key Points:**
-- Each month, any one of these counts: 80 hours per month of work, job training or volunteering (any mix), half-time school, or at least $580 in household income
+- Each month, any one of these counts: 80 hours per month of work, job training, school or volunteering (any mix), half-time school on its own, or at least $580 in household income
 - Exempt in every state: people who are pregnant or postpartum, medically frail, or caring for a child 13 or younger or a disabled person, plus several other groups listed in the FAQ
 - Your state checks its own records first and asks you only when it can't confirm, so keep records and answer every notice by its date
-- If you get a notice, you have 30 days to respond, and coverage continues meanwhile
+- If your state says you haven't met the rule, you have 30 days to respond, and coverage continues meanwhile
 - To keep Medicaid during an appeal, ask for a fair hearing before the end date on your notice
 - Details vary by state
 
