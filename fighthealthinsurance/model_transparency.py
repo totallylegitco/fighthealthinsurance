@@ -5,27 +5,39 @@ Two kinds of files in static/model_transparency/, so the page changes by
 editing data, never page code:
 
 * ``models.json``: one entry per model, with what it does and where it runs,
-  and the judges we use now.
+  and the judges whose scores the test used.
   A model is retired by setting ``retired`` (a date) and ``retired_reason``;
   entries are never deleted, so the page can always say what changed.
 * ``runs/<id>.json``: one file per test run, never edited after it is
   published: what was tested, how, and the results, as totals only.
 
+``show_details`` in ``models.json`` decides how much the page says. While it
+is false, a model we run ourselves is shown as an FHI model, with no base
+model, maker or setup, and the tests, judges and scores stay off the page.
+Setting it true shows them all again; no page code changes.
+
 Both are public. They carry scores, timings and costs, never a letter, a
-denial or anything about a person; ``load_runs`` refuses any field it does
+denial or anything about a person; the loaders refuse any field they do
 not know, so nothing else can reach the page by accident.
 """
 
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import lru_cache
 from typing import Any, Dict, List, Optional
 
 from fighthealthinsurance.static_data import read_static_text
 
 DATA_DIR = "model_transparency"
+
+# How a model we run ourselves is named while show_details is off.
+OUR_MODEL_NAME = "FHI model"
+OUR_MODEL_FROM = "Fight Health Insurance"
+
+TOP_FIELDS = frozenset({"about", "show_details", "models", "changes", "judges"})
+CHANGE_FIELDS = frozenset({"date", "what", "detail"})
 
 MODEL_FIELDS = frozenset(
     {
@@ -35,7 +47,7 @@ MODEL_FIELDS = frozenset(
         "role",
         "runs_on",
         "setup",
-        "trained_by_us",
+        "ours",
         "tested_in",
         "retired",
         "retired_reason",
@@ -195,10 +207,18 @@ class Model:
     role: str
     runs_on: str
     setup: str
-    trained_by_us: bool
+    ours: bool
     tested_in: Optional[str]
     retired: Optional[str]
     retired_reason: str
+
+    def without_details(self) -> "Model":
+        """Ours as an FHI model, with no base model, maker or setup."""
+        if not self.ours:
+            return self
+        return replace(
+            self, name=OUR_MODEL_NAME, maker=OUR_MODEL_FROM, setup="", tested_in=None
+        )
 
 
 @dataclass(frozen=True)
@@ -211,17 +231,28 @@ class CurrentJudge:
 @dataclass(frozen=True)
 class Transparency:
     models: List[Model]
-    changes: List[Dict[str, str]]
+    changes: List[Dict[str, Any]]
     runs: List[Run] = field(default_factory=list)
     judges: List[CurrentJudge] = field(default_factory=list)
+    show_details: bool = False
+
+    def _shown(self, models: List[Model]) -> List[Model]:
+        if self.show_details:
+            return models
+        return [m.without_details() for m in models]
 
     @property
     def in_use(self) -> List[Model]:
-        return [m for m in self.models if not m.retired]
+        return self._shown([m for m in self.models if not m.retired])
 
     @property
     def retired(self) -> List[Model]:
-        return [m for m in self.models if m.retired]
+        return self._shown([m for m in self.models if m.retired])
+
+    @property
+    def shown_changes(self) -> List[Dict[str, Any]]:
+        """The changes log, without detail entries while details are off."""
+        return [c for c in self.changes if self.show_details or not c.get("detail")]
 
     @property
     def latest_run(self) -> Optional[Run]:
@@ -263,10 +294,8 @@ def parse_run(data: Dict[str, Any]) -> Run:
 RUN_FILES = ("runs/2026-09-letter-test.json",)
 
 
-@lru_cache(maxsize=1)
-def load() -> Transparency:
-    """Everything the page shows. Cached: the files change only on deploy."""
-    data = _read("models.json")
+def parse_models(data: Dict[str, Any], runs: List[Run]) -> Transparency:
+    _only(TOP_FIELDS, data, "models.json")
     models = [
         Model(**_only(MODEL_FIELDS, m, "models.json")) for m in data.get("models", [])
     ]
@@ -274,7 +303,20 @@ def load() -> Transparency:
         CurrentJudge(**_only(CURRENT_JUDGE_FIELDS, j, "models.json judge"))
         for j in data.get("judges", [])
     ]
-    runs = sorted((parse_run(_read(name)) for name in RUN_FILES), key=lambda r: r.date)
+    changes = [
+        _only(CHANGE_FIELDS, c, "models.json change") for c in data.get("changes", [])
+    ]
     return Transparency(
-        models=models, changes=data.get("changes", []), runs=runs, judges=judges
+        models=models,
+        changes=changes,
+        runs=runs,
+        judges=judges,
+        show_details=data.get("show_details") is True,
     )
+
+
+@lru_cache(maxsize=1)
+def load() -> Transparency:
+    """Everything the page shows. Cached: the files change only on deploy."""
+    runs = sorted((parse_run(_read(name)) for name in RUN_FILES), key=lambda r: r.date)
+    return parse_models(_read("models.json"), runs)

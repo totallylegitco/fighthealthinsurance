@@ -12,10 +12,11 @@ We also search <a href="https://pubmed.ncbi.nlm.nih.gov/" target="_blank" rel="n
 </p>
 
 <h2 id="models">The models that write your letter</h2>
-<p>Several models can write drafts for the same appeal, and you choose the one to send. Outside models only run if you say yes when you start your appeal.</p>
+<p>Several models can write drafts for the same appeal, and you choose the one to send.
+Outside services only get your case if you allow outside models when you start your appeal. That box starts ticked, and you can untick it.</p>
 <div class="scroll-x">
 <table class="simple-table">
-  <thead><tr><th scope="col">Model</th><th scope="col">Made by</th><th scope="col">What it does</th><th scope="col">Where it runs</th></tr></thead>
+  <thead><tr><th scope="col">Model</th><th scope="col">From</th><th scope="col">What it does</th><th scope="col">Where it runs</th></tr></thead>
   <tbody>
   {% for m in ai.in_use %}
     <tr><td>{{ m.name }}{% if m.setup %} ({{ m.setup }}){% endif %}</td><td>{{ m.maker }}</td><td>{{ m.role }}</td><td>{{ m.runs_on }}</td></tr>
@@ -23,10 +24,7 @@ We also search <a href="https://pubmed.ncbi.nlm.nih.gov/" target="_blank" rel="n
   </tbody>
 </table>
 </div>
-<div class="fhi-notice fhi-notice-info" role="note">
-  <strong>Our own trained models.</strong> We also run models we trained ourselves. Their results aren't shown here yet.
-</div>
-
+{% if ai.show_details %}
 {% with run=ai.latest_run %}
 {% if run %}
 <h2 id="how-we-chose">How we chose</h2>
@@ -64,7 +62,7 @@ Each setup wrote a letter for every case, and AI judges scored every letter on f
 </div>
 
 <h2 id="judges">Who judges the letters</h2>
-<p>AI judges read and score every test letter. Judges disagree a lot, so a person blind-read 20 letters and we kept the judges that matched that person best. We use these now:</p>
+<p>AI judges read and score every test letter. Judges disagree a lot, so a person blind-read 20 letters and we used the two judges that matched that person best:</p>
 <ul>
 {% for j in ai.judges %}<li><strong>{{ j.name }}</strong>, made by {{ j.made_by }}. {{ j.why }}</li>{% endfor %}
 </ul>
@@ -108,12 +106,15 @@ Each setup wrote a letter for every case, and AI judges scored every letter on f
 {% endif %}
 {% endif %}
 {% endwith %}
+{% endif %}
 
+{% if ai.shown_changes or ai.retired %}
 <h2 id="changes">Changes</h2>
 <ul>
-{% for c in ai.changes %}<li><strong>{{ c.date }}:</strong> {{ c.what }}</li>{% endfor %}
+{% for c in ai.shown_changes %}<li><strong>{{ c.date }}:</strong> {{ c.what }}</li>{% endfor %}
 {% for m in ai.retired %}<li><strong>{{ m.retired }}:</strong> Stopped using {{ m.name }}. {{ m.retired_reason }}</li>{% endfor %}
 </ul>
+{% endif %}
 
 <h2>Sustainability</h2>
 <p>
@@ -121,8 +122,8 @@ We care about the environmental impact of running AI. A few things we do:
 </p>
 <ul>
   <li>
-    <strong>Low-power inference:</strong> Our models are quantized so they run on a single GPU,
-    consuming a fraction of the energy that large cloud-hosted models require.
+    <strong>Low-power inference:</strong> Our own models run on a single GPU,
+    using a fraction of the energy that large cloud-hosted models need.
   </li>
   <li>
     <strong>Solar powered when possible:</strong> During the day, our inference servers run on

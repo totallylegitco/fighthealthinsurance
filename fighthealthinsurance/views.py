@@ -524,8 +524,8 @@ class AboutView(StaticIshView):
 
 
 class AboutAIView(StaticIshView):
-    """About our AI page: which models write appeal letters and how we
-    tested them, from the data files in static/model_transparency/."""
+    """About our AI page: which models write appeal letters and where they
+    run, from the data files in static/model_transparency/."""
 
     template_name = "about_ai.html"
 

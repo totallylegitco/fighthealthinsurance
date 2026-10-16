@@ -17,8 +17,7 @@
   "writeup_url": "https://nyghtowl.com/posts/2026/09/finally-diving-into-ai-model-evals/",
   "notes": [
    "Claude Opus 4.8 never judges its own letters, so its Opus score is an estimate from how the other judges scored it.",
-   "GPT-5.5's price wasn't recorded during the test. Its cost assumes $5 per million input tokens and $30 per million output tokens.",
-   "Our own trained models were tested too and are left out of this table."
+   "GPT-5.5's price wasn't recorded during the test. Its cost assumes $5 per million input tokens and $30 per million output tokens."
   ],
   "summary": "We chose Gemma 4 26B with a two-sentence prompt change. It scored near the top, wrote a letter in under 4 seconds, the fastest setup we tested, and fits on one server we run ourselves, so your letter doesn't have to leave us. The site still uses the original prompt while we test the new one against it."
  },

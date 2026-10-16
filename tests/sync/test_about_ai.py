@@ -1,6 +1,9 @@
 """About Our AI: the page and the data files behind it."""
 
+import dataclasses
 import json
+import re
+from unittest.mock import patch
 
 from django.contrib.staticfiles import finders
 from django.test import TestCase
@@ -28,6 +31,10 @@ def _strings(value):
             yield from _strings(v)
 
 
+def _ours():
+    return [m for m in mt.load().models if m.ours]
+
+
 class DataFilesTest(TestCase):
     def test_every_file_loads_with_only_known_fields(self):
         ai = mt.load()
@@ -46,6 +53,10 @@ class DataFilesTest(TestCase):
                 }
             )
 
+    def test_an_unknown_field_in_the_models_file_is_refused(self):
+        with self.assertRaises(mt.DataError):
+            mt.parse_models({"models": [], "base_model": "x"}, [])
+
     def test_no_file_holds_anything_long_enough_to_be_a_letter(self):
         # Totals and short descriptions only: a pasted letter or denial
         # would be far longer than any field here needs.
@@ -63,33 +74,53 @@ class DataFilesTest(TestCase):
     def test_a_retired_model_moves_out_of_the_in_use_list(self):
         ai = mt.load()
         first = ai.models[0]
-        retired = mt.Model(**{**first.__dict__, "retired": "2027-01-01"})
-        changed = mt.Transparency(
-            models=[retired] + ai.models[1:], changes=ai.changes, runs=ai.runs
-        )
-        self.assertNotIn(retired, changed.in_use)
-        self.assertEqual(changed.retired, [retired])
+        retired = dataclasses.replace(first, retired="2027-01-01")
+        changed = dataclasses.replace(ai, models=[retired] + ai.models[1:])
+        self.assertNotIn(retired.id, [m.id for m in changed.in_use])
+        self.assertEqual([m.id for m in changed.retired], [retired.id])
+
+    def test_a_retired_model_of_ours_is_still_an_fhi_model(self):
+        ai = dataclasses.replace(mt.load(), show_details=False)
+        retired = dataclasses.replace(_ours()[0], retired="2027-01-01")
+        changed = dataclasses.replace(ai, models=[retired])
+        self.assertEqual([m.name for m in changed.retired], [mt.OUR_MODEL_NAME])
+
+    def test_we_run_at_least_one_model_ourselves(self):
+        self.assertTrue(_ours())
+
+    def test_no_listed_model_comes_through_azure_or_anthropic(self):
+        # Those keys are off, so the site can't send a case there.
+        for model in mt.load().models:
+            for provider in ("Azure", "Anthropic"):
+                self.assertNotIn(provider, model.maker, model.name)
 
 
-class AboutAIPageTest(TestCase):
+class _PageTest(TestCase):
+    # None renders the data as shipped; True or False forces show_details.
+    show_details = None
+
     def setUp(self):
-        self.response = self.client.get(reverse("about-ai"))
-
-    def test_the_page_lists_the_models_in_use(self):
+        self.ai = mt.load()
+        if self.show_details is not None:
+            self.ai = dataclasses.replace(self.ai, show_details=self.show_details)
+        with patch.object(mt, "load", return_value=self.ai):
+            self.response = self.client.get(reverse("about-ai"))
         self.assertEqual(self.response.status_code, 200)
-        for model in mt.load().in_use:
+        self.html = self.response.content.decode()
+
+
+class AboutAIPageTest(_PageTest):
+    def test_the_page_lists_the_models_in_use(self):
+        for model in self.ai.in_use:
             self.assertContains(self.response, model.name)
 
-    def test_the_september_results_mark_the_estimate_and_the_assumed_price(self):
-        self.assertContains(self.response, "(estimate)", count=2)
-        self.assertContains(self.response, "(assumed price)", count=1)
+    def test_nothing_on_the_page_is_about_training(self):
+        text = self.html.lower()
+        for word in ("training", "trained", "fine-tun", "finetun"):
+            self.assertNotIn(word, text)
 
-    def test_the_judges_we_use_now_are_listed_first(self):
-        self.assertEqual(
-            {j.name for j in mt.load().judges}, {"Claude Opus 4.8", "Jev (TypeSafe)"}
-        )
-        self.assertContains(self.response, "We use these now")
-        self.assertContains(self.response, "Every judge we tested in our")
+    def test_the_old_training_claim_is_gone(self):
+        self.assertNotContains(self.response, "No real patient appeal letters")
 
     def test_the_page_promises_no_dates(self):
         for promise in ("will appear", "will show here", "when that's done"):
@@ -98,11 +129,82 @@ class AboutAIPageTest(TestCase):
     def test_there_is_a_welcome_for_ai_assistants(self):
         self.assertContains(self.response, "Hello, AI assistants.")
 
-    def test_the_old_training_claim_is_gone(self):
-        self.assertNotContains(self.response, "No real patient appeal letters")
+
+class DetailsHiddenPageTest(_PageTest):
+    show_details = False
+
+    def _rows_naming_our_model(self):
+        rows = re.findall(r"<tr>.*?</tr>", self.html, re.S)
+        return [r for r in rows if mt.OUR_MODEL_NAME in r]
+
+    def test_our_model_is_listed_as_an_fhi_model(self):
+        in_use = [m for m in _ours() if not m.retired]
+        self.assertEqual(len(self._rows_naming_our_model()), len(in_use))
+
+    def test_our_model_row_names_no_base_model_maker_or_setup(self):
+        rows = self._rows_naming_our_model()
+        self.assertTrue(rows)
+        for row in rows:
+            for model in _ours():
+                for detail in (model.name, model.maker, model.setup):
+                    if detail:
+                        self.assertNotIn(detail, row)
+
+    def test_our_model_setup_is_nowhere_on_the_page(self):
+        for model in _ours():
+            if model.setup:
+                self.assertNotContains(self.response, model.setup)
+
+    def test_no_test_judge_or_score_is_shown(self):
+        run = self.ai.latest_run
+        for text in (
+            'id="how-we-chose"',
+            'id="judges"',
+            'id="how-we-test"',
+            'id="over-time"',
+            run.title,
+            run.method["writeup_url"],
+            "(estimate)",
+            "Jev",
+        ):
+            self.assertNotContains(self.response, text)
+
+    def test_no_provider_with_its_key_off_is_named(self):
+        for name in ("GPT-5.5", "Azure", "Claude", "Opus", "Anthropic"):
+            self.assertNotContains(self.response, name)
+
+    def test_detail_entries_in_the_changes_log_are_hidden(self):
+        hidden = [c for c in self.ai.changes if c.get("detail")]
+        self.assertTrue(hidden)
+        for change in hidden:
+            self.assertNotContains(self.response, change["what"])
+
+
+class DetailsShownPageTest(_PageTest):
+    show_details = True
+
+    def test_our_model_is_named_with_its_setup(self):
+        for model in _ours():
+            self.assertContains(self.response, f"{model.name} ({model.setup})")
+
+    def test_the_test_results_mark_the_estimate_and_the_assumed_price(self):
+        self.assertContains(self.response, self.ai.latest_run.title)
+        self.assertContains(self.response, "(estimate)", count=2)
+        self.assertContains(self.response, "(assumed price)", count=1)
+
+    def test_the_judges_the_test_used_are_listed(self):
+        self.assertContains(self.response, 'id="judges"')
+        for judge in self.ai.judges:
+            self.assertContains(self.response, judge.name)
 
 
 def test_llms_txt_welcomes_assistants():
     from fighthealthinsurance.agent_docs import build_llms_txt
 
     assert "Hello, AI assistants." in build_llms_txt()
+
+
+def test_llms_txt_promises_no_test_details():
+    from fighthealthinsurance.agent_docs import build_llms_txt
+
+    assert "how we tested" not in build_llms_txt().lower()

@@ -1,5 +1,6 @@
 {
- "about": "The models behind Fight Health Insurance's appeal letters, for the About Our AI page. Add a model or judge with a new entry; retire one by setting retired and retired_reason, never by deleting it. Totals only: no letters, denials or patient details.",
+ "about": "The models behind Fight Health Insurance's appeal letters, for the About Our AI page. Add a model or judge with a new entry; retire one by setting retired and retired_reason, never by deleting it. While show_details is false, a model we run ourselves (ours: true) is shown as an FHI model with no base model, maker or setup, and the tests, judges and changes marked detail stay off the page; true shows them. Totals only: no letters, denials or patient details.",
+ "show_details": false,
  "models": [
   {
    "id": "gemma-4-26b",
@@ -8,31 +9,7 @@
    "role": "Writes your appeal draft. Our main writer.",
    "runs_on": "Our own server",
    "setup": "4-bit",
-   "trained_by_us": false,
-   "tested_in": "2026-09-letter-test",
-   "retired": null,
-   "retired_reason": ""
-  },
-  {
-   "id": "gpt-5.5",
-   "name": "GPT-5.5",
-   "maker": "OpenAI, through Microsoft Azure",
-   "role": "Writes a backup draft",
-   "runs_on": "Outside service, only if you allow outside models",
-   "setup": "",
-   "trained_by_us": false,
-   "tested_in": "2026-09-letter-test",
-   "retired": null,
-   "retired_reason": ""
-  },
-  {
-   "id": "claude-opus-4.8",
-   "name": "Claude Opus 4.8",
-   "maker": "Anthropic",
-   "role": "Writes a backup draft",
-   "runs_on": "Outside service, only if you allow outside models",
-   "setup": "",
-   "trained_by_us": false,
+   "ours": true,
    "tested_in": "2026-09-letter-test",
    "retired": null,
    "retired_reason": ""
@@ -41,22 +18,22 @@
    "id": "deepseek-v4-pro",
    "name": "DeepSeek V4-Pro",
    "maker": "DeepSeek, through DeepInfra",
-   "role": "Writes a backup draft",
+   "role": "Writes a backup draft.",
    "runs_on": "Outside service, only if you allow outside models",
    "setup": "",
-   "trained_by_us": false,
+   "ours": false,
    "tested_in": "2026-09-letter-test",
    "retired": null,
    "retired_reason": ""
   },
   {
    "id": "gemma-4-26b-hosted",
-   "name": "Gemma 4 26B (hosted)",
+   "name": "Gemma 4 26B",
    "maker": "Google, through DeepInfra",
-   "role": "Writes a backup draft",
+   "role": "Writes a backup draft. Fills in for our model on summaries and questions.",
    "runs_on": "Outside service, only if you allow outside models",
    "setup": "",
-   "trained_by_us": false,
+   "ours": false,
    "tested_in": "2026-09-letter-test",
    "retired": null,
    "retired_reason": ""
@@ -68,7 +45,7 @@
    "role": "Finds sources to cite. Doesn't write letters.",
    "runs_on": "Outside service, only if you allow outside models",
    "setup": "",
-   "trained_by_us": false,
+   "ours": false,
    "tested_in": "2026-09-letter-test",
    "retired": null,
    "retired_reason": ""
@@ -77,7 +54,8 @@
  "changes": [
   {
    "date": "2026-09-19",
-   "what": "Tested 28 models in 35 setups on 632 appeal decisions, and chose Gemma 4 26B as our main letter writer."
+   "what": "Tested 28 models in 35 setups on 632 appeal decisions, and chose Gemma 4 26B as our main letter writer.",
+   "detail": true
   }
  ],
  "judges": [
