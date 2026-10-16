@@ -15,7 +15,7 @@ const safeUrl=u=>/^https:\/\//.test(String(u))?esc(u):'#';
 const fmt=n=>Math.round(n).toLocaleString('en-US');
 const pct=(x,d=1)=>(x*100).toFixed(d)+'%';
 const big=n=>n>=1e9?(n/1e9).toFixed(1)+' billion':n>=1e6?(n/1e6).toFixed(1)+' million':fmt(n);
-const money=n=>n>=1e9?'$'+(n/1e9).toFixed(1)+'B':n>=1e6?'$'+(n/1e6).toFixed(0)+'M':'$'+n.toLocaleString('en-US',{maximumFractionDigits:n<100?2:0});
+const money=n=>n>=1e9?'$'+(n/1e9).toFixed(1)+'B':n>=1e6?'$'+(n/1e6).toFixed(0)+'M':'$'+n.toLocaleString('en-US',n<100?{minimumFractionDigits:2,maximumFractionDigits:2}:{maximumFractionDigits:0});
 const css=v=>getComputedStyle(ROOT).getPropertyValue(v).trim();
 /* WCAG relative luminance, to pick the tile label ink with the higher contrast. */
 const lin=c=>{c/=255;return c<=0.03928?c/12.92:Math.pow((c+0.055)/1.055,2.4)};
@@ -37,11 +37,12 @@ if(pauseBtn)pauseBtn.addEventListener('click',()=>run(!timer));
 
 /* stats */
 const inRate=T.in_rate, apShare=T.appeals_all/T.in_denied, won=T.overturned/T.appeals;
+const P=D.trend[D.trend.length-2];
 const imr25=D.imr_trend.find(r=>r.y===2025);
 $('stats').innerHTML=[
-  [pct(inRate,0),'of in-network claims denied on HealthCare.gov plans in 2024'],
-  [fmt(1/apShare),'in-network denials for every internal appeal filed in 2024 ('+big(T.in_denied)+' denials, '+fmt(T.appeals_all)+' appeals)'],
-  [pct(won,0),'of internal appeals won at the insurer in 2024, down from '+pct(D.trend[3].overturned/D.trend[3].appeals,0)+' the year before'],
+  [pct(inRate,0),'of in-network claims denied on HealthCare.gov plans in '+T.year],
+  [fmt(1/apShare),'in-network denials for every internal appeal filed in '+T.year+' ('+big(T.in_denied)+' denials, '+fmt(T.appeals_all)+' appeals)'],
+  [pct(won,0),'of internal appeals won at the insurer in '+T.year+', down from '+pct(P.overturned/P.appeals,0)+' in '+P.year],
   [pct(imr25.r,0),'of California independent reviews went the patient\'s way in 2025 (a later, separate step)']
 ].map(([b,s])=>`<div class="dw-stat"><b class="dw-num">${b}</b><span>${s}</span></div>`).join('');
 
@@ -93,7 +94,7 @@ function dRead(s){dsel=s;const r=ST[s];let h=`<div class="dw-readout-state">${NA
   if(!r)h+=`<div class="dw-readout-line">Not in this data. ${NAMES[s]} runs its own marketplace, or had no HealthCare.gov insurers reporting.</div>`;
   else h+=`<div class="dw-readout-line"><b class="dw-num">${pct(r.rate)}</b> of in-network claims denied (${big(r.denied)} of ${big(r.claims)})</div>`+
     (r.prev!=null?`<div class="dw-readout-line">2023: <span class="dw-num">${pct(r.prev)}</span> (${r.rate>=r.prev?'up':'down'} ${Math.abs((r.rate-r.prev)*100).toFixed(1)} points)</div>`:'')+
-    `<div class="dw-readout-line">${r.won!=null?`<b class="dw-num">${pct(r.won,0)}</b> of internal appeals won (${fmt(r.overturned)} of ${fmt(r.appeals)})`:'Too few appeals reported to show a win rate'} · ${r.issuers} reporting insurer${r.issuers>1?'s':''}${r.issuers<=2?', so these are those companies\' figures':''}</div>`;
+    `<div class="dw-readout-line">${r.won!=null?`<b class="dw-num">${pct(r.won,0)}</b> of internal appeals won (${fmt(r.overturned)} of ${fmt(r.appeals)})`:'Too few appeals reported to show a win rate'} · ${r.issuers} reporting insurer${r.issuers>1?'s':''}${r.issuers===1?', so these are that company\'s figures':r.issuers===2?', so these are those companies\' figures':''}</div>`;
   $('dread').innerHTML=h;drawD();}
 function drawD(){const m=DM[dm];drawMap($('dmap'),m.v,binScale(m.b,m.c),m.t,dRead,dsel);legend($('dleg'),m.b,m.c,m.l);}
 function dBars(){const arr=Object.entries(ST).sort((a,b)=>b[1].rate-a[1].rate);const mx=arr[0][1].rate;
@@ -114,7 +115,7 @@ function line(svg,pts,{ymin,ymax,fmtY,ticks,color,label}){
   svg.innerHTML=h;
 }
 function drawLines(){line($('tline'),D.trend.map(t=>({x:t.year,y:t.rate})),{ymin:.10,ymax:.25,ticks:[.10,.15,.20,.25],fmtY:y=>pct(y,0),color:css('--dw-red'),label:y=>pct(y)+' denied'});
-line($('imrline'),D.imr_trend.filter(r=>r.y>=2012).map(r=>({x:r.y,y:r.r})),{ymin:.3,ymax:.8,ticks:[.3,.4,.5,.6,.7,.8],fmtY:y=>pct(y,0),color:css('--dw-teal'),label:y=>pct(y,0)+' overturned'});}
+line($('imrline'),D.imr_trend.map(r=>({x:r.y,y:r.r})),{ymin:.3,ymax:.8,ticks:[.3,.4,.5,.6,.7,.8],fmtY:y=>pct(y,0),color:css('--dw-teal'),label:y=>pct(y,0)+' overturned'});}
 drawLines();
 $('ttable').innerHTML='<thead><tr><th>Year</th><th class="dw-r">Denied</th><th class="dw-r">Rate</th><th class="dw-r">Appeals</th><th class="dw-r">Won</th></tr></thead><tbody>'+
   D.trend.map(t=>`<tr><td>${t.year}</td><td class="dw-r dw-num">${big(t.denied)}</td><td class="dw-r dw-num">${pct(t.rate)}</td><td class="dw-r dw-num">${fmt(t.appeals_all)}</td><td class="dw-r dw-num">${pct(t.overturned/t.appeals,0)}</td></tr>`).join('')+'</tbody>';
@@ -131,7 +132,7 @@ function iDraw(){const s=$('istate').value;let rows;
   else{const all=[...IS].sort((a,b)=>b.r-a.r);rows=[...all.slice(0,10),null,...all.slice(-10)];$('icount').textContent=IS.length+' insurers in '+states.length+' states';}
   const mx=Math.max(...IS.map(i=>i.r));
   $('itable').innerHTML='<thead><tr><th>Insurer</th><th>State</th><th>Denial rate</th><th class="dw-r">Claims</th><th class="dw-r">Appeals won</th></tr></thead><tbody>'+
-   rows.map(i=>i?`<tr><td>${esc(i.n)}</td><td>${esc(i.s)}</td><td class="dw-num" style="white-space:nowrap"><span class="dw-mini" style="width:${Math.max(2,i.r/mx*90)}px"></span>${pct(i.r)}</td><td class="dw-r dw-num">${big(i.c)}</td><td class="dw-r dw-num">${i.a!=null?pct(i.o/i.a,0)+' <span class="dw-note">('+fmt(i.o)+' of '+fmt(i.a)+')</span>':'<span class="dw-note">too few</span>'}</td></tr>`:'<tr><td colspan="5" class="dw-note dw-gap-row">···</td></tr>').join('')+'</tbody>';}
+   rows.map(i=>i?`<tr><td>${esc(i.n)}</td><td>${esc(i.s)}</td><td class="dw-num" style="white-space:nowrap"><span class="dw-mini" style="width:${Math.max(2,i.r/mx*90)}px"></span>${pct(i.r)}</td><td class="dw-r dw-num">${big(i.c)}</td><td class="dw-r dw-num">${i.a!=null&&i.o!=null?pct(i.o/i.a,0)+' <span class="dw-note">('+fmt(i.o)+' of '+fmt(i.a)+')</span>':i.a!=null?'<span class="dw-note">not reported ('+fmt(i.a)+' appeals)</span>':'<span class="dw-note">too few</span>'}</td></tr>`:'<tr><td colspan="5" class="dw-note dw-gap-row">···</td></tr>').join('')+'</tbody>';}
 $('istate').onchange=iDraw;iDraw();
 
 /* prior authorization */
@@ -141,7 +142,7 @@ function paDraw(k){const rows=PA.filter(r=>r.line===k&&r.std!=null).sort((a,b)=>
   if(!rows.length){$('panote').textContent=PAN[k]+' No reports in this group yet.';$('pabars').innerHTML='';return;}
   const mx=rows[0].std||1;
   $('panote').textContent=PAN[k]+' '+rows.length+' reports, from '+pct(rows[rows.length-1].std)+' to '+pct(rows[0].std)+'. Most count requests; any that count differently say so.';
-  $('pabars').innerHTML=rows.map(r=>`<div class="dw-bar"><div class="dw-bar-name"><span><b>${esc(r.n)}</b> <span class="dw-note">${esc(r.where)}${r.req?' · '+fmt(r.req)+' '+esc(r.unit||'requests'):''}${r.exp_posted?' · urgent requests: '+esc(r.exp_posted)+'% denied':''} · <a href="${safeUrl(r.url)}" rel="noopener">source</a>${r.note?'<br>'+esc(r.note):''}</span></span></div><div class="dw-bar-track"><div class="dw-bar-fill" style="width:${Math.max(1,r.std/mx*100)}%"></div></div><div class="dw-bar-value dw-num">${esc(r.std_posted)}%</div></div>`).join('');}
+  $('pabars').innerHTML=rows.map(r=>`<div class="dw-bar"><div class="dw-bar-name"><span><b>${esc(r.n)}</b> <span class="dw-note">${esc(r.where)}${r.req?' · '+fmt(r.req)+' '+esc(r.unit||'requests'):''}${r.exp_posted?' · urgent requests: '+esc(r.exp_posted)+'% denied':''} · <a href="${safeUrl(r.url)}" rel="noopener">source</a>${r.note?'<br>'+esc(r.note):''}</span></span></div><div class="dw-bar-track"><div class="dw-bar-fill" style="width:${Math.max(1,r.std/mx*100)}%"></div></div><div class="dw-bar-value dw-num">${esc(String(r.std_posted).replace(/^\./,'0.'))}%</div></div>`).join('');}
 document.querySelectorAll('#pamode button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#pamode button').forEach(x=>x.setAttribute('aria-pressed',x===b));paDraw(b.dataset.m);});
 paDraw('ma');
 
@@ -161,7 +162,7 @@ const CM={
 };
 function cRead(s){csel=s;const a=sa('2024',s),b=sa('2023',s),p=PL[s]||{};const n=SA['2024'][NAMES[s]];
   $('cread').innerHTML=`<div class="dw-readout-state">${NAMES[s]}</div>`+
-   (a!=null?`<div class="dw-readout-line"><b class="dw-num">${pct(a)}</b> uninsured under 65 (${fmt(n.n)} people), ${b!=null?(a>=b?'up':'down')+' from '+pct(b)+' in 2023':''}</div>`:'')+
+   (a!=null?`<div class="dw-readout-line"><b class="dw-num">${pct(a)}</b> uninsured under 65 (${fmt(n.n)} people), ${b!=null?(a===b?'the same as in 2023':(a>b?'up':'down')+' from '+pct(b)+' in 2023'):''}</div>`:'')+
    (p.fair_poor_health!=null?`<div class="dw-readout-line">Fair or poor health <b class="dw-num">${p.fair_poor_health}%</b> · diabetes <b class="dw-num">${p.diabetes}%</b> · depression <b class="dw-num">${p.depression}%</b></div>`:'<div class="dw-readout-line">No CDC estimates for these measures in this state in this release.</div>');
   drawC();}
 function drawC(){const m=CM[cm];drawMap($('cmap'),m.v,binScale(m.b,m.c),m.t,cRead,csel);legend($('cleg'),m.b,m.c,m.l);
@@ -174,9 +175,9 @@ cRead(csel);
 
 /* drugs */
 const DG=D.drugs;
-$('drugintro').textContent=`Total spending on prescription drugs under Medicare Part D was ${money(DG.total.y2024)} in 2024, up from ${money(DG.total.y2020)} in 2020. That counts what plans and patients paid together, before manufacturer rebates.`;
+$('drugintro').textContent=`Total spending on prescription drugs under Medicare Part D was ${money(DG.total.y2024)} in 2024. That counts what Medicare, plans and patients paid together, before manufacturer rebates.`;
 const DGM={
-  top:{note:'Total Part D spending on each drug in 2024 (plans and patients combined, before rebates).',v:d=>d.Tot_Spndng_2024,l:d=>money(d.Tot_Spndng_2024),sub:d=>fmt(d.Tot_Benes_2024)+' people'},
+  top:{note:'Total Part D spending on each drug in 2024 (Medicare, plans and patients combined, before rebates), by brand-name listing: other forms and generics of the same medicine count separately.',v:d=>d.Tot_Spndng_2024,l:d=>money(d.Tot_Spndng_2024),sub:d=>fmt(d.Tot_Benes_2024)+' people'},
   per:{note:'Total yearly spending per patient in 2024, not what each patient paid out of pocket. Drugs with at least 1,000 Medicare patients.',v:d=>d.Avg_Spnd_Per_Bene_2024,l:d=>money(d.Avg_Spnd_Per_Bene_2024),sub:d=>fmt(d.Tot_Benes_2024)+' people'},
   growth:{note:'Growth in total spending from 2020 to 2024, among drugs with at least $100M of spending in 2020.',v:d=>d.Tot_Spndng_2024/d.Tot_Spndng_2020,l:d=>(d.Tot_Spndng_2024/d.Tot_Spndng_2020).toFixed(1)+'×',sub:d=>money(d.Tot_Spndng_2020)+' → '+money(d.Tot_Spndng_2024)},
   cheap:{note:'Lowest average total cost per prescription fill, 2024, among drugs taken by at least 2 million Medicare patients.',v:d=>d.Avg_Spnd_Per_Clm_2024,l:d=>money(d.Avg_Spnd_Per_Clm_2024),sub:d=>fmt(d.Tot_Benes_2024)+' people',low:true}

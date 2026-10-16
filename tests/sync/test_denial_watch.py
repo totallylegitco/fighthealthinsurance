@@ -65,6 +65,8 @@ class TestDenialWatchPage(TestCase):
     def test_counter_is_labeled_as_an_illustration(self):
         # Reviewers flagged a running count as reading like a live feed.
         self.assertIn("An illustration, not a live count", self.content)
+        # Screen readers hear the group's label first.
+        self.assertNotIn("Estimated denials today", self.content)
 
     def test_page_names_its_sources(self):
         # Checked outside the embedded JSON, which carries every URL anyway.
@@ -154,9 +156,25 @@ class TestDenialWatchCopyMatchesData(TestCase):
         split = {t["year"]: "in_denied" in t for t in DATA["trend"]}
         self.assertFalse(split[2020] or split[2021])
 
-    def test_2021_denial_share_in_the_trend(self):
-        y2021 = next(t for t in DATA["trend"] if t["year"] == 2021)
-        self.assertIn(f"from {_pct(y2021['rate'])} in 2021", self.content)
+    def test_denial_share_in_the_trend_starts_at_2020_and_names_the_peak(self):
+        by_year = {t["year"]: t["rate"] for t in DATA["trend"]}
+        peak = max(by_year, key=lambda y: by_year[y])
+        self.assertIn(
+            f"went from {_pct(by_year[2020])} in 2020 to about "
+            f"{_pct(by_year[max(by_year)])}, after peaking at "
+            f"{_pct(by_year[peak])} in {peak}",
+            self.content,
+        )
+
+    def test_not_medically_necessary_share_of_reasons(self):
+        total = sum(r["v"] for r in DATA["reasons"])
+        parts = [r["v"] for r in DATA["reasons"] if "medically necessary" in r["k"]]
+        self.assertEqual(len(parts), 2)
+        self.assertIn(
+            f"is {sum(parts) / total:.1%} of all reasons "
+            f"({sum(parts) / 1e6:.1f} million of {total / 1e6:.1f} million)",
+            self.content,
+        )
 
     def test_california_rate_in_the_steps(self):
         by_year = {r["y"]: r["r"] for r in DATA["imr_trend"]}
@@ -209,7 +227,21 @@ class TestDenialWatchData(TestCase):
             self.assertGreaterEqual(row["c"], 50_000, row["n"])
             if row["a"] is not None:
                 self.assertGreaterEqual(row["a"], 30, row["n"])
-                self.assertLessEqual(row["o"], row["a"], row["n"])
+                if row["o"] is not None:
+                    self.assertLessEqual(row["o"], row["a"], row["n"])
+            else:
+                self.assertIsNone(row["o"], row["n"])
+
+    def test_reasons_leave_out_the_out_of_network_column(self):
+        # CMS defines it as closed-network denials; KFF leaves it out too.
+        self.assertNotIn("Out of network", [r["k"] for r in DATA["reasons"]])
+        self.assertEqual(
+            DATA["reason_meta"]["entries"], sum(r["v"] for r in DATA["reasons"])
+        )
+
+    def test_no_2020_drug_total(self):
+        # The 2024 file lists only drugs still dispensed in 2024.
+        self.assertEqual(set(DATA["drugs"]["total"]), {"y2024"})
 
     def test_trend_is_in_year_order_with_leap_years(self):
         years = [t["year"] for t in DATA["trend"]]
@@ -354,6 +386,14 @@ class TestDenialWatchScriptCountsInNetwork(TestCase):
 
     def test_appeal_ratio_uses_in_network_denials(self):
         self.assertIn("apShare=T.appeals_all/T.in_denied", self.js)
+
+    def test_stat_tiles_compare_with_the_previous_data_year(self):
+        # A fixed index would pair a new year with a stale one.
+        self.assertIn("const P=D.trend[D.trend.length-2]", self.js)
+        self.assertNotIn("D.trend[3]", self.js)
+
+    def test_insurer_table_says_when_cms_withheld_the_win_count(self):
+        self.assertIn("not reported (", self.js)
 
     def test_counter_can_be_paused(self):
         self.assertIn("prefers-reduced-motion", self.js)

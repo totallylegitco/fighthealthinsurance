@@ -39,9 +39,9 @@ MIN_APPEALS_FOR_RATE = 30  # an insurer's appeal win rate is shown only on this 
 MIN_STATE_APPEALS = 50
 
 # Plan-level reason columns (in-network, and a claim can count under more than one).
+# CMS's out-of-network reason counts closed-network denials, so it stays out, as in KFF's.
 REASONS = {
     "plan_number_claims_denied_referral_required": "Prior authorization or referral required",
-    "plan_number_claims_denied_due_to_out_of_network": "Out of network",
     "plan_number_claims_denied_services_excluded": "Service excluded from the plan",
     "plan_number_claims_denied_not_medically_necessary_excluding_behavioral_health": '"Not medically necessary" (physical health)',
     "plan_number_claims_denied_not_medically_necessary_behavioral_health_only": '"Not medically necessary" (behavioral health)',
@@ -170,10 +170,12 @@ def build_denials():
     for i in issuers:
         if not (i["rec_in"] and i["rec_in"] >= MIN_ISSUER_CLAIMS and i["den_in"] is not None):
             continue
-        ok = i["ap_filed"] is not None and i["ap_over"] is not None and i["ap_filed"] >= MIN_APPEALS_FOR_RATE
+        # a without o: enough appeals, but CMS withheld the number won.
+        ok = i["ap_filed"] is not None and i["ap_filed"] >= MIN_APPEALS_FOR_RATE
         table.append(dict(s=i["state"], n=i["issuer"], r=round(i["den_in"] / i["rec_in"], 4),
                           c=int(i["rec_in"]), d=int(i["den_in"]),
-                          a=int(i["ap_filed"]) if ok else None, o=int(i["ap_over"]) if ok else None))
+                          a=int(i["ap_filed"]) if ok else None,
+                          o=int(i["ap_over"]) if ok and i["ap_over"] is not None else None))
 
     reason_rows = sorted(({"k": REASONS[k], "v": v} for k, v in reasons.items()), key=lambda x: -x["v"])
     return dict(trend=trend, states=states, issuers=table, reasons=reason_rows,
@@ -235,7 +237,8 @@ def build_drugs():
     g = p[p.Tot_Spndng_2020 >= 1e8].copy()
     g["x"] = g.Tot_Spndng_2024 / g.Tot_Spndng_2020
     return dict(
-        total=dict(y2024=float(p.Tot_Spndng_2024.sum()), y2020=float(p.Tot_Spndng_2020.sum())),
+        # No 2020 total: this file lists only drugs still dispensed in 2024.
+        total=dict(y2024=float(p.Tot_Spndng_2024.sum())),
         top=rows(p.nlargest(10, "Tot_Spndng_2024")),
         per=rows(p[p.Tot_Benes_2024 >= 1000].nlargest(10, "Avg_Spnd_Per_Bene_2024")),
         growth=rows(g.nlargest(10, "x")),

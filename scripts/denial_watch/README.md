@@ -38,7 +38,9 @@ nothing here runs in the app.
   filed and appeals won.
 - Denial reasons are plan-level, in-network, and not exclusive (one claim can
   count under several), so the page shows them as shares of reasons, not of
-  claims.
+  claims. CMS's out-of-network reason counts closed-network denials, so it is
+  left out, as KFF leaves it out.
 - The California IMR file has some exact duplicate rows, which are dropped.
 - Insurer rows need at least 50,000 in-network claims. An insurer's appeal win
-  rate needs at least 30 appeals, and a state's needs 50.
+  rate needs at least 30 appeals, and a state's needs 50. When CMS withholds an
+  insurer's number won, its row says "not reported" rather than "too few".
