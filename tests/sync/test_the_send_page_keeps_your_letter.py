@@ -6,6 +6,13 @@ spaces after, and appeal.ts copied them into the finished letter that is
 printed and faxed. The page now puts the letter in the box as it is, and the
 script trims what is around a letter before it builds the finished one.
 
+The page also told people in red to save a copy RIGHT NOW and gave them no
+way to do it but selecting the text by hand. It now says it in one calm
+line, beside Copy and Download buttons that keep the finished letter as it
+is, and a status line that says what happened and how many blanks are left.
+And the fax form asked for a name the person had already given in the
+details panel; it now takes it from there until they type one of their own.
+
 The page is rendered by the real view and read the way a browser reads a
 textarea. The script is the real TypeScript, compiled with the repo's own
 tsc (the same flags as test_letter_placeholders.py) and loaded in node over
@@ -49,7 +56,9 @@ def textarea_value(textarea) -> str:
     return text[1:] if text.startswith("\n") else text
 
 
-class SendPageRendersTheLetterAsItIsTest(TestCase):
+class SendPageTestCase(TestCase):
+    """The send page as ChooseAppeal renders it for a real case."""
+
     def setUp(self):
         self.client = Client()
         self.denial = Denial.objects.create(
@@ -74,6 +83,8 @@ class SendPageRendersTheLetterAsItIsTest(TestCase):
         self.assertTemplateUsed(response, "appeal.html")
         return BeautifulSoup(response.content.decode(), "html.parser")
 
+
+class SendPageRendersTheLetterAsItIsTest(SendPageTestCase):
     def test_the_draft_box_holds_the_letter_and_nothing_around_it(self):
         draft = self.render().find("textarea", id="scrubbed_appeal_text")
         self.assertEqual(textarea_value(draft), LETTER)
@@ -92,6 +103,44 @@ class SendPageRendersTheLetterAsItIsTest(TestCase):
         own = {"share-form", "pii-panel", "fax-form"}
         missing = [i for i in ids if i not in own and page.find(id=i) is None]
         self.assertEqual(missing, [])
+
+
+class SendPageKeepACopyTest(SendPageTestCase):
+    """One calm line and two buttons where the red banner was."""
+
+    def test_the_red_save_banner_is_gone(self):
+        page = self.render()
+        self.assertNotIn("RIGHT NOW", page.get_text())
+        self.assertEqual(page.select(".alert-box-danger"), [])
+
+    def test_one_calm_line_says_to_keep_a_copy(self):
+        row = self.render().find(id="keep-a-copy")
+        self.assertEqual(
+            [p.get_text(strip=True) for p in row.find_all("p")],
+            ["Keep a copy of your letter for your records."],
+        )
+
+    def test_copy_and_download_sit_beside_it_as_plain_buttons(self):
+        row = self.render().find(id="keep-a-copy")
+        buttons = {b["id"]: b for b in row.find_all("button")}
+        self.assertEqual(sorted(buttons), ["copy_appeal", "download_appeal"])
+        for button in buttons.values():
+            self.assertEqual(button.get("type"), "button")
+            self.assertIn("fhi-button-secondary", button["class"])
+
+    def test_what_happened_is_announced(self):
+        status = self.render().find(id="keep-a-copy-status")
+        self.assertEqual(status.get("role"), "status")
+
+    def test_the_buttons_come_after_the_letter_and_before_the_ways_to_send_it(self):
+        html = str(self.render())
+        self.assertLess(html.index('id="scrubbed_appeal_text"'), html.index('id="keep-a-copy"'))
+        self.assertLess(html.index('id="keep-a-copy"'), html.index('id="fax_appeal"'))
+
+    def test_the_fax_form_still_asks_for_a_name(self):
+        """The script fills it in; the server still needs one."""
+        name = self.render().find("input", id="id_name")
+        self.assertIsNotNone(name.get("required"))
 
 
 @pytest.fixture(scope="module")
@@ -179,3 +228,146 @@ def test_the_details_block_still_follows_a_trimmed_letter(compiled):
         compiled, "load", draft=INDENTED, stored={"store_fname": "Rebecca", "store_lname": "Crumpler"}
     )
     assert page["letter"] == LETTER + "\n\n---\nPatient Information:\nName: Rebecca Crumpler"
+
+
+# The finished letter for a person whose details are stored, from LETTER.
+STORED = {"store_fname": "Rebecca", "store_lname": "Crumpler"}
+FINISHED = LETTER + "\n\n---\nPatient Information:\nName: Rebecca Crumpler"
+COPIED = "Copied. Paste it somewhere safe, like an email to yourself."
+
+
+@needs_node
+def test_copy_puts_the_finished_letter_on_the_clipboard(compiled):
+    page = run_scenario(compiled, "copy", draft=LETTER, stored=STORED)
+    assert (page["clipboard"], page["status"]) == ([FINISHED], COPIED)
+
+
+@needs_node
+def test_copy_without_the_clipboard_api_copies_the_selected_letter(compiled):
+    page = run_scenario(compiled, "copy", draft=LETTER, stored=STORED, clipboard="missing")
+    assert (page["execCopies"], page["status"]) == (
+        [{"command": "copy", "selected": FINISHED}],
+        COPIED,
+    )
+
+
+@needs_node
+def test_copy_outside_https_uses_the_older_way(compiled):
+    page = run_scenario(compiled, "copy", draft=LETTER, stored=STORED, secure=False)
+    assert (page["clipboard"], len(page["execCopies"])) == ([], 1)
+
+
+@needs_node
+def test_a_copy_the_browser_refuses_says_so_and_leaves_the_letter_selected(compiled):
+    page = run_scenario(
+        compiled, "copy", draft=LETTER, stored=STORED, clipboard="refuses", execCopies=False
+    )
+    assert page["status"] == (
+        "We couldn't copy it for you. Your letter is selected, so you can copy it yourself."
+    )
+    assert (page["focused"], page["execCopies"][0]["selected"]) == (
+        "id_completed_appeal_text",
+        FINISHED,
+    )
+
+
+@needs_node
+def test_copy_keeps_a_letter_with_blanks_and_says_how_many_are_left(compiled):
+    draft = LETTER.replace("my MRI.", "my MRI on [Date of Service].")
+    page = run_scenario(compiled, "copy", draft=draft, stored=STORED)
+    assert len(page["clipboard"]) == 1
+    assert page["status"] == (
+        COPIED + " It still has 1 blank to fill in before you send it, like [Date of Service]."
+    )
+
+
+@needs_node
+def test_an_empty_letter_is_not_copied(compiled):
+    page = run_scenario(compiled, "copy", draft=LETTER, letter="  \n ")
+    assert (page["clipboard"], page["execCopies"], page["status"]) == (
+        [],
+        [],
+        "There is no letter to copy yet.",
+    )
+
+
+@needs_node
+def test_download_saves_the_finished_letter_as_a_text_file(compiled):
+    page = run_scenario(compiled, "download", draft=LETTER, stored=STORED)
+    assert page["files"] == [{"text": FINISHED, "type": "text/plain;charset=utf-8"}]
+    assert (page["link"]["download"], page["moved"]) == ("appeal-letter.txt", ["a.click()"])
+    assert page["status"] == "Your letter is downloading as appeal-letter.txt."
+
+
+@needs_node
+def test_the_download_leaves_nothing_behind(compiled):
+    page = run_scenario(compiled, "download", draft=LETTER, stored=STORED)
+    assert page["link"]["stillOnPage"] is False
+    assert (page["revokedAtOnce"], page["revoked"]) == ([], [page["link"]["href"]])
+
+
+@needs_node
+def test_an_empty_letter_is_not_downloaded(compiled):
+    page = run_scenario(compiled, "download", draft=LETTER, letter="")
+    assert (page["files"], page["moved"], page["status"]) == (
+        [],
+        [],
+        "There is no letter to download yet.",
+    )
+
+
+@needs_node
+def test_the_fax_name_comes_from_the_details_the_person_gave(compiled):
+    page = run_scenario(compiled, "fax-name", draft=LETTER, stored=STORED)
+    assert page["seen"] == ["Rebecca Crumpler"]
+
+
+@needs_node
+def test_the_fax_name_follows_the_details_panel(compiled):
+    page = run_scenario(
+        compiled, "fax-name", draft=LETTER, stored=STORED, steps=[["pii_fname", "Rebecca Lee"]]
+    )
+    assert page["seen"] == ["Rebecca Crumpler", "Rebecca Lee Crumpler"]
+
+
+@needs_node
+def test_a_name_typed_in_the_fax_form_is_kept(compiled):
+    page = run_scenario(
+        compiled,
+        "fax-name",
+        draft=LETTER,
+        stored=STORED,
+        steps=[["id_name", "Ida B. Wells"], ["pii_lname", "Wells"]],
+    )
+    assert page["seen"] == ["Rebecca Crumpler", "Ida B. Wells", "Ida B. Wells"]
+
+
+@needs_node
+def test_clearing_the_fax_name_lets_the_panel_fill_it_again(compiled):
+    page = run_scenario(
+        compiled,
+        "fax-name",
+        draft=LETTER,
+        stored=STORED,
+        steps=[["id_name", ""], ["pii_fname", "Rebecca Lee"]],
+    )
+    assert page["seen"] == ["Rebecca Crumpler", "", "Rebecca Lee Crumpler"]
+
+
+@needs_node
+def test_a_name_the_server_sent_back_is_kept(compiled):
+    page = run_scenario(
+        compiled,
+        "fax-name",
+        draft=LETTER,
+        stored=STORED,
+        faxName="Ida B. Wells",
+        steps=[["pii_fname", "Rebecca Lee"]],
+    )
+    assert page["seen"] == ["Ida B. Wells", "Ida B. Wells"]
+
+
+@needs_node
+def test_no_details_leaves_the_fax_name_for_the_person(compiled):
+    page = run_scenario(compiled, "fax-name", draft=LETTER)
+    assert page["seen"] == [""]
