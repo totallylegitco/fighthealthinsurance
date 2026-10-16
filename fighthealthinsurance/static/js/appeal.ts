@@ -205,9 +205,10 @@ function descrub(force = false) {
 function printAppeal() {
   console.log("Starting to print.");
   const childWindow = window.open("", "_blank", "");
-  const completedAppealText =
+  const completedAppealText = (
     (document.getElementById("id_completed_appeal_text") as HTMLTextAreaElement)
-      ?.value || "";
+      ?.value || ""
+  ).trim();
 
   if (childWindow) {
     // The letter is typed by the person and written by a model, so it is
@@ -270,10 +271,13 @@ function blanksStillToFill(text: string): string {
   return " It still has " + count + " to fill in before you send it, like " + found[0] + ".";
 }
 
-// The older way to copy, for browsers without the clipboard API.
+// The older way to copy, for browsers without the clipboard API. It selects
+// the letter in place, without scrolling away from the message by the button.
 function copyBySelecting(letter: HTMLTextAreaElement): boolean {
-  letter.focus();
-  letter.select();
+  const start = letter.value.search(/\S/);
+  const end = letter.value.replace(/\s+$/, "").length;
+  letter.focus({ preventScroll: true });
+  letter.setSelectionRange(Math.max(start, 0), end);
   try {
     return document.execCommand("copy");
   } catch {
@@ -281,10 +285,10 @@ function copyBySelecting(letter: HTMLTextAreaElement): boolean {
   }
 }
 
-async function copyLetter(): Promise<void> {
+async function copyLetter(button: HTMLElement): Promise<void> {
   const letter = finishedLetter();
-  const text = letter ? letter.value : "";
-  if (!letter || text.trim() === "") {
+  const text = letter ? letter.value.trim() : "";
+  if (!letter || text === "") {
     sayAboutTheCopy("There is no letter to copy yet.");
     return;
   }
@@ -299,18 +303,19 @@ async function copyLetter(): Promise<void> {
   }
   if (!copied) {
     copied = copyBySelecting(letter);
+    button.focus({ preventScroll: true });
   }
   sayAboutTheCopy(
     copied
       ? "Copied. Paste it somewhere safe, like an email to yourself." + blanksStillToFill(text)
-      : "We couldn't copy it for you. Your letter is selected, so you can copy it yourself.",
+      : "We couldn't copy it for you. Select your letter in the fax form below and copy it yourself.",
   );
 }
 
 function downloadLetter(): void {
   const letter = finishedLetter();
-  const text = letter ? letter.value : "";
-  if (text.trim() === "") {
+  const text = letter ? letter.value.trim() : "";
+  if (text === "") {
     sayAboutTheCopy("There is no letter to download yet.");
     return;
   }
@@ -422,7 +427,7 @@ function setupAppeal() {
   // Copy and Download keep the letter as it is, blanks and all.
   const copy_button = document.getElementById("copy_appeal");
   if (copy_button != null) {
-    copy_button.onclick = () => copyLetter();
+    copy_button.onclick = () => copyLetter(copy_button);
   }
   const download_button = document.getElementById("download_appeal");
   if (download_button != null) {

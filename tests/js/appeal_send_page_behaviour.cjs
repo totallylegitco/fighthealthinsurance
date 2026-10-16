@@ -129,7 +129,6 @@ page.document.execCommand = (command) => {
   });
   return input.execCopies !== false;
 };
-letter.select = () => letter.setSelectionRange(0, letter.value.length);
 letter.setSelectionRange(0, 0);
 
 // A download: the file's contents, and the address made for it.
@@ -151,6 +150,19 @@ Object.defineProperty(global, 'URL', {
   configurable: true,
   writable: true,
 });
+// Print opens a window of its own; this one records what was written in it.
+const printWindows = [];
+global.window.open = (url) => {
+  page.movedThePerson.push('window.open(' + url + ')');
+  const child = buildPage('<div></div>');
+  child.document.open = () => {};
+  child.document.write = () => {};
+  child.document.close = () => {};
+  const win = {document: child.document, print: () => {}};
+  printWindows.push(child);
+  return win;
+};
+
 const links = [];
 const createElement = page.document.createElement;
 page.document.createElement = (tag) => {
@@ -233,6 +245,16 @@ const scenarios = {
       revokedAtOnce: revokedAtOnce,
       revoked: revoked,
     });
+  },
+  // The person presses Print My Appeal on a letter with no blanks.
+  print() {
+    loadPage();
+    if (input.letter !== undefined) letter.value = input.letter;
+    doc.getElementById('print_appeal').onclick({});
+    const printed = printWindows.map((child) =>
+      child.body.querySelectorAll('pre').map((pre) => pre.textContent).join(''),
+    );
+    report({printed: printed});
   },
   // The fax form's name as the page loads, then after each thing typed.
   'fax-name'() {

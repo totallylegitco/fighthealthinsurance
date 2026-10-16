@@ -137,6 +137,9 @@ class SendPageKeepACopyTest(SendPageTestCase):
         self.assertLess(html.index('id="scrubbed_appeal_text"'), html.index('id="keep-a-copy"'))
         self.assertLess(html.index('id="keep-a-copy"'), html.index('id="fax_appeal"'))
 
+    def test_the_page_has_no_em_dash(self):
+        self.assertNotIn("\u2014", self.render().get_text())
+
     def test_the_fax_form_still_asks_for_a_name(self):
         """The script fills it in; the server still needs one."""
         name = self.render().find("input", id="id_name")
@@ -258,17 +261,55 @@ def test_copy_outside_https_uses_the_older_way(compiled):
 
 
 @needs_node
-def test_a_copy_the_browser_refuses_says_so_and_leaves_the_letter_selected(compiled):
+def test_a_copy_the_browser_refuses_says_where_the_letter_is(compiled):
     page = run_scenario(
         compiled, "copy", draft=LETTER, stored=STORED, clipboard="refuses", execCopies=False
     )
     assert page["status"] == (
-        "We couldn't copy it for you. Your letter is selected, so you can copy it yourself."
+        "We couldn't copy it for you."
+        " Select your letter in the fax form below and copy it yourself."
     )
-    assert (page["focused"], page["execCopies"][0]["selected"]) == (
-        "id_completed_appeal_text",
-        FINISHED,
+
+
+@needs_node
+def test_the_older_copy_leaves_the_person_by_the_button_and_its_message(compiled):
+    """Selecting the letter in the fax form used to scroll the page down to
+    it, away from the message beside the button (Codex)."""
+    for clipboard, works in (("missing", True), ("refuses", False)):
+        page = run_scenario(
+            compiled, "copy", draft=LETTER, stored=STORED, clipboard=clipboard, execCopies=works
+        )
+        assert page["focused"] == "copy_appeal", clipboard
+
+
+# The finished letter after the person pasted it in with space around it.
+SPACED = "\n  " + FINISHED + "\n\n  "
+
+
+@needs_node
+def test_copy_leaves_out_the_space_around_a_letter(compiled):
+    page = run_scenario(compiled, "copy", draft=LETTER, stored=STORED, letter=SPACED)
+    assert page["clipboard"] == [FINISHED]
+
+
+@needs_node
+def test_the_older_copy_selects_the_letter_without_the_space_around_it(compiled):
+    page = run_scenario(
+        compiled, "copy", draft=LETTER, stored=STORED, letter=SPACED, clipboard="missing"
     )
+    assert page["execCopies"] == [{"command": "copy", "selected": FINISHED}]
+
+
+@needs_node
+def test_download_leaves_out_the_space_around_a_letter(compiled):
+    page = run_scenario(compiled, "download", draft=LETTER, stored=STORED, letter=SPACED)
+    assert [f["text"] for f in page["files"]] == [FINISHED]
+
+
+@needs_node
+def test_print_leaves_out_the_space_around_a_letter(compiled):
+    page = run_scenario(compiled, "print", draft=LETTER, stored=STORED, letter=SPACED)
+    assert page["printed"] == [FINISHED]
 
 
 @needs_node
