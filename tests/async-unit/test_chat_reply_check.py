@@ -812,6 +812,25 @@ class TestReplyGate:
         assert gate.scores is None
         assert isinstance(gate.ms, int)
 
+    @pytest.mark.asyncio
+    async def test_a_verdict_the_fan_out_never_saw_is_a_timeout(self):
+        """Jev answered, but after the hold ran out: the fan-out sent the
+        outside calls as after a delay without the verdict. The row says
+        the check timed out, with no scores, not that the reply passed."""
+        gate = _gate()
+        gate.used = True
+        with (
+            override_settings(**ENABLED),
+            _no_identifiers(),
+            patch.object(chat_gate, "_post", new=AsyncMock(return_value=_payload())),
+        ):
+            assert (await gate.judge(MESSAGE, REPLY, "fhi-local")).passed is True
+        gate.finish(verdict_seen=False)
+        assert gate.outcome == chat_gate.TIMEOUT
+        assert gate.scores is None
+        assert gate.crucial is False
+        assert isinstance(gate.ms, int)
+
     def test_a_gate_that_never_judged_is_skipped(self):
         gate = _gate()
         gate.used = True

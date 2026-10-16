@@ -197,6 +197,15 @@ async def agenerate_and_store_appeals(denial) -> int:
     if len(baseline) >= TARGET_APPEALS:
         return 0
 
+    # Read before the lease is taken: a database error here must not leave
+    # a lease held with nothing to renew or release it, which would make
+    # every retry inside its TTL find it held.
+    from channels.db import database_sync_to_async
+
+    from fighthealthinsurance.assistant_drafts import answers_for_generation
+
+    answers = await database_sync_to_async(answers_for_generation)(denial)
+
     # Single-writer boundary: take the denial's generation lease (never
     # stealing -- a live interactive run outranks a background job). Held
     # means another generator owns it right now; back off via the retry
@@ -245,11 +254,6 @@ async def agenerate_and_store_appeals(denial) -> int:
             denial, lease.epoch, lease_clock, on_lost=_lost
         )
 
-    from channels.db import database_sync_to_async
-
-    from fighthealthinsurance.assistant_drafts import answers_for_generation
-
-    answers = await database_sync_to_async(answers_for_generation)(denial)
     extender = asyncio.create_task(_keep_lease())
     frames = 0
     stolen = False

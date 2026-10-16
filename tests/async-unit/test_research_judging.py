@@ -277,6 +277,27 @@ class TestJudgeArticlesForADenial:
         denial.refresh_from_db()
         assert denial.pubmed_ids_json == ["2"]
 
+    def test_selected_articles_not_fetched_in_time_stay_on_the_row(self):
+        # The search selected three; the fetch was cut after two. Judging
+        # drops one of the two it saw, and the third, never judged, stays.
+        denial = _denial(pubmed_ids_json=["1", "2", "3"])
+        articles = [_article("1"), _article("2")]
+        answers = {
+            "Title 1": _payload(on_topic=0.05),
+            "Title 2": _payload(on_topic=0.9, supports=0.9),
+        }
+
+        async def fake_post(state, questions, timeout):
+            return next(p for title, p in answers.items() if title in state)
+
+        with override_settings(**ENABLED), patch.object(rj, "_post", fake_post):
+            kept = async_to_sync(PubMedTools()._judged_for_context)(
+                denial, articles, searched=True, selected=["1", "2", "3"]
+            )
+        assert [a.pmid for a in kept] == ["2"]
+        denial.refresh_from_db()
+        assert denial.pubmed_ids_json == ["2", "3"]
+
     def test_a_selection_already_on_the_row_is_only_reordered(self):
         denial = _denial(pubmed_ids_json=["1", "2"])
         articles = [_article("1"), _article("2")]

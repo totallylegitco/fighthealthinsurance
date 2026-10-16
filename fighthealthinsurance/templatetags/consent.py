@@ -12,7 +12,9 @@ register = template.Library()
 @register.simple_tag
 def consent_label(name: str) -> SafeString:
     if name == "pii":
-        return format_html("I've taken my personal details out of the letter above.")
+        return format_html(
+            "{}", "I've taken my personal details out of the letter above."
+        )
     if name == "privacy":
         return format_html(
             'I have read and understand the <a class="link" href="{}">privacy policy.</a>',

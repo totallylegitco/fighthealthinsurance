@@ -888,8 +888,14 @@ def _page_path(value: str) -> str:
     """A site path from a fighthealthinsurance.com URL or a bare path."""
     text = value.strip()
     if "://" in text or text.split("/", 1)[0].lower() in _SITE_HOSTS:
-        parts = urlsplit(text if "://" in text else "https://" + text)
-        if (parts.hostname or "").lower() not in _SITE_HOSTS:
+        try:
+            parts = urlsplit(text if "://" in text else "https://" + text)
+            hostname = (parts.hostname or "").lower()
+        except ValueError:
+            # urlsplit refuses some malformed URLs (an unbalanced "[" for
+            # one): a bad argument, not a failure of ours.
+            hostname = ""
+        if hostname not in _SITE_HOSTS:
             raise ToolError(
                 "get_page only reads fighthealthinsurance.com pages. Use a "
                 "URL from search_site or another tool's result."

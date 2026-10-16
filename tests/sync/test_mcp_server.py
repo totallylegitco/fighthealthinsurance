@@ -1037,6 +1037,12 @@ class SiteSearchAndPagesTest(TestCase):
         self.assertTrue(result.isError)
         self.assertIn("only reads fighthealthinsurance.com", text_of(result))
 
+    async def test_get_page_refuses_a_malformed_url_as_a_bad_argument(self):
+        # urlsplit raises on an unbalanced "[": a refusal, not a failure.
+        result = await call("get_page", {"url": "https://[::1/about"})
+        self.assertTrue(result.isError)
+        self.assertIn("only reads fighthealthinsurance.com", text_of(result))
+
     async def test_get_page_never_reaches_a_route_outside_the_twins(self):
         with mock.patch.object(mcp_server, "_get_in_process") as fetch:
             result = await call("get_page", {"url": "/timbit/help/status"})

@@ -1017,7 +1017,11 @@ class ChatInterface:
                 else:
                     turn.set_external_start(STAGE_IMMEDIATE, 0.0)
             if turn is not None and gate is not None:
-                gate.finish()
+                # The race sets check_passed when it acted on the verdict; a
+                # verdict that landed after the hold ran out was not seen.
+                gate.finish(
+                    verdict_seen=stage is None or stage.check_passed is not None
+                )
                 gate_scores = gate.scores
                 turn.set_gate(
                     gate.outcome,
@@ -1074,6 +1078,24 @@ class ChatInterface:
                         response_text, context_part = top_result
                         picked_model = call_labels.get(top)
                         picked_score = score_log.get(top, picked_score)
+                    # The row's runner-up is Jev's best other reply, whether
+                    # or not the pick moved: the race's may now be the pick
+                    # itself, or one Jev ranked lower.
+                    shown = _shown_reply(picked_result)
+                    second = next(
+                        (
+                            c
+                            for c in jev_order
+                            if _shown_reply(completed_results[c]) != shown
+                        ),
+                        None,
+                    )
+                    if second is not None:
+                        runner_up_text = completed_results[second][0]
+                        runner_up_model = call_labels.get(second)
+                        runner_up_score = score_log.get(second)
+                    else:
+                        runner_up_text = runner_up_model = runner_up_score = None
                 turn.set_rank(gate.rank_outcome, gate.rank_ms, gate.rank_count, changed)
         if gate is not None:
             # The identifier list is needed no further than the ranking.

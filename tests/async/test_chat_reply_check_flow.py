@@ -866,6 +866,9 @@ class ChatJevTiersTest(_CheckedTurns, APITransactionTestCase):
         self.assertIn("THE REPLY 2:", jev.states[1])
         self.assertEqual(frames.last_content(), SECOND_OPINION_REPLY)
         self.assertEqual(row.winner_model, "claude")
+        # The runner-up follows the pick: Jev's second, not the race's pick
+        # twice over.
+        self.assertEqual(row.runner_up_model, "fhi-local")
         self.assertEqual(
             (row.rank_outcome, row.rank_count, row.rank_changed),
             ("picked", 2, True),
@@ -955,6 +958,23 @@ class ChatJevTiersTest(_CheckedTurns, APITransactionTestCase):
         self.assertEqual(kimi.calls, [])
         self.assertNotIn("kimi", {c["model"] for c in row.calls})
         self.assertNotIn("alternate_content", frames.last_reply_frame())
+
+    async def test_a_ranking_that_keeps_the_pick_still_sets_jevs_runner_up(self):
+        """Jev keeps the race's pick but ranks kimi above the outside model:
+        the row's runner-up is kimi, Jev's second, not the race's."""
+        kimi = self._kimi()
+        # Race order: ours, the outside model, kimi (lower base scores).
+        jev = _Jev(
+            payload=_answers(answers=0.8, crucial=0.9), rank=_ranked(0.9, 0.5, 0.7)
+        )
+        with _side_by_side_model(kimi):
+            row, _outside, frames, _elapsed, _logs = await self._turn(
+                "tier9", "9999931309", jev
+            )
+        self.assertEqual(frames.last_content(), FRESH_REPLY)
+        self.assertEqual((row.rank_count, row.rank_changed), (3, False))
+        self.assertEqual(row.winner_model, "fhi-local")
+        self.assertEqual(row.runner_up_model, "kimi")
 
     async def test_a_crucial_borderline_turn_shows_jevs_top_two(self):
         kimi = self._kimi()

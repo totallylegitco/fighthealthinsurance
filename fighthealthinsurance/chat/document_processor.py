@@ -15,7 +15,10 @@ from typing import Dict, List, Optional
 from django.utils import timezone
 from loguru import logger
 
-from fighthealthinsurance.ml.ml_inference import infer_with_fallback
+from fighthealthinsurance.ml.ml_inference import (
+    TRANSPORT_TIMEOUT_GRACE_SECONDS,
+    infer_with_fallback,
+)
 from fighthealthinsurance.models import ChatDocument
 from fighthealthinsurance.utils import fire_and_forget_in_new_threadpool
 
@@ -275,13 +278,15 @@ def max_summarization_seconds(full_text: str) -> float:
     """Hard upper bound on how long one summarize_chunks run can take.
 
     Every model call it makes goes through infer_with_fallback, which tries at
-    most SUMMARY_MODEL_ATTEMPTS models, each under its own wait_for. A batch's
-    chunks run concurrently, so each batch costs at most one call's worth, and
-    the overall summary one more.
+    most SUMMARY_MODEL_ATTEMPTS models, each under its own wait_for (the
+    timeout plus TRANSPORT_TIMEOUT_GRACE_SECONDS). A batch's chunks run
+    concurrently, so each batch costs at most one call's worth, and the
+    overall summary one more.
     """
     batches = math.ceil(len(chunk_document(full_text)) / CHUNK_BATCH_SIZE)
+    grace = TRANSPORT_TIMEOUT_GRACE_SECONDS
     return SUMMARY_MODEL_ATTEMPTS * (
-        batches * SUMMARIZE_TIMEOUT + OVERALL_SUMMARY_TIMEOUT
+        batches * (SUMMARIZE_TIMEOUT + grace) + OVERALL_SUMMARY_TIMEOUT + grace
     )
 
 

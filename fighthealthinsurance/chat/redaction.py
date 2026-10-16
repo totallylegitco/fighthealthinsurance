@@ -92,14 +92,50 @@ class _Found:
             self.add(part, person)
 
     def date_of_birth(self, dob: Optional[datetime.date]) -> None:
+        """The date as people type it: numeric with slashes, dashes or dots,
+        month and day each zero-padded or not, with a two- or four-digit
+        year, and spelled out with the month's name, the day plain or as an
+        ordinal ("March 7th, 1984", "the 7th of March 1984")."""
         if dob is None:
             return
-        for spelling in (
+        month, day, year = dob.month, dob.day, dob.year
+        spellings = [
             dob.isoformat(),
-            dob.strftime("%m/%d/%Y"),
-            f"{dob.month}/{dob.day}/{dob.year}",
-        ):
+            dob.strftime("%Y/%m/%d"),
+            dob.strftime("%m%d%Y"),
+        ]
+        for sep in ("/", "-", "."):
+            for m in dict.fromkeys((f"{month:02d}", str(month))):
+                for d in dict.fromkeys((f"{day:02d}", str(day))):
+                    for y in (str(year), f"{year % 100:02d}"):
+                        spellings.append(f"{m}{sep}{d}{sep}{y}")
+        names = [dob.strftime("%B"), dob.strftime("%b"), dob.strftime("%b") + "."]
+        if month == 9:
+            names += ["Sept", "Sept."]
+        days = dict.fromkeys((str(day), f"{day:02d}", str(day) + _ordinal(day)))
+        for name in names:
+            for d in days:
+                spellings += [
+                    f"{name} {d}, {year}",
+                    f"{name} {d},{year}",
+                    f"{name} {d} {year}",
+                    f"{d} {name} {year}",
+                    f"{d} {name}, {year}",
+                    f"{d} of {name} {year}",
+                    f"{d} of {name}, {year}",
+                ]
+        # Day-month-year with dashes, as health records print it (07-Mar-1984).
+        for d in dict.fromkeys((f"{day:02d}", str(day))):
+            for y in (str(year), f"{year % 100:02d}"):
+                spellings.append(f"{d}-{dob.strftime('%b')}-{y}")
+        for spelling in dict.fromkeys(spellings):
             self.add(spelling, "DOB")
+
+
+def _ordinal(day: int) -> str:
+    if 11 <= day % 100 <= 13:
+        return "th"
+    return {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
 
 
 def chat_redactions(chat_id: Any) -> List[Tuple[str, str]]:

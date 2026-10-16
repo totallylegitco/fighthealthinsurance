@@ -375,4 +375,14 @@ class AssistantHandoffView(View):
         content = claim_handoff(token, binder=binder)
         if content is None:
             return self._landing(request, dead=True)
+        if assistant_terms_views.opens_terms_page(content):
+            # A chat link pressed without its binder (a page served before
+            # the flag flip) opens the site's form, as the terms page's own
+            # fallback does, and the assistant hears on_site the same way
+            # rather than waiting for an agreement that is not coming.
+            from fighthealthinsurance import assistant_drafts
+
+            assistant_drafts.finish_on_site(
+                assistant_drafts.waiting_draft(content.draft)
+            )
         return render_site_form(request, content)

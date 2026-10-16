@@ -47,7 +47,7 @@ from django.db import IntegrityError, close_old_connections, transaction
 
 from django.db.models import Case, F, Q, QuerySet, Value, When
 from django.db.models.functions import Length
-from django.forms import Form
+from django.forms import BooleanField, Form
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils.html import format_html, escape as html_escape
@@ -5983,6 +5983,10 @@ class AppealsBackendHelper:
         main = []
         footer = []
         medical_context = set()
+        # Whether the answers hold a box of a form that derives the sentence
+        # (the site stores an unticked one as False): then what it derives
+        # now, even nothing, is the person's decision.
+        answered_context_form = False
         plan_context = set()
         # Extract any medical context AND
         # Apply all of our 'expert system'
@@ -5995,6 +5999,12 @@ class AppealsBackendHelper:
                     # Check and see if the form has a context method
                     op = getattr(parsed, "medical_context", None)
                     if op is not None and callable(op):
+                        if any(
+                            name in parameters
+                            for name, field in parsed.fields.items()
+                            if isinstance(field, BooleanField)
+                        ):
+                            answered_context_form = True
                         try:
                             mc = parsed.medical_context()
                             if mc is not None:
@@ -6060,10 +6070,14 @@ class AppealsBackendHelper:
         # (PR #963 review).
         dirty_fields = set() if background else {"gen_attempts"}
         # Only a questionnaire submission can withdraw the derived sentence.
-        # Back and background generation carry no answers, so their empty
-        # forms say nothing about what the person decided.
+        # Back generation carries no answers. A background run's answers are
+        # the stored ones: the assistant's, filed under the questions' text,
+        # say nothing about the boxes, but a box the site stored does.
         if record_derived_medical_context(
-            denial, medical_context, withdraw=bool(parameters.get("questionnaire"))
+            denial,
+            medical_context,
+            withdraw=bool(parameters.get("questionnaire"))
+            and (not background or answered_context_form),
         ):
             dirty_fields.add("qa_context")
         if plan_context:

@@ -2092,6 +2092,13 @@ class TestLetterRequestDetector(TestCase):
             "Since my MRI was not approved can you write an appeal letter?",
             "My insurance would not cover my surgery so please draft the appeal letter",
             "They won't pay for it so can you write the appeal",
+            "The insurer never responded help me write the appeal",
+            "It was not covered I need you to draft an appeal letter",
+            "They won't approve it and I'd like you to write the letter",
+            "My MRI was not approved, I need you to write an appeal",
+            "They never said why help me write the appeal",
+            "They did not send it to me help me write the appeal",
+            "I asked why and they never said help me write an appeal",
         ]:
             with self.subTest(message=message):
                 self.assertTrue(looks_like_letter_request(message))
@@ -2105,7 +2112,34 @@ class TestLetterRequestDetector(TestCase):
             "I do not want you to write the appeal letter",
             "Please don’t draft the letter yet",
             "Never write an appeal for me",
+            "Do not help me write the appeal letter",
+            "Don't help me write the appeal letter",
+            "Never help me write the appeal letter",
+            "Stop, I need you to not write the letter",
+            "I don't think I want you to write an appeal letter",
+            "I don't think I need you to draft the appeal letter",
+            "I never want you to write an appeal letter",
             "I don't think you should write the appeal letter",
+        ]:
+            with self.subTest(message=message):
+                self.assertFalse(looks_like_letter_request(message))
+
+    def test_a_negated_ask_is_refused_even_when_it_says_help_me(self):
+        """"Help me" or "I need" right after a negated verb of asking or
+        saying is what the negation refuses, not a new ask."""
+        from fighthealthinsurance.chat.appeal_letter_generator import (
+            looks_like_letter_request,
+        )
+
+        for message in [
+            "I never asked you to help me write the appeal letter",
+            "I never said I want you to write an appeal",
+            "I never wanted you to help me write the letter",
+            "I would never ask you to help me draft an appeal",
+            "I did not tell you I need you to write the letter",
+            "I never requested that you help me write the appeal",
+            "I'd never ask you to help me write the appeal",
+            "We never asked you to help me write the appeal letter",
         ]:
             with self.subTest(message=message):
                 self.assertFalse(looks_like_letter_request(message))

@@ -674,3 +674,23 @@ class TestSummarizationTimeBounds(TestCase):
         small = "A short denial letter. " * 100
         large = small * 50
         assert max_summarization_seconds(large) > max_summarization_seconds(small)
+
+    def test_bound_covers_each_wait_with_its_grace(self):
+        """infer_with_fallback waits each model's timeout plus the grace the
+        transport's own timeout gets to fire first."""
+        from fighthealthinsurance.chat.document_processor import (
+            CHUNK_BATCH_SIZE,
+            OVERALL_SUMMARY_TIMEOUT,
+            SUMMARIZE_TIMEOUT,
+            SUMMARY_MODEL_ATTEMPTS,
+            chunk_document,
+        )
+        from fighthealthinsurance.ml.ml_inference import (
+            TRANSPORT_TIMEOUT_GRACE_SECONDS as grace,
+        )
+
+        text = "A short denial letter. " * 2000
+        batches = -(-len(chunk_document(text)) // CHUNK_BATCH_SIZE)
+        assert max_summarization_seconds(text) >= SUMMARY_MODEL_ATTEMPTS * (
+            batches * (SUMMARIZE_TIMEOUT + grace) + OVERALL_SUMMARY_TIMEOUT + grace
+        )
