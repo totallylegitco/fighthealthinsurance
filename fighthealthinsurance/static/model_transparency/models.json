@@ -1,5 +1,5 @@
 {
- "about": "The models behind Fight Health Insurance's appeal letters, for the About Our AI page. Add a model or judge with a new entry; retire one by setting retired and retired_reason, never by deleting it. While show_details is false, a model we run ourselves (ours: true) is shown as an FHI model with no base model, maker or setup, and the tests, judges and changes marked detail stay off the page; true shows them. Totals only: no letters, denials or patient details.",
+ "about": "The models behind Fight Health Insurance, for the About Our AI page. Add a model or judge with a new entry; a model's routed_as is the name the model router knows it by, blank for ours and for Jev; retire one by setting retired and retired_reason, never by deleting it. While show_details is false, a model we run ourselves (ours: true) is shown as an FHI model with no base model, maker or setup, and the tests, judges and changes marked detail stay off the page; true shows them. Totals only: no letters, denials or patient details.",
  "show_details": false,
  "models": [
   {
@@ -10,6 +10,7 @@
    "runs_on": "Our own server",
    "setup": "4-bit",
    "ours": true,
+   "routed_as": "",
    "tested_in": "2026-09-letter-test",
    "retired": null,
    "retired_reason": ""
@@ -22,6 +23,7 @@
    "runs_on": "Outside service, only if you allow outside models",
    "setup": "",
    "ours": false,
+   "routed_as": "deepseek-ai/DeepSeek-V4-Pro",
    "tested_in": "2026-09-letter-test",
    "retired": null,
    "retired_reason": ""
@@ -34,6 +36,72 @@
    "runs_on": "Outside service, only if you allow outside models",
    "setup": "",
    "ours": false,
+   "routed_as": "google/gemma-4-26B-A4B-it",
+   "tested_in": "2026-09-letter-test",
+   "retired": null,
+   "retired_reason": ""
+  },
+  {
+   "id": "mistral-small-3.2",
+   "name": "Mistral Small 3.2",
+   "maker": "Mistral AI, through DeepInfra",
+   "role": "Answers in the chat alongside our model. Can also write a cover letter to a regulator or your plan's medical director.",
+   "runs_on": "Outside service, only if you allow outside models",
+   "setup": "",
+   "ours": false,
+   "routed_as": "mistralai/Mistral-Small-3.2-24B-Instruct-2506",
+   "tested_in": "2026-09-letter-test",
+   "retired": null,
+   "retired_reason": ""
+  },
+  {
+   "id": "glm-5.3-flash",
+   "name": "GLM-5.3 Flash",
+   "maker": "Z.ai, through DeepInfra",
+   "role": "Answers in the chat alongside our model. Can also write a cover letter to a regulator or your plan's medical director.",
+   "runs_on": "Outside service, only if you allow outside models",
+   "setup": "",
+   "ours": false,
+   "routed_as": "zai-org/GLM-5.3-Flash",
+   "tested_in": "2026-09-letter-test",
+   "retired": null,
+   "retired_reason": ""
+  },
+  {
+   "id": "deepseek-v4.1-flash",
+   "name": "DeepSeek V4.1 Flash",
+   "maker": "DeepSeek, through DeepInfra",
+   "role": "Answers in the chat alongside our model. Can also write a cover letter to a regulator or your plan's medical director.",
+   "runs_on": "Outside service, only if you allow outside models",
+   "setup": "",
+   "ours": false,
+   "routed_as": "deepseek-ai/DeepSeek-V4.1-Flash",
+   "tested_in": "2026-09-letter-test",
+   "retired": null,
+   "retired_reason": ""
+  },
+  {
+   "id": "qwen3.8",
+   "name": "Qwen3.8",
+   "maker": "Alibaba, through DeepInfra",
+   "role": "Answers in the chat alongside our model. Can also write a cover letter to a regulator or your plan's medical director.",
+   "runs_on": "Outside service, only if you allow outside models",
+   "setup": "",
+   "ours": false,
+   "routed_as": "Qwen/Qwen3.8-2.4T-A95B",
+   "tested_in": null,
+   "retired": null,
+   "retired_reason": ""
+  },
+  {
+   "id": "kimi-k3",
+   "name": "Kimi K3",
+   "maker": "Moonshot AI, through DeepInfra",
+   "role": "At important moments in a chat, gives a second answer you can compare with ours.",
+   "runs_on": "Outside service, only if you allow outside models",
+   "setup": "",
+   "ours": false,
+   "routed_as": "moonshotai/Kimi-K3",
    "tested_in": "2026-09-letter-test",
    "retired": null,
    "retired_reason": ""
@@ -42,11 +110,25 @@
    "id": "perplexity-sonar",
    "name": "Perplexity Sonar",
    "maker": "Perplexity",
-   "role": "Finds sources to cite. Doesn't write letters.",
+   "role": "Finds sources to cite, and suggests questions about your case. Doesn't write letters.",
    "runs_on": "Outside service, only if you allow outside models",
    "setup": "",
    "ours": false,
+   "routed_as": "sonar",
    "tested_in": "2026-09-letter-test",
+   "retired": null,
+   "retired_reason": ""
+  },
+  {
+   "id": "jev",
+   "name": "Jev",
+   "maker": "TypeSafe",
+   "role": "Doesn't write letters. Reads your denial letter for key details, ranks the drafts, checks research before we cite it, and checks chat answers.",
+   "runs_on": "Outside service, only if you allow outside models",
+   "setup": "",
+   "ours": false,
+   "routed_as": "",
+   "tested_in": null,
    "retired": null,
    "retired_reason": ""
   }

@@ -48,6 +48,7 @@ MODEL_FIELDS = frozenset(
         "runs_on",
         "setup",
         "ours",
+        "routed_as",
         "tested_in",
         "retired",
         "retired_reason",
@@ -226,6 +227,7 @@ class Model:
     runs_on: str
     setup: str
     ours: bool
+    routed_as: str
     tested_in: Optional[str]
     retired: Optional[str]
     retired_reason: str
@@ -235,7 +237,12 @@ class Model:
         if not self.ours:
             return self
         return replace(
-            self, name=OUR_MODEL_NAME, maker=OUR_MODEL_FROM, setup="", tested_in=None
+            self,
+            name=OUR_MODEL_NAME,
+            maker=OUR_MODEL_FROM,
+            setup="",
+            routed_as="",
+            tested_in=None,
         )
 
 

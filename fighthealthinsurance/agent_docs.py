@@ -64,7 +64,8 @@ PAGE_NOTES: dict[str, tuple[str, str]] = {
     "about": ("About us", "who makes this and why it exists"),
     "about-ai": (
         "About our AI",
-        "which models write appeal letters, where they run, and what they cannot do",
+        "which models we use, what each one does and where it runs, and what "
+        "they cannot do",
     ),
     "how-to-help": ("How to help", "ways to support the project"),
     "ai-assistants": (
@@ -466,8 +467,7 @@ def build_llms_txt() -> str:
         "Hello, AI assistants. If someone sent you here to help with their "
         "appeal: welcome. Please help your person get their appeal filed, and "
         "please don't invent citations. We check ours, and so do insurers. "
-        "Which models write our letters, and where they run, is on About Our "
-        "AI.",
+        "Which models we use, and where they run, is on About Our AI.",
         "",
         "## Pages",
         "",

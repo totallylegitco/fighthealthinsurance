@@ -99,6 +99,20 @@ class DataFilesTest(TestCase):
     def test_we_run_at_least_one_model_ourselves(self):
         self.assertTrue(_ours())
 
+    def test_every_outside_model_the_router_can_reach_is_listed(self):
+        from fighthealthinsurance.ml.ml_models import DeepInfra, RemotePerplexity
+
+        reachable = set(DeepInfra.CHAT_MODELS)
+        for backend in (DeepInfra, RemotePerplexity):
+            reachable |= {m.name for m in backend.models()}
+        listed = {m.routed_as for m in mt.load().in_use if m.routed_as}
+        self.assertEqual(
+            listed, reachable, "update static/model_transparency/models.json"
+        )
+
+    def test_jev_is_listed(self):
+        self.assertIn("TypeSafe", [m.maker for m in mt.load().in_use])
+
     def test_no_listed_model_comes_through_azure_or_anthropic(self):
         # Those keys are off, so the site can't send a case there.
         for model in mt.load().models:
@@ -132,6 +146,13 @@ class AboutAIPageTest(_PageTest):
 
     def test_the_old_training_claim_is_gone(self):
         self.assertNotContains(self.response, "No real patient appeal letters")
+
+    def test_the_page_says_the_list_changes(self):
+        self.assertContains(
+            self.response,
+            "This list changes. We add and retire models as needed, and update "
+            "this page when we do.",
+        )
 
     def test_the_page_promises_no_dates(self):
         for promise in ("will appear", "will show here", "when that's done"):
@@ -176,7 +197,7 @@ class DetailsHiddenPageTest(_PageTest):
             run.title,
             run.method["writeup_url"],
             "(estimate)",
-            "Jev",
+            "AI judges",
         ):
             self.assertNotContains(self.response, text)
 
