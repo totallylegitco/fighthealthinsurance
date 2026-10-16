@@ -106,12 +106,14 @@ class TestDenialWatchCopyMatchesData(TestCase):
         self.assertIn(f"overturned {_pct(by_year[2025])} of the denials", self.content)
         self.assertIn(f"up from {_pct(by_year[2017])} in 2017", self.content)
 
-    def test_previous_year_appeal_win_rate(self):
+    def test_appeal_win_rate_is_not_compared_with_2023(self):
+        # The insurers reporting changed between years, so it isn't like for like.
         prev = next(t for t in DATA["trend"] if t["year"] == 2023)
         self.assertIn(
-            f"down from {_pct(prev['overturned'] / prev['appeals'])} the year before",
+            "In 2024 insurers reversed about a third of the internal appeals people filed.",
             self.content,
         )
+        self.assertNotIn(_pct(prev["overturned"] / prev["appeals"]), self.content)
 
     def test_share_of_denials_appealed_in_the_steps(self):
         latest = DATA["trend"][-1]
@@ -392,10 +394,11 @@ class TestDenialWatchScriptCountsInNetwork(TestCase):
     def test_appeal_ratio_uses_in_network_denials(self):
         self.assertIn("apShare=T.appeals_all/T.in_denied", self.js)
 
-    def test_stat_tiles_compare_with_the_previous_data_year(self):
-        # A fixed index would pair a new year with a stale one.
-        self.assertIn("const P=D.trend[D.trend.length-2]", self.js)
-        self.assertNotIn("D.trend[3]", self.js)
+    def test_win_rate_shows_the_latest_year_alone(self):
+        # No tile or table column sets the win rate beside an earlier year's.
+        self.assertIn("const T=D.trend[D.trend.length-1]", self.js)
+        self.assertNotIn("down from", self.js)
+        self.assertNotIn('<th class="dw-r">Won</th>', self.js)
 
     def test_insurer_table_says_when_cms_withheld_the_win_count(self):
         self.assertIn("not reported (", self.js)

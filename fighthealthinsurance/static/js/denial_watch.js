@@ -37,12 +37,11 @@ if(pauseBtn)pauseBtn.addEventListener('click',()=>run(!timer));
 
 /* stats */
 const inRate=T.in_rate, apShare=T.appeals_all/T.in_denied, won=T.overturned/T.appeals;
-const P=D.trend[D.trend.length-2];
 const imr25=D.imr_trend.find(r=>r.y===2025);
 $('stats').innerHTML=[
   [pct(inRate,0),'of in-network claims denied on HealthCare.gov plans in '+T.year],
   [fmt(1/apShare),'in-network denials for every internal appeal filed in '+T.year+' ('+big(T.in_denied)+' denials, '+fmt(T.appeals_all)+' appeals)'],
-  [pct(won,0),'of internal appeals won at the insurer in '+T.year+', down from '+pct(P.overturned/P.appeals,0)+' in '+P.year],
+  [pct(won,0),'of internal appeals won at the insurer in '+T.year],
   [pct(imr25.r,0),'of California independent reviews went the patient\'s way in 2025 (a later, separate step)']
 ].map(([b,s])=>`<div class="dw-stat"><b class="dw-num">${b}</b><span>${s}</span></div>`).join('');
 
@@ -117,8 +116,8 @@ function line(svg,pts,{ymin,ymax,fmtY,ticks,color,label}){
 function drawLines(){line($('tline'),D.trend.map(t=>({x:t.year,y:t.rate})),{ymin:.10,ymax:.25,ticks:[.10,.15,.20,.25],fmtY:y=>pct(y,0),color:css('--dw-red'),label:y=>pct(y)+' denied'});
 line($('imrline'),D.imr_trend.map(r=>({x:r.y,y:r.r})),{ymin:.3,ymax:.8,ticks:[.3,.4,.5,.6,.7,.8],fmtY:y=>pct(y,0),color:css('--dw-teal'),label:y=>pct(y,0)+' overturned'});}
 drawLines();
-$('ttable').innerHTML='<thead><tr><th>Year</th><th class="dw-r">Denied</th><th class="dw-r">Rate</th><th class="dw-r">Appeals</th><th class="dw-r">Won</th></tr></thead><tbody>'+
-  D.trend.map(t=>`<tr><td>${t.year}</td><td class="dw-r dw-num">${big(t.denied)}</td><td class="dw-r dw-num">${pct(t.rate)}</td><td class="dw-r dw-num">${fmt(t.appeals_all)}</td><td class="dw-r dw-num">${pct(t.overturned/t.appeals,0)}</td></tr>`).join('')+'</tbody>';
+$('ttable').innerHTML='<thead><tr><th>Year</th><th class="dw-r">Denied</th><th class="dw-r">Rate</th><th class="dw-r">Appeals</th></tr></thead><tbody>'+
+  D.trend.map(t=>`<tr><td>${t.year}</td><td class="dw-r dw-num">${big(t.denied)}</td><td class="dw-r dw-num">${pct(t.rate)}</td><td class="dw-r dw-num">${fmt(t.appeals_all)}</td></tr>`).join('')+'</tbody>';
 
 /* reasons */
 const rmax=D.reasons[0].v, rtot=D.reasons.reduce((a,r)=>a+r.v,0);
