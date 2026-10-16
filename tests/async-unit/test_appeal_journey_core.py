@@ -146,6 +146,59 @@ class TestGenerateAndStoreAppeals(_JourneyTestBase):
         denial.refresh_from_db()
         assert json.loads(denial.qa_context)["medical_context"] == "This is an urgent claim."
 
+    def _with_insurance_questions(self, denial_id):
+        """A denial whose type asks the site's urgent/pre-service boxes, with
+        the sentence a ticked "urgent" derived stored."""
+        from fighthealthinsurance.denial_context import merge_qa
+        from fighthealthinsurance.models import DenialTypes
+
+        denial = _make_denial(denial_id)
+        kind = DenialTypes.objects.create(
+            name="Insurance questions", regex="nomatch", form="InsuranceQuestions"
+        )
+        denial.denial_type.add(kind)
+        merge_qa(denial, {"medical_context": "This is an urgent claim."}, source="test")
+        denial.save()
+        return denial
+
+    def _run_in_background(self, mock_gen, denial, answers):
+        mock_gen.make_appeals.return_value = iter(
+            _drafts([f"Dear Reviewer, appeal number {i} citing the denial." for i in range(3)])
+        )
+        with patch(
+            "fighthealthinsurance.assistant_drafts.answers_for_generation",
+            return_value=answers,
+        ):
+            appeal_journey_core.generate_and_store_appeals(denial)
+        denial.refresh_from_db()
+
+    @patch("fighthealthinsurance.common_view_logic.appealGenerator")
+    def test_a_background_run_keeps_the_sentence_when_no_box_was_answered(
+        self, mock_gen
+    ):
+        """The form is on the denial, but the answers hold none of its boxes:
+        they say nothing about urgency, so the sentence stays."""
+        import json
+
+        denial = self._with_insurance_questions(9106)
+        self._run_in_background(mock_gen, denial, {"What happened?": "a fall"})
+        assert json.loads(denial.qa_context)["medical_context"] == "This is an urgent claim."
+
+    @patch("fighthealthinsurance.common_view_logic.appealGenerator")
+    def test_a_background_run_withdraws_the_sentence_for_an_unticked_box(
+        self, mock_gen
+    ):
+        """The site stores an unticked box as False. A background run that
+        reads it derives nothing, and that is the person's answer: the old
+        "urgent" sentence must not reach the letter."""
+        import json
+
+        denial = self._with_insurance_questions(9107)
+        self._run_in_background(
+            mock_gen, denial, {"urgent": "False", "What happened?": "a fall"}
+        )
+        assert "medical_context" not in json.loads(denial.qa_context)
+
     @patch("fighthealthinsurance.common_view_logic.appealGenerator")
     def test_empty_stream_raises_journey_incomplete(self, mock_gen):
         """A generator that produces nothing must surface as a retryable
