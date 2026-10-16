@@ -57,6 +57,17 @@ class DataFilesTest(TestCase):
         with self.assertRaises(mt.DataError):
             mt.parse_models({"models": [], "base_model": "x"}, [])
 
+    def test_a_field_holding_more_than_plain_text_is_refused(self):
+        model = dataclasses.asdict(mt.load().models[0])
+        model["role"] = {"letter_text": "Dear insurer"}
+        with self.assertRaises(mt.DataError):
+            mt.parse_models({"models": [model]}, [])
+
+    def test_the_judges_are_the_two_the_test_used(self):
+        self.assertEqual(
+            {j.name for j in mt.load().judges}, {"Claude Opus 4.8", "Jev (TypeSafe)"}
+        )
+
     def test_no_file_holds_anything_long_enough_to_be_a_letter(self):
         # Totals and short descriptions only: a pasted letter or denial
         # would be far longer than any field here needs.

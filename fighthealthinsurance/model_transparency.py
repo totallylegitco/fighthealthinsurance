@@ -112,10 +112,28 @@ class DataError(ValueError):
     """A data file has a field the page doesn't know."""
 
 
-def _only(fields: frozenset, row: Dict[str, Any], where: str) -> Dict[str, Any]:
+_PLAIN = (str, int, float, bool, type(None))
+
+
+def _only(
+    fields: frozenset,
+    row: Dict[str, Any],
+    where: str,
+    lists: frozenset = frozenset(),
+    nested: frozenset = frozenset(),
+) -> Dict[str, Any]:
+    """The row, if every field is known and holds text, a number or null."""
+    if not isinstance(row, dict):
+        raise DataError(f"{where}: expected an object")
     unknown = set(row) - fields
     if unknown:
         raise DataError(f"{where}: unknown fields {sorted(unknown)}")
+    for key, value in row.items():
+        if key in nested:
+            continue
+        values = value if key in lists and isinstance(value, list) else [value]
+        if not all(isinstance(v, _PLAIN) for v in values):
+            raise DataError(f"{where}: {key} must hold plain values")
     return row
 
 
@@ -268,8 +286,19 @@ def _read(name: str) -> Any:
 
 def parse_run(data: Dict[str, Any]) -> Run:
     where = f"run {data.get('id', '?')}"
-    _only(RUN_FIELDS, data, where)
-    _only(METHOD_FIELDS, data.get("method", {}), f"{where} method")
+    _only(
+        RUN_FIELDS,
+        data,
+        where,
+        lists=frozenset({"comparable_with"}),
+        nested=frozenset({"method", "results", "judges"}),
+    )
+    _only(
+        METHOD_FIELDS,
+        data.get("method", {}),
+        f"{where} method",
+        lists=frozenset({"notes"}),
+    )
     results = [
         Result(**_only(RESULT_FIELDS, r, f"{where} result"))
         for r in data.get("results", [])
@@ -295,7 +324,12 @@ RUN_FILES = ("runs/2026-09-letter-test.json",)
 
 
 def parse_models(data: Dict[str, Any], runs: List[Run]) -> Transparency:
-    _only(TOP_FIELDS, data, "models.json")
+    _only(
+        TOP_FIELDS,
+        data,
+        "models.json",
+        nested=frozenset({"models", "changes", "judges"}),
+    )
     models = [
         Model(**_only(MODEL_FIELDS, m, "models.json")) for m in data.get("models", [])
     ]
