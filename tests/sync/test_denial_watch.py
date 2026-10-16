@@ -68,6 +68,11 @@ class TestDenialWatchPage(TestCase):
         # Screen readers hear the group's label first.
         self.assertNotIn("Estimated denials today", self.content)
 
+    def test_appeal_deadlines_match_the_glossary(self):
+        # Medicare Advantage is 60 days from receipt, presumed 5 days after the notice.
+        self.assertIn("Medicare Advantage gives 65 days from the date on the notice", self.content)
+        self.assertIn("Medicaid plans give 60", self.content)
+
     def test_page_names_its_sources(self):
         # Checked outside the embedded JSON, which carries every URL anyway.
         visible = _without_data(self.content)
