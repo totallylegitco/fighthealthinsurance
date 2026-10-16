@@ -1141,8 +1141,9 @@ function done(): void {
       hardTimeoutHandle = null;
     }
     generationRunning = false;
-    // A full set is a finished run whatever went wrong on the way to it.
-    const short = appealsSoFar.length + duplicatesSkipped < 3;
+    // A full set is a finished run whatever went wrong on the way to it. A
+    // retry is served the drafts already on the page again, so count those once.
+    const short = appealsSoFar.length < 3;
     const failed =
       appealsSoFar.length === 0 || (short && (runFailed || serverReportedFailure));
     runFailed = false;
@@ -1273,6 +1274,8 @@ function startFreshGeneration(): boolean {
   }
   const prompt = document.getElementById("external-models-prompt");
   if (prompt) prompt.style.display = "none";
+  // The first wait's long explainer advises refreshing, which would lose edits.
+  if (loadingMore) loadingMore.style.display = "none";
   // Reset retry/parser state so doQuery starts a fresh generation
   // pass rather than treating this as a retry of the previous
   // attempt. Deliberately do NOT clear appealsSoFar or

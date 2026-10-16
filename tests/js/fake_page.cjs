@@ -433,6 +433,7 @@ const APPEALS_MARKUP = `
 <div id="loading-spinner"></div>
 <div id="loading-more">
   <h3>Brewing Your Appeals</h3>
+  <p>First refresh: After 3-5 minutes, try refreshing the page.</p>
 </div>
 <div id="base-form" style="display: none;">
   <form action="/choose_appeal" method="post" class="fhi-stack" id="form">

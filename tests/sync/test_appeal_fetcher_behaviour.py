@@ -199,6 +199,18 @@ def test_a_failure_the_server_reported_offers_a_retry(compiled):
 
 
 @needs_node
+def test_a_retry_that_only_replays_the_kept_drafts_is_still_a_failure(compiled):
+    """The two letters served again are the two already on the page."""
+    ended = run_scenario(
+        compiled, "retry_that_only_replays_the_kept_drafts_then_fails"
+    )["ended"]
+    assert texts(ended) == [LETTER_A, LETTER_B]
+    assert ended["panelMessage"] == COULD_NOT_FINISH
+    assert [b["text"] for b in ended["buttons"]] == [RETRY]
+    assert READY not in ended["visibleText"]
+
+
+@needs_node
 def test_the_page_does_not_say_ready_between_automatic_attempts(compiled):
     between = run_scenario(compiled, "server_reports_the_failure")["betweenAttempts"]
     assert between["indicatorShown"] is True
@@ -304,6 +316,19 @@ def test_the_last_runs_tidy_up_does_not_hide_the_retry(compiled):
         "afterTheOldClose"
     ]
     assert during["loadingTextDisplay"] == "block"
+
+
+@needs_node
+def test_a_retry_never_shows_the_advice_to_refresh(compiled):
+    """The first wait's explainer says to refresh, which would lose any edits.
+
+    Pressed inside the second the failed run waits before hiding it, the retry
+    cancels that hide, so it has to take the explainer down itself.
+    """
+    during = run_scenario(compiled, "stale_close_lands_during_the_retry")[
+        "afterTheOldClose"
+    ]
+    assert "refresh" not in during["visibleText"].lower(), during["visibleText"]
 
 
 @needs_node

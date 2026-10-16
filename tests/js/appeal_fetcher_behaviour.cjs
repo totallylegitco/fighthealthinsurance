@@ -248,6 +248,24 @@ const scenarios = {
     return {ended, during, finished: snapshot()};
   },
 
+  // Two letters arrived before the run failed. The retry is served those two
+  // again, and then the server says generation failed.
+  retry_that_only_replays_the_kept_drafts_then_fails() {
+    const ws = start(false);
+    ws.fireOpen();
+    ws.fireMessage(letter(LETTER_A, 101));
+    ws.fireMessage(letter(LETTER_B, 102));
+    everySocketErrors();
+    const second = pressRetry();
+    second.fireOpen();
+    second.fireMessage(letter(LETTER_A, 101));
+    second.fireMessage(letter(LETTER_B, 102));
+    second.fireMessage(SERVER_FAILED);
+    second.fireClose();
+    page.clock.advance(1500);
+    return {ended: snapshot()};
+  },
+
   // The browser fires close after error. On the socket that ended the run,
   // that close must not be read as a second ending.
   the_failed_sockets_own_close_changes_nothing() {
