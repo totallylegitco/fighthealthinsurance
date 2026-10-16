@@ -64,6 +64,9 @@
   .dw-table th { padding: var(--fhi-space-2); border-bottom: 2px solid var(--fhi-ink); color: var(--fhi-ink-2); font-size: var(--fhi-text-micro); letter-spacing: 0.06em; text-transform: uppercase; }
   .dw-table td { padding: var(--fhi-space-2); border-bottom: 1px solid var(--fhi-line); }
   .dw-table .dw-r { text-align: right; }
+  .dw-range { position: relative; display: inline-block; width: 90px; height: 8px; margin-right: 6px; border-radius: 2px; vertical-align: middle; background-color: var(--dw-track); }
+  .dw-range-fill { position: absolute; top: 0; bottom: 0; border-radius: 2px; background-color: var(--dw-red); }
+  .dw-pick { padding: 0; border: 0; background: none; font: inherit; color: inherit; text-decoration: underline; cursor: pointer; }
   .dw-mini { display: inline-block; height: 8px; margin-right: 6px; border-radius: 2px; vertical-align: middle; background-color: var(--dw-red); }
   .dw-sources { display: grid; gap: var(--fhi-space-2); font-size: var(--fhi-text-small); color: var(--fhi-ink-2); }
   @media (max-width: 860px) {
@@ -164,7 +167,7 @@
         <section class="fhi-stack" id="insurers" aria-labelledby="insurers-title">
             <p class="dw-kicker">Company by company</p>
             <h2 id="insurers-title">Denial rates, insurer by insurer</h2>
-            <p>In-network denial rates for each reporting HealthCare.gov insurer that handled at least 50,000 in-network claims in 2024, as each company reported them. These are unadjusted rates, not a quality rating: they depend on the kinds of care each plan's members use and how each company counts claims. Compare companies within a state. Appeal win rates are shown only for insurers with at least 30 appeals, and "not reported" means CMS withheld the number won.</p>
+            <p>In-network denial rates for each reporting HealthCare.gov insurer that handled at least 50,000 in-network claims in 2024, as each company reported them. These are unadjusted rates, not a quality rating: they depend on the kinds of care each plan's members use and how each company counts claims. Compare companies within a state: the all-states view shows the range of rates inside each state, and picking a state lists its companies. Appeal win rates are shown only for insurers with at least 30 appeals, and "not reported" means CMS withheld the number won.</p>
             <div class="fhi-card">
                 <div class="dw-controls">
                     <label class="fhi-label" for="istate">State</label>

@@ -400,6 +400,13 @@ class TestDenialWatchScriptCountsInNetwork(TestCase):
         self.assertNotIn("down from", self.js)
         self.assertNotIn('<th class="dw-r">Won</th>', self.js)
 
+    def test_all_states_view_ranks_no_company_across_states(self):
+        # Rates are compared within a state, so the opening view is per state.
+        self.assertIn('<option value="">All states</option>', self.js)
+        self.assertIn("Insurer denial rates, lowest to highest", self.js)
+        self.assertNotIn("highest and lowest 10", self.js)
+        self.assertNotIn("slice(0,10)", self.js)
+
     def test_insurer_table_says_when_cms_withheld_the_win_count(self):
         self.assertIn("not reported (", self.js)
 

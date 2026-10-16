@@ -125,13 +125,19 @@ $('reasons').innerHTML=D.reasons.map(r=>`<div class="dw-bar ${/medically|Experim
 
 /* insurers */
 const IS=D.issuers;const states=[...new Set(IS.map(i=>i.s))].sort((a,b)=>NAMES[a].localeCompare(NAMES[b]));
-$('istate').innerHTML='<option value="">All states: highest and lowest 10</option>'+states.map(s=>`<option value="${esc(s)}">${esc(NAMES[s]||s)}</option>`).join('');
-function iDraw(){const s=$('istate').value;let rows;
-  if(s){rows=IS.filter(i=>i.s===s).sort((a,b)=>b.r-a.r);$('icount').textContent=rows.length+' insurers';}
-  else{const all=[...IS].sort((a,b)=>b.r-a.r);rows=[...all.slice(0,10),null,...all.slice(-10)];$('icount').textContent=IS.length+' insurers in '+states.length+' states';}
+$('istate').innerHTML='<option value="">All states</option>'+states.map(s=>`<option value="${esc(s)}">${esc(NAMES[s]||s)}</option>`).join('');
+function iDraw(){const s=$('istate').value;
   const mx=Math.max(...IS.map(i=>i.r));
+  /* All states: one row per state, so no company is set against another state's. */
+  if(!s){$('icount').textContent=IS.length+' insurers in '+states.length+' states';
+    $('itable').innerHTML='<thead><tr><th>State</th><th class="dw-r">Insurers</th><th>Insurer denial rates, lowest to highest</th><th class="dw-r">Claims</th></tr></thead><tbody>'+
+     states.map(st=>{const g=IS.filter(i=>i.s===st),lo=Math.min(...g.map(i=>i.r)),hi=Math.max(...g.map(i=>i.r)),c=g.reduce((a,i)=>a+i.c,0);
+      return `<tr><td><button type="button" class="dw-pick" data-s="${esc(st)}">${esc(NAMES[st]||st)}</button></td><td class="dw-r dw-num">${g.length}</td><td class="dw-num" style="white-space:nowrap"><span class="dw-range" aria-hidden="true"><span class="dw-range-fill" style="left:${lo/mx*100}%;width:${Math.max(2,(hi-lo)/mx*100)}%"></span></span>${g.length>1?pct(lo)+' to '+pct(hi):pct(lo)+' (one insurer)'}</td><td class="dw-r dw-num">${big(c)}</td></tr>`;}).join('')+'</tbody>';
+    $('itable').querySelectorAll('.dw-pick').forEach(b=>b.onclick=()=>{$('istate').value=b.dataset.s;iDraw();$('istate').focus();});
+    return;}
+  const rows=IS.filter(i=>i.s===s).sort((a,b)=>b.r-a.r);$('icount').textContent=rows.length+' insurers';
   $('itable').innerHTML='<thead><tr><th>Insurer</th><th>State</th><th>Denial rate</th><th class="dw-r">Claims</th><th class="dw-r">Appeals won</th></tr></thead><tbody>'+
-   rows.map(i=>i?`<tr><td>${esc(i.n)}</td><td>${esc(i.s)}</td><td class="dw-num" style="white-space:nowrap"><span class="dw-mini" style="width:${Math.max(2,i.r/mx*90)}px"></span>${pct(i.r)}</td><td class="dw-r dw-num">${big(i.c)}</td><td class="dw-r dw-num">${i.a!=null&&i.o!=null?pct(i.o/i.a,0)+' <span class="dw-note">('+fmt(i.o)+' of '+fmt(i.a)+')</span>':i.a!=null?'<span class="dw-note">not reported ('+fmt(i.a)+' appeals)</span>':'<span class="dw-note">too few</span>'}</td></tr>`:'<tr><td colspan="5" class="dw-note dw-gap-row">···</td></tr>').join('')+'</tbody>';}
+   rows.map(i=>`<tr><td>${esc(i.n)}</td><td>${esc(i.s)}</td><td class="dw-num" style="white-space:nowrap"><span class="dw-mini" style="width:${Math.max(2,i.r/mx*90)}px"></span>${pct(i.r)}</td><td class="dw-r dw-num">${big(i.c)}</td><td class="dw-r dw-num">${i.a!=null&&i.o!=null?pct(i.o/i.a,0)+' <span class="dw-note">('+fmt(i.o)+' of '+fmt(i.a)+')</span>':i.a!=null?'<span class="dw-note">not reported ('+fmt(i.a)+' appeals)</span>':'<span class="dw-note">too few</span>'}</td></tr>`).join('')+'</tbody>';}
 $('istate').onchange=iDraw;iDraw();
 
 /* prior authorization */
