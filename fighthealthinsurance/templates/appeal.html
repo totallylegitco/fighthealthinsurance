@@ -63,10 +63,10 @@ cancelling paid for nothing and stopped nothing. Say both plainly.
   <input type="hidden" name="email" value="{{ user_email }}">
   <input type="hidden" name="denial_id" value="{{ denial_id }}">
   {% if semi_sekret %}<input type="hidden" name="semi_sekret" value="{{ semi_sekret }}">{% endif %}
-  
+
+  {# Unindented on purpose: any space here becomes part of the letter. The browser drops the one line break after the tag. #}
   <textarea class="appeal_text fhi-field" name="appeal_text" id="scrubbed_appeal_text">
-    {{appeal}}
-  </textarea>
+{{ appeal }}</textarea>
 
   <!-- <button type="submit" class="btn btn-green">(Optional) Upload and Share (do not include PII)</button> -->
 </form>

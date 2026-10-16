@@ -71,7 +71,8 @@ function descrub(force = false) {
   const target = document.getElementById(
     "id_completed_appeal_text",
   ) as HTMLTextAreaElement;
-  var text = (appeal_text as HTMLTextAreaElement)?.value || "";
+  // A letter starts at its first word; space around it is never part of it.
+  var text = ((appeal_text as HTMLTextAreaElement)?.value || "").trim();
 
   // Read from PII panel inputs first, fall back to localStorage
   const fname = getPiiValue("pii_fname", "store_fname", "FirstName");
