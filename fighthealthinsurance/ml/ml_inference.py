@@ -13,6 +13,9 @@ from loguru import logger
 from fighthealthinsurance.ml import llm_usage
 from fighthealthinsurance.ml.ml_router import ml_router
 
+# How much longer the outer wait runs than the transport's own timeout.
+TRANSPORT_TIMEOUT_GRACE_SECONDS = 2.0
+
 
 async def infer_with_fallback(
     system_prompts: list[str],
@@ -45,9 +48,10 @@ async def infer_with_fallback(
     for model in models:
         try:
             with llm_usage.llm_task(task):
-                # The timeout goes to the transport too: cancelled from
-                # outside alone, a hung backend records no timeout against
-                # itself and is tried first again by the next caller.
+                # The timeout goes to the transport too, and the outer wait
+                # runs a little longer, so the transport's runs out first and
+                # records a timeout (cancelled from outside, it records only
+                # "cancelled"; windows this short never strike a backend).
                 result = await asyncio.wait_for(
                     model._infer_no_context(
                         system_prompts=system_prompts,
@@ -55,7 +59,7 @@ async def infer_with_fallback(
                         temperature=temperature,
                         timeout=timeout,
                     ),
-                    timeout=timeout,
+                    timeout=timeout + TRANSPORT_TIMEOUT_GRACE_SECONDS,
                 )
             text = str(result).strip() if result else ""
             if text and len(text) > min_length:
