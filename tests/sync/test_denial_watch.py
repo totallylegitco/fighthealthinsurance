@@ -115,6 +115,10 @@ class TestDenialWatchCopyMatchesData(TestCase):
         )
         self.assertNotIn(_pct(prev["overturned"] / prev["appeals"]), self.content)
 
+    def test_method_note_explains_the_won_counts_left_out(self):
+        self.assertIn("Nine insurers' 2024 appeals-won counts look like reporting errors", self.content)
+        self.assertIn("With them, the 2024 rate would be 33.6%.", self.content)
+
     def test_share_of_denials_appealed_in_the_steps(self):
         latest = DATA["trend"][-1]
         ratio = latest["in_denied"] / latest["appeals_all"]
@@ -284,6 +288,18 @@ class TestDenialWatchBuilder(TestCase):
             dict(ap_filed=None, ap_over=5.0),
         ]
         self.assertEqual(self.b.matched_appeals(issuers), (100.0, 40.0))
+
+    def test_doubtful_won_counts_are_blanked_and_filed_kept(self):
+        issuers = {k: dict(ap_filed=500.0, ap_over=0.0) for k in self.b.DOUBTFUL_WON[2026]}
+        self.b.drop_doubtful_won(issuers, 2026)
+        for row in issuers.values():
+            self.assertEqual(row, dict(ap_filed=500.0, ap_over=None))
+
+    def test_doubtful_won_list_is_only_for_its_plan_year(self):
+        key = sorted(self.b.DOUBTFUL_WON[2026])[0]
+        issuers = {key: dict(ap_filed=500.0, ap_over=0.0)}
+        self.b.drop_doubtful_won(issuers, 2025)
+        self.assertEqual(issuers[key]["ap_over"], 0.0)
 
     def test_all_claims_falls_back_to_in_plus_out(self):
         issuer = dict(

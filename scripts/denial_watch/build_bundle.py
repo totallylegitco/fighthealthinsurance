@@ -38,6 +38,16 @@ MIN_ISSUER_CLAIMS = 50_000  # in-network claims, for the insurer table
 MIN_APPEALS_FOR_RATE = 30  # an insurer's appeal win rate is shown only on this many appeals
 MIN_STATE_APPEALS = 50
 
+# (state, issuer id) whose appeals-won count looks like a reporting error, so it's left out like a
+# suppressed cell: 0 won after hundreds the year before, a rate CMS marked suppressed, or a repeat of last year.
+DOUBTFUL_WON = {
+    2026: {
+        ("AR", 37903), ("AR", 62141), ("AR", 70525), ("MS", 90714),  # 0 won
+        ("KS", 34368), ("AZ", 91450), ("WV", 50328),  # rate suppressed, counts printed
+        ("UT", 22013), ("OR", 77969),  # same counts as the 2025 file
+    },
+}
+
 # Plan-level reason columns (in-network, and a claim can count under more than one).
 # CMS's out-of-network reason counts closed-network denials, so it stays out, as in KFF's.
 REASONS = {
@@ -102,7 +112,14 @@ def read_puf(py):
             if v:
                 reasons[col] = reasons.get(col, 0.0) + v
         plan_denied += num(r.get(PLAN_DENIED_IN)) or 0.0
+    drop_doubtful_won(issuers, py)
     return list(issuers.values()), reasons, plan_denied
+
+
+def drop_doubtful_won(issuers, py):
+    """Blank the appeals-won count for DOUBTFUL_WON rows; appeals filed still count."""
+    for key in DOUBTFUL_WON.get(py, ()):
+        issuers[key]["ap_over"] = None  # a KeyError means the file changed: recheck the list
 
 
 def all_claims(i):
