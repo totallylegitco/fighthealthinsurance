@@ -40,7 +40,8 @@ const inRate=T.in_rate, apShare=T.appeals_all/T.in_denied, won=T.overturned/T.ap
 const imr25=D.imr_trend.find(r=>r.y===2025);
 $('stats').innerHTML=[
   [pct(inRate,0),'of in-network claims denied on HealthCare.gov plans in '+T.year],
-  [fmt(1/apShare),'in-network denials for every internal appeal filed in '+T.year+' ('+big(T.in_denied)+' denials, '+fmt(T.appeals_all)+' appeals)'],
+  /* Tens, matching the page's "about 1 for every 320". */
+  [fmt(Math.round(1/apShare/10)*10),'in-network denials for every internal appeal filed in '+T.year+' ('+big(T.in_denied)+' denials, '+fmt(T.appeals_all)+' appeals)'],
   [pct(won,0),'of internal appeals won at the insurer in '+T.year],
   [pct(imr25.r,0),'of California independent reviews went the patient\'s way in 2025 (a later, separate step)']
 ].map(([b,s])=>`<div class="dw-stat"><b class="dw-num">${b}</b><span>${s}</span></div>`).join('');

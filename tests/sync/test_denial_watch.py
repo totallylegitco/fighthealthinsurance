@@ -410,6 +410,9 @@ class TestDenialWatchScriptCountsInNetwork(TestCase):
     def test_appeal_ratio_uses_in_network_denials(self):
         self.assertIn("apShare=T.appeals_all/T.in_denied", self.js)
 
+    def test_appeal_ratio_tile_rounds_to_tens_like_the_text(self):
+        self.assertIn("fmt(Math.round(1/apShare/10)*10)", self.js)
+
     def test_win_rate_shows_the_latest_year_alone(self):
         # No tile or table column sets the win rate beside an earlier year's.
         self.assertIn("const T=D.trend[D.trend.length-1]", self.js)
