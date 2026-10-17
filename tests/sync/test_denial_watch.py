@@ -133,7 +133,7 @@ class TestDenialWatchCopyMatchesData(TestCase):
         self.assertEqual(round(1 / latest["in_rate"]), 5)
         self.assertIn(
             "about one in five in-network claims in 2024, "
-            f"{_millions(latest['in_denied'])} in all",
+            f"{_millions(latest['in_denied'])} among reporting insurers",
             self.content,
         )
 
