@@ -75,6 +75,12 @@
   .dw-pick { padding: 0; border: 0; background: none; font: inherit; color: inherit; text-decoration: underline; cursor: pointer; }
   .dw-mini { display: inline-block; height: 8px; margin-right: 6px; border-radius: 2px; vertical-align: middle; background-color: var(--dw-red); }
   .dw-sources { display: grid; gap: var(--fhi-space-2); font-size: var(--fhi-text-small); color: var(--fhi-ink-2); }
+  .dw-tel { white-space: nowrap; }
+  .dw-readout a { font-weight: 700; text-decoration: underline; }
+  .dw-chip { display: inline-block; padding: 1px var(--fhi-space-2); border-radius: 6px; background-color: var(--dw-u0); color: var(--dw-u5); font-size: var(--fhi-text-micro); font-weight: 700; line-height: 1.4; overflow-wrap: normal; }
+  .dw-list { display: grid; gap: var(--fhi-space-3); margin: 0; padding-left: 1.25rem; }
+  .dw-enroll > * { margin-block: 0; }
+  .dw-enroll { display: grid; gap: var(--fhi-space-2); }
   @media (max-width: 860px) {
     .dw-two { grid-template-columns: minmax(0, 1fr); }
   }
@@ -97,7 +103,7 @@
 {% block content %}
 {# Every number on this page comes from static/denial_watch.json, which #}
 {# scripts/denial_watch/build_bundle.py builds from public source files. #}
-<div class="fhi-page-wide dw">
+<div class="fhi-page-wide dw" data-state-help="{% url 'state_help_index' %}">
     {% include "partials/page_title.html" with eyebrow="Denial Watch, from public records" title="Health coverage in America, by the numbers" lede="Who has coverage, how often insurers say no, how often people push back and win, and what care costs, from government and insurer records. The clearest record of denials comes from HealthCare.gov, where insurers report each year how many claims they deny: about one in five in-network claims in 2024, 84.5 million among reporting insurers, and very few are appealed." %}
 
     <div class="fhi-stack fhi-stack-loose">
@@ -116,6 +122,15 @@
         </div>
 
         <div class="dw-stats" id="stats"></div>
+
+        {% if enrollment %}
+        <section class="fhi-notice fhi-notice-info dw-enroll" id="enroll" aria-labelledby="enroll-title">
+            <h2 class="fhi-callout-title" id="enroll-title">Picking a plan for 2027?</h2>
+            <p>{% if enrollment.medicare %}Medicare open enrollment runs from October 15 to December 7, 2026, for coverage that starts January 1. {% endif %}For HealthCare.gov plans, check <a href="https://www.healthcare.gov/quick-guide/dates-and-deadlines/">HealthCare.gov's dates</a>. State-run marketplaces set their own.</p>
+            <p>Two tables here can help you compare: how often each HealthCare.gov insurer in your state denied claims (<a href="#insurers">insurer by insurer</a>), and how often large Medicare Advantage plans denied prior authorization (<a href="#prior-auth">prior authorization</a>). They're one thing to weigh, not a quality rating. Then compare plans and costs in <a href="https://www.medicare.gov/plan-compare/">Medicare Plan Finder</a> or on <a href="https://www.healthcare.gov/">HealthCare.gov</a>.</p>
+            <p class="dw-note">Dates checked October 18, 2026.</p>
+        </section>
+        {% endif %}
 
         <nav class="fhi-jump-links" aria-label="On this page">
             <a href="#map-denials">Denials by state</a>
@@ -177,6 +192,7 @@
             <p class="dw-kicker">Company by company</p>
             <h2 id="insurers-title">Denial rates, insurer by insurer</h2>
             <p>In-network denial rates for each reporting HealthCare.gov insurer that handled at least 50,000 in-network claims in 2024, as each company reported them. These are unadjusted rates, not a quality rating: they depend on the kinds of care each plan's members use and how each company counts claims. Compare companies within a state: the all-states view shows the range of rates inside each state, and picking a state lists its companies. Appeal win rates are shown only for insurers with at least 30 appeals, and "not reported" means CMS withheld the number won or we left it out as a likely reporting error (see <a href="#sources">Sources and method</a>).</p>
+            {% if enrollment %}<p class="fhi-notice fhi-notice-info">Picking a 2027 HealthCare.gov plan? Choose your state below to see its insurers' rates, then compare plans on <a href="https://www.healthcare.gov/">HealthCare.gov</a>.</p>{% endif %}
             <div class="fhi-card">
                 <div class="dw-controls">
                     <label class="fhi-label" for="istate">State</label>
@@ -190,7 +206,7 @@
         <section class="fhi-stack" id="prior-auth" aria-labelledby="prior-auth-title">
             <p class="dw-kicker">Asking before care</p>
             <h2 id="prior-auth-title">Insurers now post how often they deny prior authorization, and the spread is wide</h2>
-            <p>Prior authorization is when a plan has to approve care before you get it. Since March 2026, Medicare Advantage plans, Medicaid plans, state Medicaid programs and HealthCare.gov insurers have had to post what share of 2025 requests for medical care and equipment they denied. Prescription drugs aren't included. We gathered these from insurers' and states' own websites. Big insurers post one report per contract or state, and we show the largest we found. Insurers count differently, so compare within one kind of plan.</p>
+            <p>Prior authorization is when a plan has to approve care before you get it. Since March 2026, Medicare Advantage plans, Medicaid plans, state Medicaid programs and HealthCare.gov insurers have had to post what share of 2025 requests for medical care and equipment they denied. Prescription drugs aren't included. We gathered these from insurers' and states' own websites. This isn't every plan: big insurers post one report per contract or state, and these 89 are the largest we found. <a href="https://www.authdenied.com/">AuthDenied</a> and <a href="https://www.kff.org/patient-consumer-protections/prior-authorization-metrics-provide-new-insights-into-insurer-practices-but-gaps-remain/">KFF</a> have fuller collections. Insurers count differently, so compare within one kind of plan.</p>
             <div class="fhi-card">
                 <div class="fhi-cluster dw-toggles" id="pamode" role="group" aria-label="Kind of plan">
                     <button type="button" class="fhi-button fhi-button-small fhi-button-neutral" aria-pressed="true" data-m="ma">Medicare Advantage</button>
@@ -200,6 +216,12 @@
                 </div>
                 <p class="dw-note" id="panote"></p>
                 <div class="dw-bars" id="pabars"></div>
+            </div>
+            <div class="fhi-card" id="plan-clock">
+                <h3 class="fhi-card-title">Your plan's clock</h3>
+                <p>Since 2026, Medicare Advantage, Medicaid and CHIP plans must answer a prior authorization request within 72 hours if it's urgent, or 7 days if not. Sometimes they can take up to 14 more days. In Medicare Advantage and Medicaid plans, a missed deadline counts as a denial you can appeal.</p>
+                <p>A denial must tell your doctor the specific reason. HealthCare.gov insurers must give the reason too, but they still have 15 days (72 hours if urgent). These rules don't cover prescription drugs, job-based plans, state-run marketplaces or Original Medicare.</p>
+                <p class="dw-note">From the <a href="https://www.cms.gov/newsroom/fact-sheets/cms-interoperability-and-prior-authorization-final-rule-cms-0057-f">CMS prior authorization rule</a> and the federal regulations for each kind of plan, checked October 18, 2026.</p>
             </div>
         </section>
 
@@ -218,6 +240,14 @@
                         <div class="dw-bars" id="imrbars"></div>
                     </div>
                 </div>
+            </div>
+            <div class="fhi-card" id="others-appeals">
+                <h3 class="fhi-card-title">See how others' appeals went</h3>
+                <ul class="dw-list">
+                    <li><a href="https://data.chhs.ca.gov/dataset/independent-medical-review-imr-determinations-trend">California's independent review decisions</a>: every case since 2001, with the kind of care and the outcome, as a spreadsheet file.</li>
+                    <li><a href="https://www.dfs.ny.gov/public-appeal/search">New York's external appeal decisions</a>: case by case, with the plan and whether the denial was upheld or overturned.</li>
+                    <li><a href="https://projects.propublica.org/claimfile/">ProPublica's Claim File Helper</a>: writes a letter asking your insurer for your claim file, the records it used to decide on your claim.</li>
+                </ul>
             </div>
         </section>
 
@@ -260,6 +290,17 @@
                 </div>
                 <p class="dw-note" id="dgnote"></p>
                 <div class="dw-bars" id="dgbars"></div>
+                <p class="dw-note" id="dgprice">A <span class="dw-chip">Medicare price</span> tag marks a drug whose price Medicare negotiated with the drugmaker. It's the most Medicare drug plans pay for the drug, not your copay: your plan sets your share, based on that price, so ask your plan how it affects you. Xarelto's ends after 2026 because a generic is now sold. <a href="https://www.medicare.gov/health-drug-plans/part-d/what-drug-plans-cover/how-drug-plans-work">Medicare's list of negotiated drugs</a>.</p>
+            </div>
+            <div class="fhi-card" id="drug-help">
+                <h3 class="fhi-card-title">Help with Medicare drug costs</h3>
+                <ul class="dw-list">
+                    <li><b>A yearly cap.</b> In a Medicare drug plan, or a Medicare Advantage plan with drug coverage, the most you pay for covered drugs is $2,100 in 2026 and $2,400 in 2027. After that you pay nothing for covered drugs for the rest of the year. Discount cards used instead of your plan don't count toward it. <a href="https://www.medicare.gov/health-drug-plans/part-d/basics/costs">How drug costs work</a>.</li>
+                    <li><b>Extra Help.</b> If your income and savings are limited, Medicare's Extra Help helps pay drug plan premiums, deductibles and copays. In 2027 its copays are at most $5.80 for a generic and $14.40 for a brand-name drug. <a href="https://www.medicare.gov/basics/costs/help/drug-costs">See if you qualify</a>.</li>
+                    <li><b>Monthly payments.</b> The Medicare Prescription Payment Plan spreads what you owe for drugs across the year. It's free, but it doesn't lower your costs, and Medicare says it may not be the best choice if you join after September, so think about it for 2027. To join, contact your plan. <a href="https://www.medicare.gov/prescription-payment-plan">How it works</a>.</li>
+                    <li><b>Free advice.</b> Your state's SHIP gives free one-on-one Medicare counseling, including on drug plans: <a href="https://www.shiphelp.org/">shiphelp.org</a> or <span class="dw-tel">1-877-839-2675</span>.</li>
+                </ul>
+                <p class="dw-note">Checked October 18, 2026.</p>
             </div>
         </section>
 
@@ -271,6 +312,19 @@
                 <div class="fhi-card"><h3 class="fhi-card-title">2. Appeal inside the plan</h3><p>Employer and marketplace plans give you at least 180 days. Medicare Advantage gives 65 days from the date on the notice, and Medicaid plans give 60. Your denial letter has your deadline. In 2024, HealthCare.gov insurers reversed about a third of the internal appeals people filed, and there was about 1 appeal for every 320 in-network denials.</p></div>
                 <div class="fhi-card"><h3 class="fhi-card-title">3. Ask for independent review</h3><p>If the plan says no again, most denials about medical judgment can go to outside doctors, through your state or the federal process. In California, independent reviewers sided with patients in 72% of the cases they decided in 2025.</p></div>
                 <div class="fhi-card"><h3 class="fhi-card-title">4. Get help writing it</h3><p>Fight Health Insurance <a href="{% url 'scan' %}">drafts an appeal from your denial letter</a> for free, with the medical evidence and the rules that apply to your plan. Not sure what your denial means? <a href="{% url 'explain_denial' %}">Get it explained</a>.</p></div>
+            </div>
+            <div class="fhi-card" id="who-to-call">
+                <h3 class="fhi-card-title">Who to call</h3>
+                <p>Your appeal goes to your plan first, with the steps in your denial letter. These offices answer questions and take complaints, by kind of coverage.</p>
+                <ul class="dw-list">
+                    <li><b>A job-based plan from a private employer</b> (not a government or church plan): the U.S. Labor Department's benefits advisors, at <a href="https://askebsa.dol.gov/">askebsa.dol.gov</a> or <span class="dw-tel">1-866-444-3272</span>.</li>
+                    <li><b>Medicare, including Medicare Advantage and drug plans:</b> <span class="dw-tel">1-800-MEDICARE</span> (<span class="dw-tel">1-800-633-4227</span>, <span class="dw-tel">TTY 1-877-486-2048</span>), or <a href="https://www.medicare.gov/my/medicare-complaint">Medicare's complaint form</a> for problems with a plan. To fight a denial, appeal with the steps in your notice.</li>
+                    <li><b>A plan you bought yourself, or a job-based plan your employer buys from an insurer:</b> your state's insurance department. Find it in the <a href="https://content.naic.org/state-insurance-departments">NAIC's directory</a>.</li>
+                    <li><b>A surprise medical bill:</b> the No Surprises Help Desk, <span class="dw-tel">1-800-985-3059</span>, or <a href="https://www.cms.gov/initiatives/your-patient-rights/medical-bill-rights">CMS's medical bill rights page</a>.</li>
+                    <li><b>Free Medicare counseling:</b> your state's SHIP, at <a href="https://www.shiphelp.org/">shiphelp.org</a> or <span class="dw-tel">1-877-839-2675</span>.</li>
+                    <li><b>Your state:</b> our <a href="{% url 'state_help_index' %}">state help pages</a> list each state's insurance department, Medicaid office, SHIP and independent review.</li>
+                </ul>
+                <p class="dw-note">Numbers and links checked October 18, 2026.</p>
             </div>
         </section>
 
@@ -286,6 +340,19 @@
             </div>
         </section>
 
+        <section class="fhi-stack" id="more-data" aria-labelledby="more-data-title">
+            <p class="dw-kicker">More data like this</p>
+            <h2 id="more-data-title">Where to find more data like this</h2>
+            <p>Others gather this kind of data too, some in more depth on one part of it. All three are free to read.</p>
+            <ul class="fhi-list">
+                <li><h3 class="fhi-card-title"><a href="https://www.authdenied.com/">AuthDenied</a></h3><p>Prior authorization denial rates, appeal results and decision times for more than 1,100 Medicare Advantage, Medicaid and HealthCare.gov plans, from their 2025 reports, each linked to the plan's own report. No ads.</p></li>
+                <li><h3 class="fhi-card-title"><a href="https://plaininsurer.com/states">PlainInsurer</a></h3><p>Claim denial rates for each HealthCare.gov insurer by state, with appeals filed and won, from the same federal files we use. It also counts care from doctors and hospitals outside the plan's network, which is denied more often, so some of its rates run higher than ours. Paid for by ads.</p></li>
+                <li><h3 class="fhi-card-title">KFF</h3><p>An independent health policy research group. Its reports cover <a href="https://www.kff.org/patient-consumer-protections/claims-denials-and-appeals-in-aca-marketplace-plans-in-2024/">HealthCare.gov claim denials and appeals</a> (2024 claims, with a spreadsheet by insurer and state) and <a href="https://www.kff.org/patient-consumer-protections/prior-authorization-metrics-provide-new-insights-into-insurer-practices-but-gaps-remain/">the largest insurers' 2025 prior authorization reports</a>.</p></li>
+            </ul>
+            <p>If you can connect us with the people behind any of these, we'd like to join forces on making health care data easier to understand. <a href="{% url 'contact' %}">Get in touch</a>.</p>
+            <p class="dw-note">Checked October 18, 2026.</p>
+        </section>
+
         <section class="fhi-stack" id="sources" aria-labelledby="sources-title">
             <p class="dw-kicker">Where the numbers come from</p>
             <h2 id="sources-title">Sources and method</h2>
@@ -293,10 +360,15 @@
                 <li><b>Denials and appeals:</b> <a href="https://www.cms.gov/marketplace/resources/data/public-use-files">CMS Transparency in Coverage public use files</a>, plan years 2022 to 2026, which report claims from 2020 to 2024. Individual-market medical plans only, in states using HealthCare.gov. Insurers report these figures to CMS themselves. Numbers are FHI's totals of issuer-level figures, not CMS's own, and closely match <a href="https://www.kff.org/patient-consumer-protections/claims-denials-and-appeals-in-aca-marketplace-plans-in-2024/">KFF's 2024 analysis</a> (KFF leaves out insurers with 1,000 or fewer claims, so it counts 39 fewer appeals). The headline figures, the state map and the insurer table count in-network claims, as KFF does: 84.5 million denials in 2024, 19% of in-network claims, and 263,021 internal appeals, about 1 for every 320 of those denials. The trend chart and its table count all claims, in and out of network (101 million denials, 20%, in 2024), because the files for 2020 and 2021 don't split the two. Cells CMS suppresses for small counts are left out. Appeal counts aren't split by network, so the 1-in-320 figure compares two totals, as KFF's does. Appeal win rates count only insurers that reported both appeals filed and appeals won, and an appeal won in part counts as won. Nine insurers' 2024 appeals-won counts look like reporting errors, so we leave them out too. Four reported none of their 346 to 1,813 appeals won, after winning a quarter to nearly half the year before. For three, CMS marked the win rate as suppressed but printed the counts anyway. Two reported exactly the same counts as in 2023. Their appeals still count as filed. With them, the 2024 rate would be 33.6%. Denial reasons are reported per plan for in-network claims, and one claim can count under several reasons, so they're shown as shares of reasons; like KFF, we leave out CMS's out-of-network reason.</li>
                 <li><b>Independent medical review:</b> <a href="https://data.chhs.ca.gov/dataset/independent-medical-review-imr-determinations-trend">California DMHC IMR determinations</a>, via the CalHHS Open Data Portal, 2010 to 2025 (file as published June 2026), with exact duplicate records removed.</li>
                 <li><b>Prior authorization:</b> each insurer's or state's own 2025 report, posted under the <a href="https://www.cms.gov/initiatives/burden-reduction/overview/interoperability/policies-regulations/cms-interoperability-prior-authorization-final-rule-cms-0057-f">CMS prior authorization rule</a>, copied as posted with a link to the source for every row. Reports whose scope or units weren't clear are left out.</li>
+                <li><b>Prior authorization deadlines:</b> the <a href="https://www.federalregister.gov/documents/2024/02/08/2024-00895/medicare-and-medicaid-programs-patient-protection-and-affordable-care-act-advancing-interoperability">CMS prior authorization rule</a> (CMS-0057-F, February 2024) and the regulations for each kind of plan: 42 CFR 422.122, 422.568 and 422.572 (Medicare Advantage), 440.230 (state Medicaid), 438.210 and 438.404 (Medicaid plans), 457.495 (CHIP) and 45 CFR 156.223 (HealthCare.gov insurers). Medicaid plans' deadlines start with their first contract year beginning on or after January 1, 2026. A state-run CHIP program may follow its state's existing prior authorization law instead. CMS proposed adding prescription drugs in April 2026; we found no final rule. Checked October 18, 2026.</li>
                 <li><b>Uninsured:</b> <a href="https://www.census.gov/programs-surveys/sahie.html">Census Small Area Health Insurance Estimates</a>, under 65, 2023 and 2024.</li>
                 <li><b>Health measures:</b> <a href="https://data.cdc.gov/d/i46a-9kgh">CDC PLACES</a> county data, 2025 release (mostly 2023 BRFSS). Adult crude prevalence, county estimates weighted by adult population. Kentucky and Pennsylvania have no 2023 estimates in this release. Use of CDC data does not imply CDC endorsement.</li>
                 <li><b>Drug spending:</b> <a href="https://data.cms.gov/summary-statistics-on-use-and-payments/medicare-medicaid-spending-by-drug/medicare-part-d-spending-by-drug">CMS Medicare Part D Spending by Drug</a>, 2020 to 2024. Gross spending: what Medicare, plans and patients paid together, before manufacturer rebates. CMS marks some names with an asterisk where spending per dose mixes routes of administration; no per-dose figure is shown here, so the mark is left off. The short "for" label next to each drug is its main approved use, checked against MedlinePlus or the drug's FDA label; many drugs have other uses too.</li>
+                <li><b>Medicare prices:</b> CMS's <a href="https://www.cms.gov/initiatives/medicare-prescription-drug-affordability/overview/medicare-drug-price-negotiation-program/selected-drugs-negotiated-prices">selected drugs and negotiated prices</a>, with its fact sheets for <a href="https://www.cms.gov/files/document/fact-sheet-negotiated-prices-initial-price-applicability-year-2026.pdf">2026</a>, <a href="https://www.cms.gov/files/document/fact-sheet-negotiated-prices-ipay-2027.pdf">2027</a> and <a href="https://www.cms.gov/files/document/factsheet-medicare-negotiation-selected-drug-list-ipay-2028.pdf">2028</a>. CMS removed Xarelto from the list from January 1, 2027, because a generic is marketed, and is due to publish the 2028 prices by November 30, 2026. Plans' payments can't exceed the negotiated price, and your share is based on it (<a href="https://www.cms.gov/files/document/ipay-2028-final-guidance.pdf">CMS guidance</a>). Ozempic's price also covers Rybelsus and Wegovy. Checked October 18, 2026.</li>
+                <li><b>Medicare drug help:</b> the out-of-pocket cap from <a href="https://www.cms.gov/files/document/2027-announcement.pdf">CMS's 2027 rate announcement</a> (table V-2) and Medicare.gov's pages on <a href="https://www.medicare.gov/health-drug-plans/part-d/basics/costs">drug costs</a>, <a href="https://www.medicare.gov/basics/costs/help/drug-costs">Extra Help</a> and the <a href="https://www.medicare.gov/prescription-payment-plan">Prescription Payment Plan</a>. Checked October 18, 2026.</li>
                 <li><b>Today's counter:</b> 2024 in-network marketplace denials divided by 366 days, counted up from your local midnight. It spreads a yearly total evenly for illustration; it isn't a count of denials happening today.</li>
+                {% if enrollment %}<li><b>Open enrollment:</b> Medicare's dates from <a href="https://www.cms.gov/newsroom/press-releases/medicare-advantage-medicare-prescription-drug-programs-expected-remain-stable-2027">CMS's announcement</a> (September 28, 2026) and <a href="https://www.medicare.gov/basics/get-started-with-medicare/get-more-coverage/joining-a-plan">Medicare.gov</a>. HealthCare.gov's 2027 sign-up window is in a court case, so we link to HealthCare.gov rather than print its dates. Checked October 18, 2026.</li>{% endif %}
+                <li><b>Phone numbers and other sites:</b> each taken from the office's or group's own page, checked October 18, 2026.</li>
             </ol>
         </section>
     </div>

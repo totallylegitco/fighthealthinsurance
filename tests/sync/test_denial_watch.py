@@ -11,6 +11,8 @@ import importlib.util
 import json
 import pathlib
 import re
+from datetime import date
+from unittest import mock
 
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
@@ -41,6 +43,23 @@ def _millions(x: float) -> str:
 def _without_data(html: str) -> str:
     """The page as a reader sees it, without the embedded JSON."""
     return re.sub(r'<script id="dw-data".*?</script>', "", html, flags=re.S)
+
+
+def _between(html: str, start: str, end: str) -> str:
+    """The part of the page from one marker up to the next, so a check stays in its section."""
+    i = html.index(start)
+    return html[i : html.index(end, i)]
+
+
+def _page(day: date | None = None) -> str:
+    """The rendered page, with today pinned when a day is given."""
+    if day is None:
+        return Client().get(reverse("denial-watch")).content.decode()
+    with mock.patch("django.utils.timezone.localdate", return_value=day):
+        return Client().get(reverse("denial-watch")).content.decode()
+
+
+SHOWN_DRUGS = [r for tab in ("top", "per", "growth", "cheap") for r in DATA["drugs"][tab]]
 
 
 class TestDenialWatchPage(TestCase):
@@ -471,3 +490,279 @@ class TestDenialWatchScriptCountsInNetwork(TestCase):
     def test_counter_can_be_paused(self):
         self.assertIn("prefers-reduced-motion", self.js)
         self.assertIn('id="tickpause"', Client().get(reverse("denial-watch")).content.decode())
+
+
+class TestDenialWatchEnrollment(TestCase):
+    """The open-enrollment box shows only in season; tests pin the date."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        from fighthealthinsurance.views import denial_watch_enrollment
+
+        cls.season = staticmethod(denial_watch_enrollment)
+
+    def test_medicare_line_runs_october_15_to_december_7(self):
+        self.assertEqual(self.season(date(2026, 10, 15)), {"medicare": True})
+        self.assertEqual(self.season(date(2026, 12, 7)), {"medicare": True})
+
+    def test_box_stays_for_healthcare_gov_after_medicare_closes(self):
+        self.assertEqual(self.season(date(2026, 12, 8)), {"medicare": False})
+        self.assertEqual(self.season(date(2027, 1, 15)), {"medicare": False})
+
+    def test_box_is_hidden_out_of_season(self):
+        self.assertIsNone(self.season(date(2026, 10, 14)))
+        self.assertIsNone(self.season(date(2027, 1, 16)))
+
+    def test_page_shows_the_box_in_season(self):
+        html = _page(date(2026, 10, 18))
+        box = _between(html, 'id="enroll"', "</section>")
+        self.assertIn("Medicare open enrollment runs from October 15 to December 7, 2026", box)
+        self.assertIn('href="https://www.medicare.gov/plan-compare/"', box)
+        self.assertIn('href="https://www.healthcare.gov/"', box)
+        self.assertIn('href="#insurers"', box)
+        self.assertIn('href="#prior-auth"', box)
+
+    def test_box_sits_near_the_top(self):
+        html = _page(date(2026, 10, 18))
+        self.assertLess(html.index('id="enroll"'), html.index('class="fhi-jump-links"'))
+
+    def test_insurer_section_points_to_healthcare_gov_in_season(self):
+        html = _page(date(2026, 10, 18))
+        section = _between(html, 'id="insurers"', "</section>")
+        self.assertIn("Picking a 2027 HealthCare.gov plan?", section)
+
+    def test_box_prints_no_healthcare_gov_dates(self):
+        # The 2027 marketplace window is in court, so the box links out instead.
+        box = _between(_page(date(2026, 10, 18)), 'id="enroll"', "</section>")
+        for day in ("November 1", "December 15", "January 15"):
+            self.assertNotIn(day, box)
+
+    def test_page_drops_the_medicare_line_after_december_7(self):
+        html = _page(date(2026, 12, 8))
+        self.assertIn('id="enroll"', html)
+        self.assertNotIn("Medicare open enrollment runs", html)
+
+    def test_page_has_no_enrollment_box_after_the_season(self):
+        html = _page(date(2027, 1, 16))
+        self.assertNotIn('id="enroll"', html)
+        self.assertNotIn("Picking a 2027 HealthCare.gov plan?", html)
+        self.assertNotIn("<b>Open enrollment:</b>", html)
+
+
+class TestDenialWatchWhoToCall(TestCase):
+    """Where to turn, by kind of coverage, and from each state on the map."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.content = _page()
+        cls.js = (REPO / "fighthealthinsurance" / "static" / "js" / "denial_watch.js").read_text()
+
+    def test_card_sits_in_what_you_can_do(self):
+        section = _between(self.content, 'id="act"', "</section>")
+        self.assertIn('id="who-to-call"', section)
+
+    def test_card_links_each_office(self):
+        card = _between(self.content, 'id="who-to-call"', "</section>")
+        for href in (
+            "https://askebsa.dol.gov/",
+            "https://www.medicare.gov/my/medicare-complaint",
+            "https://content.naic.org/state-insurance-departments",
+            "https://www.cms.gov/initiatives/your-patient-rights/medical-bill-rights",
+            "https://www.shiphelp.org/",
+            reverse("state_help_index"),
+        ):
+            self.assertIn(f'href="{href}"', card)
+
+    def test_card_gives_each_phone_number(self):
+        card = _between(self.content, 'id="who-to-call"', "</section>")
+        for phone in ("1-866-444-3272", "1-800-633-4227", "1-800-985-3059", "1-877-839-2675"):
+            self.assertIn(phone, card)
+
+    def test_medicare_denials_go_to_appeal_not_the_complaint_form(self):
+        card = _between(self.content, 'id="who-to-call"', "</section>")
+        self.assertIn("To fight a denial, appeal with the steps in your notice.", card)
+
+    def test_map_readout_links_to_the_state_help_pages(self):
+        self.assertIn(f'data-state-help="{reverse("state_help_index")}"', self.content)
+        self.assertIn("$('dread').innerHTML=h+helpLink(s)", self.js)
+
+    def test_every_map_state_has_a_state_help_page(self):
+        from fighthealthinsurance.state_help import load_state_help
+
+        names = dict(re.findall(r"([A-Z]{2}):'([^']+)'", re.search(r"const NAMES=\{(.*?)\};", self.js).group(1)))
+        self.assertEqual(len(names), 51)
+        pages = load_state_help()
+        for code, name in names.items():
+            # The script's slug: the name, lower case, hyphens for spaces.
+            slug = name.lower().replace(" ", "-")
+            self.assertIn(slug, pages, code)
+            self.assertEqual(reverse("state_help", kwargs={"slug": slug}), f"{reverse('state_help_index')}{slug}/")
+
+
+class TestDenialWatchPlanClockAndPriorAuth(TestCase):
+    """The plan's deadlines sit with prior authorization, which says it isn't every plan."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.section = _between(_page(), 'id="prior-auth"', "</section>")
+
+    def test_clock_gives_the_deadlines_and_who_they_cover(self):
+        clock = _between(self.section, 'id="plan-clock"', "</div>")
+        for words in (
+            "Since 2026, Medicare Advantage, Medicaid and CHIP plans",
+            "within 72 hours if it's urgent, or 7 days if not",
+            "up to 14 more days",
+            "a missed deadline counts as a denial you can appeal",
+            "the specific reason",
+            "15 days (72 hours if urgent)",
+            "don't cover prescription drugs",
+        ):
+            self.assertIn(words, clock)
+
+    def test_clock_cites_the_cms_rule(self):
+        self.assertIn(
+            'href="https://www.cms.gov/newsroom/fact-sheets/cms-interoperability-and-prior-authorization-final-rule-cms-0057-f"',
+            self.section,
+        )
+
+    def test_section_says_it_shows_the_largest_plans_found(self):
+        self.assertIn(f"these {len(DATA['prior_auth'])} are the largest we found", self.section)
+
+    def test_section_points_to_the_fuller_collections(self):
+        self.assertIn('<a href="https://www.authdenied.com/">AuthDenied</a>', self.section)
+        self.assertIn(
+            'href="https://www.kff.org/patient-consumer-protections/prior-authorization-metrics-provide-new-insights-into-insurer-practices-but-gaps-remain/"',
+            self.section,
+        )
+
+
+class TestDenialWatchOthersAppeals(TestCase):
+    """Lookups of how others' appeals went sit with independent review."""
+
+    def test_lookups_link_california_new_york_and_propublica(self):
+        section = _between(_page(), 'id="appeals"', "</section>")
+        card = _between(section, 'id="others-appeals"', "</div>")
+        for href in (
+            "https://data.chhs.ca.gov/dataset/independent-medical-review-imr-determinations-trend",
+            "https://www.dfs.ny.gov/public-appeal/search",
+            "https://projects.propublica.org/claimfile/",
+        ):
+            self.assertIn(f'href="{href}"', card)
+
+
+class TestDenialWatchMedicareDrugs(TestCase):
+    """Medicare drug help and the negotiated-price tags, from the curated file."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.b = _load_builder()
+        cls.prices = cls.b.load_medicare_prices()
+        cls.costs = _between(_page(), 'id="costs"', "</section>")
+
+    def test_tags_match_the_curated_file(self):
+        for r in SHOWN_DRUGS:
+            if r["Brnd_Name"] in self.prices:
+                self.assertEqual(r["medicare_price"], self.prices[r["Brnd_Name"]], r["Brnd_Name"])
+            else:
+                self.assertNotIn("medicare_price", r, r["Brnd_Name"])
+
+    def test_every_curated_brand_is_a_shown_drug(self):
+        # A misspelt brand would tag nothing.
+        self.assertLessEqual(set(self.prices), {r["Brnd_Name"] for r in SHOWN_DRUGS})
+
+    def test_every_price_row_cites_cms(self):
+        with open(REPO / "scripts" / "denial_watch" / "medicare_prices.csv", newline="") as f:
+            for r in csv.DictReader(f):
+                self.assertRegex(r["source_url"], r"^https://www\.cms\.gov/", r["brand"])
+
+    def test_tags_say_the_year(self):
+        label = self.b.medicare_price_label
+        self.assertEqual(label(2026, None, True), "Medicare price from 2026")
+        self.assertEqual(label(2026, 2026, True), "Medicare price in 2026 only")
+        self.assertEqual(label(2028, None, False), "Picked for a Medicare price in 2028")
+
+    def test_xarelto_price_ends_after_2026(self):
+        # CMS removed it from 2027 because a generic is marketed.
+        self.assertEqual(self.prices["Xarelto"]["label"], "Medicare price in 2026 only")
+
+    def test_script_shows_the_tag_escaped(self):
+        js = (REPO / "fighthealthinsurance" / "static" / "js" / "denial_watch.js").read_text()
+        self.assertIn('<span class="dw-chip">${esc(d.medicare_price.label)}</span>', js)
+
+    def test_page_says_the_negotiated_price_is_not_your_copay(self):
+        note = _between(self.costs, 'id="dgprice"', "</p>")
+        self.assertIn("not your copay", note)
+        self.assertIn(
+            'href="https://www.medicare.gov/health-drug-plans/part-d/what-drug-plans-cover/how-drug-plans-work"', note
+        )
+
+    def test_drug_help_gives_the_cap_and_where_to_get_help(self):
+        card = _between(self.costs, 'id="drug-help"', "</div>")
+        self.assertIn("$2,100 in 2026 and $2,400 in 2027", card)
+        for href in (
+            "https://www.medicare.gov/basics/costs/help/drug-costs",
+            "https://www.medicare.gov/prescription-payment-plan",
+            "https://www.shiphelp.org/",
+        ):
+            self.assertIn(f'href="{href}"', card)
+
+
+class TestDenialWatchMoreData(TestCase):
+    """Where to find more data like this, just before the sources."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.content = _page()
+        cls.section = _between(cls.content, 'id="more-data"', "</section>")
+
+    def test_listing_comes_just_before_sources(self):
+        self.assertLess(self.content.index('id="gaps"'), self.content.index('id="more-data"'))
+        self.assertLess(self.content.index('id="more-data"'), self.content.index('id="sources"'))
+
+    def test_listing_links_authdenied_plaininsurer_and_kff(self):
+        for href in (
+            "https://www.authdenied.com/",
+            "https://plaininsurer.com/states",
+            "https://www.kff.org/patient-consumer-protections/claims-denials-and-appeals-in-aca-marketplace-plans-in-2024/",
+        ):
+            self.assertIn(f'href="{href}"', self.section)
+
+    def test_plaininsurer_line_says_why_its_rates_differ(self):
+        self.assertIn("outside the plan's network", self.section)
+
+    def test_join_forces_note_links_to_contact(self):
+        self.assertIn("join forces", self.section)
+        self.assertIn(f'href="{reverse("contact")}"', self.section)
+
+
+class TestDenialWatchLinksAndStyle(TestCase):
+    """Every outside link on the page is https, and the copy has no em dashes."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        html = _page(date(2026, 10, 18))
+        cls.body = _between(html, '<div class="fhi-page-wide dw"', '<script id="dw-data"')
+
+    def test_outside_links_are_https(self):
+        for href in re.findall(r'href="([^"]+)"', self.body):
+            if not href.startswith(("/", "#")):
+                self.assertTrue(href.startswith("https://"), href)
+
+    def test_no_em_dashes(self):
+        self.assertNotIn("—", self.body)
+
+    def test_new_facts_are_in_the_sources(self):
+        sources = _between(self.body, 'id="sources"', "</section>")
+        for href in (
+            "https://www.cms.gov/files/document/2027-announcement.pdf",
+            "https://www.cms.gov/files/document/ipay-2028-final-guidance.pdf",
+            "https://www.federalregister.gov/documents/2024/02/08/2024-00895/medicare-and-medicaid-programs-patient-protection-and-affordable-care-act-advancing-interoperability",
+            "https://www.cms.gov/newsroom/press-releases/medicare-advantage-medicare-prescription-drug-programs-expected-remain-stable-2027",
+        ):
+            self.assertIn(f'href="{href}"', sources)

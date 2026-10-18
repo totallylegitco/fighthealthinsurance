@@ -260,6 +260,7 @@ def build_drugs():
         cheap=rows(p[p.Tot_Benes_2024 >= 2_000_000].nsmallest(10, "Avg_Spnd_Per_Clm_2024")),
     )
     attach_drug_uses(lists, load_drug_uses())
+    attach_medicare_prices(lists, load_medicare_prices())
     # No 2020 total: this file lists only drugs still dispensed in 2024.
     return dict(total=dict(y2024=float(p.Tot_Spndng_2024.sum())), **lists)
 
@@ -281,6 +282,40 @@ def attach_drug_uses(lists, uses):
     for rows in lists.values():
         for r in rows:
             r["use"] = uses[r["Brnd_Name"]]
+
+
+MEDICARE_PRICES_CSV = HERE / "medicare_prices.csv"
+
+
+def medicare_price_label(first, last, published):
+    """The tag on a drug with a Medicare-negotiated price, by year, in plain words."""
+    if not published:
+        return f"Picked for a Medicare price in {first}"
+    if last == first:
+        return f"Medicare price in {first} only"
+    if last:
+        return f"Medicare price {first} to {last}"
+    return f"Medicare price from {first}"
+
+
+def load_medicare_prices(path=MEDICARE_PRICES_CSV):
+    """Brand listing -> its Medicare-negotiated price years, each checked against its CMS source_url."""
+    out = {}
+    with open(path, newline="") as f:
+        for r in csv.DictReader(f):
+            first = int(r["price_from"])
+            last = int(r["price_until"]) if r["price_until"] else None
+            label = medicare_price_label(first, last, r["price_published"] == "yes")
+            out[r["brand"]] = {"from": first, "until": last, "label": label}
+    return out
+
+
+def attach_medicare_prices(lists, prices):
+    """Tag each shown drug that has a Medicare-negotiated price; the rest get no tag."""
+    for rows in lists.values():
+        for r in rows:
+            if r["Brnd_Name"] in prices:
+                r["medicare_price"] = dict(prices[r["Brnd_Name"]])
 
 
 def build_sahie():
@@ -386,6 +421,8 @@ SOURCES = [
          url="https://www.cms.gov/initiatives/burden-reduction/overview/interoperability/policies-regulations/cms-interoperability-prior-authorization-final-rule-cms-0057-f"),
     dict(name="CMS Medicare Part D Spending by Drug", years="2020-2024",
          url="https://data.cms.gov/summary-statistics-on-use-and-payments/medicare-medicaid-spending-by-drug/medicare-part-d-spending-by-drug"),
+    dict(name="CMS Medicare drug price negotiation: selected drugs and negotiated prices", years="2026-2028",
+         url="https://www.cms.gov/initiatives/medicare-prescription-drug-affordability/overview/medicare-drug-price-negotiation-program/selected-drugs-negotiated-prices"),
 ]
 
 

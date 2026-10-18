@@ -41,6 +41,13 @@ nothing here runs in the app.
   claims. CMS's out-of-network reason counts closed-network denials, so it is
   left out, as KFF leaves it out.
 - The California IMR file has some exact duplicate rows, which are dropped.
+- `medicare_prices.csv` tags each shown drug that has a Medicare-negotiated
+  price, one row per brand with the CMS page it was checked against. The build
+  doesn't look drugs up, so after a refresh check any newly shown drug against
+  CMS's selected-drug lists. Update the file when CMS publishes the 2028 prices
+  (due by November 30, 2026) and picks the next drugs (by February 1, 2027).
+- The open-enrollment box's dates are in `views.py`
+  (`DENIAL_WATCH_MEDICARE_ENROLLMENT`); the box hides itself after the season.
 - Insurer rows need at least 50,000 in-network claims. An insurer's appeal win
   rate needs at least 30 appeals, and a state's needs 50. When CMS withholds an
   insurer's number won, its row says "not reported" rather than "too few".

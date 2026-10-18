@@ -10,7 +10,7 @@ import functools
 import secrets
 import time
 import typing
-from datetime import timedelta
+from datetime import date, timedelta
 from typing import TypedDict
 from urllib.parse import quote, urlencode
 
@@ -645,6 +645,19 @@ def denial_watch_teaser() -> dict[str, typing.Any]:
     return {"one_in": round(1 / latest["in_rate"]), "year": latest["year"]}
 
 
+# Checked 2026-10-18. HealthCare.gov's 2027 dates are in court, so the box ends on its latest posted day.
+DENIAL_WATCH_MEDICARE_ENROLLMENT = (date(2026, 10, 15), date(2026, 12, 7))
+DENIAL_WATCH_ENROLLMENT_BOX_ENDS = date(2027, 1, 15)
+
+
+def denial_watch_enrollment(today: date) -> dict[str, bool] | None:
+    """The open-enrollment box Denial Watch shows on `today`, or None out of season."""
+    starts, medicare_ends = DENIAL_WATCH_MEDICARE_ENROLLMENT
+    if not starts <= today <= DENIAL_WATCH_ENROLLMENT_BOX_ENDS:
+        return None
+    return {"medicare": today <= medicare_ends}
+
+
 class DenialWatchView(StaticIshView):
     """Denial Watch: maps and trends of denials, appeals, coverage and costs.
 
@@ -660,6 +673,7 @@ class DenialWatchView(StaticIshView):
     def get_context_data(self, **kwargs: typing.Any) -> dict[str, typing.Any]:
         context = super().get_context_data(**kwargs)
         context["denial_watch_data"] = _denial_watch_data()
+        context["enrollment"] = denial_watch_enrollment(timezone.localdate())
         return context
 
     @classonlymethod

@@ -53,14 +53,16 @@ function drawMap(svg,valueOf,scale,labelOf,onPick,sel){
     let h='';
     for(const [st,r,c] of GRID){const x=OX+c*(S+G), y=OY+r*(S+G);
       h+=`<g data-s="${st}" tabindex="0" role="button"><rect x="${x}" y="${y}" width="${S}" height="${S}" rx="3"/><text x="${x+S/2}" y="${y+21}" text-anchor="middle" class="dw-code">${st}</text><text class="dw-v" x="${x+S/2}" y="${y+37}" text-anchor="middle"></text></g>`;}
-    svg.innerHTML=h;svg.dataset.built='1';
+    svg.innerHTML=h;svg.dataset.built='1';svg._pinned=sel;
     svg.querySelectorAll('g').forEach(g=>{
-      const pick=()=>svg._pick(g.dataset.s);
-      g.addEventListener('mouseenter',pick);g.addEventListener('click',pick);g.addEventListener('focus',pick);
-      g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pick();}});
+      const pin=()=>{svg._pinned=g.dataset.s;svg._pick(g.dataset.s);};
+      g.addEventListener('mouseenter',()=>svg._pick(g.dataset.s));g.addEventListener('click',pin);g.addEventListener('focus',pin);
+      g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pin();}});
     });
+    /* Hover previews; leaving the map goes back to the state picked, so its readout link can be reached. */
+    svg.addEventListener('mouseleave',()=>{if(svg._pinned!==svg._sel)svg._pick(svg._pinned);});
   }
-  svg._pick=onPick;
+  svg._pick=onPick;svg._sel=sel;
   svg.querySelectorAll('g').forEach(g=>{
     const st=g.dataset.s, v=valueOf(st), col=v==null?css('--dw-na'):scale(v);
     const ink=v==null?css('--dw-na-ink'):inkOn(col);
@@ -90,12 +92,15 @@ const DM={
   chg:{v:s=>ST[s]&&ST[s].prev!=null?ST[s].rate-ST[s].prev:null,b:[-.03,-.01,.01,.03],c:DIV,l:x=>(x>0?'+':'')+(x*100).toFixed(0)+' pt',t:x=>(x>0?'+':'')+(x*100).toFixed(1)},
   won:{v:s=>ST[s]&&ST[s].won!=null?ST[s].won:null,b:[.15,.25,.35,.45,.55],c:UC,l:x=>pct(x,0),t:x=>pct(x,1)}
 };
+/* FHI's state help page, at the slug state_help.json uses: the name, lower case, hyphens for spaces. */
+const HELP=ROOT.dataset.stateHelp||'';
+const helpLink=s=>HELP?`<div class="dw-readout-line"><a href="${esc(HELP+NAMES[s].toLowerCase().replace(/ /g,'-')+'/')}">Where to get help in ${esc(NAMES[s])}</a></div>`:'';
 function dRead(s){dsel=s;const r=ST[s];let h=`<div class="dw-readout-state">${NAMES[s]}</div>`;
   if(!r)h+=`<div class="dw-readout-line">Not in this data. ${NAMES[s]} runs its own marketplace, or had no HealthCare.gov insurers reporting.</div>`;
   else h+=`<div class="dw-readout-line"><b class="dw-num">${pct(r.rate)}</b> of in-network claims denied (${big(r.denied)} of ${big(r.claims)})</div>`+
     (r.prev!=null?`<div class="dw-readout-line">2023: <span class="dw-num">${pct(r.prev)}</span> (${r.rate>=r.prev?'up':'down'} ${Math.abs((r.rate-r.prev)*100).toFixed(1)} points)</div>`:'')+
     `<div class="dw-readout-line">${r.won!=null?`<b class="dw-num">${pct(r.won,0)}</b> of internal appeals won (${fmt(r.overturned)} of ${fmt(r.appeals)})`:'Too few appeals reported to show a win rate'} · ${r.issuers} reporting insurer${r.issuers>1?'s':''}${r.issuers===1?', so these are that company\'s figures':r.issuers===2?', so these are those companies\' figures':''}</div>`;
-  $('dread').innerHTML=h;drawD();}
+  $('dread').innerHTML=h+helpLink(s);drawD();}
 function drawD(){const m=DM[dm];drawMap($('dmap'),m.v,binScale(m.b,m.c),m.t,dRead,dsel);legend($('dleg'),m.b,m.c,m.l);}
 function dBars(){const arr=Object.entries(ST).sort((a,b)=>b[1].rate-a[1].rate);const mx=arr[0][1].rate;
   const row=([s,r],cls)=>`<div class="dw-bar ${cls}"><div class="dw-bar-name"><span>${NAMES[s]}</span></div><div class="dw-bar-track"><div class="dw-bar-fill" style="width:${r.rate/mx*100}%"></div></div><div class="dw-bar-value dw-num">${pct(r.rate)}</div></div>`;
@@ -191,7 +196,7 @@ const DGM={
 /* Same letters means a generic listed under its own name: say it once. */
 const sameName=(a,b)=>String(a).toLowerCase().replace(/[^a-z]/g,'')===String(b).toLowerCase().replace(/[^a-z]/g,'');
 function dgDraw(k){const m=DGM[k],rows=DG[k];const mx=Math.max(...rows.map(m.v));$('dgnote').textContent=m.note;
-  $('dgbars').innerHTML=rows.map(d=>`<div class="dw-bar ${m.low?'dw-bar-low':''}"><div class="dw-bar-name"><span><b>${esc(d.Brnd_Name)}</b>${d.use?` <span class="dw-drug-use">for ${esc(d.use)}</span>`:''}${sameName(d.Brnd_Name,d.Gnrc_Name)?'':` <span class="dw-note">· ${esc(String(d.Gnrc_Name).toLowerCase())}</span>`}</span><span class="dw-note dw-num">${m.sub(d)}</span></div><div class="dw-bar-track"><div class="dw-bar-fill" style="width:${m.v(d)/mx*100}%"></div></div><div class="dw-bar-value dw-num">${m.l(d)}</div></div>`).join('');}
+  $('dgbars').innerHTML=rows.map(d=>`<div class="dw-bar ${m.low?'dw-bar-low':''}"><div class="dw-bar-name"><span><b>${esc(d.Brnd_Name)}</b>${d.use?` <span class="dw-drug-use">for ${esc(d.use)}</span>`:''}${sameName(d.Brnd_Name,d.Gnrc_Name)?'':` <span class="dw-note">· ${esc(String(d.Gnrc_Name).toLowerCase())}</span>`}${d.medicare_price?` <span class="dw-chip">${esc(d.medicare_price.label)}</span>`:''}</span><span class="dw-note dw-num">${m.sub(d)}</span></div><div class="dw-bar-track"><div class="dw-bar-fill" style="width:${m.v(d)/mx*100}%"></div></div><div class="dw-bar-value dw-num">${m.l(d)}</div></div>`).join('');}
 document.querySelectorAll('#dgmode button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#dgmode button').forEach(x=>x.setAttribute('aria-pressed',x===b));dgDraw(b.dataset.m);});
 dgDraw('top');
 
