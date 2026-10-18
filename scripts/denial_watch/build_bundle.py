@@ -305,6 +305,13 @@ def load_medicare_prices(path=MEDICARE_PRICES_CSV):
         for r in csv.DictReader(f):
             first = int(r["price_from"])
             last = int(r["price_until"]) if r["price_until"] else None
+            # Stop on a typo rather than ship a wrong tag.
+            if r["price_published"] not in ("yes", "no"):
+                sys.exit(f"{pathlib.Path(path).name}: price_published must be yes or no for {r['brand']}")
+            if last is not None and last < first:
+                sys.exit(f"{pathlib.Path(path).name}: price_until is before price_from for {r['brand']}")
+            if not r["source_url"].startswith("https://"):
+                sys.exit(f"{pathlib.Path(path).name}: source_url must be https for {r['brand']}")
             label = medicare_price_label(first, last, r["price_published"] == "yes")
             out[r["brand"]] = {"from": first, "until": last, "label": label}
     return out

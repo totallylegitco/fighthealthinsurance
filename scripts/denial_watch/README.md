@@ -46,8 +46,12 @@ nothing here runs in the app.
   doesn't look drugs up, so after a refresh check any newly shown drug against
   CMS's selected-drug lists. Update the file when CMS publishes the 2028 prices
   (due by November 30, 2026) and picks the next drugs (by February 1, 2027).
-- The open-enrollment box's dates are in `views.py`
-  (`DENIAL_WATCH_MEDICARE_ENROLLMENT`); the box hides itself after the season.
+- The open-enrollment box's dates and plan year come from `views.py`
+  (`DENIAL_WATCH_MEDICARE_ENROLLMENT`, `DENIAL_WATCH_ENROLLMENT_BOX_ENDS`); the
+  box hides itself after the season. Each fall, also recheck its Sources line,
+  which cites that year's CMS announcement.
+- `medicare_prices.csv` must say `yes` or `no` for `price_published`, and the
+  build stops on anything else or on a `price_until` before `price_from`.
 - Insurer rows need at least 50,000 in-network claims. An insurer's appeal win
   rate needs at least 30 appeals, and a state's needs 50. When CMS withholds an
   insurer's number won, its row says "not reported" rather than "too few".
