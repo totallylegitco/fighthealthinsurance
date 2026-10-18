@@ -73,6 +73,8 @@ REASONS = {
     "plan_number_claims_denied_other": "Other / not specified",
 }
 PLAN_DENIED_IN = "plan_number_claims_denied_in_network"
+# CMS's closed-network reason: out-of-network care the plan doesn't cover (this column name from PY2024 on).
+CLOSED_NETWORK = "plan_number_claims_denied_due_to_out_of_network"
 
 
 def num(x):
@@ -105,11 +107,7 @@ def read_puf(py):
         kind = r.get("qhporsadp") or r.get("qhpsadp")
         if kind and kind != "QHP":
             continue
-        key = (r["state"], r["issuer_id"])
-        if key not in issuers:  # issuer fields repeat on every plan row
-            issuers[key] = dict(issuer_cells(r), types=set())
-        if r.get("plan_type"):
-            issuers[key]["types"].add(str(r["plan_type"]).strip())
+        add_plan_row(issuers, r)
         for col in REASONS:
             v = num(r.get(col))
             if v:
@@ -117,6 +115,17 @@ def read_puf(py):
         plan_denied += num(r.get(PLAN_DENIED_IN)) or 0.0
     drop_doubtful_won(issuers, py)
     return list(issuers.values()), reasons, plan_denied
+
+
+def add_plan_row(issuers, r):
+    """Fold one plan row into its insurer: claim counts once, plan types and the closed-network reason per plan."""
+    key = (r["state"], r["issuer_id"])
+    if key not in issuers:  # issuer fields repeat on every plan row
+        issuers[key] = dict(issuer_cells(r), types=set(), closed=0.0 if CLOSED_NETWORK in r else None)
+    if r.get("plan_type"):
+        issuers[key]["types"].add(str(r["plan_type"]).strip())
+    if issuers[key]["closed"] is not None:
+        issuers[key]["closed"] += num(r.get(CLOSED_NETWORK)) or 0.0
 
 
 def issuer_cells(r):
@@ -169,6 +178,11 @@ def check_impossible(issuers, py):
     bad_in = sorted((i["state"], i["id"]) for i in issuers if (p := side(i, "in")) and p[1] > p[0])
     if bad_in:
         sys.exit(f"plan year {py}: more in-network denials than claims for {bad_in}; the page has no rule for that")
+    # side() skips 0 claims, so denials against 0 claims would slip into the all-claims totals.
+    no_claims = sorted((i["state"], i["id"], net) for i in issuers for net in ("in", "out")
+                       if i[f"rec_{net}"] == 0 and (i[f"den_{net}"] or 0) > 0)
+    if no_claims:
+        sys.exit(f"plan year {py}: denials reported against 0 claims for {no_claims}; the page has no rule for that")
 
 
 def network_only(types):
@@ -211,13 +225,13 @@ def state_views(issuers, types):
         here = [i for i in issuers if i["state"] == st]
         bad = sorted(i["issuer"] for i in here if impossible(i))
         al = None if bad else total(here, "all")
-        oon = [i for i in here if side(i, "out")]
+        kinds = [network_only(types.get((i["state"], i["id"]))) for i in here if side(i, "out")]
         out[st] = dict(
             all=dict(rate=al["rate"] if al else None, claims=al["claims"] if al else None,
                      denied=al["denied"] if al else None, issuers=al["issuers"] if al else 0,
                      why="error" if bad else None if al else "missing", left_out=bad),
-            out=dict(issuers=len(oon), left_out=bad,
-                     net_only=sum(network_only(types.get((i["state"], i["id"]))) is True for i in oon)),
+            # other: sold some plan that isn't an HMO or EPO; the rest aren't in the plan list.
+            out=dict(issuers=len(kinds), left_out=bad, net_only=kinds.count(True), other=kinds.count(False)),
         )
     return out
 
@@ -305,9 +319,13 @@ def oon_meta(issuers, types):
     groups = {k: [] for k in kind.values()}
     for i in rows:
         groups[kind[network_only(types.get((i["state"], i["id"])))]].append(i)
+    # Plan-level and not exclusive (one claim can count under several reasons), so only a rough share.
+    closed = sum(i["closed"] or 0.0 for i in rows)
+    out = total(rows, "out")
     return dict(min_claims=MIN_OON_CLAIMS, plan_types_year=PLAN_TYPES_PY,
                 net_only=total(groups["net_only"], "out"), other=total(groups["other"], "out"),
-                unknown_plan_types=sorted(i["issuer"] for i in groups["unknown"]))
+                unknown_plan_types=sorted(i["issuer"] for i in groups["unknown"]),
+                closed_network=dict(denied=closed, share=closed / out["denied"] if out else None))
 
 
 IMR_LABELS = {
@@ -579,6 +597,7 @@ def main(argv=None):
     print("states with no all-claims rate", {k: v["all"]["left_out"] for k, v in bundle["states"].items() if v["all"]["why"]})
     om = bundle["oon_meta"]
     print("out-of-network by 2024 plan types: network-only", om["net_only"], "other", om["other"], "unknown", om["unknown_plan_types"])
+    print("closed-network reason", f"{om['closed_network']['denied']:,.0f}", f"= {om['closed_network']['share']:.1%} of out-of-network denials")
     whys = [i["out"]["why"] for i in bundle["issuers"]]
     print("insurer rows with an out-of-network rate", whys.count(None),
           "without", {w: whys.count(w) for w in ("net_only", "few", "error", "types_unknown", "missing")})

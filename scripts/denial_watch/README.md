@@ -65,13 +65,27 @@ nothing here runs in the app.
   nationally and for its state; its state gets no all-claims figure.
   `KNOWN_DENIED_OVER_CLAIMS` lists the expected cases by plan year, and the
   build stops if a refresh finds a different set, so a person rechecks them.
-  It also stops on more in-network denials than claims, which has no rule yet.
+  It also stops on more in-network denials than claims, and on denials reported
+  against 0 claims on either side, which have no rule yet.
 - "Network-only" means every plan the insurer sold in the latest claims year
   (the PY2024 plan list for 2024 claims) was an HMO or EPO. Those plans mostly
   don't cover out-of-network care by design, so those insurers get no
   out-of-network rate, and neither does an insurer missing from that plan list.
   The others need at least 1,000 out-of-network claims for a rate.
-- Out-of-network rates aren't mapped by state: most states' figures would
-  mostly show which kinds of plans their insurers sell. There's no
+- The page shows none of those insurer rates: the insurer table counts
+  in-network claims only. Many insurers that also sold PPO or POS plans had
+  most of their out-of-network claims on HMO or EPO plans, or gave CMS's
+  closed-network reason for most of those denials, so an insurer's
+  out-of-network rate, or an all-claims rate that folds it in, would mostly
+  show plan type. The bundle keeps them so a narrower view can come back
+  without a builder change.
+- Out-of-network rates aren't mapped by state either: most states' figures
+  would mostly show which kinds of plans their insurers sell. There's no
   out-of-network change from 2023 (it mostly reflects which insurers reported)
   and no out-of-network appeals figure (appeals aren't split by network).
+- `oon_meta.closed_network` sums CMS's plan-level closed-network reason
+  (`Plan_Number_Claims_Denied_Due_To_Out_Of_Network`) over the insurers in the
+  national out-of-network total. A claim can count under more than one reason,
+  so the page gives only a rough share ("about half"). The PY2022 and PY2023
+  files put this reason under `Plan_Number_Claims_Denied_Out_of_Network`; the
+  build reads only the newer name.

@@ -974,6 +974,33 @@ class TestDenialWatchNetworkData(TestCase):
         counted = meta["net_only"]["issuers"] + meta["other"]["issuers"] + len(meta["unknown_plan_types"])
         self.assertEqual(counted, DATA["trend"][-1]["out_issuers"])
 
+    def test_both_plan_type_groups_are_present(self):
+        # The map's note reads both, and a null group would stop the whole script.
+        for group in ("net_only", "other"):
+            self.assertIsNotNone(DATA["oon_meta"][group], group)
+
+    def test_state_plan_type_counts_fit_the_insurers(self):
+        for st, s in DATA["states"].items():
+            self.assertLessEqual(s["out"]["net_only"] + s["out"]["other"], s["out"]["issuers"], st)
+
+    def test_closed_network_share_is_about_half(self):
+        # The copy says "about half"; a refresh that moves it far needs new words.
+        closed, latest = DATA["oon_meta"]["closed_network"], DATA["trend"][-1]
+        self.assertAlmostEqual(closed["share"], closed["denied"] / latest["out_denied"])
+        self.assertTrue(0.4 < closed["share"] < 0.6, closed["share"])
+
+    def test_trend_rates_fit_the_chart_ranges(self):
+        # The chart's y-axis is fixed per view, so a rate outside it would draw off the chart.
+        ranges = dict(
+            (view, (float(lo), float(hi)))
+            for view, lo, hi in re.findall(r"(\w+):\{lab:'[^']+',ymin:([.\d]+),ymax:([.\d]+)", JS)
+        )
+        self.assertEqual(set(ranges), {"in", "out", "all"})
+        for t in DATA["trend"]:
+            for view, (lo, hi) in ranges.items():
+                if t[f"{view}_rate"] is not None:
+                    self.assertTrue(lo <= t[f"{view}_rate"] <= hi, (t["year"], view))
+
     def test_left_out_insurers_are_the_known_ones(self):
         b = _load_builder()
         for py, cy in b.CLAIMS_YEAR.items():
@@ -1018,7 +1045,7 @@ class TestDenialWatchNetworkBuilder(TestCase):
     def _row(self, **cells):
         """An insurer as read_puf returns it."""
         row = dict(state="XX", id=1, issuer="Crumpler Health Plan", rec_in=1000.0, den_in=100.0,
-                   rec_out=2000.0, den_out=800.0, ap_filed=None, ap_over=None)
+                   rec_out=2000.0, den_out=800.0, ap_filed=None, ap_over=None, closed=None)
         row.update(cells)
         return row
 
@@ -1084,11 +1111,41 @@ class TestDenialWatchNetworkBuilder(TestCase):
     def test_state_counts_network_only_insurers(self):
         rows = [self._row(), self._row(id=2)]
         types = {("XX", 1): {"HMO"}, ("XX", 2): {"HMO", "PPO"}}
-        self.assertEqual(self.b.state_views(rows, types)["XX"]["out"], dict(issuers=2, net_only=1, left_out=[]))
+        self.assertEqual(self.b.state_views(rows, types)["XX"]["out"], dict(issuers=2, net_only=1, other=1, left_out=[]))
+
+    def test_closed_network_reason_adds_up_across_plan_rows(self):
+        issuers = {}
+        plan = {"state": "XX", "issuer_name": "Crumpler Health Plan", "issuer_id": 1,
+                "issuer_claims_received_out_of_network": 100, "plan_type": "HMO"}
+        self.b.add_plan_row(issuers, dict(plan, plan_number_claims_denied_due_to_out_of_network=30))
+        self.b.add_plan_row(issuers, dict(plan, plan_number_claims_denied_due_to_out_of_network="*", plan_type="PPO"))
+        self.b.add_plan_row(issuers, dict(plan, plan_number_claims_denied_due_to_out_of_network=12))
+        row = issuers[("XX", 1)]
+        self.assertEqual((row["closed"], row["types"], row["rec_out"]), (42.0, {"HMO", "PPO"}, 100.0))
+
+    def test_closed_network_reason_is_none_in_files_without_it(self):
+        issuers = {}
+        self.b.add_plan_row(issuers, {"state": "XX", "issuer_name": "Crumpler Health Plan", "issuer_id": 1})
+        self.assertIsNone(issuers[("XX", 1)]["closed"])
+
+    def test_closed_network_share_uses_the_national_out_of_network_rows(self):
+        rows = [self._row(closed=400.0), self._row(id=2, closed=50.0, rec_out=100.0, den_out=150.0)]
+        meta = self.b.oon_meta(rows, {("XX", 1): {"HMO"}})
+        # The impossible row stays out, as it does from the out-of-network total.
+        self.assertEqual(meta["closed_network"], dict(denied=400.0, share=0.5))
 
     def test_unexpected_impossible_row_stops_the_build(self):
         with self.assertRaises(SystemExit):
             self.b.check_impossible([self._row(rec_out=100.0, den_out=150.0)], 2022)
+
+    def test_known_impossible_row_gone_stops_the_build(self):
+        with self.assertRaises(SystemExit):
+            self.b.check_impossible([], 2026)
+
+    def test_denials_against_zero_claims_stop_the_build(self):
+        for cells in (dict(rec_out=0.0, den_out=5.0), dict(rec_in=0.0, den_in=5.0)):
+            with self.subTest(**cells), self.assertRaises(SystemExit):
+                self.b.check_impossible([self._row(**cells)], 2022)
 
     def test_impossible_list_is_per_plan_year(self):
         rows = [self._row(state=s, id=i, rec_out=100.0, den_out=150.0) for s, i in self.b.KNOWN_DENIED_OVER_CLAIMS[2026]]
@@ -1111,14 +1168,29 @@ class TestDenialWatchNetworkPage(TestCase):
         cls.sources = _text(_between(cls.content, 'id="sources"', "</section>"))
 
     def test_in_network_is_the_default_everywhere(self):
-        for group in ("dmode", "iview", "tmode"):
+        for group in ("dmode", "tmode"):
             box = _between(self.content, f'id="{group}"', "</div>")
             self.assertIn('aria-pressed="true" data-m="in">In-network</button>', box)
             self.assertEqual(box.count('aria-pressed="true"'), 1, group)
-        for start in ("let dm='in'", "let iv='in'", "let tv='in'"):
+        for start in ("let dm='in'", "let tv='in'"):
             self.assertIn(start, JS)
         self.assertIn("The map opens on in-network claims", self.content)
-        self.assertIn("The table opens on in-network claims", self.content)
+
+    def test_insurer_table_shows_in_network_rates_only(self):
+        # Its out-of-network and all-claims rates would mostly show plan type (the mislead review).
+        section = _between(self.content, 'id="insurers"', "</section>")
+        self.assertNotIn('id="iview"', section)
+        self.assertIn("The table has no out-of-network or all-claims rates, and the line just above it says why.", _text(section))
+        self.assertLess(section.index('id="inote"'), section.index('id="itable"'))
+        table_js = _between(JS, "/* insurers:", "$('istate').onchange")
+        self.assertNotRegex(table_js, r"\bi\.(out|all)\b")
+        self.assertIn("We don't show out-of-network or all-claims rates insurer by insurer.", table_js)
+
+    def test_insurer_note_says_hmo_or_epo_and_why(self):
+        note = _between(JS, "$('inote').textContent=", ";\n")
+        self.assertIn("insurers on this page sold only HMO or EPO plans in ${OM.plan_types_year}", note)
+        self.assertIn("had most of their out-of-network claims on HMO or EPO plans", note)
+        self.assertIn("would mostly show which kinds of plans an insurer sells, not how it handles claims", note)
 
     def test_map_offers_no_out_of_network_change_or_appeals(self):
         buttons = re.findall(r'data-m="(\w+)"', _between(self.content, 'id="dmode"', "</div>"))
@@ -1129,8 +1201,28 @@ class TestDenialWatchNetworkPage(TestCase):
     def test_map_has_no_out_of_network_state_figures(self):
         # A state's rate would mostly show plan type, so the map says so instead.
         self.assertIn("out:{v:()=>null,", JS)
-        self.assertIn("We don't show them state by state.", JS)
+        self.assertIn("We don't map out-of-network rates by state: in ${OM.plan_types_year}, ${NET.issuers} of the ${T.out_issuers} insurers reporting them sold only HMO or EPO plans", JS)
         self.assertIn("so a state's rate would mostly show which kinds of plans its insurers sell", JS)
+
+    def test_out_of_network_map_note_carries_the_closed_network_line_and_advice(self):
+        note = _between(JS, "  out:{v:()=>null,", "\n  all:{")
+        self.assertIn("${closedLine}", note)
+        self.assertIn("Look for a PPO or POS.", note)
+        self.assertIn('<a href="#who-to-call">Who to call</a>', note)
+        self.assertIn('id="who-to-call"', self.content)
+        # The insurer table has no out-of-network view, so nothing links into one.
+        self.assertNotIn("data-iview", JS)
+
+    def test_map_outlines_states_a_view_leaves_out(self):
+        # Grey is for states with no HealthCare.gov data; a left-out state looks different.
+        self.assertIn("A state that a view leaves out has an outlined tile, and the line under the map says why.", self.content)
+        self.assertIn(".dw-map g.dw-gone rect {", self.content)
+        self.assertIn("gone=v==null&&goneOf(st)", JS)
+
+    def test_no_network_only_label_left(self):
+        # The page says "sold only HMO or EPO plans", which a reader can check on a plan.
+        self.assertNotIn("network-only plans", _text(_without_data(self.content)))
+        self.assertNotIn("network-only plans", JS)
 
     def test_trend_chart_label_says_in_network(self):
         self.assertIn('aria-label="Line chart of the in-network denial rate by year, 2020 to 2024"', self.content)
@@ -1142,7 +1234,7 @@ class TestDenialWatchNetworkPage(TestCase):
         self.assertLess(self.content.index('id="tline"'), self.content.index('id="tnote"'))
         self.assertLess(self.content.index('id="inote"'), self.content.index('id="itable"'))
         self.assertIn("$('dnote').innerHTML=m.note", JS)
-        self.assertIn("$('inote').innerHTML=v.note", JS)
+        self.assertIn("$('inote').textContent=", JS)
         self.assertIn("$('tnote').textContent=", JS)
 
     def test_map_line_names_the_states_left_out_and_why(self):
@@ -1151,22 +1243,24 @@ class TestDenialWatchNetworkPage(TestCase):
 
     def test_state_readout_says_why(self):
         self.assertIn("No all-claims figure for ${NAMES[s]}: ${esc(cantBe(a.left_out))}.", JS)
-        self.assertIn("Out-of-network claims aren\\'t shown state by state (why, under the map).", JS)
+        self.assertIn("Not mapped by state (why, under the map).", JS)
+        self.assertIn("No all-claims figure: no insurer here reported both kinds of claims.", JS)
 
-    def test_script_says_why_for_every_hidden_rate(self):
-        table = re.search(r"const WHY=\{(.*?)\n\};", JS, re.S).group(1)
-        used = {c["why"] for i in DATA["issuers"] for c in (i["out"], i["all"]) if c["why"]}
-        for why in used | {"net_only", "types_unknown", "few", "error", "missing"}:
-            self.assertRegex(table, rf"\b{why}:", why)
-        self.assertIn("Network-only plans: out-of-network care mostly not covered by design", table)
+    def test_state_readout_counts_hmo_or_epo_insurers_in_words(self):
+        rule = _between(JS, "function netLine(", "\nfunction outRead(")
+        for words in (
+            "Its one insurer sold only HMO or EPO plans in ${y}.",
+            "${NAMES[s]}'s one insurer sold PPO or POS plans in ${y}, not only HMO or EPO plans.",
+            "All ${n} insurers here sold only HMO or EPO plans in ${y}.",
+            "None of the ${n} insurers here sold only HMO or EPO plans in ${y}.",
+            "${k} of the ${n} insurers here sold only HMO or EPO plans in ${y}.",
+        ):
+            self.assertIn(words, rule)
 
-    def test_network_only_tag_only_in_all_claims_view(self):
-        self.assertIn("iv==='all'&&i.net_only?' <span class=\"dw-chip\">Network-only plans</span>'", JS)
-
-    def test_out_of_network_views_drop_appeals(self):
-        # Appeals aren't split by network.
-        self.assertIn("out?'':'<th class=\"dw-r\">Appeals won</th>'", JS)
-        self.assertIn("tv==='out'?'':'<th class=\"dw-r\">Appeals</th>'", JS)
+    def test_out_of_network_trend_table_shows_claims_and_no_appeals(self):
+        # Denials alone read as a jump; claims grew faster. Appeals aren't split by network.
+        self.assertIn("${out?'<th class=\"dw-r\">Claims</th>':''}", JS)
+        self.assertIn("${out?'':'<th class=\"dw-r\">Appeals</th>'}", JS)
 
     def test_out_of_network_is_about_twice_in_network(self):
         latest = DATA["trend"][-1]
@@ -1177,12 +1271,18 @@ class TestDenialWatchNetworkPage(TestCase):
         meta, latest = DATA["oon_meta"], DATA["trend"][-1]
         self.assertIn(
             f"in {meta['plan_types_year']}, {meta['net_only']['issuers']} of the {latest['out_issuers']} "
-            "insurers reporting them sold only network-only plans",
+            "insurers reporting them sold only HMO or EPO plans",
             self.sources,
         )
-        self.assertIn(f"with at least {meta['min_claims']:,} out-of-network claims", self.sources)
-        for name in meta["unknown_plan_types"]:
-            self.assertIn(name, self.sources)
+        self.assertIn("We don't show them insurer by insurer either", self.sources)
+        self.assertIn("The insurer table has no all-claims rates for the same reason", self.sources)
+
+    def test_method_note_gives_the_closed_network_figure(self):
+        closed = DATA["oon_meta"]["closed_network"]
+        self.assertIn(
+            f"For {_millions(closed['denied'])} of those out-of-network denials, about half, insurers gave the reason",
+            self.sources,
+        )
 
     def test_method_note_names_the_left_out_insurers(self):
         for t in DATA["trend"]:
