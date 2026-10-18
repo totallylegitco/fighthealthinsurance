@@ -39,12 +39,12 @@ if(pauseBtn)pauseBtn.addEventListener('click',()=>run(!timer));
 const inRate=T.in_rate, apShare=T.appeals_all/T.in_denied, won=T.overturned/T.appeals;
 const imr25=D.imr_trend.find(r=>r.y===2025);
 $('stats').innerHTML=[
-  [pct(inRate,0),'of in-network claims denied on HealthCare.gov plans in '+T.year],
+  [pct(inRate,0),'claims denied','in-network, on HealthCare.gov plans, '+T.year],
   /* Tens, matching the page's "about 1 for every 320". */
-  [fmt(Math.round(1/apShare/10)*10),'in-network denials for every internal appeal filed in '+T.year+' ('+big(T.in_denied)+' denials, '+fmt(T.appeals_all)+' appeals)'],
-  [pct(won,0),'of internal appeals won at the insurer in '+T.year],
-  [pct(imr25.r,0),'of California independent reviews went the patient\'s way in 2025 (a later, separate step)']
-].map(([b,s])=>`<div class="dw-stat"><b class="dw-num">${b}</b><span>${s}</span></div>`).join('');
+  [fmt(Math.round(1/apShare/10)*10),'denials per appeal',T.year+': '+big(T.in_denied)+' in-network denials, '+fmt(T.appeals_all)+' internal appeals'],
+  [pct(won,0),'appeals won','at the insurer, '+T.year],
+  [pct(imr25.r,0),'reviews won','by patients at California\'s independent review, 2025, a later step']
+].map(([b,l,s])=>`<div class="dw-stat"><p class="dw-stat-head"><b class="dw-num">${b}</b> <strong>${l}</strong></p><span>${s}</span></div>`).join('');
 
 /* tile map engine */
 const S=48,G=2.5,OX=6,OY=6;

@@ -429,6 +429,15 @@ class TestDenialWatchScriptCountsInNetwork(TestCase):
     def test_insurer_table_says_when_cms_withheld_the_win_count(self):
         self.assertIn("not reported (", self.js)
 
+    def test_each_headline_number_has_a_label(self):
+        for label in ("'claims denied'", "'denials per appeal'", "'appeals won'", "'reviews won'"):
+            self.assertIn(label, self.js)
+
+    def test_counter_says_what_it_counts(self):
+        page = Client().get(reverse("denial-watch")).content.decode()
+        self.assertIn("denied so far today, at 2024's pace", page)
+        self.assertIn("denied per day in 2024, on average", page)
+
     def test_counter_can_be_paused(self):
         self.assertIn("prefers-reduced-motion", self.js)
         self.assertIn('id="tickpause"', Client().get(reverse("denial-watch")).content.decode())

@@ -20,14 +20,19 @@
   .dw-kicker { font-size: var(--fhi-text-small); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fhi-green-ink); }
   .dw-ticker { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--fhi-space-2) var(--fhi-space-6); align-items: end; padding: var(--fhi-space-5); border-radius: var(--fhi-radius); background-color: var(--fhi-ink); color: #fff; }
   .dw-ticker p { color: #fff; margin: 0; }
+  .dw-ticker-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--fhi-space-1) var(--fhi-space-3); margin-bottom: var(--fhi-space-2); }
   .dw-ticker-count { font-size: clamp(2.5rem, 7vw, 4.25rem); font-weight: 800; line-height: 1; }
+  .dw-ticker-label { font-size: clamp(1.25rem, 2.4vw, 1.75rem); font-weight: 700; line-height: 1.15; }
   .dw-ticker-rate { text-align: right; }
   .dw-ticker-rate b { display: block; font-size: 1.6rem; }
+  .dw-ticker-rate span { font-weight: 700; }
   .dw-ticker .dw-pause { border-color: #fff; color: #fff; }
   .dw-ticker .dw-pause:hover, .dw-ticker .dw-pause:focus { background-color: #fff; color: var(--fhi-ink); }
   .dw-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr)); gap: var(--fhi-space-4); }
   .dw-stat { display: grid; gap: var(--fhi-space-1); align-content: start; padding-top: var(--fhi-space-3); border-top: 3px solid var(--fhi-ink); }
+  .dw-stat-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--fhi-space-2); margin: 0; }
   .dw-stat b { font-size: 2rem; line-height: 1.1; }
+  .dw-stat strong { font-size: 1.3rem; line-height: 1.15; color: var(--fhi-ink); }
   .dw-stat span { color: var(--fhi-ink-2); }
   .dw-two { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: var(--fhi-space-6); align-items: start; }
   .dw-two > * { display: grid; gap: var(--fhi-space-4); min-width: 0; }
@@ -97,11 +102,14 @@
     <div class="fhi-stack fhi-stack-loose">
         <div class="dw-ticker" role="group" aria-label="Illustration: 2024 in-network denials spread evenly over a day">
             <div>
-                <p class="dw-ticker-count dw-num" id="tick">0</p>
+                <div class="dw-ticker-head">
+                    <p class="dw-ticker-count dw-num" id="tick">0</p>
+                    <p class="dw-ticker-label">denied so far today, at 2024's pace</p>
+                </div>
                 <p>An illustration, not a live count: if 2024's in-network HealthCare.gov denials were spread evenly over the year, this many would have happened since midnight. Employer plans, Medicaid, Medicare and state-run marketplaces aren't included.</p>
             </div>
             <div class="fhi-stack">
-                <p class="dw-ticker-rate"><b class="dw-num" id="perday">0</b>per day, on average</p>
+                <p class="dw-ticker-rate"><b class="dw-num" id="perday">0</b><span>denied per day in 2024, on average</span></p>
                 <button type="button" class="fhi-button fhi-button-small dw-pause" id="tickpause" aria-controls="tick">Pause the counter</button>
             </div>
         </div>
