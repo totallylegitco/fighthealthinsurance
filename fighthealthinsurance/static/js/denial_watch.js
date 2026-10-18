@@ -199,6 +199,8 @@ const sameName=(a,b)=>String(a).toLowerCase().replace(/[^a-z]/g,'')===String(b).
 function dgDraw(k){const m=DGM[k],rows=DG[k];const mx=Math.max(...rows.map(m.v));$('dgnote').textContent=m.note;
   /* The tag note only where a tag is shown; the tag gets its own row so the figures don't wrap. */
   $('dgprice').hidden=!rows.some(d=>d.medicare_price);
+  /* Only where a drug whose price ends is listed. */
+  $('dgends').hidden=!rows.some(d=>d.medicare_price&&d.medicare_price.until);
   $('dgbars').innerHTML=rows.map(d=>`<div class="dw-bar ${m.low?'dw-bar-low':''}${d.medicare_price?' dw-bar-tagged':''}"><div class="dw-bar-name"><span><b>${esc(d.Brnd_Name)}</b>${d.use?` <span class="dw-drug-use">for ${esc(d.use)}</span>`:''}${sameName(d.Brnd_Name,d.Gnrc_Name)?'':` <span class="dw-note">· ${esc(String(d.Gnrc_Name).toLowerCase())}</span>`}</span><span class="dw-note dw-num">${m.sub(d)}</span></div>${d.medicare_price?`<span class="dw-chip dw-bar-chip">${esc(d.medicare_price.label)}</span>`:''}<div class="dw-bar-track"><div class="dw-bar-fill" style="width:${m.v(d)/mx*100}%"></div></div><div class="dw-bar-value dw-num">${m.l(d)}</div></div>`).join('');}
 document.querySelectorAll('#dgmode button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#dgmode button').forEach(x=>x.setAttribute('aria-pressed',x===b));dgDraw(b.dataset.m);});
 dgDraw('top');

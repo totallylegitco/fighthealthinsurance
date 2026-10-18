@@ -803,6 +803,11 @@ class TestDenialWatchMedicareDrugs(TestCase):
         ink, ground = (parse_colour(re.search(rf"--{name}: (#[0-9a-f]{{6}})", style).group(1)) for name in ("dw-u5", "dw-u0"))
         self.assertGreaterEqual(contrast_ratio(ink[:3], ground[:3]), 4.5)
 
+    def test_ending_price_note_shows_only_with_a_drug_whose_price_ends(self):
+        js = (REPO / "fighthealthinsurance" / "static" / "js" / "denial_watch.js").read_text()
+        self.assertIn("$('dgends').hidden=!rows.some(d=>d.medicare_price&&d.medicare_price.until);", js)
+        self.assertIn('<span id="dgends">', self.costs)
+
     def test_page_says_the_negotiated_price_is_not_your_copay(self):
         note = _between(self.costs, 'id="dgprice"', "</p>")
         self.assertIn("not your copay", note)
