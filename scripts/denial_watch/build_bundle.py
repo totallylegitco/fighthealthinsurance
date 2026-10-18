@@ -253,14 +253,34 @@ def build_drugs():
 
     g = p[p.Tot_Spndng_2020 >= 1e8].copy()
     g["x"] = g.Tot_Spndng_2024 / g.Tot_Spndng_2020
-    return dict(
-        # No 2020 total: this file lists only drugs still dispensed in 2024.
-        total=dict(y2024=float(p.Tot_Spndng_2024.sum())),
+    lists = dict(
         top=rows(p.nlargest(10, "Tot_Spndng_2024")),
         per=rows(p[p.Tot_Benes_2024 >= 1000].nlargest(10, "Avg_Spnd_Per_Bene_2024")),
         growth=rows(g.nlargest(10, "x")),
         cheap=rows(p[p.Tot_Benes_2024 >= 2_000_000].nsmallest(10, "Avg_Spnd_Per_Clm_2024")),
     )
+    attach_drug_uses(lists, load_drug_uses())
+    # No 2020 total: this file lists only drugs still dispensed in 2024.
+    return dict(total=dict(y2024=float(p.Tot_Spndng_2024.sum())), **lists)
+
+
+DRUG_USES_CSV = HERE / "drug_uses.csv"
+
+
+def load_drug_uses(path=DRUG_USES_CSV):
+    """Brand listing -> plain main use, each checked against its source_url."""
+    with open(path, newline="") as f:
+        return {r["brand"]: r["use"] for r in csv.DictReader(f)}
+
+
+def attach_drug_uses(lists, uses):
+    """Label every shown drug, or stop so a refresh can't ship one unlabelled."""
+    missing = sorted({r["Brnd_Name"] for rows in lists.values() for r in rows} - uses.keys())
+    if missing:
+        sys.exit(f"add a checked use to {DRUG_USES_CSV.name} for: {', '.join(missing)}")
+    for rows in lists.values():
+        for r in rows:
+            r["use"] = uses[r["Brnd_Name"]]
 
 
 def build_sahie():

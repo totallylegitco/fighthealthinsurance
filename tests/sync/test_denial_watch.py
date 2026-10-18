@@ -6,6 +6,7 @@ some of them are also written into the page's sentences, so these tests check
 that the copy still agrees with the data after a refresh.
 """
 
+import csv
 import importlib.util
 import json
 import pathlib
@@ -347,6 +348,35 @@ class TestDenialWatchPriorAuth(TestCase):
     def test_builder_reads_the_curated_file(self):
         rows = _load_builder().build_prior_auth()
         self.assertEqual(rows, DATA["prior_auth"])
+
+
+class TestDenialWatchDrugUses(TestCase):
+    """Each listed drug says what it's for, from a checked source."""
+
+    def test_every_shown_drug_names_its_use(self):
+        for tab in ("top", "per", "growth", "cheap"):
+            for r in DATA["drugs"][tab]:
+                self.assertTrue(1 <= len(r["use"].split()) <= 3, r["Brnd_Name"])
+
+    def test_every_use_cites_medlineplus_or_the_fda_label(self):
+        path = REPO / "scripts" / "denial_watch" / "drug_uses.csv"
+        with open(path, newline="") as f:
+            for r in csv.DictReader(f):
+                self.assertRegex(
+                    r["source_url"],
+                    r"^https://(medlineplus\.gov|dailymed\.nlm\.nih\.gov|www\.accessdata\.fda\.gov)/",
+                    r["brand"],
+                )
+
+    def test_builder_labels_from_the_curated_file(self):
+        uses = _load_builder().load_drug_uses()
+        for tab in ("top", "per", "growth", "cheap"):
+            for r in DATA["drugs"][tab]:
+                self.assertEqual(uses[r["Brnd_Name"]], r["use"])
+
+    def test_builder_stops_on_an_unlabelled_drug(self):
+        with self.assertRaises(SystemExit):
+            _load_builder().attach_drug_uses({"top": [{"Brnd_Name": "Unlisted"}]}, {})
 
 
 class TestDenialWatchIsEasyToFind(TestCase):

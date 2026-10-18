@@ -58,6 +58,7 @@
   .dw-bars { display: grid; gap: var(--fhi-space-2); }
   .dw-bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "nm val" "tr tr"; gap: 3px var(--fhi-space-3); align-items: baseline; }
   .dw-bar-name { grid-area: nm; display: flex; justify-content: space-between; gap: var(--fhi-space-2); min-width: 0; overflow-wrap: anywhere; }
+  .dw-bar-name > .dw-num { overflow-wrap: normal; }
   .dw-bar-track { grid-area: tr; height: 10px; border-radius: 2px; overflow: hidden; background-color: var(--dw-track); }
   .dw-bar-fill { height: 100%; border-radius: 2px; background-color: var(--dw-red); }
   .dw-bar-value { grid-area: val; min-width: 3rem; text-align: right; font-weight: 700; }
@@ -294,7 +295,7 @@
                 <li><b>Prior authorization:</b> each insurer's or state's own 2025 report, posted under the <a href="https://www.cms.gov/initiatives/burden-reduction/overview/interoperability/policies-regulations/cms-interoperability-prior-authorization-final-rule-cms-0057-f">CMS prior authorization rule</a>, copied as posted with a link to the source for every row. Reports whose scope or units weren't clear are left out.</li>
                 <li><b>Uninsured:</b> <a href="https://www.census.gov/programs-surveys/sahie.html">Census Small Area Health Insurance Estimates</a>, under 65, 2023 and 2024.</li>
                 <li><b>Health measures:</b> <a href="https://data.cdc.gov/d/i46a-9kgh">CDC PLACES</a> county data, 2025 release (mostly 2023 BRFSS). Adult crude prevalence, county estimates weighted by adult population. Kentucky and Pennsylvania have no 2023 estimates in this release. Use of CDC data does not imply CDC endorsement.</li>
-                <li><b>Drug spending:</b> <a href="https://data.cms.gov/summary-statistics-on-use-and-payments/medicare-medicaid-spending-by-drug/medicare-part-d-spending-by-drug">CMS Medicare Part D Spending by Drug</a>, 2020 to 2024. Gross spending: what Medicare, plans and patients paid together, before manufacturer rebates. CMS marks some names with an asterisk where spending per dose mixes routes of administration; no per-dose figure is shown here, so the mark is left off.</li>
+                <li><b>Drug spending:</b> <a href="https://data.cms.gov/summary-statistics-on-use-and-payments/medicare-medicaid-spending-by-drug/medicare-part-d-spending-by-drug">CMS Medicare Part D Spending by Drug</a>, 2020 to 2024. Gross spending: what Medicare, plans and patients paid together, before manufacturer rebates. CMS marks some names with an asterisk where spending per dose mixes routes of administration; no per-dose figure is shown here, so the mark is left off. The short "for" label next to each drug is its main approved use, checked against MedlinePlus or the drug's FDA label; many drugs have other uses too.</li>
                 <li><b>Today's counter:</b> 2024 in-network marketplace denials divided by 366 days, counted up from your local midnight. It spreads a yearly total evenly for illustration; it isn't a count of denials happening today.</li>
             </ol>
         </section>
