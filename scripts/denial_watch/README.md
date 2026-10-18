@@ -28,7 +28,8 @@ nothing here runs in the app.
 
 3. Compare the printed figures with the page's copy. The headline sentences in
    `templates/denial_watch.html` name some numbers, such as the about 7% to 27% state
-   range, 72% in California, and the correlations. When a new year arrives, adding
+   range, 72% in California, the correlations, the trend's in-network shares, and
+   the out-of-network and all-claims totals in Sources and method; the tests check them. When a new year arrives, adding
    it means extending `CLAIMS_YEAR` and `LATEST_PY`, then rereading the copy.
 
 ## Rules the build follows
@@ -55,3 +56,22 @@ nothing here runs in the app.
 - Insurer rows need at least 50,000 in-network claims. An insurer's appeal win
   rate needs at least 30 appeals, and a state's needs 50. When CMS withholds an
   insurer's number won, its row says "not reported" rather than "too few".
+- The files for 2020 and 2021 claims have one claims count, which CMS's PY2023
+  data dictionary defines as in-network only ("Does not include out-of-network
+  claims"). So the trend's in-network line runs from 2020, and its
+  out-of-network and all-claims lines start with 2022 claims.
+- An insurer that reports more out-of-network denials than claims gets no
+  out-of-network or all-claims figure, and is left out of those totals
+  nationally and for its state; its state gets no all-claims figure.
+  `KNOWN_DENIED_OVER_CLAIMS` lists the expected cases by plan year, and the
+  build stops if a refresh finds a different set, so a person rechecks them.
+  It also stops on more in-network denials than claims, which has no rule yet.
+- "Network-only" means every plan the insurer sold in the latest claims year
+  (the PY2024 plan list for 2024 claims) was an HMO or EPO. Those plans mostly
+  don't cover out-of-network care by design, so those insurers get no
+  out-of-network rate, and neither does an insurer missing from that plan list.
+  The others need at least 1,000 out-of-network claims for a rate.
+- Out-of-network rates aren't mapped by state: most states' figures would
+  mostly show which kinds of plans their insurers sell. There's no
+  out-of-network change from 2023 (it mostly reflects which insurers reported)
+  and no out-of-network appeals figure (appeals aren't split by network).

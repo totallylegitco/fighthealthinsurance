@@ -51,6 +51,7 @@
   .dw-axis line { stroke: var(--fhi-line); }
   .dw-legend { display: flex; flex-wrap: wrap; gap: 2px; font-size: var(--fhi-text-small); color: var(--fhi-ink-2); }
   .dw-legend div { display: grid; gap: 3px; min-width: 4rem; flex: 1 1 4rem; }
+  .dw-legend div:only-child { max-width: 8rem; }
   .dw-legend i { display: block; height: 10px; border-radius: 2px; }
   .dw-readout { min-height: 6rem; display: grid; gap: var(--fhi-space-1); align-content: start; padding-top: var(--fhi-space-3); border-top: 1px solid var(--fhi-line); }
   .dw-readout-state { font-weight: 800; font-size: var(--fhi-text-lead); }
@@ -83,6 +84,7 @@
   .dw-list { display: grid; gap: var(--fhi-space-3); margin: 0; padding-left: 1.25rem; }
   .dw-enroll > * { margin-block: 0; }
   .dw-enroll { display: grid; gap: var(--fhi-space-2); }
+  .dw-two .dw-note { margin-block: 0; }
   @media (max-width: 860px) {
     .dw-two { grid-template-columns: minmax(0, 1fr); }
   }
@@ -150,21 +152,24 @@
         <section class="fhi-stack" id="map-denials" aria-labelledby="map-denials-title">
             <p class="dw-kicker">Where claims get denied</p>
             <h2 id="map-denials-title">Denial rates run from about 7% to 27%, depending on your state</h2>
-            <p>Share of in-network claims (care from doctors, hospitals and pharmacies that contract with the plan) denied by HealthCare.gov insurers in each state, 2024. Grey states run their own marketplace, so their insurers don't report to HealthCare.gov and aren't shown. That now includes Georgia and Illinois, which used HealthCare.gov in 2024 but have since moved to their own, so their 2024 claims aren't here either. In Wyoming one insurer reports, and in Hawaii, Alaska, West Virginia and Montana two do, so those states' figures are those companies' figures.</p>
+            <p>Share of claims denied by HealthCare.gov insurers in each state, 2024. The map opens on in-network claims (care from doctors, hospitals and pharmacies that contract with the plan), and the buttons switch to all claims and other views. Grey states run their own marketplace, so their insurers don't report to HealthCare.gov and aren't shown. That now includes Georgia and Illinois, which used HealthCare.gov in 2024 but have since moved to their own, so their 2024 claims aren't here either. In Wyoming one insurer reports, and in Hawaii, Alaska, West Virginia and Montana two do, so those states' figures are those companies' figures.</p>
             <div class="fhi-card">
                 <div class="dw-two">
                     <div>
                         <div class="fhi-cluster dw-toggles" id="dmode" role="group" aria-label="What the map shows">
-                            <button type="button" class="fhi-button fhi-button-small fhi-button-neutral" aria-pressed="true" data-m="rate">Denial rate</button>
+                            <button type="button" class="fhi-button fhi-button-small fhi-button-neutral" aria-pressed="true" data-m="in">In-network</button>
+                            <button type="button" class="fhi-button fhi-button-small fhi-button-neutral" aria-pressed="false" data-m="out">Out-of-network</button>
+                            <button type="button" class="fhi-button fhi-button-small fhi-button-neutral" aria-pressed="false" data-m="all">All claims</button>
                             <button type="button" class="fhi-button fhi-button-small fhi-button-neutral" aria-pressed="false" data-m="chg">Change from 2023</button>
                             <button type="button" class="fhi-button fhi-button-small fhi-button-neutral" aria-pressed="false" data-m="won">Appeals won</button>
                         </div>
                         <svg class="dw-map" id="dmap" viewBox="0 0 620 410" role="group" aria-label="Tile map of US states. Select a state for details."></svg>
                         <div class="dw-legend" id="dleg"></div>
+                        <p class="dw-note" id="dnote"></p>
                     </div>
                     <div>
                         <div class="dw-readout" id="dread" aria-live="polite"></div>
-                        <h3>Highest and lowest denial rates</h3>
+                        <h3 id="dbarsh">Highest and lowest in-network denial rates</h3>
                         <div class="dw-bars" id="dbars"></div>
                     </div>
                 </div>
@@ -174,10 +179,18 @@
         <section class="fhi-stack" id="trend" aria-labelledby="trend-title">
             <p class="dw-kicker">The trend</p>
             <h2 id="trend-title">More denials, and appeals can still work</h2>
-            <p>HealthCare.gov plans, all claims (in and out of network), by the year the claims were made. The files for 2020 and 2021 don't split the two, so this chart counts both, which puts 2024 at 101 million denials and 20%, a little above the in-network 19%. The number of denials more than doubled from 2020 to 2024 as enrollment grew, and the share denied went from 18% in 2020 to about 20%, after peaking at 21% in 2023. In 2024 insurers reversed about a third of the internal appeals people filed. The states and insurers that report change each year (Georgia and Illinois have since left HealthCare.gov, and insurers that leave stop reporting), and rates aren't adjusted for the kinds of care people used.</p>
+            <p>HealthCare.gov plans, by the year the claims were made. In-network denials about doubled from 2020 to 2024, to 84.5 million, as enrollment grew. The share of in-network claims denied went from 18% in 2020 down to 16% in 2022, then rose to 20% in 2023 and was 19% in 2024. Insurers have reported out-of-network claims separately only since 2022, so that view and the all-claims view start there: 37% of out-of-network claims and 20% of all claims were denied in 2024. In 2024 insurers reversed about a third of the internal appeals people filed. The states and insurers that report change each year (Georgia and Illinois have since left HealthCare.gov, and insurers that leave stop reporting), and rates aren't adjusted for the kinds of care people used.</p>
             <div class="fhi-card">
                 <div class="dw-two">
-                    <div><svg class="dw-chart" id="tline" viewBox="0 0 560 270" role="img" aria-label="Line chart of the all-claims denial rate by year, 2020 to 2024"></svg></div>
+                    <div>
+                        <div class="fhi-cluster dw-toggles" id="tmode" role="group" aria-label="Which claims">
+                            <button type="button" class="fhi-button fhi-button-small fhi-button-neutral" aria-pressed="true" data-m="in">In-network</button>
+                            <button type="button" class="fhi-button fhi-button-small fhi-button-neutral" aria-pressed="false" data-m="out">Out-of-network</button>
+                            <button type="button" class="fhi-button fhi-button-small fhi-button-neutral" aria-pressed="false" data-m="all">All claims</button>
+                        </div>
+                        <svg class="dw-chart" id="tline" viewBox="0 0 560 270" role="img" aria-label="Line chart of the in-network denial rate by year, 2020 to 2024"></svg>
+                        <p class="dw-note" id="tnote"></p>
+                    </div>
                     <div class="dw-table-wrap"><table class="dw-table" id="ttable"></table></div>
                 </div>
             </div>
@@ -193,14 +206,20 @@
         <section class="fhi-stack" id="insurers" aria-labelledby="insurers-title">
             <p class="dw-kicker">Company by company</p>
             <h2 id="insurers-title">Denial rates, insurer by insurer</h2>
-            <p>In-network denial rates for each reporting HealthCare.gov insurer that handled at least 50,000 in-network claims in 2024, as each company reported them. These are unadjusted rates, not a quality rating: they depend on the kinds of care each plan's members use and how each company counts claims. Compare companies within a state: the all-states view shows the range of rates inside each state, and picking a state lists its companies. Appeal win rates are shown only for insurers with at least 30 appeals, and "not reported" means CMS withheld the number won or we left it out as a likely reporting error (see <a href="#sources">Sources and method</a>).</p>
+            <p>Denial rates for each reporting HealthCare.gov insurer that handled at least 50,000 in-network claims in 2024, as each company reported them. The table opens on in-network claims, and the buttons switch to out-of-network claims or all claims. These are unadjusted rates, not a quality rating: they depend on the kinds of care each plan's members use and how each company counts claims. Compare companies within a state: the all-states view shows the range of rates inside each state, and picking a state lists its companies. Appeal win rates are shown only for insurers with at least 30 appeals, and "not reported" means CMS withheld the number won or we left it out as a likely reporting error (see <a href="#sources">Sources and method</a>).</p>
             {% if enrollment %}<p class="fhi-notice fhi-notice-info">Picking a {{ enrollment.plan_year }} HealthCare.gov plan? Choose your state below to see its insurers' rates, then compare plans on <a href="https://www.healthcare.gov/">HealthCare.gov</a>.</p>{% endif %}
             <div class="fhi-card">
+                <div class="fhi-cluster dw-toggles" id="iview" role="group" aria-label="Which claims">
+                    <button type="button" class="fhi-button fhi-button-small fhi-button-neutral" aria-pressed="true" data-m="in">In-network</button>
+                    <button type="button" class="fhi-button fhi-button-small fhi-button-neutral" aria-pressed="false" data-m="out">Out-of-network</button>
+                    <button type="button" class="fhi-button fhi-button-small fhi-button-neutral" aria-pressed="false" data-m="all">All claims</button>
+                </div>
                 <div class="dw-controls">
                     <label class="fhi-label" for="istate">State</label>
                     <select class="fhi-field" id="istate"></select>
                     <span class="dw-note" id="icount"></span>
                 </div>
+                <p class="dw-note" id="inote"></p>
                 <div class="dw-table-wrap"><table class="dw-table" id="itable"></table></div>
             </div>
         </section>
@@ -354,7 +373,7 @@
             <h2 id="more-data-title">Where to find more data like this</h2>
             <ul class="fhi-list">
                 <li><h3 class="fhi-card-title"><a href="https://www.authdenied.com/">AuthDenied</a></h3><p>Prior authorization denial rates, appeal results and decision times for more than 1,100 Medicare Advantage, Medicaid and HealthCare.gov plans, from their 2025 reports, each linked to the plan's own report. No ads.</p></li>
-                <li><h3 class="fhi-card-title"><a href="https://plaininsurer.com/states">PlainInsurer</a></h3><p>Claim denial rates for each HealthCare.gov insurer by state, with appeals filed and won, from the same federal files we use. It also counts care from doctors and hospitals outside the plan's network, which is denied more often, so some of its rates run higher than ours. Paid for by ads.</p></li>
+                <li><h3 class="fhi-card-title"><a href="https://plaininsurer.com/states">PlainInsurer</a></h3><p>Claim denial rates for each HealthCare.gov insurer by state, with appeals filed and won, from the same federal files we use. It also counts care from doctors and hospitals outside the plan's network, which is denied more often, so some of its rates run higher than our in-network ones. Paid for by ads.</p></li>
                 <li><h3 class="fhi-card-title"><a href="https://www.kff.org/">KFF</a></h3><p>An independent health policy research group. Its reports cover <a href="https://www.kff.org/patient-consumer-protections/claims-denials-and-appeals-in-aca-marketplace-plans-in-2024/">HealthCare.gov claim denials and appeals</a> (2024 claims, with a spreadsheet by insurer and state) and <a href="https://www.kff.org/patient-consumer-protections/prior-authorization-metrics-provide-new-insights-into-insurer-practices-but-gaps-remain/">the largest insurers' 2025 prior authorization reports</a>.</p></li>
             </ul>
             <p class="fhi-notice fhi-notice-info" id="join-forces">If you run one of these, or can connect us with the people who do, we'd like to join forces on making health care data easier to understand. <a href="{% url 'contact' %}">Get in touch</a>.</p>
@@ -365,7 +384,7 @@
             <p class="dw-kicker">Where the numbers come from</p>
             <h2 id="sources-title">Sources and method</h2>
             <ol class="dw-sources">
-                <li><b>Denials and appeals:</b> <a href="https://www.cms.gov/marketplace/resources/data/public-use-files">CMS Transparency in Coverage public use files</a>, plan years 2022 to 2026, which report claims from 2020 to 2024. Individual-market medical plans only, in states using HealthCare.gov. Insurers report these figures to CMS themselves. Numbers are FHI's totals of issuer-level figures, not CMS's own, and closely match <a href="https://www.kff.org/patient-consumer-protections/claims-denials-and-appeals-in-aca-marketplace-plans-in-2024/">KFF's 2024 analysis</a> (KFF leaves out insurers with 1,000 or fewer claims, so it counts 39 fewer appeals). The headline figures, the state map and the insurer table count in-network claims, as KFF does: 84.5 million denials in 2024, 19% of in-network claims, and 263,021 internal appeals, about 1 for every 320 of those denials. The trend chart and its table count all claims, in and out of network (101 million denials, 20%, in 2024), because the files for 2020 and 2021 don't split the two. Cells CMS suppresses for small counts are left out. Appeal counts aren't split by network, so the 1-in-320 figure compares two totals, as KFF's does. Appeal win rates count only insurers that reported both appeals filed and appeals won, and an appeal won in part counts as won. Nine insurers' 2024 appeals-won counts look like reporting errors, so we leave them out too. Four reported none of their 346 to 1,813 appeals won, after winning a quarter to nearly half the year before. For three, CMS marked the win rate as suppressed but printed the counts anyway. Two reported exactly the same counts as in 2023. Their appeals still count as filed. With them, the 2024 rate would be 33.6%. Denial reasons are reported per plan for in-network claims, and one claim can count under several reasons, so they're shown as shares of reasons; like KFF, we leave out CMS's out-of-network reason.</li>
+                <li><b>Denials and appeals:</b> <a href="https://www.cms.gov/marketplace/resources/data/public-use-files">CMS Transparency in Coverage public use files</a>, plan years 2022 to 2026, which report claims from 2020 to 2024. Individual-market medical plans only, in states using HealthCare.gov. Insurers report these figures to CMS themselves. Numbers are FHI's totals of issuer-level figures, not CMS's own, and closely match <a href="https://www.kff.org/patient-consumer-protections/claims-denials-and-appeals-in-aca-marketplace-plans-in-2024/">KFF's 2024 analysis</a> (KFF leaves out insurers with 1,000 or fewer claims, so it counts 39 fewer appeals). The headline figures count in-network claims, as KFF does: 84.5 million denials in 2024, 19% of in-network claims, and 263,021 internal appeals, about 1 for every 320 of those denials. The map, the insurer table and the trend chart open on in-network claims too, and can switch to out-of-network claims or all claims. CMS's data dictionary defines the one claims count in the files for 2020 and 2021 as in-network only, so the other two views start in 2022. In 2024 insurers denied 16.4 million of 44.4 million out-of-network claims (37%) and 100.8 million of 494.7 million claims overall (20%), the same national rates KFF reports. KFF doesn't break out-of-network rates down by state or insurer, and we don't map them by state: in 2024, 120 of the 157 insurers reporting them sold only network-only plans (every plan an HMO or EPO, from CMS's 2024 plan list), which mostly don't cover out-of-network care by design, so a state's rate would mostly show which kinds of plans its insurers sell, not how they handle claims. For the same reason the insurer table shows an out-of-network rate only for an insurer that also sold PPO or POS plans, with at least 1,000 out-of-network claims; Community First Insurance Plans in Texas isn't in the 2024 plan list, so it has none either. Two insurers reported more out-of-network denials than claims in 2024, which can't be right: Moda Health Plan in Alaska and Blue Cross Blue Shield of North Dakota. We leave them out of the out-of-network and all-claims figures, and the map's all-claims view shows no figure for Alaska or North Dakota. Blue Cross and Blue Shield of Kansas (2022 claims) and Blue Cross Blue Shield of North Dakota (2023) are left out of those years the same way. There's no out-of-network change from 2023, which mostly reflects which insurers reported, and no out-of-network appeals figure. Cells CMS suppresses for small counts are left out. Appeal counts aren't split by network, so the 1-in-320 figure compares two totals, as KFF's does. Appeal win rates count only insurers that reported both appeals filed and appeals won, and an appeal won in part counts as won. Nine insurers' 2024 appeals-won counts look like reporting errors, so we leave them out too. Four reported none of their 346 to 1,813 appeals won, after winning a quarter to nearly half the year before. For three, CMS marked the win rate as suppressed but printed the counts anyway. Two reported exactly the same counts as in 2023. Their appeals still count as filed. With them, the 2024 rate would be 33.6%. Denial reasons are reported per plan for in-network claims, and one claim can count under several reasons, so they're shown as shares of reasons; like KFF, we leave out CMS's out-of-network reason.</li>
                 <li><b>Independent medical review:</b> <a href="https://data.chhs.ca.gov/dataset/independent-medical-review-imr-determinations-trend">California DMHC IMR determinations</a>, via the CalHHS Open Data Portal, 2010 to 2025 (file as published June 2026), with exact duplicate records removed.</li>
                 <li><b>Prior authorization:</b> each insurer's or state's own 2025 report, posted under the <a href="https://www.cms.gov/initiatives/burden-reduction/overview/interoperability/policies-regulations/cms-interoperability-prior-authorization-final-rule-cms-0057-f">CMS prior authorization rule</a>, copied as posted with a link to the source for every row. Reports whose scope or units weren't clear are left out.</li>
                 <li><b>Prior authorization deadlines:</b> the <a href="https://www.federalregister.gov/documents/2024/02/08/2024-00895/medicare-and-medicaid-programs-patient-protection-and-affordable-care-act-advancing-interoperability">rule as published in the Federal Register</a> (CMS-0057-F, February 2024) and the regulations for each kind of plan: 42&nbsp;CFR&nbsp;422.122, 422.568 and 422.572 (Medicare Advantage), 440.230 and 431.80 (state Medicaid), 438.210 and 438.404 (Medicaid plans), 457.495 and 457.1230 (CHIP), and 45&nbsp;CFR&nbsp;156.223 and 147.136 (HealthCare.gov insurers). Insurers in states that run their own marketplace through HealthCare.gov aren't covered. Medicaid plans' deadlines start with their first contract year beginning on or after January 1, 2026. A state-run CHIP program may follow its state's existing prior authorization law instead. CMS proposed adding prescription drugs in April 2026; we found no final rule. Checked October 18, 2026.</li>

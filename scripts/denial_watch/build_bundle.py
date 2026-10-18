@@ -37,6 +37,17 @@ LATEST_PY = 2026
 MIN_ISSUER_CLAIMS = 50_000  # in-network claims, for the insurer table
 MIN_APPEALS_FOR_RATE = 30  # an insurer's appeal win rate is shown only on this many appeals
 MIN_STATE_APPEALS = 50
+MIN_OON_CLAIMS = 1_000  # an insurer's out-of-network rate needs this many out-of-network claims
+NETWORK_ONLY = {"HMO", "EPO"}  # plan types that mostly don't pay for out-of-network care
+PLAN_TYPES_PY = CLAIMS_YEAR[LATEST_PY]  # the plans sold in the latest claims year
+
+# (state, issuer id) reporting more out-of-network denials than claims, by plan year. They get no
+# out-of-network or all-claims figure, and the build stops if a refresh finds a different set.
+KNOWN_DENIED_OVER_CLAIMS = {
+    2024: {("KS", 18558)},
+    2025: {("ND", 37160)},
+    2026: {("AK", 73836), ("ND", 37160)},
+}
 
 # (state, issuer id) whose appeals-won count looks like a reporting error, so it's left out like a
 # suppressed cell: 0 won after hundreds the year before, a rate CMS marked suppressed, or a repeat of last year.
@@ -94,19 +105,11 @@ def read_puf(py):
         kind = r.get("qhporsadp") or r.get("qhpsadp")
         if kind and kind != "QHP":
             continue
-
-        def g(*keys):
-            return next((num(r.get(k)) for k in keys if k in r), None)
-
         key = (r["state"], r["issuer_id"])
         if key not in issuers:  # issuer fields repeat on every plan row
-            issuers[key] = dict(
-                state=r["state"], issuer=str(r["issuer_name"]).strip(), id=r["issuer_id"],
-                rec_in=g("issuer_claims_received_in_network"), den_in=g("issuer_claims_denied_in_network"),
-                rec_out=g("issuer_claims_received_out_of_network"), den_out=g("issuer_claims_denied_out_of_network"),
-                rec_all=g("issuer_claims_received"), den_all=g("issuer_claims_denials", "issuer_claims_denied"),
-                ap_filed=g("issuer_internal_appeals_filed"), ap_over=g("issuer_number_internal_appeals_overturned"),
-            )
+            issuers[key] = dict(issuer_cells(r), types=set())
+        if r.get("plan_type"):
+            issuers[key]["types"].add(str(r["plan_type"]).strip())
         for col in REASONS:
             v = num(r.get(col))
             if v:
@@ -116,19 +119,107 @@ def read_puf(py):
     return list(issuers.values()), reasons, plan_denied
 
 
+def issuer_cells(r):
+    """One insurer's claim and appeal counts from a plan row, keyed by normalized header."""
+
+    def g(*keys):
+        return next((num(r.get(k)) for k in keys if k in r), None)
+
+    return dict(
+        state=r["state"], issuer=str(r["issuer_name"]).strip(), id=r["issuer_id"],
+        # The 2020-2021 files' one count is in-network only (CMS PY2023 data dictionary).
+        rec_in=g("issuer_claims_received_in_network", "issuer_claims_received"),
+        den_in=g("issuer_claims_denied_in_network", "issuer_claims_denials", "issuer_claims_denied"),
+        rec_out=g("issuer_claims_received_out_of_network"), den_out=g("issuer_claims_denied_out_of_network"),
+        ap_filed=g("issuer_internal_appeals_filed"), ap_over=g("issuer_number_internal_appeals_overturned"),
+    )
+
+
 def drop_doubtful_won(issuers, py):
     """Blank the appeals-won count for DOUBTFUL_WON rows; appeals filed still count."""
     for key in DOUBTFUL_WON.get(py, ()):
         issuers[key]["ap_over"] = None  # a KeyError means the file changed: recheck the list
 
 
-def all_claims(i):
-    if i["rec_all"] and i["den_all"] is not None:
-        return i["rec_all"], i["den_all"]
-    parts = (i["rec_in"], i["rec_out"], i["den_in"], i["den_out"])
-    if None not in parts and i["rec_in"] + i["rec_out"]:
-        return i["rec_in"] + i["rec_out"], i["den_in"] + i["den_out"]
-    return None
+def side(i, net):
+    """(claims, denied) for 'in', 'out' or 'all' (both added), or None when a cell is missing or claims are 0."""
+    if net == "all":
+        cells = (i["rec_in"], i["den_in"], i["rec_out"], i["den_out"])
+        if None in cells:
+            return None
+        claims, denied = i["rec_in"] + i["rec_out"], i["den_in"] + i["den_out"]
+    else:
+        claims, denied = i[f"rec_{net}"], i[f"den_{net}"]
+    return (claims, denied) if claims and denied is not None else None
+
+
+def impossible(i):
+    """More out-of-network denials than claims, which can't be right."""
+    p = side(i, "out")
+    return bool(p) and p[1] > p[0]
+
+
+def check_impossible(issuers, py):
+    """Stop when the impossible rows aren't the known ones, so a person rechecks them."""
+    found = {(i["state"], i["id"]) for i in issuers if impossible(i)}
+    known = KNOWN_DENIED_OVER_CLAIMS.get(py, set())
+    if found != known:
+        sys.exit(f"plan year {py}: more out-of-network denials than claims, new {sorted(found - known)}, "
+                 f"gone {sorted(known - found)}; recheck KNOWN_DENIED_OVER_CLAIMS")
+    bad_in = sorted((i["state"], i["id"]) for i in issuers if (p := side(i, "in")) and p[1] > p[0])
+    if bad_in:
+        sys.exit(f"plan year {py}: more in-network denials than claims for {bad_in}; the page has no rule for that")
+
+
+def network_only(types):
+    """True when every plan is an HMO or EPO, False when any isn't, None when no plan types are known."""
+    return set(types) <= NETWORK_ONLY if types else None
+
+
+def total(issuers, net):
+    """Claims, denied, rate and insurer count on one side; impossible rows stay out of 'out' and 'all'."""
+    pairs = [p for i in issuers if (p := side(i, net)) and (net == "in" or not impossible(i))]
+    if not pairs:
+        return None
+    claims, denied = sum(p[0] for p in pairs), sum(p[1] for p in pairs)
+    return dict(claims=claims, denied=denied, rate=denied / claims, issuers=len(pairs))
+
+
+def rate_cell(i, net, net_only=None):
+    """An insurer's out-of-network or all-claims rate, or why it has none."""
+    p = side(i, net)
+    if not p:
+        why = "missing"
+    elif impossible(i):
+        why = "error"
+    elif net == "out" and net_only:
+        why = "net_only"
+    elif net == "out" and net_only is None:
+        why = "types_unknown"
+    elif net == "out" and p[0] < MIN_OON_CLAIMS:
+        why = "few"
+    else:
+        why = None
+    return dict(r=None if why else round(p[1] / p[0], 4), c=int(p[0]) if p else None,
+                d=int(p[1]) if p else None, why=why)
+
+
+def state_views(issuers, types):
+    """Per state: the all-claims rate, unless an insurer there is impossible, and who sold network-only plans."""
+    out = {}
+    for st in sorted({i["state"] for i in issuers}):
+        here = [i for i in issuers if i["state"] == st]
+        bad = sorted(i["issuer"] for i in here if impossible(i))
+        al = None if bad else total(here, "all")
+        oon = [i for i in here if side(i, "out")]
+        out[st] = dict(
+            all=dict(rate=al["rate"] if al else None, claims=al["claims"] if al else None,
+                     denied=al["denied"] if al else None, issuers=al["issuers"] if al else 0,
+                     why="error" if bad else None if al else "missing", left_out=bad),
+            out=dict(issuers=len(oon), left_out=bad,
+                     net_only=sum(network_only(types.get((i["state"], i["id"]))) is True for i in oon)),
+        )
+    return out
 
 
 def matched_appeals(issuers):
@@ -161,27 +252,30 @@ def build_denials():
     trend, per_year = [], {}
     for py, cy in CLAIMS_YEAR.items():
         issuers, reasons, plan_denied = read_puf(py)
+        check_impossible(issuers, py)
         per_year[py] = (issuers, reasons, plan_denied)
-        pairs = [p for p in map(all_claims, issuers) if p]
         filed, over = matched_appeals(issuers)
-        t = dict(year=cy, days=366 if cy % 4 == 0 else 365, claims=sum(p[0] for p in pairs),
-                 denied=sum(p[1] for p in pairs), appeals=filed, overturned=over,
+        t = dict(year=cy, days=366 if cy % 4 == 0 else 365, appeals=filed, overturned=over,
                  appeals_all=sum(i["ap_filed"] or 0 for i in issuers),
-                 states=len({i["state"] for i in issuers}), issuers=len(issuers))
-        t["rate"] = t["denied"] / t["claims"]
-        inn = [i for i in issuers if i["rec_in"] and i["den_in"] is not None]
-        if inn:
-            t["in_denied"] = sum(i["den_in"] for i in inn)
-            t["in_claims"] = sum(i["rec_in"] for i in inn)
-            t["in_rate"] = t["in_denied"] / t["in_claims"]
+                 states=len({i["state"] for i in issuers}), issuers=len(issuers),
+                 left_out=[dict(s=i["state"], id=i["id"], n=i["issuer"], claims=i["rec_out"], denied=i["den_out"])
+                           for i in issuers if impossible(i)])
+        # Out-of-network and all claims are null before 2022 claims, which weren't split.
+        for net in ("in", "out", "all"):
+            tot = total(issuers, net) or {}
+            for k in ("claims", "denied", "rate", "issuers"):
+                t[f"{net}_{k}"] = tot.get(k)
         trend.append(t)
 
     issuers, reasons, plan_denied = per_year[LATEST_PY]
+    types = {(i["state"], i["id"]): i["types"] for i in per_year[PLAN_TYPES_PY][0]}
     states = state_rates(issuers)
     prev = state_rates(per_year[LATEST_PY - 1][0])
+    views = state_views(issuers, types)
     for k, v in states.items():
         if k in prev:
             v["prev"] = prev[k]["rate"]
+        v.update(views[k])
 
     table = []
     for i in issuers:
@@ -189,14 +283,31 @@ def build_denials():
             continue
         # a without o: enough appeals, but CMS withheld the number won.
         ok = i["ap_filed"] is not None and i["ap_filed"] >= MIN_APPEALS_FOR_RATE
+        pt = types.get((i["state"], i["id"]))
+        net_only = network_only(pt)
         table.append(dict(s=i["state"], n=i["issuer"], r=round(i["den_in"] / i["rec_in"], 4),
                           c=int(i["rec_in"]), d=int(i["den_in"]),
                           a=int(i["ap_filed"]) if ok else None,
-                          o=int(i["ap_over"]) if ok and i["ap_over"] is not None else None))
+                          o=int(i["ap_over"]) if ok and i["ap_over"] is not None else None,
+                          pt=sorted(pt) if pt else None, net_only=net_only,
+                          out=rate_cell(i, "out", net_only), all=rate_cell(i, "all")))
 
     reason_rows = sorted(({"k": REASONS[k], "v": v} for k, v in reasons.items()), key=lambda x: -x["v"])
     return dict(trend=trend, states=states, issuers=table, reasons=reason_rows,
-                reason_meta=dict(entries=sum(reasons.values()), plan_denied_in=plan_denied))
+                reason_meta=dict(entries=sum(reasons.values()), plan_denied_in=plan_denied),
+                oon_meta=oon_meta(issuers, types))
+
+
+def oon_meta(issuers, types):
+    """The out-of-network rules, and how the latest year's reporting insurers split by plan type."""
+    rows = [i for i in issuers if side(i, "out") and not impossible(i)]
+    kind = {True: "net_only", False: "other", None: "unknown"}
+    groups = {k: [] for k in kind.values()}
+    for i in rows:
+        groups[kind[network_only(types.get((i["state"], i["id"])))]].append(i)
+    return dict(min_claims=MIN_OON_CLAIMS, plan_types_year=PLAN_TYPES_PY,
+                net_only=total(groups["net_only"], "out"), other=total(groups["other"], "out"),
+                unknown_plan_types=sorted(i["issuer"] for i in groups["unknown"]))
 
 
 IMR_LABELS = {
@@ -458,9 +569,19 @@ def main(argv=None):
     print("wrote", args.out)
 
     for t in bundle["trend"]:
-        print(t["year"], f"rate {t['rate']:.2%}", f"in {t.get('in_rate', 0):.2%}",
-              f"denied {t['denied']:,.0f}", f"appeals {t['appeals']:,.0f}",
-              f"won {t['overturned'] / t['appeals']:.2%}", f"states {t['states']}")
+        print(t["year"], f"appeals {t['appeals']:,.0f}", f"won {t['overturned'] / t['appeals']:.2%}", f"states {t['states']}")
+        for net in ("in", "out", "all"):
+            if t[f"{net}_claims"] is not None:
+                print(" ", net, f"{t[f'{net}_denied']:,.0f} of {t[f'{net}_claims']:,.0f}",
+                      f"= {t[f'{net}_rate']:.2%}", f"({t[f'{net}_issuers']} insurers)")
+        for x in t["left_out"]:
+            print("  left out of out and all:", x["s"], x["id"], x["n"], f"{x['denied']:,.0f} denied of {x['claims']:,.0f}")
+    print("states with no all-claims rate", {k: v["all"]["left_out"] for k, v in bundle["states"].items() if v["all"]["why"]})
+    om = bundle["oon_meta"]
+    print("out-of-network by 2024 plan types: network-only", om["net_only"], "other", om["other"], "unknown", om["unknown_plan_types"])
+    whys = [i["out"]["why"] for i in bundle["issuers"]]
+    print("insurer rows with an out-of-network rate", whys.count(None),
+          "without", {w: whys.count(w) for w in ("net_only", "few", "error", "types_unknown", "missing")})
     rm = bundle["reason_meta"]
     print("reason entries", f"{rm['entries']:,.0f}", "plan-level in-network denials", f"{rm['plan_denied_in']:,.0f}")
     print("imr", bundle["imr_meta"], [r for r in bundle["imr_trend"] if r["y"] in (2017, 2025)])
