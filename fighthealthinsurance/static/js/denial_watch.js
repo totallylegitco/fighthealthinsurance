@@ -180,7 +180,7 @@ function tDraw(){const m=TV[tv],rows=D.trend.filter(t=>t[tv+'_rate']!=null),y0=r
   line($('tline'),rows.map(t=>({x:t.year,y:t[tv+'_rate']})),{ymin:m.ymin,ymax:m.ymax,ticks:m.ticks,fmtY:y=>pct(y,0),color:css('--dw-red'),label:y=>pct(y)+' denied'});
   $('tline').setAttribute('aria-label',`Line chart of the ${m.lab} denial rate by year, ${y0} to ${y1}`);
   $('tnote').textContent=tv==='in'?`In-network claims, ${y0} to ${y1}.`:
-    (tv==='out'?`Out-of-network claims, ${y0} to ${y1}. Insurers have reported them separately only since ${y0} claims. In ${T.year}, for ${cnWords} of these denials, insurers gave the reason that the plan doesn't cover care outside its network.`:`All claims, in and out of network, ${y0} to ${y1}. Earlier files don't count out-of-network claims.`)+
+    (tv==='out'?`Out-of-network claims, ${y0} to ${y1}. Insurers have reported them only since ${y0} claims. In ${T.year}, for ${cnWords} of these denials, insurers gave the reason that the plan doesn't cover care outside its network.`:`All claims, in and out of network, ${y0} to ${y1}. Earlier files don't count out-of-network claims.`)+
     (LEFT.length?` Left out because they reported more out-of-network denials than claims, which can't be right: ${andList(LEFT)}.`:'');
   /* Out-of-network: claims beside denials, since both grew; no appeals column, as appeals aren't split by network. */
   const out=tv==='out';

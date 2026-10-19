@@ -101,6 +101,13 @@ class TestDenialWatchPage(TestCase):
         self.assertIn("Medicare Advantage gives 65 days from the date on the notice", self.content)
         self.assertIn("Medicaid plans give 60", self.content)
 
+    def test_claim_file_is_free_except_copying_in_medicare_plans(self):
+        # CMS's Parts C and D appeals guidance, section 50.5.2, lets those plans charge for copying and mailing.
+        step = _text(_between(self.content, "1. Find out why", "</div>"))
+        self.assertIn("Employer, marketplace and Medicaid plans have to give you the claim file for free.", step)
+        self.assertIn("Medicare Advantage and Medicare drug plans have to give it to you too, but can charge for copying and mailing it.", step)
+        self.assertNotIn("They have to give you the claim file for free", self.content)
+
     def test_page_names_its_sources(self):
         # Checked outside the embedded JSON, which carries every URL anyway.
         visible = _without_data(self.content)
@@ -208,11 +215,16 @@ class TestDenialWatchCopyMatchesData(TestCase):
         first = min(t["year"] for t in DATA["trend"] if t["out_rate"] is not None)
         self.assertEqual(first, 2022)
         self.assertIn(
-            f"separately only since {first}, so that view and the all-claims view start there: "
+            f"reported out-of-network claims only since {first}, so that view and the all-claims view start there: "
             f"{_pct(latest['out_rate'])} of out-of-network claims and {_pct(latest['all_rate'])} "
             "of all claims were denied in 2024",
             self.content,
         )
+
+    def test_trend_copy_doesnt_say_out_of_network_was_reported_separately(self):
+        # The 2020 and 2021 files have no out-of-network count at all, not a combined one.
+        self.assertNotIn("separately only since", self.content)
+        self.assertNotIn("separately only since", (REPO / "fighthealthinsurance" / "static" / "js" / "denial_watch.js").read_text())
 
     def test_not_medically_necessary_share_of_reasons(self):
         total = sum(r["v"] for r in DATA["reasons"])
@@ -546,6 +558,17 @@ class TestDenialWatchEnrollment(TestCase):
         section = _between(html, 'id="insurers"', "</section>")
         self.assertIn("Picking a 2027 HealthCare.gov plan?", section)
 
+    def test_oregon_signs_up_at_its_own_marketplace(self):
+        # From November 1, 2026, Oregon enrolls through ExploreHealthOR.gov, not HealthCare.gov.
+        html = _page(date(2026, 10, 18))
+        link = '<a href="https://explorehealthor.gov/">ExploreHealthOR.gov</a>'
+        box = _between(html, 'id="enroll"', "</section>")
+        self.assertIn(f"Oregon now has its own marketplace: for 2027 plans, Oregon residents sign up at {link}.", box)
+        notice = _between(_between(html, 'id="insurers"', "</section>"), "Picking a 2027 HealthCare.gov plan?", "</p>")
+        self.assertIn(f"Oregon residents compare 2027 plans at {link} instead.", notice)
+        sources = _between(html, 'id="sources"', "</section>")
+        self.assertIn('href="https://www.healthcare.gov/marketplace-in-your-state/"', sources)
+
     def test_box_prints_no_healthcare_gov_dates(self):
         # The 2027 marketplace window is in court, so the box links out instead.
         box = _between(_page(date(2026, 10, 18)), 'id="enroll"', "</section>")
@@ -706,7 +729,7 @@ class TestDenialWatchPlanClockAndPriorAuth(TestCase):
 
     def test_clock_cites_the_cms_rule(self):
         self.assertIn(
-            'href="https://www.cms.gov/newsroom/fact-sheets/cms-interoperability-and-prior-authorization-final-rule-cms-0057-f"',
+            'href="https://www.cms.gov/newsroom/fact-sheets/cms-interoperability-prior-authorization-final-rule-cms-0057-f"',
             self.section,
         )
 
@@ -914,6 +937,9 @@ class TestDenialWatchLinksAndStyle(TestCase):
             "https://www.cms.gov/files/document/ipay-2028-final-guidance.pdf",
             "https://www.federalregister.gov/documents/2024/02/08/2024-00895/medicare-and-medicaid-programs-patient-protection-and-affordable-care-act-advancing-interoperability",
             "https://www.cms.gov/newsroom/press-releases/medicare-advantage-medicare-prescription-drug-programs-expected-remain-stable-2027",
+            "https://www.cms.gov/Medicare/Appeals-and-Grievances/MMCAG/Downloads/Parts-C-and-D-Enrollee-Grievances-Organization-Coverage-Determinations-and-Appeals-Guidance.pdf",
+            "https://www.ecfr.gov/current/title-29/subtitle-B/chapter-XXV/subchapter-G/part-2560/section-2560.503-1",
+            "https://www.ecfr.gov/current/title-42/chapter-IV/subchapter-C/part-438/subpart-F/section-438.406",
         ):
             self.assertIn(f'href="{href}"', sources)
 
