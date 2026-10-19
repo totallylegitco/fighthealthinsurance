@@ -938,6 +938,7 @@ class TestDenialWatchMoreData(TestCase):
     def test_join_forces_note_links_to_contact(self):
         self.assertIn('<p class="fhi-notice fhi-notice-info" id="join-forces">', self.section)
         note = _between(self.section, 'id="join-forces"', "</p>")
+        self.assertIn("Know a public data source we should include? Send it our way.", note)
         self.assertIn("join forces", note)
         self.assertIn(f'href="{reverse("contact")}"', note)
 
