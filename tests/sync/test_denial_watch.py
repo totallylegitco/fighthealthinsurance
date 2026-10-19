@@ -136,6 +136,11 @@ class TestDenialWatchCopyMatchesData(TestCase):
             self.content,
         )
 
+    def test_state_range_headline_says_which_states(self):
+        # The map covers only states whose insurers report to HealthCare.gov, not every state.
+        self.assertIn(f"across {len(DATA['states'])} HealthCare.gov states</h2>", self.content)
+        self.assertNotIn("depending on your state", self.content)
+
     def test_california_review_rates(self):
         by_year = {r["y"]: r["r"] for r in DATA["imr_trend"]}
         self.assertIn(f"overturned {_pct(by_year[2025])} of the denials", self.content)
