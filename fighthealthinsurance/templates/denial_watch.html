@@ -106,6 +106,10 @@
     .dw-map text { font-size: 20px; }
     .dw-map text.dw-v { display: none; }
     .dw-map text.dw-code { transform: translateY(9px); }
+    /* The charts shrink to about half size on a phone, so their text gets a boost; the edge labels may run a few pixels past the drawing. */
+    .dw-chart { overflow: visible; }
+    .dw-chart text { font-size: 20px; }
+    .dw-chart text.dw-end { font-size: 22px; }
   }
   /* On a phone the bars and padding push the insurer table's last column out of its box; the numbers carry it. */
   @media (max-width: 480px) {

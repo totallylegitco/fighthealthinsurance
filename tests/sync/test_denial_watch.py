@@ -1308,3 +1308,30 @@ class TestDenialWatchNetworkPage(TestCase):
             for x in t["left_out"]:
                 self.assertIn(_short(x["n"]), self.sources)
         self.assertIn("shows no figure for Alaska or North Dakota", self.sources)
+
+
+class TestDenialWatchCharts(TestCase):
+    """The line charts stay readable on a phone and keep their labels apart."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.style = _between(_page(), "<style>", "</style>")
+
+    def test_phone_chart_text_is_enlarged(self):
+        # The 560-wide drawing fills about 310px on a phone, which made 12px text under 7px.
+        phone = _between(self.style, "@media (max-width: 560px)", "\n  }")
+        self.assertIn(".dw-chart text { font-size: 20px; }", phone)
+        self.assertIn(".dw-chart text.dw-end { font-size: 22px; }", phone)
+        # The edge labels run a few pixels past the drawing at that size.
+        self.assertIn(".dw-chart { overflow: visible; }", phone)
+
+    def test_end_label_goes_under_a_falling_line(self):
+        # Above the point, "18.7% denied" sat on the 2023 to 2024 line.
+        self.assertIn("below=last>0&&pts[last-1].y>lp.y", JS)
+        self.assertIn('y="${Y(lp.y)+(below?26:-12)}"', JS)
+        self.assertIn('<text class="dw-end"', JS)
+
+    def test_last_year_label_is_not_crowded(self):
+        # California's chart showed "2024 2025" side by side.
+        self.assertIn("if(i===last||(i%step===0&&last-i>=step))", JS)
