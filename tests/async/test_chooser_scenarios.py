@@ -129,6 +129,20 @@ class TestEvidenceFor:
         ]
 
 
+    @override_settings(CHOOSER_PUBMED_LIVE_SEARCH=True)
+    async def test_titles_a_fetch_missed_are_fetched_on_the_next_use(self):
+        """A cached search whose titles never arrived (the fetch timed out)
+        gets them on a later case, with no new search."""
+        await _cached_search("MRI Lower back pain", ["333"])
+        with _no_live_search(), patch(
+            "fighthealthinsurance.utils.pubmed_fetcher.article_by_pmid",
+            return_value=SimpleNamespace(title="Fetched later", abstract=""),
+        ):
+            evidence = await _evidence_for("MRI", "Lower back pain")
+
+        assert [(e["pmid"], e["title"]) for e in evidence] == [("333", "Fetched later")]
+
+
 @pytest.mark.asyncio
 @pytest.mark.django_db(transaction=True)
 class TestSeededScenario:

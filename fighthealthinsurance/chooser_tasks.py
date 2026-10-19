@@ -451,15 +451,16 @@ async def _evidence_for(procedure: str, diagnosis: str) -> List[dict]:
     """The evidence a scenario's drafts may cite: up to CHOOSER_EVIDENCE_LIMIT
     articles for the procedure and diagnosis, each a PMID, a title and a
     link. Cached searches first; a live search only when nothing is cached
-    and CHOOSER_PUBMED_LIVE_SEARCH allows it, which also fetches the titles
-    of the articles it finds. Otherwise articles with no stored title are
-    skipped rather than fetched: the list is for the voter to check
-    citations against, so every row must be readable."""
+    and CHOOSER_PUBMED_LIVE_SEARCH allows it. With live search allowed,
+    articles with no stored title have it fetched; otherwise they are
+    skipped: the list is for the voter to check citations against, so
+    every row must be readable."""
     query = f"{procedure} {diagnosis}".strip()
     if not query:
         return []
     pmids = await _cached_pmids(query)
-    if not pmids and _pubmed_live_search_allowed():
+    live = _pubmed_live_search_allowed()
+    if not pmids and live:
         from fighthealthinsurance.pubmed_tools import PubMedTools
 
         try:
@@ -473,8 +474,10 @@ async def _evidence_for(procedure: str, diagnosis: str) -> List[dict]:
         except Exception as e:
             logger.warning(f"Chooser: live PubMed search failed for a scenario: {e}")
             pmids = []
-        # A live search stores only the PMIDs; without their titles every
-        # one would be skipped below. Later searches of the pair reuse them.
+    if live:
+        # A search stores only the PMIDs; without their titles every one
+        # would be skipped below. Titles a fetch missed (it timed out or
+        # failed) are tried again the next time the pair is used.
         await _store_titles(pmids[: CHOOSER_EVIDENCE_LIMIT * 3])
     if not pmids:
         return []

@@ -357,3 +357,27 @@ class TestJudgingWithinTheCallersBudget:
         ):
             context = async_to_sync(build)()
         assert "Title 1" in context
+
+    def test_a_slow_summary_does_not_cost_the_context_its_articles(self):
+        denial = _denial()
+        article = _article("2", abstract=ABSTRACT * 3)
+
+        async def slow_summary(**kwargs):
+            await asyncio.sleep(30)
+
+        async def build():
+            return await asyncio.wait_for(
+                PubMedTools().find_context_for_denial(denial, budget=2.0),
+                timeout=2.0,
+            )
+
+        with patch.object(
+            PubMedTools,
+            "find_pubmed_articles_for_denial",
+            new=AsyncMock(return_value=[article]),
+        ), patch(
+            "fighthealthinsurance.pubmed_tools.ml_router.summarize",
+            new=slow_summary,
+        ):
+            context = async_to_sync(build)()
+        assert "Title 2" in context

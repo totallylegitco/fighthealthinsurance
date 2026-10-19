@@ -64,7 +64,8 @@ T = TypeVar("T")
 # judgments (ml/research_judging.py) before going on with the articles as
 # they are; judgments that landed in time are stored either way.
 JUDGING_BUDGET_SECONDS = 15.0
-# What judging leaves of a caller's budget for summarizing the articles.
+# What judging leaves of a caller's budget for summarizing the articles
+# (the summary itself is cut at the budget, keeping the articles unsummarized).
 _SUMMARY_RESERVE_SECONDS = 5.0
 
 
@@ -980,8 +981,9 @@ class PubMedTools(object):
         self, denial: Denial, timeout=70.0, budget: Optional[float] = None
     ) -> str:
         """``budget``: how long the caller waits for this whole call, if it
-        cuts it off; judging then gets only what's left of it, so it can't
-        push the call past the cut and lose the articles already found."""
+        cuts it off; judging and the summary then get only what's left of it,
+        so neither can push the call past the cut and lose the articles
+        already found."""
         result = await self._find_context_for_denial(denial, timeout, budget)
         if result is not None and len(result) > 1:
             await self._this_letter(denial).aupdate(pubmed_context=result)
@@ -1118,9 +1120,21 @@ class PubMedTools(object):
             if len(joined_contexts) < 100:
                 logger.debug("Not much input, skpping summary step.")
                 return joined_contexts
-            r: Optional[str] = await ml_router.summarize(
-                title="Combined contexts", text=joined_contexts
-            )
+            summary_budget = None
+            if budget is not None:
+                # Leave a moment before the caller's own cut.
+                elapsed = asyncio.get_running_loop().time() - started
+                summary_budget = max(budget - elapsed - 0.5, 0.0)
+            try:
+                r: Optional[str] = await asyncio.wait_for(
+                    ml_router.summarize(
+                        title="Combined contexts", text=joined_contexts
+                    ),
+                    timeout=summary_budget,
+                )
+            except asyncio.TimeoutError:
+                logger.debug("Summary ran out of time; using the articles as is")
+                return joined_contexts
             logger.debug("Summarized combined contexts")
             if r is None:
                 return joined_contexts
