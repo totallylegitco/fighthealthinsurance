@@ -79,7 +79,7 @@ function drawMap(svg,valueOf,scale,labelOf,onPick,sel,naOf=()=>', no data',goneO
     g.querySelector('rect').setAttribute('fill',col);
     const [t1,t2,t3]=g.querySelectorAll('text'),sub=v==null?'':subOf(st);
     t1.style.fill=ink;t2.style.fill=ink;t3.style.fill=ink;t2.textContent=v==null?'':labelOf(v);t3.textContent=sub;g.classList.toggle('dw-3',!!sub);
-    g.setAttribute('aria-label',NAMES[st]+(v==null?naOf(st):', '+labelOf(v)+(sub?', insurers '+sub:'')));
+    g.setAttribute('aria-label',NAMES[st]+(v==null?naOf(st):', '+labelOf(v)+(sub?', insurers '+sub+'%':'')));
   });
 }
 function binScale(breaks,colors){return v=>{let i=0;while(i<breaks.length&&v>=breaks[i])i++;return colors[i];};}
@@ -109,7 +109,8 @@ const closedLine=`For ${cnWords} of those denials, insurers gave the reason that
 /* Each state's insurers in the table, lowest and highest, for the map's small type. */
 const BYST=IS.reduce((a,i)=>{(a[i.s]=a[i.s]||[]).push(i);return a;},{});
 const span=s=>{const g=BYST[s];if(!g||g.length<2)return null;const r=g.map(i=>i.r);return [Math.min(...r),Math.max(...r)];};
-const spanLab=s=>{const x=span(s);return x?(x[0]*100).toFixed(0)+'–'+(x[1]*100).toFixed(0)+'%':'';};
+/* No % sign: it would touch the tile's edge, and the rate above has one. */
+const spanLab=s=>{const x=span(s);return x?(x[0]*100).toFixed(0)+'–'+(x[1]*100).toFixed(0):'';};
 
 /* denial map */
 let dm='in', dsel='FL';
