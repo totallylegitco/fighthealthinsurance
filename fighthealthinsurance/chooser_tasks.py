@@ -401,12 +401,59 @@ async def _cached_pmids(query: str) -> List[str]:
     return pmids
 
 
+async def _store_titles(pmids: List[str]) -> None:
+    """Fetch and store a title for each PMID that has none, so the articles
+    a live search found can be listed. Bounded by
+    CHOOSER_PUBMED_SEARCH_TIMEOUT; whatever isn't fetched in time is left
+    out of the evidence, as before."""
+    have = {
+        pmid
+        async for pmid in PubMedMiniArticle.objects.filter(pmid__in=pmids)
+        .exclude(title__isnull=True)
+        .exclude(title="")
+        .values_list("pmid", flat=True)
+    }
+    missing = [pmid for pmid in pmids if pmid not in have]
+    if not missing:
+        return
+    from asgiref.sync import sync_to_async
+
+    from fighthealthinsurance.utils import pubmed_fetcher
+
+    async def fetch_all() -> None:
+        for pmid in missing:
+            try:
+                # NCBI call only, no ORM: plain asgiref bridge.
+                fetched = await sync_to_async(pubmed_fetcher.article_by_pmid)(pmid)
+            except Exception as e:
+                logger.debug(f"Chooser: fetching PubMed article {pmid} failed: {e}")
+                continue
+            title = (getattr(fetched, "title", None) or "") if fetched else ""
+            title = title.replace("\x00", "").strip()
+            if not title:
+                continue
+            abstract = (getattr(fetched, "abstract", None) or "").replace("\x00", "")
+            updated = await PubMedMiniArticle.objects.filter(pmid=pmid).aupdate(
+                title=title
+            )
+            if not updated:
+                await PubMedMiniArticle.objects.acreate(
+                    pmid=pmid, title=title, abstract=abstract
+                )
+
+    try:
+        await asyncio.wait_for(fetch_all(), timeout=CHOOSER_PUBMED_SEARCH_TIMEOUT)
+    except asyncio.TimeoutError:
+        logger.debug("Chooser: ran out of time fetching PubMed titles")
+
+
 async def _evidence_for(procedure: str, diagnosis: str) -> List[dict]:
     """The evidence a scenario's drafts may cite: up to CHOOSER_EVIDENCE_LIMIT
     articles for the procedure and diagnosis, each a PMID, a title and a
     link. Cached searches first; a live search only when nothing is cached
-    and CHOOSER_PUBMED_LIVE_SEARCH allows it. Articles with no stored title
-    are skipped rather than fetched: the list is for the voter to check
+    and CHOOSER_PUBMED_LIVE_SEARCH allows it, which also fetches the titles
+    of the articles it finds. Otherwise articles with no stored title are
+    skipped rather than fetched: the list is for the voter to check
     citations against, so every row must be readable."""
     query = f"{procedure} {diagnosis}".strip()
     if not query:
@@ -426,6 +473,9 @@ async def _evidence_for(procedure: str, diagnosis: str) -> List[dict]:
         except Exception as e:
             logger.warning(f"Chooser: live PubMed search failed for a scenario: {e}")
             pmids = []
+        # A live search stores only the PMIDs; without their titles every
+        # one would be skipped below. Later searches of the pair reuse them.
+        await _store_titles(pmids[: CHOOSER_EVIDENCE_LIMIT * 3])
     if not pmids:
         return []
     titles = {

@@ -5,6 +5,7 @@ outside service is a mock; a live PubMed search is off in tests
 
 import datetime
 import json
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -102,6 +103,30 @@ class TestEvidenceFor:
 
         assert [e["pmid"] for e in evidence] == ["9"]
         assert search.await_args.args[0] == "MRI Lower back pain"
+
+
+    @override_settings(CHOOSER_PUBMED_LIVE_SEARCH=True)
+    async def test_live_search_results_get_titles_fetched(self):
+        """A live search stores only PMIDs; the articles it finds still
+        reach the evidence list, with their titles fetched."""
+        search = AsyncMock(return_value=["111", "222"])
+        fetched = {
+            "111": SimpleNamespace(title="Live study one", abstract="a"),
+            "222": SimpleNamespace(title="Live study two", abstract="b"),
+        }
+        with patch(
+            "fighthealthinsurance.pubmed_tools.PubMedTools.find_pubmed_article_ids_for_query",
+            search,
+        ), patch(
+            "fighthealthinsurance.utils.pubmed_fetcher.article_by_pmid",
+            side_effect=fetched.get,
+        ):
+            evidence = await _evidence_for("MRI", "Lower back pain")
+
+        assert [(e["pmid"], e["title"]) for e in evidence] == [
+            ("111", "Live study one"),
+            ("222", "Live study two"),
+        ]
 
 
 @pytest.mark.asyncio
