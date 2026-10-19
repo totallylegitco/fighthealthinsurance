@@ -390,6 +390,11 @@ class TestDenialWatchPriorAuth(TestCase):
         rows = _load_builder().build_prior_auth()
         self.assertEqual(rows, DATA["prior_auth"])
 
+    def test_mississippi_row_says_its_site_was_down(self):
+        # medicaid.ms.gov was in a vendor outage at launch; drop this note and test once its report opens again.
+        row = next(r for r in DATA["prior_auth"] if r["n"] == "Mississippi Medicaid")
+        self.assertIn("Mississippi's Medicaid website was down when we checked on October 19, 2026", row["note"])
+
 
 class TestDenialWatchDrugUses(TestCase):
     """Each listed drug says what it's for, from a checked source."""
