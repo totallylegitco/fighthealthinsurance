@@ -518,19 +518,9 @@ class TestDenialWatchScriptCountsInNetwork(TestCase):
     def test_insurer_table_says_when_cms_withheld_the_win_count(self):
         self.assertIn("not reported (", self.js)
 
-    def test_each_odds_row_says_what_it_counts(self):
-        for label in (
-            "'of every 100 in-network claims were denied'",
-            "'of every 100 denials was appealed'",
-            "'of every 100 internal appeals won'",
-            "'of every 100 independent reviews won'",
-        ):
+    def test_each_headline_number_has_a_label(self):
+        for label in ("'claims denied'", "'denials per appeal'", "'appeals won'", "'reviews won'"):
             self.assertIn(label, self.js)
-
-    def test_fewer_than_one_in_100_denials_is_appealed(self):
-        latest = DATA["trend"][-1]
-        self.assertLess(latest["appeals_all"] / latest["in_denied"] * 100, 1)
-        self.assertIn("per100<1?'Fewer than 1':fmt(per100)", self.js)
 
     def test_counter_says_what_it_counts(self):
         page = Client().get(reverse("denial-watch")).content.decode()
@@ -1454,12 +1444,12 @@ class TestDenialWatchThemes(TestCase):
         # Tests and readers take the method section as one block.
         self.assertNotIn("<section", self.sources[1:])
 
-    def test_stat_tiles_gave_way_to_the_odds_chart(self):
-        self.assertNotIn('id="stats"', self.content)
-        odds = _between(self._theme("why-appeal"), 'id="odds"', "</p>")
-        self.assertIn('id="oddsrows"', odds)
-        self.assertIn("Each row counts something different: claims, denials, appeals or reviews.", odds)
-
+    def test_counter_and_four_numbers_open_the_page(self):
+        # The counter, then the four tiles, before the enrollment box, the menu and the questions.
+        order = ['class="dw-ticker"', 'id="stats"', 'id="enroll"', 'class="fhi-jump-links"', 'id="why-appeal"']
+        at = [self.content.index(m) for m in order]
+        self.assertEqual(at, sorted(at))
+        self.assertNotIn("oddsrows", self.content)
     def test_insurer_heading_matches_the_spread_inside_states(self):
         # "Four or more times": the widest gaps in the table, state by state.
         by_state = {}

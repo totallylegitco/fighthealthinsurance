@@ -101,13 +101,6 @@
   .dw-back { margin: 0; font-size: var(--fhi-text-small); }
   .dw-back a { font-weight: 600; text-decoration: underline; }
   .dw-method { display: grid; gap: var(--fhi-space-2); }
-  .dw-odds { display: grid; gap: var(--fhi-space-5); }
-  .dw-odd { display: grid; grid-template-columns: minmax(0, 17rem) minmax(0, 30rem); gap: var(--fhi-space-2) var(--fhi-space-6); align-items: center; }
-  .dw-odd p { margin: 0; }
-  .dw-odd .dw-note { display: block; }
-  .dw-odd b { display: block; font-size: 2rem; line-height: 1.1; }
-  .dw-dots { display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 3px; }
-  .dw-dots i { aspect-ratio: 1; border-radius: 2px; background-color: var(--dw-na); }
   /* A third line on the tile, its insurer range, only where the map is big enough to read it. */
   .dw-map text.dw-sub, .dw-sub-key { display: none; }
   .dw-map text.dw-sub { font-size: 12px; font-weight: 500; }
@@ -126,13 +119,22 @@
     .dw-map text.dw-code { transform: translateY(8px); }
   }
   @media (max-width: 560px) {
-    .dw-ticker { grid-template-columns: minmax(0, 1fr); }
+    .dw-ticker { grid-template-columns: minmax(0, 1fr); padding: var(--fhi-space-4); }
     .dw-ticker-rate { text-align: left; }
+    /* The counter and the four numbers on a phone's first screen: tighter type, the tiles two by two, and the lede, which repeats them, left to wider screens. */
+    .dw .fhi-page-lede { display: none; }
+    .dw-ticker-head + p { font-size: var(--fhi-text-small); }
+    .dw-ticker > .fhi-stack { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fhi-space-2) var(--fhi-space-4); }
+    .dw-ticker-rate { margin: 0; }
+    .dw-ticker-rate b { display: inline; margin-right: 0.3em; font-size: 1.15rem; }
+    .dw-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--fhi-space-3); }
+    .dw-stat b { font-size: 1.6rem; }
+    .dw-stat strong { font-size: 1.05rem; }
+    .dw-stat span { font-size: var(--fhi-text-small); }
     /* On a phone the tile values are too small to read: bigger codes, values in the readout. */
     .dw-map text { font-size: 20px; }
     .dw-map text.dw-v { display: none; }
     .dw-map text.dw-code { transform: translateY(9px); }
-    .dw-odd { grid-template-columns: minmax(0, 1fr); }
     /* The charts shrink to about half size on a phone, so their text gets a boost; the edge labels may run a few pixels past the drawing. */
     .dw-chart { overflow: visible; }
     .dw-chart text { font-size: 20px; }
@@ -169,6 +171,8 @@
             </div>
         </div>
 
+        <div class="dw-stats" id="stats"></div>
+
         {% if enrollment %}
         <section class="fhi-notice fhi-notice-info dw-enroll" id="enroll" aria-labelledby="enroll-title">
             <h2 class="fhi-callout-title" id="enroll-title">Picking a plan for {{ enrollment.plan_year }}?</h2>
@@ -192,12 +196,6 @@
             <h2 id="why-appeal-title">Why should I appeal?</h2>
             <p class="dw-answer">Very few denials are appealed, and about a third of appeals win.</p>
             <p class="dw-how"><a href="#method-why-appeal">How we got these numbers<span class="fhi-visually-hidden">: Why should I appeal?</span></a></p>
-            <div class="fhi-card" id="odds">
-                <h3 id="odds-title">Out of every 100</h3>
-                <div class="dw-odds" id="oddsrows"></div>
-                <p class="dw-note">Each row counts something different: claims, denials, appeals or reviews. The first three are HealthCare.gov plans in 2024. The last is California's independent review in 2025, with different plans and people, so it isn't directly comparable with the insurers' own appeal results.</p>
-            </div>
-
             <section class="fhi-stack" id="appeals" aria-labelledby="appeals-title">
                 <h3 id="appeals-title">When a denial reaches independent doctors in California, patients usually win</h3>
                 <p>Independent review is the step after an insurer's own appeal, when outside doctors who don't work for the insurer decide. In 2025 they overturned 72% of the denials they reviewed, up from 47% in 2017. These are cases people chose to take that far, and that qualified, so the rate isn't the chance that any denial would be reversed.</p>
@@ -445,7 +443,6 @@
                 <ol class="dw-sources">
                     <li><b>Source:</b> the <a href="#method-data">denial and appeal records</a> above.</li>
                     <li><b>Appeals:</b> the counts aren't split by network, so the 1-in-320 figure compares two totals, as KFF's does. Appeal win rates count only insurers that reported both appeals filed and appeals won, and an appeal won in part counts as won. Nine insurers' 2024 appeals-won counts look like reporting errors, so we leave them out too. Four reported none of their 346 to 1,813 appeals won, after winning a quarter to nearly half the year before. For three, CMS marked the win rate as suppressed but printed the counts anyway. Two reported exactly the same counts as in 2023. Their appeals still count as filed. With them, the 2024 rate would be 33.6%. We show only the latest year's win rate, because the insurers reporting change from year to year.</li>
-                    <li><b>Out of every 100:</b> The first three rows are 2024 HealthCare.gov figures: in-network claims denied, internal appeals filed for every 100 in-network denials, and internal appeals won. The last is California's independent review in 2025. Each row has its own base, so the rows aren't steps that multiply.</li>
                     <li><b>Independent medical review:</b> <a href="https://data.chhs.ca.gov/dataset/independent-medical-review-imr-determinations-trend">California DMHC IMR determinations</a>, via the CalHHS Open Data Portal, 2010 to 2025 (file as published June 2026), with exact duplicate records removed. That's the step after an insurer's own appeal. Its rate isn't directly comparable with the insurers' own appeal results: different plans, people and review processes.</li>
                 </ol>
                 <p class="dw-back"><a href="#why-appeal">Back to Why should I appeal?</a></p>

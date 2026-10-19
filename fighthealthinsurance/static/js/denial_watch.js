@@ -35,22 +35,16 @@ function run(on){if(on&&!timer)timer=setInterval(tick,250);if(!on&&timer){clearI
 run(!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches));
 if(pauseBtn)pauseBtn.addEventListener('click',()=>run(!timer));
 
-/* Out of every 100: each row has its own base, which the note under it says. */
+/* stats */
 const inRate=T.in_rate, apShare=T.appeals_all/T.in_denied, won=T.overturned/T.appeals;
 const imr25=D.imr_trend.find(r=>r.y===2025);
-/* A dot per one in 100; a part dot for a fraction. */
-const dots=(n,c)=>{const na=css('--dw-na');let h='';for(let i=0;i<100;i++){const f=Math.max(0,Math.min(1,n-i)),w=Math.round(f*100);
-  h+=f>=1?`<i style="background:${c}"></i>`:f>0?`<i style="background:linear-gradient(to right,${c} ${w}%,${na} ${w}%)"></i>`:'<i></i>';}
-  return `<div class="dw-dots" aria-hidden="true">${h}</div>`;};
-const per100=apShare*100;
-$('oddsrows').innerHTML=[
-  [Math.round(inRate*100),'of every 100 in-network claims were denied','HealthCare.gov plans, '+T.year,'--dw-red'],
+$('stats').innerHTML=[
+  [pct(inRate,0),'claims denied','in-network, on HealthCare.gov plans, '+T.year],
   /* Tens, matching the page's "about 1 for every 320". */
-  [per100,'of every 100 denials was appealed','About 1 for every '+fmt(Math.round(1/apShare/10)*10)+', '+T.year,'--dw-blue',per100<1?'Fewer than 1':fmt(per100)],
-  [Math.round(won*100),'of every 100 internal appeals won','At the insurer, '+T.year,'--dw-teal'],
-  /* Its own colour: California's reviews, other plans and people, not the step after the row above. */
-  [Math.round(imr25.r*100),'of every 100 independent reviews won','By patients, California, 2025','--dw-purple']
-].map(([n,l,s,v,b])=>{const c=css(v);return `<div class="dw-odd"><p><b class="dw-num" style="color:${c}">${b||n}</b> ${l}. <span class="dw-note">${s}</span></p>${dots(n,c)}</div>`;}).join('');
+  [fmt(Math.round(1/apShare/10)*10),'denials per appeal',T.year+': '+big(T.in_denied)+' in-network denials, '+fmt(T.appeals_all)+' internal appeals'],
+  [pct(won,0),'appeals won','at the insurer, '+T.year],
+  [pct(imr25.r,0),'reviews won','by patients at California\'s independent review, 2025, a later step']
+].map(([b,l,s])=>`<div class="dw-stat"><p class="dw-stat-head"><b class="dw-num">${b}</b> <strong>${l}</strong></p><span>${s}</span></div>`).join('');
 
 /* tile map engine */
 const S=48,G=2.5,OX=6,OY=6;
