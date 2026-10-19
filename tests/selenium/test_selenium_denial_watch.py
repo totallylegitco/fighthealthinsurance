@@ -4,6 +4,9 @@ The sync tests read the script's source; these check that switching a view
 changes what a reader sees, and that the map buttons wrap on a phone.
 """
 
+import json
+import pathlib
+
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.urls import reverse
 from seleniumbase import BaseCase
@@ -11,6 +14,10 @@ from seleniumbase import BaseCase
 from .fhi_selenium_base import FHISeleniumBase
 
 BaseCase.main(__name__, __file__)
+
+DATA = json.loads(
+    (pathlib.Path(__file__).resolve().parents[2] / "fighthealthinsurance" / "static" / "denial_watch.json").read_text()
+)
 
 
 class SeleniumTestDenialWatchViews(FHISeleniumBase, StaticLiveServerTestCase):
@@ -51,16 +58,27 @@ class SeleniumTestDenialWatchViews(FHISeleniumBase, StaticLiveServerTestCase):
         # Alaska and North Dakota report but have no all-claims figure; Ohio has one; California has no data here.
         self.assertEqual(gone, [True, True, False, False])
 
+    def _rows(self):
+        return self.execute_script("return [...document.querySelectorAll('#itable tbody tr')].map(r => r.cells[0].textContent)")
+
     def test_picking_a_state_on_the_map_lists_its_insurers(self):
+        texas = sorted(i["n"] for i in DATA["issuers"] if i["s"] == "TX")
         self._open()
         self.assert_text_eventually_contains("in Florida", "icount")
         self.click('#dmap g[data-s="TX"]')
         self.assert_text_eventually_contains("in Texas", "icount")
         self.assertEqual(self.get_value("#istate"), "TX")
+        self.assertEqual(sorted(self._rows()), texas)
         # Hovering another state previews it without moving the table.
         self.hover('#dmap g[data-s="OH"]')
         self.assert_text_eventually_contains("Ohio", "dread")
-        self.assert_text_eventually_contains("in Texas", "icount")
+        self.assertEqual(sorted(self._rows()), texas)
+
+    def test_picking_a_state_with_no_insurers_says_so(self):
+        self._open()
+        self.click('#dmap g[data-s="CA"]')
+        self.assert_text_eventually_contains("California isn't in this data", "itable")
+        self.assertEqual(self.get_value("#istate"), "")
 
     def test_map_buttons_wrap_on_a_phone(self):
         self._open(375, 812)

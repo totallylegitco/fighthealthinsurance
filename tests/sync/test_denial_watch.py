@@ -150,9 +150,10 @@ class TestDenialWatchCopyMatchesData(TestCase):
         # The insurers reporting changed between years, so it isn't like for like.
         prev = next(t for t in DATA["trend"] if t["year"] == 2023)
         self.assertIn(
-            "In 2024 insurers reversed about a third of the internal appeals people filed.",
+            "In 2024, HealthCare.gov insurers reversed about a third of the internal appeals people filed",
             self.content,
         )
+        self.assertIn("about a third of appeals win.", self.content)
         self.assertNotIn(_pct(prev["overturned"] / prev["appeals"]), self.content)
 
     def test_method_note_explains_the_won_counts_left_out(self):
@@ -206,25 +207,18 @@ class TestDenialWatchCopyMatchesData(TestCase):
         )
 
     def test_trend_copy_uses_the_in_network_series(self):
-        by_year = {t["year"]: t["in_rate"] for t in DATA["trend"]}
+        # The yearly in-network rates are in the table beside the chart, not read out in the intro.
+        latest = DATA["trend"][-1]
+        self.assertEqual(round(latest["out_rate"] / latest["in_rate"]), 2)
         self.assertIn(
-            f"went from {_pct(by_year[2020])} in 2020 down to {_pct(by_year[2022])} in 2022, "
-            f"then rose to {_pct(by_year[2023])} in 2023 and was {_pct(by_year[2024])} in 2024",
+            f"denied {_pct(latest['out_rate'])} of them in 2024, about twice the in-network rate",
             self.content,
         )
-        # 2021 isn't named, so it has to sit on the way down.
-        self.assertTrue(by_year[2020] > by_year[2021] > by_year[2022])
 
     def test_trend_copy_starts_the_other_views_in_2022(self):
-        latest = DATA["trend"][-1]
         first = min(t["year"] for t in DATA["trend"] if t["out_rate"] is not None)
         self.assertEqual(first, 2022)
-        self.assertIn(
-            f"reported out-of-network claims only since {first}, so that view and the all-claims view start there: "
-            f"{_pct(latest['out_rate'])} of out-of-network claims and {_pct(latest['all_rate'])} "
-            "of all claims were denied in 2024",
-            self.content,
-        )
+        self.assertIn(f"Insurers have reported out-of-network claims only since {first}", self.content)
 
     def test_trend_copy_doesnt_say_out_of_network_was_reported_separately(self):
         # The 2020 and 2021 files have no out-of-network count at all, not a combined one.
@@ -504,7 +498,9 @@ class TestDenialWatchScriptCountsInNetwork(TestCase):
         # Rates are compared within a state, so the table shows one state, the map's, and no all-states ranking.
         self.assertNotIn("All states", self.js)
         self.assertIn("$('istate').value=BYST[dsel]?dsel:states[0];", self.js)
-        self.assertIn("$('dmap')._onPin=s=>{if(BYST[s]){$('istate').value=s;iDraw();}};", self.js)
+        self.assertIn("$('dmap')._onPin=s=>{ipin=s;$('istate').value=BYST[s]?s:'';iDraw();};", self.js)
+        # A state with no insurers in the table says so, instead of leaving the last state's rows.
+        self.assertIn("isn't in this data: it runs its own marketplace, or had no HealthCare.gov insurers reporting.", self.js)
         self.assertIn("if(svg._onPin)svg._onPin(g.dataset.s);", self.js)
         self.assertNotIn("highest and lowest 10", self.js)
         self.assertNotIn("slice(0,10)", self.js)
@@ -513,8 +509,10 @@ class TestDenialWatchScriptCountsInNetwork(TestCase):
         # The heatmap carries what the ranked bars did; the range is of in-network insurer rates.
         self.assertEqual(self.js.count("sub:spanLab"), 1)
         self.assertIn("in:{v:s=>ST[s]?ST[s].rate:null,b:RB,c:DC,l:x=>pct(x,0),t:x=>pct(x,1),sub:spanLab,", self.js)
-        self.assertIn("The small type on a tile is the state's lowest to highest insurer rate.", self.js)
-        self.assertIn("Its insurers: <b class=\"dw-num\">${pct(span(s)[0])}</b> to", self.js)
+        # The range covers the insurers in the table only, so both lines say so.
+        self.assertIn("The small type on a tile is the lowest to highest rate among the state's insurers in the table below.", self.js)
+        self.assertIn("Its insurers in the table: <b class=\"dw-num\">${pct(span(s)[0])}</b> to", self.js)
+        self.assertIn("g.classList.toggle('dw-3',!!sub);", self.js)
         self.assertNotIn("dBars", self.js)
 
     def test_insurer_table_says_when_cms_withheld_the_win_count(self):
@@ -1268,18 +1266,16 @@ class TestDenialWatchNetworkPage(TestCase):
         # Its out-of-network and all-claims rates would mostly show plan type (the mislead review).
         section = _between(self.content, 'id="insurers"', "</section>")
         self.assertNotIn('id="iview"', section)
-        self.assertIn("The table has no out-of-network or all-claims rates, and the line just above it says why.", _text(section))
+        self.assertIn("In-network claims only (why).", _text(section))
         self.assertLess(section.index('id="inote"'), section.index('id="itable"'))
         table_js = _between(JS, "/* insurers:", "$('istate').onchange")
         self.assertNotRegex(table_js, r"\bi\.(out|all)\b")
-        self.assertIn("We don't show out-of-network or all-claims rates insurer by insurer.", table_js)
 
     def test_insurer_note_says_hmo_or_epo_and_why(self):
-        note = _between(JS, "$('inote').textContent=", ";\n")
-        self.assertIn("insurers on this page sold only HMO or EPO plans in ${OM.plan_types_year}", note)
-        self.assertIn("would mostly show which kinds of plans an insurer sells, not how it handles claims", note)
-        # The longer why sits in the method section, which the section links to.
+        # The note says in-network only and links the why, which is in the method section.
+        self.assertIn("We don't show them insurer by insurer either", self.sources)
         self.assertIn("many had most of their out-of-network claims on HMO or EPO plans", self.sources)
+        self.assertIn('<div class="dw-method" id="method-what-why">', self.content)
         self.assertNotIn("the map's Out-of-network view", JS)
 
     def test_map_offers_no_out_of_network_views(self):
@@ -1288,28 +1284,26 @@ class TestDenialWatchNetworkPage(TestCase):
         self.assertEqual(buttons, ["in", "all", "chg", "won"])
         trend = re.findall(r'data-m="(\w+)"', _between(self.content, 'id="tmode"', "</div>"))
         self.assertEqual(trend, ["in", "out", "all"])
-        self.assertIn("There\\'s no out-of-network version, because those changes mostly reflect which insurers reported", JS)
-        self.assertIn("Appeals aren't split by network, so there's no out-of-network version.", JS)
+        # Why there are no out-of-network change or appeals figures is in the method section.
+        self.assertIn("There's no out-of-network change from 2023, which mostly reflects which insurers reported, and no out-of-network appeals figure.", self.sources)
 
     def test_map_has_no_out_of_network_state_figures(self):
         # A state's rate would mostly show plan type, so the map points to the trend chart instead.
         views = _between(JS, "const DM={", "\n};")
         self.assertNotIn("out:{", views)
-        intro = _text(_between(self.content, 'id="map-denials"', 'class="fhi-card"'))
-        self.assertIn("We don't map out-of-network claims by state. The trend chart below gives their national rate and says why.", intro)
+        self.assertIn("we don't map out-of-network claims by state (see What are they denying? below)", self.sources)
+        self.assertIn("we don't map them by state: in 2024, 120 of the 157 insurers reporting them sold only HMO or EPO plans", self.sources)
 
     def test_out_of_network_trend_note_carries_the_map_note(self):
         # Everything the map's out-of-network view used to say, now beside the chart that has the figures.
         note = _between(JS, "(tv==='out'?", ":`All claims")
         self.assertIn("about twice the in-network rate", note)
         self.assertIn("${closedLine}", note)
-        self.assertIn("We don't map out-of-network rates by state: in ${OM.plan_types_year}, ${NET.issuers} of the ${T.out_issuers} insurers reporting them sold only HMO or EPO plans", note)
-        self.assertIn("so a state's rate would mostly show which kinds of plans its insurers sell", note)
         self.assertIn("Look for a PPO or POS.", note)
         self.assertIn('<a href="#who-to-call">Who to call</a>', note)
         self.assertIn('id="who-to-call"', self.content)
-        # The line is HTML now, so the insurer names from the data are escaped.
-        self.assertIn("which can't be right: ${esc(andList(LEFT))}.", JS)
+        # Why there's no state map, and which insurers are left out, are in the method section.
+        self.assertNotIn("LEFT", JS)
         # The insurer table has no out-of-network view, so nothing links into one.
         self.assertNotIn("data-iview", JS)
 
@@ -1334,7 +1328,7 @@ class TestDenialWatchNetworkPage(TestCase):
         self.assertLess(self.content.index('id="tline"'), self.content.index('id="tnote"'))
         self.assertLess(self.content.index('id="inote"'), self.content.index('id="itable"'))
         self.assertIn("$('dnote').innerHTML=m.note", JS)
-        self.assertIn("$('inote').textContent=", JS)
+        self.assertIn('id="inote">In-network claims only (<a href="#method-what-why">why</a>).</p>', self.content)
         self.assertIn("$('tnote').innerHTML=", JS)
 
     def test_map_line_names_the_states_left_out_and_why(self):
@@ -1446,15 +1440,15 @@ class TestDenialWatchThemes(TestCase):
             self.assertIn(f'href="#{ident}"', nav)
 
     def test_each_theme_links_its_method(self):
-        for ident, _, method in THEMES:
-            self.assertIn(f'<p class="dw-how"><a href="#{method}">How we got these numbers</a></p>', self._theme(ident))
+        for ident, question, method in THEMES:
+            self.assertIn(f'<p class="dw-how"><a href="#{method}">How we got these numbers<span class="fhi-visually-hidden">: {question}</span></a></p>', self._theme(ident))
             self.assertIn(f'<div class="dw-method" id="{method}">', self.sources)
-        self.assertIn('<p class="dw-how"><a href="#method-costs">How we got these numbers</a></p>', _between(self.content, 'id="costs"', "</section>"))
+        self.assertIn('<p class="dw-how"><a href="#method-costs">How we got these numbers<span class="fhi-visually-hidden">: Drug costs</span></a></p>', _between(self.content, 'id="costs"', "</section>"))
 
     def test_method_groups_link_back_to_their_theme(self):
-        for ident, _, method in THEMES:
-            group = _between(self.sources, f'id="{method}"', "</h3>")
-            self.assertIn(f'<a class="dw-back" href="#{ident}">', group)
+        for ident, question, method in THEMES:
+            group = _between(self.sources, f'id="{method}"', "</div>")
+            self.assertIn(f'<p class="dw-back"><a href="#{ident}">Back to {question}</a></p>', group)
 
     def test_sources_have_no_nested_sections(self):
         # Tests and readers take the method section as one block.
@@ -1466,17 +1460,16 @@ class TestDenialWatchThemes(TestCase):
         self.assertIn('id="oddsrows"', odds)
         self.assertIn("Each row counts something different: claims, denials, appeals or reviews.", odds)
 
-    def test_who_denies_intro_matches_the_spread_inside_states(self):
-        # "In some states the insurers are about that far apart": the widest state spread nears the spread across states.
-        rates = [s["rate"] for s in DATA["states"].values()]
+    def test_insurer_heading_matches_the_spread_inside_states(self):
+        # "Four or more times": the widest gaps in the table, state by state.
         by_state = {}
         for i in DATA["issuers"]:
             by_state.setdefault(i["s"], []).append(i["r"])
-        widest = max(max(v) - min(v) for v in by_state.values())
-        self.assertGreaterEqual(widest, max(rates) - min(rates) - 0.02)
+        ratios = [max(v) / min(v) for v in by_state.values()]
+        self.assertGreaterEqual(sum(r >= 4 for r in ratios), 2, sorted(ratios)[-5:])
         self.assertIn(
-            f"state denial rates run from about {_pct(min(rates))} to {_pct(max(rates))}, and in some states the insurers are about that far apart from each other",
-            self._theme("who-denies"),
+            '<h3 id="insurers-title">In some states, one insurer denies four or more times as often as another</h3>',
+            self.content,
         )
 
     def test_coverage_answer_matches_the_census_figures(self):
