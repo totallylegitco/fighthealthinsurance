@@ -138,7 +138,7 @@ class TestDenialWatchCopyMatchesData(TestCase):
 
     def test_state_range_headline_says_which_states(self):
         # The map covers only states whose insurers report to HealthCare.gov, not every state.
-        self.assertIn(f"across {len(DATA['states'])} HealthCare.gov states</h2>", self.content)
+        self.assertIn(f"across {len(DATA['states'])} HealthCare.gov states</h3>", self.content)
         self.assertNotIn("depending on your state", self.content)
 
     def test_california_review_rates(self):
@@ -500,19 +500,39 @@ class TestDenialWatchScriptCountsInNetwork(TestCase):
         self.assertNotIn("down from", self.js)
         self.assertNotIn('<th class="dw-r">Won</th>', self.js)
 
-    def test_all_states_view_ranks_no_company_across_states(self):
-        # Rates are compared within a state, so the opening view is per state.
-        self.assertIn('<option value="">All states</option>', self.js)
-        self.assertIn("Insurer denial rates, lowest to highest", self.js)
+    def test_insurer_table_shows_the_state_picked_on_the_map(self):
+        # Rates are compared within a state, so the table shows one state, the map's, and no all-states ranking.
+        self.assertNotIn("All states", self.js)
+        self.assertIn("$('istate').value=BYST[dsel]?dsel:states[0];", self.js)
+        self.assertIn("$('dmap')._onPin=s=>{if(BYST[s]){$('istate').value=s;iDraw();}};", self.js)
+        self.assertIn("if(svg._onPin)svg._onPin(g.dataset.s);", self.js)
         self.assertNotIn("highest and lowest 10", self.js)
         self.assertNotIn("slice(0,10)", self.js)
+
+    def test_map_tiles_show_each_states_insurer_range_in_network_only(self):
+        # The heatmap carries what the ranked bars did; the range is of in-network insurer rates.
+        self.assertEqual(self.js.count("sub:spanLab"), 1)
+        self.assertIn("in:{v:s=>ST[s]?ST[s].rate:null,b:RB,c:DC,l:x=>pct(x,0),t:x=>pct(x,1),sub:spanLab,", self.js)
+        self.assertIn("The small type on a tile is the state's lowest to highest insurer rate.", self.js)
+        self.assertIn("Its insurers: <b class=\"dw-num\">${pct(span(s)[0])}</b> to", self.js)
+        self.assertNotIn("dBars", self.js)
 
     def test_insurer_table_says_when_cms_withheld_the_win_count(self):
         self.assertIn("not reported (", self.js)
 
-    def test_each_headline_number_has_a_label(self):
-        for label in ("'claims denied'", "'denials per appeal'", "'appeals won'", "'reviews won'"):
+    def test_each_odds_row_says_what_it_counts(self):
+        for label in (
+            "'of every 100 in-network claims were denied'",
+            "'of every 100 denials was appealed'",
+            "'of every 100 internal appeals won'",
+            "'of every 100 independent reviews won'",
+        ):
             self.assertIn(label, self.js)
+
+    def test_fewer_than_one_in_100_denials_is_appealed(self):
+        latest = DATA["trend"][-1]
+        self.assertLess(latest["appeals_all"] / latest["in_denied"] * 100, 1)
+        self.assertIn("per100<1?'Fewer than 1':fmt(per100)", self.js)
 
     def test_counter_says_what_it_counts(self):
         page = Client().get(reverse("denial-watch")).content.decode()
@@ -1257,10 +1277,9 @@ class TestDenialWatchNetworkPage(TestCase):
     def test_insurer_note_says_hmo_or_epo_and_why(self):
         note = _between(JS, "$('inote').textContent=", ";\n")
         self.assertIn("insurers on this page sold only HMO or EPO plans in ${OM.plan_types_year}", note)
-        self.assertIn("had most of their out-of-network claims on HMO or EPO plans", note)
         self.assertIn("would mostly show which kinds of plans an insurer sells, not how it handles claims", note)
-        # The map has no out-of-network view, so the note points at the trend chart's.
-        self.assertIn("see the trend chart's Out-of-network view.", note)
+        # The longer why sits in the method section, which the section links to.
+        self.assertIn("many had most of their out-of-network claims on HMO or EPO plans", self.sources)
         self.assertNotIn("the map's Out-of-network view", JS)
 
     def test_map_offers_no_out_of_network_views(self):
@@ -1391,3 +1410,83 @@ class TestDenialWatchCharts(TestCase):
     def test_last_year_label_is_not_crowded(self):
         # California's chart showed "2024 2025" side by side.
         self.assertIn("if(i===last||(i%step===0&&last-i>=step))", JS)
+
+
+THEMES = [
+    ("why-appeal", "Why should I appeal?", "method-why-appeal"),
+    ("who-denies", "Who is denying the most?", "method-who-denies"),
+    ("what-why", "What are they denying, and why?", "method-what-why"),
+    ("coverage", "Who doesn't have coverage?", "method-coverage"),
+]
+
+
+class TestDenialWatchThemes(TestCase):
+    """Four questions carry the page, each short, with its method one link away."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.content = _page()
+        cls.sources = _between(cls.content, 'id="sources"', "</section>")
+
+    def _theme(self, ident):
+        # A theme holds sub-sections, so it runs to the next theme's start.
+        i = self.content.index(f'id="{ident}"')
+        return self.content[i : self.content.index('<section class="fhi-stack', self.content.index("</h2>", i))]
+
+    def test_themes_come_in_order_with_the_question_as_heading(self):
+        at = [self.content.index(f'<section class="fhi-stack dw-theme" id="{i}"') for i, _, _ in THEMES]
+        self.assertEqual(at, sorted(at))
+        for ident, question, _ in THEMES:
+            self.assertIn(f'<h2 id="{ident}-title">{question}</h2>', self.content)
+
+    def test_jump_menu_reaches_each_theme(self):
+        nav = _between(self.content, 'class="fhi-jump-links"', "</nav>")
+        for ident, _, _ in THEMES:
+            self.assertIn(f'href="#{ident}"', nav)
+
+    def test_each_theme_links_its_method(self):
+        for ident, _, method in THEMES:
+            self.assertIn(f'<p class="dw-how"><a href="#{method}">How we got these numbers</a></p>', self._theme(ident))
+            self.assertIn(f'<div class="dw-method" id="{method}">', self.sources)
+        self.assertIn('<p class="dw-how"><a href="#method-costs">How we got these numbers</a></p>', _between(self.content, 'id="costs"', "</section>"))
+
+    def test_method_groups_link_back_to_their_theme(self):
+        for ident, _, method in THEMES:
+            group = _between(self.sources, f'id="{method}"', "</h3>")
+            self.assertIn(f'<a class="dw-back" href="#{ident}">', group)
+
+    def test_sources_have_no_nested_sections(self):
+        # Tests and readers take the method section as one block.
+        self.assertNotIn("<section", self.sources[1:])
+
+    def test_stat_tiles_gave_way_to_the_odds_chart(self):
+        self.assertNotIn('id="stats"', self.content)
+        odds = _between(self._theme("why-appeal"), 'id="odds"', "</p>")
+        self.assertIn('id="oddsrows"', odds)
+        self.assertIn("Each row counts something different: claims, denials, appeals or reviews.", odds)
+
+    def test_who_denies_intro_matches_the_spread_inside_states(self):
+        # "In some states the insurers are about that far apart": the widest state spread nears the spread across states.
+        rates = [s["rate"] for s in DATA["states"].values()]
+        by_state = {}
+        for i in DATA["issuers"]:
+            by_state.setdefault(i["s"], []).append(i["r"])
+        widest = max(max(v) - min(v) for v in by_state.values())
+        self.assertGreaterEqual(widest, max(rates) - min(rates) - 0.02)
+        self.assertIn(
+            f"state denial rates run from about {_pct(min(rates))} to {_pct(max(rates))}, and in some states the insurers are about that far apart from each other",
+            self._theme("who-denies"),
+        )
+
+    def test_coverage_answer_matches_the_census_figures(self):
+        sahie = DATA["sahie"]["2024"]
+        total = sum(r["n"] for r in sahie.values())
+        people = sum(r["n"] / (r["pct"] / 100) for r in sahie.values())
+        low = min(sahie.items(), key=lambda kv: kv[1]["pct"])
+        high = max(sahie.items(), key=lambda kv: kv[1]["pct"])
+        self.assertEqual(round(people / total), 10)
+        self.assertIn(
+            f"About {round(total / 1e6)} million people under 65, about 1 in 10, from {low[1]['pct']}% in {low[0]} to {high[1]['pct']}% in {high[0]}.",
+            self._theme("coverage"),
+        )

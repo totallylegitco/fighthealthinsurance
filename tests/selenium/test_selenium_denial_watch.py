@@ -51,6 +51,17 @@ class SeleniumTestDenialWatchViews(FHISeleniumBase, StaticLiveServerTestCase):
         # Alaska and North Dakota report but have no all-claims figure; Ohio has one; California has no data here.
         self.assertEqual(gone, [True, True, False, False])
 
+    def test_picking_a_state_on_the_map_lists_its_insurers(self):
+        self._open()
+        self.assert_text_eventually_contains("in Florida", "icount")
+        self.click('#dmap g[data-s="TX"]')
+        self.assert_text_eventually_contains("in Texas", "icount")
+        self.assertEqual(self.get_value("#istate"), "TX")
+        # Hovering another state previews it without moving the table.
+        self.hover('#dmap g[data-s="OH"]')
+        self.assert_text_eventually_contains("Ohio", "dread")
+        self.assert_text_eventually_contains("in Texas", "icount")
+
     def test_map_buttons_wrap_on_a_phone(self):
         self._open(375, 812)
         sizes = self.execute_script(

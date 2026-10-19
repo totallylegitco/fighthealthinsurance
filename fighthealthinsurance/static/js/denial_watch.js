@@ -35,28 +35,34 @@ function run(on){if(on&&!timer)timer=setInterval(tick,250);if(!on&&timer){clearI
 run(!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches));
 if(pauseBtn)pauseBtn.addEventListener('click',()=>run(!timer));
 
-/* stats */
+/* Out of every 100: each row has its own base, which the note under it says. */
 const inRate=T.in_rate, apShare=T.appeals_all/T.in_denied, won=T.overturned/T.appeals;
 const imr25=D.imr_trend.find(r=>r.y===2025);
-$('stats').innerHTML=[
-  [pct(inRate,0),'claims denied','in-network, on HealthCare.gov plans, '+T.year],
+/* A dot per one in 100; a part dot for a fraction. */
+const dots=(n,c)=>{const na=css('--dw-na');let h='';for(let i=0;i<100;i++){const f=Math.max(0,Math.min(1,n-i)),w=Math.round(f*100);
+  h+=f>=1?`<i style="background:${c}"></i>`:f>0?`<i style="background:linear-gradient(to right,${c} ${w}%,${na} ${w}%)"></i>`:'<i></i>';}
+  return `<div class="dw-dots" aria-hidden="true">${h}</div>`;};
+const per100=apShare*100;
+$('oddsrows').innerHTML=[
+  [Math.round(inRate*100),'of every 100 in-network claims were denied','HealthCare.gov plans, '+T.year,'--dw-red'],
   /* Tens, matching the page's "about 1 for every 320". */
-  [fmt(Math.round(1/apShare/10)*10),'denials per appeal',T.year+': '+big(T.in_denied)+' in-network denials, '+fmt(T.appeals_all)+' internal appeals'],
-  [pct(won,0),'appeals won','at the insurer, '+T.year],
-  [pct(imr25.r,0),'reviews won','by patients at California\'s independent review, 2025, a later step']
-].map(([b,l,s])=>`<div class="dw-stat"><p class="dw-stat-head"><b class="dw-num">${b}</b> <strong>${l}</strong></p><span>${s}</span></div>`).join('');
+  [per100,'of every 100 denials was appealed','about 1 for every '+fmt(Math.round(1/apShare/10)*10)+', '+T.year,'--dw-blue',per100<1?'Fewer than 1':fmt(per100)],
+  [Math.round(won*100),'of every 100 internal appeals won','at the insurer, '+T.year,'--dw-teal'],
+  [Math.round(imr25.r*100),'of every 100 independent reviews won','by patients in California, 2025, a later step','--dw-teal']
+].map(([n,l,s,v,b])=>{const c=css(v);return `<div class="dw-odd"><p><b class="dw-num" style="color:${c}">${b||n}</b> ${l} <span class="dw-note">${s}</span></p>${dots(n,c)}</div>`;}).join('');
 
 /* tile map engine */
 const S=48,G=2.5,OX=6,OY=6;
 /* goneOf: states in the data that a view leaves out, drawn as outlined tiles, not "no data" grey. */
-function drawMap(svg,valueOf,scale,labelOf,onPick,sel,naOf=()=>', no data',goneOf=()=>false){
+function drawMap(svg,valueOf,scale,labelOf,onPick,sel,naOf=()=>', no data',goneOf=()=>false,subOf=()=>''){
   if(!svg.dataset.built){
     let h='';
     for(const [st,r,c] of GRID){const x=OX+c*(S+G), y=OY+r*(S+G);
-      h+=`<g data-s="${st}" tabindex="0" role="button"><rect x="${x}" y="${y}" width="${S}" height="${S}" rx="3"/><text x="${x+S/2}" y="${y+21}" text-anchor="middle" class="dw-code">${st}</text><text class="dw-v" x="${x+S/2}" y="${y+37}" text-anchor="middle"></text></g>`;}
+      h+=`<g data-s="${st}" tabindex="0" role="button"><rect x="${x}" y="${y}" width="${S}" height="${S}" rx="3"/><text x="${x+S/2}" y="${y+21}" text-anchor="middle" class="dw-code">${st}</text><text class="dw-v" x="${x+S/2}" y="${y+37}" text-anchor="middle"></text><text class="dw-sub" x="${x+S/2}" y="${y+44}" text-anchor="middle"></text></g>`;}
     svg.innerHTML=h;svg.dataset.built='1';svg._pinned=sel;
     svg.querySelectorAll('g').forEach(g=>{
-      const pin=()=>{svg._pinned=g.dataset.s;svg._pick(g.dataset.s);};
+      /* _onPin: a pick, not a hover, so the insurer table follows the map. */
+      const pin=()=>{svg._pinned=g.dataset.s;svg._pick(g.dataset.s);if(svg._onPin)svg._onPin(g.dataset.s);};
       /* No pick on focus: tabbing out of the map would pick every tile after yours. */
       g.addEventListener('mouseenter',()=>svg._pick(g.dataset.s));g.addEventListener('click',pin);
       g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pin();}});
@@ -64,15 +70,17 @@ function drawMap(svg,valueOf,scale,labelOf,onPick,sel,naOf=()=>', no data',goneO
     /* Hover previews; leaving the map goes back to the state picked, so its readout link can be reached. */
     svg.addEventListener('mouseleave',()=>{if(svg._pinned!==svg._sel)svg._pick(svg._pinned);});
   }
-  svg._pick=onPick;svg._sel=sel;
+  svg._pick=onPick;svg._sel=sel;let anySub=false;
   svg.querySelectorAll('g').forEach(g=>{
     const st=g.dataset.s, v=valueOf(st), gone=v==null&&goneOf(st), col=gone?css('--dw-gone'):v==null?css('--dw-na'):scale(v);
     const ink=v==null?css('--dw-na-ink'):inkOn(col);
     g.classList.toggle('dw-sel',st===sel);g.classList.toggle('dw-gone',gone);
     g.querySelector('rect').setAttribute('fill',col);
-    const [t1,t2]=g.querySelectorAll('text');t1.style.fill=ink;t2.style.fill=ink;t2.textContent=v==null?'':labelOf(v);
-    g.setAttribute('aria-label',NAMES[st]+(v==null?naOf(st):', '+labelOf(v)));
+    const [t1,t2,t3]=g.querySelectorAll('text'),sub=v==null?'':subOf(st);if(sub)anySub=true;
+    t1.style.fill=ink;t2.style.fill=ink;t3.style.fill=ink;t2.textContent=v==null?'':labelOf(v);t3.textContent=sub;
+    g.setAttribute('aria-label',NAMES[st]+(v==null?naOf(st):', '+labelOf(v)+(sub?', insurers '+sub:'')));
   });
+  svg.classList.toggle('dw-has-sub',anySub);
 }
 function binScale(breaks,colors){return v=>{let i=0;while(i<breaks.length&&v>=breaks[i])i++;return colors[i];};}
 function legend(el,breaks,colors,lab,na='No data',gone=''){ /* ranges include the lower bound */
@@ -99,6 +107,11 @@ const cnShare=OM.closed_network.share;
 const cnWords=Math.abs(cnShare-.5)<.1?'about half':'about '+Math.round(cnShare*10)+' in 10';
 const closedLine=`For ${cnWords} of those denials, insurers gave the reason that the plan doesn't cover care outside its network.`;
 
+/* Each state's insurers in the table, lowest and highest, for the map's small type. */
+const BYST=IS.reduce((a,i)=>{(a[i.s]=a[i.s]||[]).push(i);return a;},{});
+const span=s=>{const g=BYST[s];if(!g||g.length<2)return null;const r=g.map(i=>i.r);return [Math.min(...r),Math.max(...r)];};
+const spanLab=s=>{const x=span(s);return x?(x[0]*100).toFixed(0)+'–'+(x[1]*100).toFixed(0)+'%':'';};
+
 /* denial map */
 let dm='in', dsel='FL';
 const ST=D.states;
@@ -109,8 +122,8 @@ const BOTH=Object.keys(ST).filter(s=>ST[s].all.rate!=null), gap=s=>ST[s].all.rat
 const NEAR=BOTH.filter(s=>Math.abs(gap(s))<=.03).length;
 const WIDE=BOTH.slice().sort((a,b)=>gap(b)-gap(a)).slice(0,3).map(s=>NAMES[s]);
 const DM={
-  in:{v:s=>ST[s]?ST[s].rate:null,b:RB,c:DC,l:x=>pct(x,0),t:x=>pct(x,1),
-    note:`In-network claims: care from doctors, hospitals and pharmacies that have a contract with the plan. About ${inTen} in 10 claims are in network, and every plan pays for in-network care, so this view compares insurers most evenly.`},
+  in:{v:s=>ST[s]?ST[s].rate:null,b:RB,c:DC,l:x=>pct(x,0),t:x=>pct(x,1),sub:spanLab,
+    note:`In-network claims: care from doctors, hospitals and pharmacies that have a contract with the plan. About ${inTen} in 10 claims are in network, and every plan pays for in-network care, so this view compares insurers most evenly. The small type on a tile is the state's lowest to highest insurer rate.`},
   all:{v:s=>ST[s]&&ST[s].all.rate!=null?ST[s].all.rate:null,gone:s=>!!ST[s],b:RB,c:DC,l:x=>pct(x,0),t:x=>pct(x,1),gk:'Left out',
     naOf:s=>!ST[s]?', no data':ST[s].all.why==='error'?', no figure: '+cantBe(ST[s].all.left_out):', no figure',
     note:`In-network and out-of-network claims together: ${pct(T.all_rate,0)} denied in ${T.year}. About ${inTen} in 10 claims are in network, so in ${NEAR} of ${BOTH.length} states these rates sit within 3 points of the in-network ones. They run higher where more claims are out of network, or more of those are denied, as in ${andList(WIDE)}, partly because of the kinds of plans sold there.`+
@@ -131,17 +144,13 @@ function dRead(s){dsel=s;const r=ST[s];let h=`<div class="dw-readout-state">${NA
   if(!r)h+=`<div class="dw-readout-line">Not in this data. ${NAMES[s]} runs its own marketplace, or had no HealthCare.gov insurers reporting.</div>`;
   else h+=(dm==='all'?allRead(s,r):'')+`<div class="dw-readout-line"><b class="dw-num">${pct(r.rate)}</b> of in-network claims denied (${big(r.denied)} of ${big(r.claims)})</div>`+
     (r.prev!=null?`<div class="dw-readout-line">2023: <span class="dw-num">${pct(r.prev)}</span> (${r.rate>=r.prev?'up':'down'} ${Math.abs((r.rate-r.prev)*100).toFixed(1)} points)</div>`:'')+
+    (BYST[s]?line1(span(s)?`Its insurers: <b class="dw-num">${pct(span(s)[0])}</b> to <b class="dw-num">${pct(span(s)[1])}</b>, lowest to highest`:'One insurer in the table'):'')+
     `<div class="dw-readout-line">${r.won!=null?`<b class="dw-num">${pct(r.won,0)}</b> of internal appeals won (${fmt(r.overturned)} of ${fmt(r.appeals)})`:'Too few appeals reported to show a win rate'} · ${r.issuers} reporting insurer${r.issuers>1?'s':''}${r.issuers===1?', so these are that company\'s figures':r.issuers===2?', so these are those companies\' figures':''}</div>`;
+  if(BYST[s])h+=line1(`<a href="#insurers">See ${esc(NAMES[s])}'s insurers</a>`);
   $('dread').innerHTML=h+helpLink(s);drawD();}
-function drawD(){const m=DM[dm];drawMap($('dmap'),m.v,binScale(m.b,m.c),m.t,dRead,dsel,m.naOf,m.gone);legend($('dleg'),m.b,m.c,m.l,'No data',m.gk);$('dnote').innerHTML=m.note;}
-/* The bars follow the all-claims view; the other views show in-network. */
-function dBars(){const all=dm==='all',val=s=>all?ST[s].all.rate:ST[s].rate;
-  const arr=Object.keys(ST).filter(s=>val(s)!=null).sort((a,b)=>val(b)-val(a));const mx=val(arr[0]);
-  $('dbarsh').textContent='Highest and lowest '+(all?'all-claims':'in-network')+' denial rates';
-  const row=(s,cls)=>`<div class="dw-bar ${cls}"><div class="dw-bar-name"><span>${NAMES[s]}</span></div><div class="dw-bar-track"><div class="dw-bar-fill" style="width:${val(s)/mx*100}%"></div></div><div class="dw-bar-value dw-num">${pct(val(s))}</div></div>`;
-  $('dbars').innerHTML=arr.slice(0,5).map(x=>row(x,'')).join('')+'<div class="dw-note dw-gap-row">···</div>'+arr.slice(-5).map(x=>row(x,'dw-bar-low')).join('');}
-document.querySelectorAll('#dmode button').forEach(b=>b.onclick=()=>{dm=b.dataset.m;document.querySelectorAll('#dmode button').forEach(x=>x.setAttribute('aria-pressed',x===b));dRead(dsel);dBars();});
-dRead(dsel);dBars();
+function drawD(){const m=DM[dm];drawMap($('dmap'),m.v,binScale(m.b,m.c),m.t,dRead,dsel,m.naOf,m.gone,m.sub);legend($('dleg'),m.b,m.c,m.l,'No data',m.gk);$('dnote').innerHTML=m.note;}
+document.querySelectorAll('#dmode button').forEach(b=>b.onclick=()=>{dm=b.dataset.m;document.querySelectorAll('#dmode button').forEach(x=>x.setAttribute('aria-pressed',x===b));dRead(dsel);});
+dRead(dsel);
 
 /* line chart */
 function line(svg,pts,{ymin,ymax,fmtY,ticks,color,label}){
@@ -186,22 +195,19 @@ $('reasons').innerHTML=D.reasons.map(r=>`<div class="dw-bar ${/medically|Experim
 
 /* insurers: in-network only; the note says why there are no out-of-network or all-claims rates */
 const states=[...new Set(IS.map(i=>i.s))].sort((a,b)=>NAMES[a].localeCompare(NAMES[b]));
-$('istate').innerHTML='<option value="">All states</option>'+states.map(s=>`<option value="${esc(s)}">${esc(NAMES[s]||s)}</option>`).join('');
-$('inote').textContent=`In-network claims only. We don't show out-of-network or all-claims rates insurer by insurer. ${IS.filter(i=>i.net_only).length} of the ${IS.length} insurers on this page sold only HMO or EPO plans in ${OM.plan_types_year}, which mostly don't cover out-of-network care by design. Many that also sold PPO or POS plans had most of their out-of-network claims on HMO or EPO plans, or said most of those denials were because the plan doesn't cover care outside its network. So an out-of-network rate would mostly show which kinds of plans an insurer sells, not how it handles claims, and an all-claims rate would rank insurers partly on that. Nationally, insurers denied ${pct(T.out_rate,0)} of out-of-network claims in ${T.year}: see the trend chart's Out-of-network view.`;
+$('istate').innerHTML=states.map(s=>`<option value="${esc(s)}">${esc(NAMES[s]||s)}</option>`).join('');
+$('inote').textContent=`In-network claims only. We don't show out-of-network or all-claims rates insurer by insurer. ${IS.filter(i=>i.net_only).length} of the ${IS.length} insurers on this page sold only HMO or EPO plans in ${OM.plan_types_year}, which mostly don't cover out-of-network care by design, so those rates would mostly show which kinds of plans an insurer sells, not how it handles claims.`;
+/* One state at a time, the one picked on the map or here, so no company is set against another state's. */
 function iDraw(){const s=$('istate').value;
   const mx=Math.max(...IS.map(i=>i.r));
-  /* All states: one row per state, so no company is set against another state's. */
-  if(!s){$('icount').textContent=IS.length+' insurers in '+states.length+' states';
-    $('itable').innerHTML='<thead><tr><th>State</th><th class="dw-r">Insurers</th><th>Insurer denial rates, lowest to highest</th><th class="dw-r">Claims</th></tr></thead><tbody>'+
-     states.map(st=>{const g=IS.filter(i=>i.s===st),lo=Math.min(...g.map(i=>i.r)),hi=Math.max(...g.map(i=>i.r)),c=g.reduce((a,i)=>a+i.c,0);
-      return `<tr><td><button type="button" class="dw-pick" data-s="${esc(st)}">${esc(NAMES[st]||st)}</button></td><td class="dw-r dw-num">${g.length}</td><td class="dw-num dw-nowrap"><span class="dw-range" aria-hidden="true"><span class="dw-range-fill" style="left:${lo/mx*100}%;width:${Math.max(2,(hi-lo)/mx*100)}%"></span></span>${g.length>1?pct(lo)+' to '+pct(hi):pct(lo)+' (one insurer)'}</td><td class="dw-r dw-num">${big(c)}</td></tr>`;}).join('')+'</tbody>';
-    $('itable').querySelectorAll('.dw-pick').forEach(b=>b.onclick=()=>{$('istate').value=b.dataset.s;iDraw();$('istate').focus();});
-    return;}
   /* One state: no State column, since the picker names it. */
-  const rows=IS.filter(i=>i.s===s).sort((a,b)=>b.r-a.r);$('icount').textContent=rows.length+' insurers';
+  const rows=IS.filter(i=>i.s===s).sort((a,b)=>b.r-a.r);$('icount').textContent=rows.length+(rows.length>1?' insurers in ':' insurer in ')+NAMES[s];
   $('itable').innerHTML='<thead><tr><th>Insurer</th><th>Denial rate</th><th class="dw-r">Claims</th><th class="dw-r">Appeals won</th></tr></thead><tbody>'+
    rows.map(i=>`<tr><td>${esc(i.n)}</td><td class="dw-num dw-nowrap"><span class="dw-mini" style="width:${Math.max(2,i.r/mx*90)}px"></span>${pct(i.r)}</td><td class="dw-r dw-num">${big(i.c)}</td><td class="dw-r dw-num">${i.a!=null&&i.o!=null?pct(i.o/i.a,0)+' <span class="dw-note">('+fmt(i.o)+' of '+fmt(i.a)+')</span>':i.a!=null?'<span class="dw-note">not reported ('+fmt(i.a)+' appeals)</span>':'<span class="dw-note">too few</span>'}</td></tr>`).join('')+'</tbody>';}
-$('istate').onchange=iDraw;iDraw();
+$('istate').value=BYST[dsel]?dsel:states[0];
+$('istate').onchange=()=>{const s=$('istate').value;$('dmap')._pinned=s;dRead(s);iDraw();};
+$('dmap')._onPin=s=>{if(BYST[s]){$('istate').value=s;iDraw();}};
+iDraw();
 
 /* prior authorization */
 const PA=D.prior_auth||[];
