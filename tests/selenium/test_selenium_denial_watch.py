@@ -31,25 +31,25 @@ class SeleniumTestDenialWatchViews(FHISeleniumBase, StaticLiveServerTestCase):
         self.open(f"{self.live_server_url}{reverse('denial-watch')}")
         self.wait_for_page_ready(predicate=lambda d: d.execute_script("return !!document.querySelector('#dmap g')"))
 
-    def test_out_of_network_view_changes_the_readout_and_the_chart_label(self):
+    def test_out_of_network_view_is_on_the_trend_chart_only(self):
         self._open()
-        self.click('#dmode button[data-m="out"]')
-        self.assert_text_eventually_contains("of out-of-network claims denied in 2024", "dread")
-        self.assertIn("Not mapped by state", self.get_text("#dread"))
+        self.assertEqual(self.execute_script("return document.querySelectorAll('#dmode button[data-m=\"out\"]').length"), 0)
         self.click('#tmode button[data-m="out"]')
+        self.assert_text_eventually_contains("about twice the in-network rate", "tnote")
         self.assertIn(
             "out-of-network denial rate by year, 2022 to 2024",
             self.get_attribute("#tline", "aria-label"),
         )
+        self.assertTrue(self.execute_script("return !!document.querySelector('#tnote a[href=\"#who-to-call\"]')"))
 
-    def test_out_of_network_map_outlines_reporting_states_and_greys_the_rest(self):
+    def test_all_claims_map_outlines_left_out_states_and_greys_the_rest(self):
         self._open()
-        self.click('#dmode button[data-m="out"]')
+        self.click('#dmode button[data-m="all"]')
         gone = self.execute_script(
-            "return ['OH','CA'].map(s=>document.querySelector('#dmap g[data-s=\"'+s+'\"]').classList.contains('dw-gone'));"
+            "return ['AK','ND','OH','CA'].map(s=>document.querySelector('#dmap g[data-s=\"'+s+'\"]').classList.contains('dw-gone'));"
         )
-        # Ohio reports to HealthCare.gov but isn't mapped; California has no data here.
-        self.assertEqual(gone, [True, False])
+        # Alaska and North Dakota report but have no all-claims figure; Ohio has one; California has no data here.
+        self.assertEqual(gone, [True, True, False, False])
 
     def test_map_buttons_wrap_on_a_phone(self):
         self._open(375, 812)

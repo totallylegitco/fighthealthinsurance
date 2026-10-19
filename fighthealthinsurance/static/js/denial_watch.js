@@ -111,9 +111,6 @@ const WIDE=BOTH.slice().sort((a,b)=>gap(b)-gap(a)).slice(0,3).map(s=>NAMES[s]);
 const DM={
   in:{v:s=>ST[s]?ST[s].rate:null,b:RB,c:DC,l:x=>pct(x,0),t:x=>pct(x,1),
     note:`In-network claims: care from doctors, hospitals and pharmacies that have a contract with the plan. About ${inTen} in 10 claims are in network, and every plan pays for in-network care, so this view compares insurers most evenly.`},
-  /* No state figures: most would mostly show plan type (dnote says so). */
-  out:{v:()=>null,gone:s=>!!ST[s],b:[],c:[],gk:'Not mapped by state',naOf:s=>ST[s]?', out-of-network rates not mapped by state':', no data',
-    note:`Out-of-network claims: care from providers that don't have a contract with the plan. Insurers denied ${pct(T.out_rate,0)} of them in ${T.year} (${big(T.out_denied)} of ${big(T.out_claims)}), about twice the in-network rate. ${closedLine} We don't map out-of-network rates by state: in ${OM.plan_types_year}, ${NET.issuers} of the ${T.out_issuers} insurers reporting them sold only HMO or EPO plans, which mostly don't cover out-of-network care by design, so a state's rate would mostly show which kinds of plans its insurers sell, not how they handle claims. Shopping for a plan that pays for some out-of-network care? Look for a PPO or POS. Got emergency care, or saw an out-of-network doctor at an in-network hospital? Surprise-billing rules may protect you: see <a href="#who-to-call">Who to call</a>.`},
   all:{v:s=>ST[s]&&ST[s].all.rate!=null?ST[s].all.rate:null,gone:s=>!!ST[s],b:RB,c:DC,l:x=>pct(x,0),t:x=>pct(x,1),gk:'Left out',
     naOf:s=>!ST[s]?', no data':ST[s].all.why==='error'?', no figure: '+cantBe(ST[s].all.left_out):', no figure',
     note:`In-network and out-of-network claims together: ${pct(T.all_rate,0)} denied in ${T.year}. About ${inTen} in 10 claims are in network, so in ${NEAR} of ${BOTH.length} states these rates sit within 3 points of the in-network ones. They run higher where more claims are out of network, or more of those are denied, as in ${andList(WIDE)}, partly because of the kinds of plans sold there.`+
@@ -127,20 +124,12 @@ const DM={
 const HELP=ROOT.dataset.stateHelp||'';
 const helpLink=s=>HELP?`<div class="dw-readout-line"><a href="${esc(HELP+NAMES[s].toLowerCase().replace(/ /g,'-')+'/')}">Where to get help in ${esc(NAMES[s])}</a></div>`:'';
 const line1=h=>`<div class="dw-readout-line">${h}</div>`;
-/* How many of a state's insurers sold only HMO or EPO plans, in words. */
-function netLine(s,o){const y=OM.plan_types_year,n=o.issuers,k=o.net_only;
-  if(n===1)return k?`Its one insurer sold only HMO or EPO plans in ${y}.`:o.other?`${NAMES[s]}'s one insurer sold PPO or POS plans in ${y}, not only HMO or EPO plans.`:`Its one insurer isn't in CMS's ${y} plan list.`;
-  return k===n?`All ${n} insurers here sold only HMO or EPO plans in ${y}.`:k===0?`None of the ${n} insurers here sold only HMO or EPO plans in ${y}.`:`${k} of the ${n} insurers here sold only HMO or EPO plans in ${y}.`;}
-function outRead(s,r){const o=r.out;
-  return line1(`Nationally, <b class="dw-num">${pct(T.out_rate)}</b> of out-of-network claims denied in ${T.year} (${big(T.out_denied)} of ${big(T.out_claims)}). Not mapped by state (why, under the map).`)+
-    (o.issuers?line1(netLine(s,o)):'')+
-    (o.left_out.length?line1(esc(cantBe(o.left_out))+'.'):'');}
 function allRead(s,r){const a=r.all;
   return line1(a.rate!=null?`<b class="dw-num">${pct(a.rate)}</b> of all claims denied, in and out of network (${big(a.denied)} of ${big(a.claims)})`:
     a.why==='error'?`No all-claims figure for ${NAMES[s]}: ${esc(cantBe(a.left_out))}.`:'No all-claims figure: no insurer here reported both kinds of claims.');}
 function dRead(s){dsel=s;const r=ST[s];let h=`<div class="dw-readout-state">${NAMES[s]}</div>`;
   if(!r)h+=`<div class="dw-readout-line">Not in this data. ${NAMES[s]} runs its own marketplace, or had no HealthCare.gov insurers reporting.</div>`;
-  else h+=(dm==='out'?outRead(s,r):dm==='all'?allRead(s,r):'')+`<div class="dw-readout-line"><b class="dw-num">${pct(r.rate)}</b> of in-network claims denied (${big(r.denied)} of ${big(r.claims)})</div>`+
+  else h+=(dm==='all'?allRead(s,r):'')+`<div class="dw-readout-line"><b class="dw-num">${pct(r.rate)}</b> of in-network claims denied (${big(r.denied)} of ${big(r.claims)})</div>`+
     (r.prev!=null?`<div class="dw-readout-line">2023: <span class="dw-num">${pct(r.prev)}</span> (${r.rate>=r.prev?'up':'down'} ${Math.abs((r.rate-r.prev)*100).toFixed(1)} points)</div>`:'')+
     `<div class="dw-readout-line">${r.won!=null?`<b class="dw-num">${pct(r.won,0)}</b> of internal appeals won (${fmt(r.overturned)} of ${fmt(r.appeals)})`:'Too few appeals reported to show a win rate'} · ${r.issuers} reporting insurer${r.issuers>1?'s':''}${r.issuers===1?', so these are that company\'s figures':r.issuers===2?', so these are those companies\' figures':''}</div>`;
   $('dread').innerHTML=h+helpLink(s);drawD();}
@@ -179,9 +168,10 @@ const LEFT=Object.values(D.trend.reduce((a,t)=>{t.left_out.forEach(x=>{(a[x.s+x.
 function tDraw(){const m=TV[tv],rows=D.trend.filter(t=>t[tv+'_rate']!=null),y0=rows[0].year,y1=rows[rows.length-1].year;
   line($('tline'),rows.map(t=>({x:t.year,y:t[tv+'_rate']})),{ymin:m.ymin,ymax:m.ymax,ticks:m.ticks,fmtY:y=>pct(y,0),color:css('--dw-red'),label:y=>pct(y)+' denied'});
   $('tline').setAttribute('aria-label',`Line chart of the ${m.lab} denial rate by year, ${y0} to ${y1}`);
-  $('tnote').textContent=tv==='in'?`In-network claims, ${y0} to ${y1}.`:
-    (tv==='out'?`Out-of-network claims, ${y0} to ${y1}. Insurers have reported them only since ${y0} claims. In ${T.year}, for ${cnWords} of these denials, insurers gave the reason that the plan doesn't cover care outside its network.`:`All claims, in and out of network, ${y0} to ${y1}. Earlier files don't count out-of-network claims.`)+
-    (LEFT.length?` Left out because they reported more out-of-network denials than claims, which can't be right: ${andList(LEFT)}.`:'');
+  /* The out-of-network line is the page's one place for that view: the map and the insurer table point here. */
+  $('tnote').innerHTML=tv==='in'?`In-network claims, ${y0} to ${y1}.`:
+    (tv==='out'?`Out-of-network claims, ${y0} to ${y1}: care from providers that don't have a contract with the plan. Insurers have reported them only since ${y0} claims, and denied ${pct(T.out_rate,0)} of them in ${T.year} (${big(T.out_denied)} of ${big(T.out_claims)}), about twice the in-network rate. ${closedLine} We don't map out-of-network rates by state: in ${OM.plan_types_year}, ${NET.issuers} of the ${T.out_issuers} insurers reporting them sold only HMO or EPO plans, which mostly don't cover out-of-network care by design, so a state's rate would mostly show which kinds of plans its insurers sell, not how they handle claims. Shopping for a plan that pays for some out-of-network care? Look for a PPO or POS. Got emergency care, or saw an out-of-network doctor at an in-network hospital? Surprise-billing rules may protect you: see <a href="#who-to-call">Who to call</a>.`:`All claims, in and out of network, ${y0} to ${y1}. Earlier files don't count out-of-network claims.`)+
+    (LEFT.length?` Left out because they reported more out-of-network denials than claims, which can't be right: ${esc(andList(LEFT))}.`:'');
   /* Out-of-network: claims beside denials, since both grew; no appeals column, as appeals aren't split by network. */
   const out=tv==='out';
   $('ttable').innerHTML=`<thead><tr><th>Year</th>${out?'<th class="dw-r">Claims</th>':''}<th class="dw-r">Denied</th><th class="dw-r">Rate</th>${out?'':'<th class="dw-r">Appeals</th>'}</tr></thead><tbody>`+
@@ -197,7 +187,7 @@ $('reasons').innerHTML=D.reasons.map(r=>`<div class="dw-bar ${/medically|Experim
 /* insurers: in-network only; the note says why there are no out-of-network or all-claims rates */
 const states=[...new Set(IS.map(i=>i.s))].sort((a,b)=>NAMES[a].localeCompare(NAMES[b]));
 $('istate').innerHTML='<option value="">All states</option>'+states.map(s=>`<option value="${esc(s)}">${esc(NAMES[s]||s)}</option>`).join('');
-$('inote').textContent=`In-network claims only. We don't show out-of-network or all-claims rates insurer by insurer. ${IS.filter(i=>i.net_only).length} of the ${IS.length} insurers on this page sold only HMO or EPO plans in ${OM.plan_types_year}, which mostly don't cover out-of-network care by design. Many that also sold PPO or POS plans had most of their out-of-network claims on HMO or EPO plans, or said most of those denials were because the plan doesn't cover care outside its network. So an out-of-network rate would mostly show which kinds of plans an insurer sells, not how it handles claims, and an all-claims rate would rank insurers partly on that. Nationally, insurers denied ${pct(T.out_rate,0)} of out-of-network claims in ${T.year}: see the map's Out-of-network view.`;
+$('inote').textContent=`In-network claims only. We don't show out-of-network or all-claims rates insurer by insurer. ${IS.filter(i=>i.net_only).length} of the ${IS.length} insurers on this page sold only HMO or EPO plans in ${OM.plan_types_year}, which mostly don't cover out-of-network care by design. Many that also sold PPO or POS plans had most of their out-of-network claims on HMO or EPO plans, or said most of those denials were because the plan doesn't cover care outside its network. So an out-of-network rate would mostly show which kinds of plans an insurer sells, not how it handles claims, and an all-claims rate would rank insurers partly on that. Nationally, insurers denied ${pct(T.out_rate,0)} of out-of-network claims in ${T.year}: see the trend chart's Out-of-network view.`;
 function iDraw(){const s=$('istate').value;
   const mx=Math.max(...IS.map(i=>i.r));
   /* All states: one row per state, so no company is set against another state's. */

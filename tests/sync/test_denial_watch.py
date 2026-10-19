@@ -1259,25 +1259,38 @@ class TestDenialWatchNetworkPage(TestCase):
         self.assertIn("insurers on this page sold only HMO or EPO plans in ${OM.plan_types_year}", note)
         self.assertIn("had most of their out-of-network claims on HMO or EPO plans", note)
         self.assertIn("would mostly show which kinds of plans an insurer sells, not how it handles claims", note)
+        # The map has no out-of-network view, so the note points at the trend chart's.
+        self.assertIn("see the trend chart's Out-of-network view.", note)
+        self.assertNotIn("the map's Out-of-network view", JS)
 
-    def test_map_offers_no_out_of_network_change_or_appeals(self):
+    def test_map_offers_no_out_of_network_views(self):
+        # Out-of-network rates are national only, on the trend chart.
         buttons = re.findall(r'data-m="(\w+)"', _between(self.content, 'id="dmode"', "</div>"))
-        self.assertEqual(buttons, ["in", "out", "all", "chg", "won"])
+        self.assertEqual(buttons, ["in", "all", "chg", "won"])
+        trend = re.findall(r'data-m="(\w+)"', _between(self.content, 'id="tmode"', "</div>"))
+        self.assertEqual(trend, ["in", "out", "all"])
         self.assertIn("There\\'s no out-of-network version, because those changes mostly reflect which insurers reported", JS)
         self.assertIn("Appeals aren't split by network, so there's no out-of-network version.", JS)
 
     def test_map_has_no_out_of_network_state_figures(self):
-        # A state's rate would mostly show plan type, so the map says so instead.
-        self.assertIn("out:{v:()=>null,", JS)
-        self.assertIn("We don't map out-of-network rates by state: in ${OM.plan_types_year}, ${NET.issuers} of the ${T.out_issuers} insurers reporting them sold only HMO or EPO plans", JS)
-        self.assertIn("so a state's rate would mostly show which kinds of plans its insurers sell", JS)
+        # A state's rate would mostly show plan type, so the map points to the trend chart instead.
+        views = _between(JS, "const DM={", "\n};")
+        self.assertNotIn("out:{", views)
+        intro = _text(_between(self.content, 'id="map-denials"', 'class="fhi-card"'))
+        self.assertIn("We don't map out-of-network claims by state. The trend chart below gives their national rate and says why.", intro)
 
-    def test_out_of_network_map_note_carries_the_closed_network_line_and_advice(self):
-        note = _between(JS, "  out:{v:()=>null,", "\n  all:{")
+    def test_out_of_network_trend_note_carries_the_map_note(self):
+        # Everything the map's out-of-network view used to say, now beside the chart that has the figures.
+        note = _between(JS, "(tv==='out'?", ":`All claims")
+        self.assertIn("about twice the in-network rate", note)
         self.assertIn("${closedLine}", note)
+        self.assertIn("We don't map out-of-network rates by state: in ${OM.plan_types_year}, ${NET.issuers} of the ${T.out_issuers} insurers reporting them sold only HMO or EPO plans", note)
+        self.assertIn("so a state's rate would mostly show which kinds of plans its insurers sell", note)
         self.assertIn("Look for a PPO or POS.", note)
         self.assertIn('<a href="#who-to-call">Who to call</a>', note)
         self.assertIn('id="who-to-call"', self.content)
+        # The line is HTML now, so the insurer names from the data are escaped.
+        self.assertIn("which can't be right: ${esc(andList(LEFT))}.", JS)
         # The insurer table has no out-of-network view, so nothing links into one.
         self.assertNotIn("data-iview", JS)
 
@@ -1303,7 +1316,7 @@ class TestDenialWatchNetworkPage(TestCase):
         self.assertLess(self.content.index('id="inote"'), self.content.index('id="itable"'))
         self.assertIn("$('dnote').innerHTML=m.note", JS)
         self.assertIn("$('inote').textContent=", JS)
-        self.assertIn("$('tnote').textContent=", JS)
+        self.assertIn("$('tnote').innerHTML=", JS)
 
     def test_map_line_names_the_states_left_out_and_why(self):
         self.assertIn("show':'shows'} no figure here, because ${esc(cantBe(", JS)
@@ -1311,19 +1324,12 @@ class TestDenialWatchNetworkPage(TestCase):
 
     def test_state_readout_says_why(self):
         self.assertIn("No all-claims figure for ${NAMES[s]}: ${esc(cantBe(a.left_out))}.", JS)
-        self.assertIn("Not mapped by state (why, under the map).", JS)
         self.assertIn("No all-claims figure: no insurer here reported both kinds of claims.", JS)
 
-    def test_state_readout_counts_hmo_or_epo_insurers_in_words(self):
-        rule = _between(JS, "function netLine(", "\nfunction outRead(")
-        for words in (
-            "Its one insurer sold only HMO or EPO plans in ${y}.",
-            "${NAMES[s]}'s one insurer sold PPO or POS plans in ${y}, not only HMO or EPO plans.",
-            "All ${n} insurers here sold only HMO or EPO plans in ${y}.",
-            "None of the ${n} insurers here sold only HMO or EPO plans in ${y}.",
-            "${k} of the ${n} insurers here sold only HMO or EPO plans in ${y}.",
-        ):
-            self.assertIn(words, rule)
+    def test_state_readout_has_no_out_of_network_lines(self):
+        # With no out-of-network map view, the readout has no out-of-network branch.
+        for gone in ("dm==='out'", "function outRead(", "function netLine("):
+            self.assertNotIn(gone, JS)
 
     def test_out_of_network_trend_table_shows_claims_and_no_appeals(self):
         # Denials alone read as a jump; claims grew faster. Appeals aren't split by network.
@@ -1343,6 +1349,7 @@ class TestDenialWatchNetworkPage(TestCase):
             self.sources,
         )
         self.assertIn("We don't show them insurer by insurer either", self.sources)
+        self.assertIn("The trend chart can switch to out-of-network claims or all claims, and the map to all claims", self.sources)
         self.assertIn("The insurer table has no all-claims rates for the same reason", self.sources)
 
     def test_method_note_gives_the_closed_network_figure(self):
