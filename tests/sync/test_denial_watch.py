@@ -574,6 +574,19 @@ class TestDenialWatchEnrollment(TestCase):
         sources = _between(html, 'id="sources"', "</section>")
         self.assertIn('href="https://www.healthcare.gov/marketplace-in-your-state/"', sources)
 
+    def test_shoppers_hear_that_some_insurers_have_left(self):
+        # The table is 2024 data, and some of its insurers don't sell 2027 plans; no insurer is named.
+        html = _page(date(2026, 10, 18))
+        box = _text(_between(html, 'id="enroll"', "</section>"))
+        self.assertIn("denied claims in 2024", box)
+        self.assertIn("some of those insurers don't sell plans for 2027", box)
+        notice = _between(_between(html, 'id="insurers"', "</section>"), "Picking a 2027 HealthCare.gov plan?", "</p>")
+        self.assertIn("its insurers' 2024 rates", notice)
+        self.assertIn("Some of these insurers don't sell plans for 2027, so check which ones do.", notice)
+        self.assertNotIn("Cigna", box + notice)
+        sources = _between(html, 'id="sources"', "</section>")
+        self.assertIn("tracking-insurer-participation-changes-in-the-aca-marketplaces-in-2027", sources)
+
     def test_box_prints_no_healthcare_gov_dates(self):
         # The 2027 marketplace window is in court, so the box links out instead.
         box = _between(_page(date(2026, 10, 18)), 'id="enroll"', "</section>")
@@ -601,7 +614,7 @@ class TestDenialWatchEnrollment(TestCase):
         self.assertIn("Picking a plan for 2028?", box)
         self.assertIn("runs from October 15 to December 7, 2027,", box)
         self.assertIn("Picking a 2028 HealthCare.gov plan?", _between(html, 'id="insurers"', "</section>"))
-        self.assertNotIn("2026", box.replace("checked October 18, 2026", ""))
+        self.assertNotIn("2026", box.replace("checked October 19, 2026", ""))
 
     def test_last_day_counts_in_hawaii_not_utc(self):
         # 5am UTC on December 8 is still December 7 in every state.
