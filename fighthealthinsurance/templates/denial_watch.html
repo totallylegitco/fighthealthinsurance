@@ -15,9 +15,9 @@
     --dw-h0: #efe9f6; --dw-h1: #d6c7ea; --dw-h2: #b69dd7; --dw-h3: #8665b1; --dw-h4: #6a449c; --dw-h5: #43256b;
     --dw-na: #e3e6ea; --dw-na-ink: #5d6771; --dw-track: #eef1f4; --dw-gone: #ffffff;
   }
-  /* Clear the sticky header, 143px tall below 992px wide, so a jump lands on the heading. */
-  .dw section { scroll-margin-top: calc(2 * var(--fhi-space-11)); }
-  @media (min-width: 992px) { .dw section { scroll-margin-top: calc(var(--fhi-space-11) + var(--fhi-space-7)); } }
+  /* Clear the sticky header, 143px tall below 992px wide, so a jump to any anchor lands below it. */
+  .dw [id] { scroll-margin-top: calc(2 * var(--fhi-space-11)); }
+  @media (min-width: 992px) { .dw [id] { scroll-margin-top: calc(var(--fhi-space-11) + var(--fhi-space-7)); } }
   .dw-num { font-variant-numeric: tabular-nums; }
   .dw-kicker { font-size: var(--fhi-text-small); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fhi-green-ink); }
   .dw-ticker { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--fhi-space-2) var(--fhi-space-6); align-items: end; padding: var(--fhi-space-5); border-radius: var(--fhi-radius); background-color: var(--fhi-ink); color: #fff; }

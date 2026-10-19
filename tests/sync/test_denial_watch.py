@@ -633,7 +633,26 @@ class TestDenialWatchWhoToCall(TestCase):
 
     def test_focus_alone_does_not_pick_a_map_state(self):
         # Tabbing out of the map would otherwise pick every tile after yours.
-        self.assertNotIn("addEventListener('focus'", self.js)
+        for hook in ("'focus'", '"focus"', "focusin", "onfocus"):
+            self.assertNotIn(hook, self.js)
+
+    def test_enter_or_space_picks_a_map_state(self):
+        # A keyboard pick pins the state, as a click does.
+        self.assertIn("g.addEventListener('click',pin);", self.js)
+        self.assertIn("g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();pin();}});", self.js)
+
+    def test_leaving_the_map_goes_back_to_the_picked_state(self):
+        # So the picked state's readout link can be reached after a hover.
+        self.assertIn("svg.addEventListener('mouseleave',()=>{if(svg._pinned!==svg._sel)svg._pick(svg._pinned);});", self.js)
+
+    def test_every_jump_lands_below_the_sticky_header(self):
+        # Card and paragraph anchors, like #who-to-call, need the offset as much as sections do.
+        style = _between(self.content, "<style>", "</style>")
+        rules = re.findall(r"([^{}\n]+)\{ scroll-margin-top:", style)
+        self.assertEqual([r.split("{")[-1].strip() for r in rules], [".dw [id]", ".dw [id]"])
+        page = _between(self.content, '<div class="fhi-page-wide dw"', '<script id="dw-data"')
+        for target in set(re.findall(r'href="#([\w-]+)"', page + self.js)):
+            self.assertIn(f'id="{target}"', page, target)
 
     def test_phone_numbers_can_be_dialled(self):
         card = _between(self.content, 'id="who-to-call"', "</section>")
