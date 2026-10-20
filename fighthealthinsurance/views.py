@@ -640,10 +640,16 @@ def _denial_watch_data() -> dict:
 
 @functools.lru_cache(maxsize=1)
 def denial_watch_teaser() -> dict[str, typing.Any]:
-    """The one number the home strip shows: the latest year's in-network
-    denial rate on HealthCare.gov plans, as "1 in N", with its year."""
+    """The home page's numbers: the latest year's in-network denial rate on
+    HealthCare.gov plans, as "1 in N", and its average denials a day."""
     latest = _denial_watch_data()["trend"][-1]
-    return {"one_in": round(1 / latest["in_rate"]), "year": latest["year"]}
+    per_day = round(latest["in_denied"] / latest["days"])
+    return {
+        "one_in": round(1 / latest["in_rate"]),
+        "year": latest["year"],
+        "per_day": per_day,
+        "per_day_text": f"{per_day:,}",
+    }
 
 
 # Checked 2026-10-18. HealthCare.gov's 2027 dates are in court, so the box ends on its latest posted day.
@@ -651,6 +657,10 @@ DENIAL_WATCH_MEDICARE_ENROLLMENT = (date(2026, 10, 15), date(2026, 12, 7))
 DENIAL_WATCH_ENROLLMENT_BOX_ENDS = date(2027, 1, 15)
 # Hawaii's date, so the box doesn't change hours early for the rest of the country.
 DENIAL_WATCH_LAST_TIME_ZONE = ZoneInfo("Pacific/Honolulu")
+# The nav marks Denial Watch "New" through this day (HealthCare.gov's deadline for January coverage).
+DENIAL_WATCH_NEW_UNTIL = date(2026, 12, 15)
+# The home hero announces it through this day; after that the strip under the hero carries it.
+DENIAL_WATCH_HERO_UNTIL = date(2026, 11, 2)
 
 
 def denial_watch_enrollment(today: date) -> dict[str, typing.Any] | None:

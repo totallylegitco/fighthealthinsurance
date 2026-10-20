@@ -456,10 +456,55 @@ class TestDenialWatchIsEasyToFind(TestCase):
         latest = DATA["trend"][-1]
         html = Client().get(reverse("root")).content.decode()
         self.assertIn(
-            f"About 1 in {round(1 / latest['in_rate'])} in-network claims on "
-            f"HealthCare.gov plans were denied in {latest['year']}",
+            f"Insurers denied about 1 in {round(1 / latest['in_rate'])} in-network claims on "
+            f"HealthCare.gov plans in {latest['year']}",
             html,
         )
+
+    @override_settings(DENIAL_WATCH_PAGE_ENABLED=True)
+    def test_the_home_hero_announces_it_with_the_counters_pace(self):
+        latest = DATA["trend"][-1]
+        per_day = round(latest["in_denied"] / latest["days"])
+        # 9am UTC on November 3 is still November 2, its last day, in Hawaii.
+        last = datetime(2026, 11, 3, 9, 0, tzinfo=dt_timezone.utc)
+        with mock.patch("django.utils.timezone.now", return_value=last):
+            html = Client().get(reverse("root")).content.decode()
+        hero = _between(html, 'id="denial-watch-hero"', "</a>")
+        self.assertIn(f'href="{reverse("denial-watch")}"', _between(html, '<a class="hero-announce"', ">"))
+        self.assertIn(f'data-per-day="{per_day}"', hero)
+        # It names insurers as the ones denying, so it can't read as Fight Health Insurance's denials.
+        # Without script it gives the yearly pace; the script swaps in today's count.
+        self.assertIn(
+            f"Denial Watch: insurers denied {per_day:,} HealthCare.gov claims a day in {latest['year']}. See the numbers",
+            _text(hero.split(">", 1)[1]),
+        )
+        self.assertIn('"HealthCare.gov claims today, at " + a.getAttribute("data-year")', html)
+        # The label and the count change together, or "so far today" would sit beside the day's average.
+        self.assertIn('a.querySelector(".hero-announce-count").textContent = count.toLocaleString("en-US");', html)
+
+    @override_settings(DENIAL_WATCH_PAGE_ENABLED=True)
+    def test_the_home_hero_hands_off_to_the_strip_after_november_2(self):
+        after = datetime(2026, 11, 3, 11, 0, tzinfo=dt_timezone.utc)
+        with mock.patch("django.utils.timezone.now", return_value=after):
+            html = Client().get(reverse("root")).content.decode()
+        self.assertNotIn('id="denial-watch-hero"', html)
+        self.assertIn('id="denial-watch-home"', html)
+
+    @override_settings(DENIAL_WATCH_PAGE_ENABLED=True)
+    def test_the_nav_marks_it_new_through_december_15_in_hawaii(self):
+        # 9am UTC on December 16 is still December 15 in Hawaii.
+        last = datetime(2026, 12, 16, 9, 0, tzinfo=dt_timezone.utc)
+        with mock.patch("django.utils.timezone.now", return_value=last):
+            html = Client().get(reverse("about")).content.decode()
+        self.assertIn('Denial Watch <span class="fhi-nav-new">New</span></a>', html)
+
+    @override_settings(DENIAL_WATCH_PAGE_ENABLED=True)
+    def test_the_nav_drops_new_after_december_15(self):
+        after = datetime(2026, 12, 16, 11, 0, tzinfo=dt_timezone.utc)
+        with mock.patch("django.utils.timezone.now", return_value=after):
+            html = Client().get(reverse("about")).content.decode()
+        self.assertIn('id="denialwatchlink">Denial Watch</a>', html)
+        self.assertNotIn("fhi-nav-new", html)
 
     @override_settings(DENIAL_WATCH_PAGE_ENABLED=True)
     def test_a_missing_data_file_hides_the_links_instead_of_breaking_pages(self):
@@ -539,7 +584,7 @@ class TestDenialWatchScriptCountsInNetwork(TestCase):
 
     def test_counter_says_what_it_counts(self):
         page = Client().get(reverse("denial-watch")).content.decode()
-        self.assertIn("ACA in-network denied so far today, at 2024's pace", page)
+        self.assertIn("HealthCare.gov claims denied today, at 2024's pace", page)
         self.assertIn("denied per day in 2024, on average", page)
 
     def test_counter_can_be_paused(self):

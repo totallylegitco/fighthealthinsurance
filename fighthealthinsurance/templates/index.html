@@ -7,15 +7,41 @@
 {% block extra_style %}
 <style>
   .ai-home-icon { border-radius: 12px; display: block; margin: 0 auto; }
+  .hero-inner > .hero-announce { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--fhi-space-1) var(--fhi-space-3); max-width: 100%; margin-bottom: var(--fhi-space-4); padding: var(--fhi-space-2) var(--fhi-space-4); border: 1px solid rgba(165, 196, 34, 0.7); border-radius: 1.25rem; background-color: rgba(21, 32, 43, 0.78); color: #fff; font-weight: 600; line-height: 1.4; text-decoration: none; }
+  .hero-inner > .hero-announce:hover, .hero-inner > .hero-announce:focus-visible { background-color: rgba(21, 32, 43, 0.92); color: #fff; }
+  .hero-announce-new { padding: 0 var(--fhi-space-2); border-radius: 999px; background-color: var(--fhi-green); color: #15202b; font-size: var(--fhi-text-micro); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+  .hero-announce-count { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+  .hero-announce-go { text-decoration: underline; text-underline-offset: 0.2em; }
 </style>
 {% endblock extra_style %}
+
+{% block hero_announcement %}
+{% if denial_watch_enabled and denial_watch_hero %}
+{# Names the insurers as the ones denying, so it can't read as us. Without script it gives the yearly average; the script swaps in today's count, figured in the browser so the cached page stays right. #}
+<a class="hero-announce" id="denial-watch-hero" href="{% url 'denial-watch' %}" data-per-day="{{ denial_watch_teaser.per_day }}" data-year="{{ denial_watch_teaser.year }}">
+    <span class="hero-announce-new">New</span>
+    <span><strong>Denial Watch:</strong> insurers denied <b class="hero-announce-count">{{ denial_watch_teaser.per_day_text }}</b> <span class="hero-announce-label">HealthCare.gov claims a day in {{ denial_watch_teaser.year }}</span>.</span>
+    <span class="hero-announce-go">See the numbers</span>
+</a>
+<script>
+(function () {
+  var a = document.getElementById("denial-watch-hero");
+  if (!a) { return; }
+  var now = new Date(), midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  var count = Math.floor((now - midnight) / 86400000 * Number(a.getAttribute("data-per-day")));
+  a.querySelector(".hero-announce-count").textContent = count.toLocaleString("en-US");
+  a.querySelector(".hero-announce-label").textContent = "HealthCare.gov claims today, at " + a.getAttribute("data-year") + "'s pace";
+})();
+</script>
+{% endif %}
+{% endblock hero_announcement %}
 
 {% block after_hero %}
 {% if denial_watch_enabled %}
 <section id="denial-watch-home" class="start-section" aria-labelledby="denial-watch-home-title">
     <div class="fhi-column fhi-column-wide fhi-stack fhi-stack-centred">
         <h2 class="start-section-title" id="denial-watch-home-title">Denial Watch</h2>
-        <p class="start-section-subtitle">About 1 in {{ denial_watch_teaser.one_in }} in-network claims on HealthCare.gov plans were denied in {{ denial_watch_teaser.year }}.</p>
+        <p class="start-section-subtitle">Insurers denied about 1 in {{ denial_watch_teaser.one_in }} in-network claims on HealthCare.gov plans in {{ denial_watch_teaser.year }}.</p>
         <a class="fhi-button fhi-button-secondary" href="{% url 'denial-watch' %}">See the numbers on coverage, denials and costs</a>
     </div>
 </section>
