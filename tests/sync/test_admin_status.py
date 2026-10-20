@@ -1449,6 +1449,30 @@ class AdminStatusMcpTest(TestCase):
         _, mcp = self.page(MCP_SERVER_ENABLED=False)
         self.assertEqual([r.tool for r in mcp["calls"]], ["retired_tool", "unknown"])
 
+    def test_connections_by_app_name_most_first(self):
+        now = timezone.now()
+        mcp_call_counts.bump_connect("claude-ai", now=now)
+        mcp_call_counts.bump_connect("claude-ai", now=now)
+        mcp_call_counts.bump_connect("", now=now - datetime.timedelta(days=3))
+        response, mcp = self.page(MCP_SERVER_ENABLED=True)
+        self.assertEqual(
+            [(r.client, r.cells) for r in mcp["connects"]],
+            [("claude-ai", [2, 2, 2]), ("", [0, 1, 1])],
+        )
+        self.assertContains(response, "<td>claude-ai</td>", html=True)
+        self.assertContains(response, "<td>(none given)</td>", html=True)
+
+    def test_no_connections_says_so(self):
+        response, mcp = self.page(MCP_SERVER_ENABLED=True)
+        self.assertEqual(mcp["connects"], [])
+        self.assertContains(response, "No connections in the last 30 days.")
+
+    def test_an_app_name_is_cleaned_before_the_page_shows_it(self):
+        mcp_call_counts.bump_connect("<script>alert(1)</script>", now=timezone.now())
+        response, _ = self.page(MCP_SERVER_ENABLED=True)
+        self.assertNotContains(response, "<script>alert(1)")
+        self.assertContains(response, "<td>scriptalert(1)/script</td>", html=True)
+
     def test_a_server_that_cannot_list_its_tools_still_shows_the_counts(self):
         mcp_call_counts.bump("get_state_help", "ok")
         with mock.patch.object(

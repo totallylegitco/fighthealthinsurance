@@ -36,8 +36,9 @@ does, by construction:
   the person uploads their own letter and removes personal details before
   anything is sent.
 - It writes nothing but a count of each request, by tool name or request
-  type and outcome only (mcp_call_counts.py, for the staff status page),
-  calls no model and makes no outbound network call. The one database read (insurer appeal contacts)
+  type and outcome only, and a count of connections by the app name the
+  client gave (mcp_call_counts.py, for the staff status page), calls no
+  model and makes no outbound network call. The one database read (insurer appeal contacts)
   runs in a transaction that is always rolled back. ``get_page`` asks this same Django app in-process for a
   page's public markdown twin, which runs that page's view, so it refuses any
   page that has no twin and the twin pages whose view fetches from another
@@ -71,7 +72,7 @@ import logging
 import time
 import os
 import re
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
@@ -1995,37 +1996,52 @@ MAX_PENDING_COUNTS = 100
 _COUNT_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="mcp-call-count")
 
 
-async def _store_call_count_logged(tool: str, outcome: str, now: datetime) -> None:
+async def _store_count_logged(
+    bump: Callable[..., None], args: tuple[str, ...], now: datetime
+) -> None:
     try:
         # Tests keep it on the shared thread: another thread's writes would
         # escape the test's transaction.
         if getattr(settings, "FHI_MCP_CALL_COUNT_OWN_THREAD", True):
             store = database_sync_to_async(
-                mcp_call_counts.bump, thread_sensitive=False, executor=_COUNT_EXECUTOR
+                bump, thread_sensitive=False, executor=_COUNT_EXECUTOR
             )
         else:
-            store = database_sync_to_async(mcp_call_counts.bump)
-        await store(tool, outcome, now=now)
+            store = database_sync_to_async(bump)
+        await store(*args, now=now)
     except Exception as e:
         logger.warning(f"MCP call count not stored: {type(e).__name__}")
 
 
-def _count_call(tool: str, outcome: str) -> None:
-    """Add the call to the shared count for the staff status page, in the
-    background, so the answer never waits on it. The hour and last-call time
-    are the call's, however late the write runs. Never raises."""
+def _start_count(bump: Callable[..., None], *args: str) -> None:
+    """Run bump(*args, now=...) in the background, so the answer never waits
+    on it. The time is the request's, however late the write runs. Never
+    raises."""
     now = datetime.now(dt_timezone.utc)
     try:
         if len(_COUNT_TASKS) >= MAX_PENDING_COUNTS:
             logger.warning("MCP call count dropped: too many pending")
             return
         task = asyncio.get_running_loop().create_task(
-            _store_call_count_logged(tool, outcome, now)
+            _store_count_logged(bump, args, now)
         )
         _COUNT_TASKS.add(task)
         task.add_done_callback(_COUNT_TASKS.discard)
     except Exception as e:
         logger.warning(f"MCP call count not started: {type(e).__name__}")
+
+
+def _count_call(tool: str, outcome: str) -> None:
+    """Add the call to the shared count for the staff status page, in the
+    background, so the answer never waits on it. The hour and last-call time
+    are the call's, however late the write runs. Never raises."""
+    _start_count(mcp_call_counts.bump, tool, outcome)
+
+
+def _count_connect(client: str) -> None:
+    """Add a connection to the shared count by the app name the client gave,
+    in the background like _count_call. Never raises."""
+    _start_count(mcp_call_counts.bump_connect, client)
 
 
 # Requests other than a tool call are counted by type: a fixed set of labels,
@@ -2061,6 +2077,25 @@ def _request_label(body: bytes, complete: bool) -> str:
     return PROTOCOL_LABELS.get(method or "", OTHER_REQUEST)
 
 
+def _connecting_client(body: bytes, complete: bool) -> Optional[str]:
+    """For an initialize request, the app name the client gave
+    (params.clientInfo.name), or "" when it gave none; None for any other
+    request, or one too large to read whole. Self-reported and unchecked,
+    like _client_name: mcp_call_counts.bump_connect cleans it."""
+    if not complete:
+        return None
+    try:
+        message = json.loads(body)
+    except Exception:
+        return None
+    if not isinstance(message, dict) or message.get("method") != "initialize":
+        return None
+    params = message.get("params")
+    info = params.get("clientInfo") if isinstance(params, dict) else None
+    name = info.get("name") if isinstance(info, dict) else None
+    return name if isinstance(name, str) else ""
+
+
 def _outcome_of_status(status: Optional[int]) -> str:
     if status is not None and status < 400:
         return "ok"
@@ -2094,7 +2129,8 @@ async def _counted_request(
     app: ASGIApp, scope: Scope, receive: Receive, send: Send
 ) -> None:
     """Serve one /mcp request and count it by type and HTTP status, unless
-    it is a tool call that reached its tool (counted in call_tool)."""
+    it is a tool call that reached its tool (counted in call_tool). A
+    connection answered ok is also counted by the app name the client gave."""
     reached = {"tool": False}
     token = _REACHED_TOOL.set(reached)
     body = bytearray()
@@ -2125,9 +2161,16 @@ async def _counted_request(
     finally:
         _REACHED_TOOL.reset(token)
         try:
-            _count_request(
-                _request_label(bytes(body), complete), status, reached["tool"]
-            )
+            peeked = bytes(body)
+            label = _request_label(peeked, complete)
+            _count_request(label, status, reached["tool"])
+            if (
+                label == mcp_call_counts.INITIALIZE
+                and _outcome_of_status(status) == "ok"
+            ):
+                client = _connecting_client(peeked, complete)
+                if client is not None:
+                    _count_connect(client)
         except Exception as e:
             logger.warning(f"MCP request not counted: {type(e).__name__}")
         finally:
