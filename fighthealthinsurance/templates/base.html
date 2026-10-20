@@ -171,7 +171,7 @@
                     </li>
 
                     {% if denial_watch_enabled %}
-                    <li><a href="{% url 'denial-watch' %}" class="fhi-nav-link" id="denialwatchlink">Denial Watch</a></li>
+                    <li><a href="{% url 'denial-watch' %}" class="fhi-nav-link" id="denialwatchlink">Denial Watch{% if denial_watch_new %} <span class="fhi-nav-new">New</span>{% endif %}</a></li>
                     {% endif %}
                     <li><a href="{% url 'remove_data' %}" class="fhi-nav-link" id="removedata">Delete</a></li>
                     <li><a href="{% url 'how-to-help' %}" class="fhi-nav-link">Help</a></li>

@@ -3269,6 +3269,26 @@ textarea,
     list-style: none;
 }
 
+/* A launch tag on a nav link, such as Denial Watch's "New". */
+.fhi-nav-new {
+    display: inline-block;
+    margin-left: var(--fhi-space-1);
+    padding: 0 var(--fhi-space-2);
+    border-radius: 999px;
+    background-color: var(--fhi-green-deep);
+    color: #fff;
+    font-size: var(--fhi-text-micro);
+    font-weight: 700;
+    line-height: 1.6;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    vertical-align: 0.1em;
+}
+/* Where the row is only just wide enough, the tag would push the last item onto a second line. */
+@media (min-width: 992px) and (max-width: 1149px) {
+    .fhi-nav-new { display: none; }
+}
+
 summary.fhi-nav-link::-webkit-details-marker {
     display: none;
 }

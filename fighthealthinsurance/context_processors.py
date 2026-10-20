@@ -128,7 +128,14 @@ def denial_watch_context(request):
 
     if not denial_watch_page_enabled():
         return {"denial_watch_enabled": False}
-    from fighthealthinsurance.views import denial_watch_teaser
+    from django.utils import timezone
+
+    from fighthealthinsurance.views import (
+        DENIAL_WATCH_HERO_UNTIL,
+        DENIAL_WATCH_LAST_TIME_ZONE,
+        DENIAL_WATCH_NEW_UNTIL,
+        denial_watch_teaser,
+    )
 
     try:
         teaser = denial_watch_teaser()
@@ -138,7 +145,13 @@ def denial_watch_context(request):
             "Denial Watch data unavailable, so its links are hidden"
         )
         return {"denial_watch_enabled": False}
-    return {"denial_watch_enabled": True, "denial_watch_teaser": teaser}
+    today = timezone.localdate(timezone=DENIAL_WATCH_LAST_TIME_ZONE)
+    return {
+        "denial_watch_enabled": True,
+        "denial_watch_teaser": teaser,
+        "denial_watch_new": today <= DENIAL_WATCH_NEW_UNTIL,
+        "denial_watch_hero": today <= DENIAL_WATCH_HERO_UNTIL,
+    }
 
 
 def advanced_ocr_context(request):

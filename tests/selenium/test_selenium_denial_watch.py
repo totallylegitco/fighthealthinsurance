@@ -6,6 +6,8 @@ changes what a reader sees, and that the map buttons wrap on a phone.
 
 import json
 import pathlib
+from datetime import date
+from unittest import mock
 
 from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.urls import reverse
@@ -37,6 +39,17 @@ class SeleniumTestDenialWatchViews(FHISeleniumBase, StaticLiveServerTestCase):
         self.set_window_size(width, height)
         self.open(f"{self.live_server_url}{reverse('denial-watch')}")
         self.wait_for_page_ready(predicate=lambda d: d.execute_script("return !!document.querySelector('#dmap g')"))
+
+    @mock.patch("fighthealthinsurance.views.DENIAL_WATCH_HERO_UNTIL", date(2099, 1, 1))
+    def test_home_page_announces_it_with_todays_count(self):
+        # The announcement retires itself on a date, so the check pins it open.
+        self.set_window_size(1280, 900)
+        self.open(f"{self.live_server_url}{reverse('root')}")
+        self.assert_text_eventually_contains(
+            f"ACA in-network claims so far today, at {DATA['trend'][-1]['year']}'s pace", "denial-watch-hero"
+        )
+        self.assertIn("Denial Watch: insurers denied", self.get_text("#denial-watch-hero"))
+        self.assertTrue(self.get_attribute("#denial-watch-hero", "href").endswith(reverse("denial-watch")))
 
     def test_out_of_network_view_is_on_the_trend_chart_only(self):
         self._open()
