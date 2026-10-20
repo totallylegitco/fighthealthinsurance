@@ -130,7 +130,15 @@ def denial_watch_context(request):
         return {"denial_watch_enabled": False}
     from fighthealthinsurance.views import denial_watch_teaser
 
-    return {"denial_watch_enabled": True, "denial_watch_teaser": denial_watch_teaser()}
+    try:
+        teaser = denial_watch_teaser()
+    except Exception:
+        # This runs on every page: a missing or broken bundle hides the links, not the site.
+        logger.opt(exception=True).error(
+            "Denial Watch data unavailable, so its links are hidden"
+        )
+        return {"denial_watch_enabled": False}
+    return {"denial_watch_enabled": True, "denial_watch_teaser": teaser}
 
 
 def advanced_ocr_context(request):

@@ -461,6 +461,21 @@ class TestDenialWatchIsEasyToFind(TestCase):
             html,
         )
 
+    @override_settings(DENIAL_WATCH_PAGE_ENABLED=True)
+    def test_a_missing_data_file_hides_the_links_instead_of_breaking_pages(self):
+        from fighthealthinsurance import views
+
+        for cached in (views._denial_watch_data, views.denial_watch_teaser):
+            cached.cache_clear()
+            self.addCleanup(cached.cache_clear)
+        with mock.patch.object(views, "read_static_text", return_value=None):
+            for name in ("root", "explain_denial", "about"):
+                response = Client().get(reverse(name))
+                self.assertEqual(response.status_code, 200, name)
+                self.assertNotIn(
+                    f'href="{reverse("denial-watch")}"', response.content.decode(), name
+                )
+
     @override_settings(DENIAL_WATCH_PAGE_ENABLED=False)
     def test_nothing_links_to_it_before_launch(self):
         link = f'href="{reverse("denial-watch")}"'
