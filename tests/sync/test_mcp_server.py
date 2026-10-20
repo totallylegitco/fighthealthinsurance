@@ -140,13 +140,23 @@ def writes_in(queries: CaptureQueriesContext) -> list[str]:
     ]
 
 
-CALL_COUNT_TABLE = models.McpToolCallCount._meta.db_table
+COUNT_TABLES = (
+    models.McpToolCallCount._meta.db_table,
+    models.McpClientConnectCount._meta.db_table,
+)
+
+
+def is_a_count(sql: str) -> bool:
+    """A query on the counts mcp_call_counts.py keeps: a tool name or
+    request type and an outcome, or a connection's app name."""
+    return any(table in sql for table in COUNT_TABLES)
 
 
 def writes_besides_the_call_count(queries: CaptureQueriesContext) -> list[str]:
-    """Every write but the one count each call adds (mcp_call_counts.py),
-    which holds a tool name and an outcome and nothing sent."""
-    return [sql for sql in writes_in(queries) if CALL_COUNT_TABLE not in sql]
+    """Every write but the counts each request adds (mcp_call_counts.py),
+    which hold a tool name or request type and an outcome, or a
+    connection's app name, and nothing sent with a call."""
+    return [sql for sql in writes_in(queries) if not is_a_count(sql)]
 
 
 class ProtocolTest(TestCase):
@@ -706,11 +716,7 @@ class InsurerAppealContactsTest(TestCase):
             )
         self.assertFalse(result.isError)
         self.assertTrue(
-            [
-                q
-                for q in queries.captured_queries
-                if CALL_COUNT_TABLE not in q["sql"]
-            ],
+            [q for q in queries.captured_queries if not is_a_count(q["sql"])],
             "the lookup never reached the DB",
         )
         self.assertEqual(writes_besides_the_call_count(queries), [])
@@ -2199,6 +2205,46 @@ class SharedCallCountTest(TestCase):
         self.assertEqual(protocol[("_initialize", "ok")], 1)
         self.assertEqual(protocol[("_tools_list", "ok")], 1)
         self.assertEqual(await self.counted(), {})
+
+    @staticmethod
+    async def connected():
+        """{app name: count} of connections, summed over hours."""
+        await mcp_server.flush_call_counts()
+        totals: dict = {}
+        async for row in models.McpClientConnectCount.objects.all():
+            totals[row.client] = totals.get(row.client, 0) + row.count
+        return totals
+
+    async def test_a_connection_is_counted_by_the_app_name_it_gave(self):
+        async with mcp_session() as session:
+            await session.list_tools()
+        # The SDK's ClientSession calls itself "mcp" unless told otherwise.
+        self.assertEqual(await self.connected(), {"mcp": 1})
+
+    async def test_the_app_name_is_read_from_the_initialize_request(self):
+        await self._through_the_counter(json.dumps(INITIALIZE).encode(), 200)
+        self.assertEqual(await self.connected(), {"fhi-test": 1})
+
+    async def test_a_connection_that_gave_no_name_counts_under_an_empty_name(self):
+        base = {"protocolVersion": "2025-06-18", "capabilities": {}}
+        no_name = (
+            base,
+            dict(base, clientInfo={"version": "1"}),
+            dict(base, clientInfo={"name": 42}),
+        )
+        for params in no_name:
+            body = dict(INITIALIZE, params=params)
+            await self._through_the_counter(json.dumps(body).encode(), 200)
+        self.assertEqual(await self.connected(), {"": 3})
+
+    async def test_a_refused_connection_is_not_counted_by_app(self):
+        await self._through_the_counter(json.dumps(INITIALIZE).encode(), 421)
+        self.assertEqual(await self.connected(), {})
+
+    async def test_only_a_connection_is_counted_by_app(self):
+        body = json.dumps({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
+        await self._through_the_counter(body.encode(), 200)
+        self.assertEqual(await self.connected(), {})
 
     async def test_a_tool_call_that_reaches_its_tool_is_counted_once(self):
         await call("get_state_help", {"state": "CA"})

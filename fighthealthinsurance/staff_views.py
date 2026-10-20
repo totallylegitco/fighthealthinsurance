@@ -401,10 +401,12 @@ class AdminStatusView(generic.TemplateView):
 
     @classmethod
     def _mcp_status(cls) -> Dict[str, Any]:
-        """The MCP server: its flags, the tools it lists, calls per tool from
-        the shared hourly count (mcp_call_counts.py), and assistant activity.
-        Database reads and settings only, and counts only: no arguments, no
-        letters and no client beyond a count of distinct names."""
+        """The MCP server: its flags, the tools it lists, calls per tool and
+        connections per app name from the shared hourly counts
+        (mcp_call_counts.py), and assistant activity. Database reads and
+        settings only, and counts only: no arguments, no letters, and no
+        client beyond the app name it gave when connecting and a count of
+        distinct names."""
         out: Dict[str, Any] = {
             "ok": True,
             "error": None,
@@ -418,6 +420,9 @@ class AdminStatusView(generic.TemplateView):
             "outcomes": [],
             "calls": [],
             "protocol": [],
+            "connects": [],
+            "max_clients_per_hour": 0,
+            "other_client": "",
             "assistant": {},
         }
         try:
@@ -460,6 +465,9 @@ class AdminStatusView(generic.TemplateView):
             out["protocol"] = [
                 (protocol[r.tool], r) for r in rows if r.tool in protocol
             ]
+            out["connects"] = mcp_call_counts.connect_summary()
+            out["max_clients_per_hour"] = mcp_call_counts.MAX_CLIENTS_PER_HOUR
+            out["other_client"] = mcp_call_counts.OTHER_CLIENT
 
             now = timezone.now()
             assistant: Dict[str, Any] = {}

@@ -5526,6 +5526,29 @@ class McpToolCallCount(models.Model):
         return f"McpToolCallCount({self.hour:%Y-%m-%d %H}h {self.tool} {self.outcome}: {self.count})"
 
 
+class McpClientConnectCount(models.Model):
+    """MCP connections per UTC hour and the app name the client gave when
+    it connected (mcp_call_counts.bump_connect). Self-reported and
+    unchecked, cleaned to a short label: analytics only, never an identity,
+    and never tied to a person, a case or a request."""
+
+    hour = models.DateTimeField()
+    client = models.CharField(max_length=64)
+    count = models.PositiveIntegerField(default=0)
+    last_seen_at = models.DateTimeField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["hour", "client"],
+                name="mcp_client_connect_count_hour_client",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"McpClientConnectCount({self.hour:%Y-%m-%d %H}h {self.client!r}: {self.count})"
+
+
 class AssistantContinueLink(models.Model):
     """The emailed link back to letters drafted for an assistant
     (assistant_continue.py). Only the token's digest is kept."""

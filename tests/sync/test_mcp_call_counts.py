@@ -1,11 +1,12 @@
-"""MCP tool calls counted per UTC hour, tool and outcome (mcp_call_counts.py)."""
+"""MCP tool calls counted per UTC hour, tool and outcome, and connections
+per UTC hour and app name (mcp_call_counts.py)."""
 
 import datetime
 
 from django.test import TestCase
 
 from fighthealthinsurance import mcp_call_counts
-from fighthealthinsurance.models import McpToolCallCount
+from fighthealthinsurance.models import McpClientConnectCount, McpToolCallCount
 
 UTC = datetime.timezone.utc
 # Half past one in the morning, so the last 24 hours cross midnight.
@@ -113,3 +114,105 @@ class SummaryTest(TestCase):
         self.bump_at("get_state_help", "ok", datetime.timedelta(0))
         with self.assertNumQueries(1):
             mcp_call_counts.summary(["get_state_help", "search_site"], now=NOW)
+
+
+def connects():
+    """{app name: count}, summed over hours."""
+    totals: dict = {}
+    for row in McpClientConnectCount.objects.all():
+        totals[row.client] = totals.get(row.client, 0) + row.count
+    return totals
+
+
+class BumpConnectTest(TestCase):
+    def test_connections_from_one_app_share_a_row_with_the_later_time(self):
+        mcp_call_counts.bump_connect("claude-ai", now=NOW)
+        later = NOW + datetime.timedelta(minutes=20)
+        mcp_call_counts.bump_connect("claude-ai", now=later)
+        row = McpClientConnectCount.objects.get()
+        self.assertEqual((row.client, row.count), ("claude-ai", 2))
+        self.assertEqual(row.hour, datetime.datetime(2026, 10, 10, 1, tzinfo=UTC))
+        self.assertEqual(row.last_seen_at, later)
+
+    def test_each_app_name_gets_its_own_row(self):
+        mcp_call_counts.bump_connect("claude-ai", now=NOW)
+        mcp_call_counts.bump_connect("codex-mcp-client", now=NOW)
+        mcp_call_counts.bump_connect("claude-ai", now=NOW)
+        self.assertEqual(connects(), {"claude-ai": 2, "codex-mcp-client": 1})
+
+    def test_a_name_is_cleaned_to_a_short_label_before_it_is_kept(self):
+        mcp_call_counts.bump_connect("<b>Claude</b>\n", now=NOW)
+        mcp_call_counts.bump_connect("x" * 200, now=NOW)
+        self.assertEqual(connects(), {"bClaude/b": 1, "x" * 40: 1})
+
+    def test_a_client_that_gave_no_name_counts_under_an_empty_name(self):
+        mcp_call_counts.bump_connect("", now=NOW)
+        self.assertEqual(connects(), {"": 1})
+
+    def test_past_the_hourly_cap_a_new_name_counts_as_other(self):
+        cap = mcp_call_counts.MAX_CLIENTS_PER_HOUR
+        for i in range(cap):
+            mcp_call_counts.bump_connect(f"app-{i}", now=NOW)
+        mcp_call_counts.bump_connect("one-too-many", now=NOW)
+        mcp_call_counts.bump_connect("another-new-one", now=NOW)
+        # A name already counted this hour still gets its own row.
+        mcp_call_counts.bump_connect("app-0", now=NOW)
+        totals = connects()
+        self.assertEqual(totals[mcp_call_counts.OTHER_CLIENT], 2)
+        self.assertEqual(totals["app-0"], 2)
+        self.assertNotIn("one-too-many", totals)
+        self.assertEqual(len(totals), cap + 1)
+
+    def test_the_cap_starts_over_each_hour(self):
+        for i in range(mcp_call_counts.MAX_CLIENTS_PER_HOUR):
+            mcp_call_counts.bump_connect(f"app-{i}", now=NOW)
+        mcp_call_counts.bump_connect("next-hour-app", now=NOW + hours(1))
+        self.assertEqual(connects()["next-hour-app"], 1)
+
+    def test_rows_past_90_days_are_swept_when_a_new_row_starts(self):
+        old = NOW - datetime.timedelta(days=91)
+        kept = NOW - datetime.timedelta(days=89)
+        mcp_call_counts.bump_connect("claude-ai", now=old)
+        mcp_call_counts.bump_connect("claude-ai", now=kept)
+        mcp_call_counts.bump_connect("codex-mcp-client", now=NOW)
+        self.assertEqual(
+            sorted(McpClientConnectCount.objects.values_list("client", "last_seen_at")),
+            [("claude-ai", kept), ("codex-mcp-client", NOW)],
+        )
+
+    def test_connections_leave_the_call_count_alone(self):
+        mcp_call_counts.bump_connect("claude-ai", now=NOW)
+        self.assertFalse(McpToolCallCount.objects.exists())
+
+
+class ConnectSummaryTest(TestCase):
+    def connect_at(self, client, ago):
+        mcp_call_counts.bump_connect(client, now=NOW - ago)
+
+    def test_counts_per_window_across_a_day_boundary(self):
+        self.connect_at("claude-ai", hours(0))  # 01:30 today
+        self.connect_at("claude-ai", hours(2))  # 23:30 yesterday
+        self.connect_at("claude-ai", hours(25))  # 7 days only
+        self.connect_at("claude-ai", hours(8 * 24))  # 30 days only
+        self.connect_at("claude-ai", hours(31 * 24))  # in none
+        [row] = mcp_call_counts.connect_summary(now=NOW)
+        self.assertEqual(row.counts, {"24h": 2, "7d": 3, "30d": 4})
+        self.assertEqual(row.cells, [2, 3, 4])
+        self.assertEqual(row.last_seen_at, NOW)
+
+    def test_the_most_connections_come_first_then_by_name(self):
+        self.connect_at("b-app", hours(0))
+        self.connect_at("a-app", hours(0))
+        self.connect_at("c-app", hours(0))
+        self.connect_at("c-app", hours(3))
+        rows = mcp_call_counts.connect_summary(now=NOW)
+        self.assertEqual([r.client for r in rows], ["c-app", "a-app", "b-app"])
+
+    def test_no_connections_in_30_days_gives_no_rows(self):
+        self.connect_at("claude-ai", hours(31 * 24))
+        self.assertEqual(mcp_call_counts.connect_summary(now=NOW), [])
+
+    def test_one_query(self):
+        self.connect_at("claude-ai", hours(0))
+        with self.assertNumQueries(1):
+            mcp_call_counts.connect_summary(now=NOW)

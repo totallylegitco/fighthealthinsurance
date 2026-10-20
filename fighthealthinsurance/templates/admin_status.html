@@ -163,8 +163,35 @@
       <p class="meta" style="margin-top: 10px;">
         Requests per UTC hour, shared by every pod and kept 90 days; a window holds every hour that overlaps it.
         ok: answered. refused: turned down (an argument a tool doesn't take, an unknown tool or page, a bad host or a body too large).
-        failed: something broke on our side. Only the tool name or request type and the outcome are stored, never what was sent or who sent it.
+        failed: something broke on our side. Only the tool name or request type and the outcome are stored here, never what was sent or who sent it.
         Counting started with the deploy that added it, and requests stopped before our server (Cloudflare, the ingress) aren't counted.
+      </p>
+
+      <h3>Connections by app</h3>
+      <table class="status">
+        <thead>
+          <tr>
+            <th>App name the client gave</th>
+            {% for w in mcp.windows %}<th class="num">{{ w }}</th>{% endfor %}
+            <th>Last connection (30 days)</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for row in mcp.connects %}
+          <tr>
+            <td>{% if row.client %}{{ row.client }}{% else %}(none given){% endif %}</td>
+            {% for n in row.cells %}<td class="num">{{ n }}</td>{% endfor %}
+            <td>{% if row.last_seen_at %}{{ row.last_seen_at|timesince }} ago{% else %}none{% endif %}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5">No connections in the last 30 days.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <p class="meta" style="margin-top: 10px;">
+        Connections answered ok, per UTC hour and the app name the client sent when it connected, kept 90 days.
+        The name is self-reported and unchecked: it says what a client calls itself, not who is using it.
+        It is cleaned to a short label, and past {{ mcp.max_clients_per_hour }} names in an hour a new name counts as "{{ mcp.other_client }}". Counting by app started with the deploy that added it.
       </p>
 
       <h3>Assistant activity</h3>
