@@ -524,7 +524,7 @@ class TestDenialWatchScriptCountsInNetwork(TestCase):
 
     def test_counter_says_what_it_counts(self):
         page = Client().get(reverse("denial-watch")).content.decode()
-        self.assertIn("denied so far today, at 2024's pace", page)
+        self.assertIn("ACA in-network denied so far today, at 2024's pace", page)
         self.assertIn("denied per day in 2024, on average", page)
 
     def test_counter_can_be_paused(self):

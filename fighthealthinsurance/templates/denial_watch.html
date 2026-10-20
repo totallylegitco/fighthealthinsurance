@@ -20,13 +20,15 @@
   @media (min-width: 992px) { .dw [id] { scroll-margin-top: calc(var(--fhi-space-11) + var(--fhi-space-7)); } }
   .dw-num { font-variant-numeric: tabular-nums; }
   .dw-kicker { font-size: var(--fhi-text-small); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fhi-green-ink); }
-  .dw-ticker { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--fhi-space-2) var(--fhi-space-6); align-items: end; padding: var(--fhi-space-5); border-radius: var(--fhi-radius); background-color: var(--fhi-ink); color: #fff; }
+  .dw-ticker { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--fhi-space-3); padding: var(--fhi-space-5); border-radius: var(--fhi-radius); background-color: var(--fhi-ink); color: #fff; }
   .dw-ticker p { color: #fff; margin: 0; }
-  .dw-ticker-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--fhi-space-1) var(--fhi-space-3); margin-bottom: var(--fhi-space-2); }
+  .dw-ticker-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fhi-space-1) var(--fhi-space-3); margin-bottom: var(--fhi-space-2); }
   .dw-ticker-count { font-size: clamp(2.5rem, 7vw, 4.25rem); font-weight: 800; line-height: 1; }
-  .dw-ticker-label { font-size: clamp(1.25rem, 2.4vw, 1.75rem); font-weight: 700; line-height: 1.15; }
-  .dw-ticker-rate { text-align: right; }
-  .dw-ticker-rate b { display: block; font-size: 1.6rem; }
+  /* Beside the count: one line on a laptop, wrapping, then under the count, as the box narrows. */
+  .dw-ticker-label { flex: 1 1 14em; font-size: clamp(1.25rem, 2.4vw, 1.75rem); font-weight: 700; line-height: 1.15; text-wrap: balance; }
+  .dw-ticker > .fhi-stack { flex-flow: row wrap; align-items: center; gap: var(--fhi-space-2) var(--fhi-space-4); }
+  .dw-ticker > .fhi-stack > .dw-pause { align-self: center; }
+  .dw-ticker-rate b { margin-right: 0.3em; font-size: 1.15rem; }
   .dw-ticker-rate span { font-weight: 700; }
   .dw-ticker .dw-pause { border-color: #fff; color: #fff; }
   .dw-ticker .dw-pause:hover, .dw-ticker .dw-pause:focus { background-color: #fff; color: var(--fhi-ink); }
@@ -119,14 +121,11 @@
     .dw-map text.dw-code { transform: translateY(8px); }
   }
   @media (max-width: 560px) {
-    .dw-ticker { grid-template-columns: minmax(0, 1fr); padding: var(--fhi-space-4); }
-    .dw-ticker-rate { text-align: left; }
+    .dw-ticker { padding: var(--fhi-space-4); }
     /* The counter and the four numbers on a phone's first screen: tighter type, the tiles two by two, and the lede, which repeats them, left to wider screens. */
     .dw .fhi-page-lede { display: none; }
     .dw-ticker-head + p { font-size: var(--fhi-text-small); }
-    .dw-ticker > .fhi-stack { display: flex; flex-wrap: wrap; align-items: center; gap: var(--fhi-space-2) var(--fhi-space-4); }
-    .dw-ticker-rate { margin: 0; }
-    .dw-ticker-rate b { display: inline; margin-right: 0.3em; font-size: 1.15rem; }
+    .dw-ticker-label { flex-basis: 100%; }
     .dw-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--fhi-space-3); }
     .dw-stat b { font-size: 1.6rem; }
     .dw-stat strong { font-size: 1.05rem; }
@@ -161,9 +160,9 @@
             <div>
                 <div class="dw-ticker-head">
                     <p class="dw-ticker-count dw-num" id="tick">0</p>
-                    <p class="dw-ticker-label">denied so far today, at 2024's pace</p>
+                    <p class="dw-ticker-label">ACA in-network denied so far today, at 2024's pace</p>
                 </div>
-                <p>An illustration, not a live count: if 2024's in-network HealthCare.gov denials were spread evenly over the year, this many would have happened since midnight. Employer plans, Medicaid, Medicare and state-run marketplaces aren't included.</p>
+                <p>An illustration, not a live count: at 2024's pace on HealthCare.gov, this many in-network claims would have been denied since midnight. Employer plans, Medicaid, Medicare and state-run marketplaces aren't included.</p>
             </div>
             <div class="fhi-stack">
                 <p class="dw-ticker-rate"><b class="dw-num" id="perday">0</b><span>denied per day in 2024, on average</span></p>
