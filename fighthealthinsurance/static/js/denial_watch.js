@@ -43,7 +43,7 @@ $('stats').innerHTML=[
   /* Tens, matching the page's "about 1 for every 320". */
   [fmt(Math.round(1/apShare/10)*10),'denials per appeal',T.year+': '+big(T.in_denied)+' in-network denials, '+fmt(T.appeals_all)+' internal appeals'],
   [pct(won,0),'appeals won','at the insurer, '+T.year],
-  [pct(imr25.r,0),'reviews won','by patients at California\'s independent review, 2025, a later step']
+  [pct(imr25.r,0),'reviews won','by patients at California\'s independent review']
 ].map(([b,l,s])=>`<div class="dw-stat"><p class="dw-stat-head"><b class="dw-num">${b}</b> <strong>${l}</strong></p><span>${s}</span></div>`).join('');
 
 /* tile map engine */
