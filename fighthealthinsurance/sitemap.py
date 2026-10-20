@@ -25,6 +25,7 @@ from loguru import logger
 
 from fighthealthinsurance.utils import (
     ai_assistants_page_enabled,
+    denial_watch_page_enabled,
     medicaid_eligibility_page_enabled,
 )
 
@@ -61,6 +62,8 @@ class StaticViewSitemap(Sitemap):
             items.append("medicaid-eligibility")
         if ai_assistants_page_enabled():
             items.append("ai-assistants")
+        if denial_watch_page_enabled():
+            items.append("denial-watch")
         return items
 
     def location(self, item: str) -> str:

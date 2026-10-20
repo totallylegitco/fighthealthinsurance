@@ -10,14 +10,16 @@ import functools
 import secrets
 import time
 import typing
-from datetime import timedelta
+from datetime import date, timedelta
 from typing import TypedDict
 from urllib.parse import quote, urlencode
+from zoneinfo import ZoneInfo
 
 from django import forms
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
 from django.contrib.staticfiles.storage import staticfiles_storage
+from django.core.exceptions import ImproperlyConfigured
 from django.http import (
     HttpRequest,
     HttpResponse,
@@ -90,7 +92,9 @@ from fighthealthinsurance.models import (
 )
 from fighthealthinsurance.type_utils import User
 from fighthealthinsurance.email_utils import is_blocked_email
+from fighthealthinsurance.static_data import read_static_text
 from fighthealthinsurance.utils import (
+    denial_watch_page_enabled,
     is_valid_denial_id,
     ai_assistants_page_enabled,
     medicaid_eligibility_page_enabled,
@@ -616,6 +620,83 @@ class AiAssistantsView(StaticIshView):
             request: HttpRequest, *args: typing.Any, **kwargs: typing.Any
         ) -> HttpResponseBase:
             if not ai_assistants_page_enabled():
+                from django.http import Http404
+
+                raise Http404("This page is not available yet.")
+            return cached_view(request, *args, **kwargs)
+
+        return view
+
+
+@functools.lru_cache(maxsize=1)
+def _denial_watch_data() -> dict:
+    """The page's numbers, from static/denial_watch.json (read once per process)."""
+    text = read_static_text("denial_watch.json")
+    if text is None:
+        raise ImproperlyConfigured("static/denial_watch.json is missing")
+    data: dict = json.loads(text)
+    return data
+
+
+@functools.lru_cache(maxsize=1)
+def denial_watch_teaser() -> dict[str, typing.Any]:
+    """The one number the home strip shows: the latest year's in-network
+    denial rate on HealthCare.gov plans, as "1 in N", with its year."""
+    latest = _denial_watch_data()["trend"][-1]
+    return {"one_in": round(1 / latest["in_rate"]), "year": latest["year"]}
+
+
+# Checked 2026-10-18. HealthCare.gov's 2027 dates are in court, so the box ends on its latest posted day.
+DENIAL_WATCH_MEDICARE_ENROLLMENT = (date(2026, 10, 15), date(2026, 12, 7))
+DENIAL_WATCH_ENROLLMENT_BOX_ENDS = date(2027, 1, 15)
+# Hawaii's date, so the box doesn't change hours early for the rest of the country.
+DENIAL_WATCH_LAST_TIME_ZONE = ZoneInfo("Pacific/Honolulu")
+
+
+def denial_watch_enrollment(today: date) -> dict[str, typing.Any] | None:
+    """The open-enrollment box Denial Watch shows on `today`, or None out of season."""
+    starts, medicare_ends = DENIAL_WATCH_MEDICARE_ENROLLMENT
+    if not starts <= today <= DENIAL_WATCH_ENROLLMENT_BOX_ENDS:
+        return None
+    return {
+        "medicare": today <= medicare_ends,
+        "starts": starts,
+        "ends": medicare_ends,
+        "plan_year": starts.year + 1,
+    }
+
+
+class DenialWatchView(StaticIshView):
+    """Denial Watch: maps and trends of denials, appeals, coverage and costs.
+
+    Built only from public data. The numbers ship as static/denial_watch.json
+    (see scripts/denial_watch/), so the page never reads the database. Staged
+    behind DENIAL_WATCH_PAGE_ENABLED the same way as MedicaidEligibilityView:
+    the flag check wraps the cached view, so switching it off takes effect at
+    once and OPTIONS can't find the route either.
+    """
+
+    template_name = "denial_watch.html"
+
+    def get_context_data(self, **kwargs: typing.Any) -> dict[str, typing.Any]:
+        context = super().get_context_data(**kwargs)
+        context["denial_watch_data"] = _denial_watch_data()
+        context["enrollment"] = denial_watch_enrollment(
+            timezone.localdate(timezone=DENIAL_WATCH_LAST_TIME_ZONE)
+        )
+        return context
+
+    @classonlymethod
+    def as_view(  # type: ignore[override]
+        cls, **initkwargs: typing.Any
+    ) -> typing.Callable[..., HttpResponseBase]:
+        cached_view = super().as_view(**initkwargs)
+
+        @functools.wraps(cached_view)
+        def view(
+            request: HttpRequest, *args: typing.Any, **kwargs: typing.Any
+        ) -> HttpResponseBase:
+            if not denial_watch_page_enabled():
                 from django.http import Http404
 
                 raise Http404("This page is not available yet.")

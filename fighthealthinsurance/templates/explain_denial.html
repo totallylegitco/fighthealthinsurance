@@ -37,6 +37,9 @@
     <div class="fhi-column fhi-column-wide fhi-stack fhi-stack-loose">
         <div class="fhi-card">
             <h2>Your denial letter</h2>
+            {% if denial_watch_enabled %}
+            <p>You're not alone: insurers deny millions of claims a year. <a href="{% url 'denial-watch' %}">See how often, on Denial Watch</a>.</p>
+            {% endif %}
             
             {% if form.errors or form.non_field_errors %}
             <div class="fhi-notice fhi-notice-danger">

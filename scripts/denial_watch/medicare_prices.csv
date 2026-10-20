@@ -1,0 +1,10 @@
+brand,price_from,price_until,price_published,source_url,accessed,note
+Eliquis,2026,,yes,https://www.cms.gov/files/document/fact-sheet-negotiated-prices-initial-price-applicability-year-2026.pdf,2026-10-18,
+Farxiga,2026,,yes,https://www.cms.gov/files/document/fact-sheet-negotiated-prices-initial-price-applicability-year-2026.pdf,2026-10-18,
+Jardiance,2026,,yes,https://www.cms.gov/files/document/fact-sheet-negotiated-prices-initial-price-applicability-year-2026.pdf,2026-10-18,
+Xarelto,2026,2026,yes,https://www.cms.gov/initiatives/medicare-prescription-drug-affordability/overview/medicare-drug-price-negotiation-program/selected-drugs-negotiated-prices,2026-10-18,in the 2026 group; deselected from January 1 2027 because a generic is marketed (HPMS memo of Nov 25 2025)
+Ozempic,2027,,yes,https://www.cms.gov/files/document/fact-sheet-negotiated-prices-ipay-2027.pdf,2026-10-18,one price for Ozempic; Rybelsus; Wegovy
+Trelegy Ellipta,2027,,yes,https://www.cms.gov/files/document/fact-sheet-negotiated-prices-ipay-2027.pdf,2026-10-18,
+Kisqali,2028,,no,https://www.cms.gov/files/document/factsheet-medicare-negotiation-selected-drug-list-ipay-2028.pdf,2026-10-18,CMS publishes agreed prices by Nov 30 2026
+Trulicity,2028,,no,https://www.cms.gov/files/document/factsheet-medicare-negotiation-selected-drug-list-ipay-2028.pdf,2026-10-18,CMS publishes agreed prices by Nov 30 2026
+Verzenio,2028,,no,https://www.cms.gov/files/document/factsheet-medicare-negotiation-selected-drug-list-ipay-2028.pdf,2026-10-18,CMS publishes agreed prices by Nov 30 2026

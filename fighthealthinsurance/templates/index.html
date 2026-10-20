@@ -11,6 +11,15 @@
 {% endblock extra_style %}
 
 {% block after_hero %}
+{% if denial_watch_enabled %}
+<section id="denial-watch-home" class="start-section" aria-labelledby="denial-watch-home-title">
+    <div class="fhi-column fhi-column-wide fhi-stack fhi-stack-centred">
+        <h2 class="start-section-title" id="denial-watch-home-title">Denial Watch</h2>
+        <p class="start-section-subtitle">About 1 in {{ denial_watch_teaser.one_in }} in-network claims on HealthCare.gov plans were denied in {{ denial_watch_teaser.year }}.</p>
+        <a class="fhi-button fhi-button-secondary" href="{% url 'denial-watch' %}">See the numbers on coverage, denials and costs</a>
+    </div>
+</section>
+{% endif %}
 {% if ai_assistants_on %}
 <section id="ai-assistants-home" class="start-section">
     <div class="fhi-column fhi-column-wide fhi-stack fhi-stack-centred">

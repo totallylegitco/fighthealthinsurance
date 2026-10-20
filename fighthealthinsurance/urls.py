@@ -391,6 +391,12 @@ urlpatterns: List[Union[URLPattern, URLResolver]] = [
         views.MedicaidEligibilityView.as_view(),
         name="medicaid-eligibility",
     ),
+    # Public-data trends page: routed always, 404 until DENIAL_WATCH_PAGE_ENABLED.
+    path(
+        "denial-watch",
+        views.DenialWatchView.as_view(),
+        name="denial-watch",
+    ),
     path(
         "as-seen-on-pbs",
         views.PBSNewsHourView.as_view(),
