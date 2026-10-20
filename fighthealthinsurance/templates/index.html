@@ -20,7 +20,7 @@
 {# Names the insurers as the ones denying, so it can't read as us. Without script it gives the yearly average; the script swaps in today's count, figured in the browser so the cached page stays right. #}
 <a class="hero-announce" id="denial-watch-hero" href="{% url 'denial-watch' %}" data-per-day="{{ denial_watch_teaser.per_day }}" data-year="{{ denial_watch_teaser.year }}">
     <span class="hero-announce-new">New</span>
-    <span><strong>Denial Watch:</strong> insurers denied <b class="hero-announce-count">{{ denial_watch_teaser.per_day_text }}</b> <span class="hero-announce-label">ACA in-network claims a day in {{ denial_watch_teaser.year }}</span>.</span>
+    <span><strong>Denial Watch:</strong> insurers denied <b class="hero-announce-count">{{ denial_watch_teaser.per_day_text }}</b> <span class="hero-announce-label">HealthCare.gov claims a day in {{ denial_watch_teaser.year }}</span>.</span>
     <span class="hero-announce-go">See the numbers</span>
 </a>
 <script>
@@ -30,7 +30,7 @@
   var now = new Date(), midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   var count = Math.floor((now - midnight) / 86400000 * Number(a.getAttribute("data-per-day")));
   a.querySelector(".hero-announce-count").textContent = count.toLocaleString("en-US");
-  a.querySelector(".hero-announce-label").textContent = "ACA in-network claims so far today, at " + a.getAttribute("data-year") + "'s pace";
+  a.querySelector(".hero-announce-label").textContent = "HealthCare.gov claims today, at " + a.getAttribute("data-year") + "'s pace";
 })();
 </script>
 {% endif %}

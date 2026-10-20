@@ -475,10 +475,12 @@ class TestDenialWatchIsEasyToFind(TestCase):
         # It names insurers as the ones denying, so it can't read as Fight Health Insurance's denials.
         # Without script it gives the yearly pace; the script swaps in today's count.
         self.assertIn(
-            f"Denial Watch: insurers denied {per_day:,} ACA in-network claims a day in {latest['year']}. See the numbers",
+            f"Denial Watch: insurers denied {per_day:,} HealthCare.gov claims a day in {latest['year']}. See the numbers",
             _text(hero.split(">", 1)[1]),
         )
-        self.assertIn('"ACA in-network claims so far today, at " + a.getAttribute("data-year")', html)
+        self.assertIn('"HealthCare.gov claims today, at " + a.getAttribute("data-year")', html)
+        # The label and the count change together, or "so far today" would sit beside the day's average.
+        self.assertIn('a.querySelector(".hero-announce-count").textContent = count.toLocaleString("en-US");', html)
 
     @override_settings(DENIAL_WATCH_PAGE_ENABLED=True)
     def test_the_home_hero_hands_off_to_the_strip_after_november_2(self):
@@ -582,7 +584,7 @@ class TestDenialWatchScriptCountsInNetwork(TestCase):
 
     def test_counter_says_what_it_counts(self):
         page = Client().get(reverse("denial-watch")).content.decode()
-        self.assertIn("ACA in-network denied so far today, at 2024's pace", page)
+        self.assertIn("HealthCare.gov claims denied today, at 2024's pace", page)
         self.assertIn("denied per day in 2024, on average", page)
 
     def test_counter_can_be_paused(self):
