@@ -76,7 +76,7 @@ from collections.abc import Callable, Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
-from typing import Annotated, Any, Literal, Optional
+from typing import Annotated, Any, Literal, Optional, TypedDict
 from urllib.parse import quote, urlencode, urlsplit
 
 from django.conf import settings
@@ -196,7 +196,10 @@ _WELCOME = (
     "health insurance denials. On the site, a person takes a picture of their "
     "denial letter and it drafts an appeal to submit, explains the denial, and "
     "points to the next steps and the regulators for their state. "
-    "Use these tools whenever someone mentions a denial, a refused claim, a prior authorization or an appeal, before answering from general knowledge: get_appeal_checklist and start_appeal for what to do next, explain_denial_reason for the letter's wording, get_state_help for their state, find_treatment_guide for the treatment. "
+    "These tools help when someone mentions a denial, a refused claim, a "
+    "prior authorization or an appeal: get_appeal_checklist and start_appeal "
+    "for what to do next, explain_denial_reason for the letter's wording, "
+    "get_state_help for their state, find_treatment_guide for the treatment. "
     "These tools share the site's public information: appeal rights, state "
     "regulators and helpers, where insurers take appeals, what to gather, "
     "treatment guides, "
@@ -288,6 +291,18 @@ START = ToolAnnotations(
     idempotentHint=True,
     openWorldHint=True,
 )
+
+
+class _Titled(TypedDict):
+    title: str
+    annotations: ToolAnnotations
+
+
+def _titled(title: str, hints: ToolAnnotations) -> _Titled:
+    """A tool's title for both places it goes: Tool.title and the hints'
+    own title, which directory reviews read. Spread into server.tool()."""
+    return {"title": title, "annotations": hints.model_copy(update={"title": title})}
+
 
 # Appeal deadlines by kind of plan. Every number comes from FHI's own words,
 # quoted exactly so a test can hold them to their source: the glossary's
@@ -2505,17 +2520,15 @@ def build_mcp_server(django_http_app: Optional[ASGIApp] = None) -> FastMCP:
             "form; ask first."
         )
     server.tool(
-        title="Start a free appeal",
-        annotations=READ_ONLY,
+        **_titled("Start a free appeal", READ_ONLY),
         description=start_description,
     )(start_appeal)
 
     if prepare_on:
 
         @server.tool(
-            title="Fill in an appeal form for the person to check",
+            **_titled("Fill in an appeal form for the person to check", PREPARE),
             description=PREPARE_APPEAL_DESCRIPTION,
-            annotations=PREPARE,
         )
         async def prepare_appeal(
             letter_text: Annotated[
@@ -2549,9 +2562,8 @@ def build_mcp_server(django_http_app: Optional[ASGIApp] = None) -> FastMCP:
 
         @server.tool(
             name="draft_appeal_in_chat",
-            title="Draft appeal letters to bring back to this chat",
+            **_titled("Draft appeal letters to bring back to this chat", PREPARE),
             description=DRAFT_APPEAL_IN_CHAT_DESCRIPTION,
-            annotations=PREPARE,
         )
         async def draft_appeal_in_chat(
             letter_text: Annotated[
@@ -2610,9 +2622,8 @@ def build_mcp_server(django_http_app: Optional[ASGIApp] = None) -> FastMCP:
 
         @server.tool(
             name="get_appeal_drafts",
-            title="Check on appeal letters being drafted",
+            **_titled("Check on appeal letters being drafted", READ_ONLY),
             description=GET_APPEAL_DRAFTS_DESCRIPTION,
-            annotations=READ_ONLY,
         )
         async def get_appeal_drafts(
             draft_id: Annotated[str, Field(max_length=64, description=DRAFT_ID_HELP)],
@@ -2644,9 +2655,8 @@ def build_mcp_server(django_http_app: Optional[ASGIApp] = None) -> FastMCP:
 
         @server.tool(
             name="answer_appeal_questions",
-            title="Send the person's answers and start the letters",
+            **_titled("Send the person's answers and start the letters", START),
             description=ANSWER_APPEAL_QUESTIONS_DESCRIPTION,
-            annotations=START,
         )
         async def answer_appeal_questions(
             draft_id: Annotated[str, Field(max_length=64, description=DRAFT_ID_HELP)],
@@ -2668,7 +2678,7 @@ def build_mcp_server(django_http_app: Optional[ASGIApp] = None) -> FastMCP:
                 await _signal_answers(answered.denial_uuid)
             return answered.result
 
-    @server.tool(title="Explain a denial reason", annotations=READ_ONLY)
+    @server.tool(**_titled("Explain a denial reason", READ_ONLY))
     async def explain_denial_reason(
         phrase: Annotated[
             str,
@@ -2736,7 +2746,7 @@ def build_mcp_server(django_http_app: Optional[ASGIApp] = None) -> FastMCP:
             }
         )
 
-    @server.tool(title="Help in a US state", annotations=READ_ONLY)
+    @server.tool(**_titled("Help in a US state", READ_ONLY))
     async def get_state_help(state: StateArg) -> dict[str, Any]:
         """Who regulates health insurance in a US state and who gives free help there.
 
@@ -2851,7 +2861,7 @@ def build_mcp_server(django_http_app: Optional[ASGIApp] = None) -> FastMCP:
             }
         )
 
-    @server.tool(title="Appeal rights for a type of plan", annotations=READ_ONLY)
+    @server.tool(**_titled("Appeal rights for a type of plan", READ_ONLY))
     async def get_appeal_rights(
         plan_source: Annotated[
             PlanSourceName,
@@ -2904,7 +2914,7 @@ def build_mcp_server(django_http_app: Optional[ASGIApp] = None) -> FastMCP:
             }
         )
 
-    @server.tool(title="What to gather for an appeal", annotations=READ_ONLY)
+    @server.tool(**_titled("What to gather for an appeal", READ_ONLY))
     async def get_appeal_checklist(
         plan_source: Annotated[
             Optional[PlanSourceName],
@@ -2989,7 +2999,7 @@ def build_mcp_server(django_http_app: Optional[ASGIApp] = None) -> FastMCP:
             }
         )
 
-    @server.tool(title="Where an insurer takes appeals", annotations=READ_ONLY)
+    @server.tool(**_titled("Where an insurer takes appeals", READ_ONLY))
     async def find_insurer_appeal_contacts(
         insurer: Annotated[
             str,
@@ -3036,7 +3046,7 @@ def build_mcp_server(django_http_app: Optional[ASGIApp] = None) -> FastMCP:
         )
         return _compact(result)
 
-    @server.tool(title="Find a treatment guide", annotations=READ_ONLY)
+    @server.tool(**_titled("Find a treatment guide", READ_ONLY))
     async def find_treatment_guide(
         query: Annotated[
             str,
@@ -3095,7 +3105,7 @@ def build_mcp_server(django_http_app: Optional[ASGIApp] = None) -> FastMCP:
             }
         )
 
-    @server.tool(title="Find financial help", annotations=READ_ONLY)
+    @server.tool(**_titled("Find financial help", READ_ONLY))
     async def find_financial_help(
         drug: Annotated[
             Optional[str],
@@ -3166,7 +3176,7 @@ def build_mcp_server(django_http_app: Optional[ASGIApp] = None) -> FastMCP:
             }
         )
 
-    @server.tool(title="Search the site", annotations=READ_ONLY)
+    @server.tool(**_titled("Search the site", READ_ONLY))
     async def search_site(
         query: Annotated[
             str,
@@ -3217,7 +3227,7 @@ def build_mcp_server(django_http_app: Optional[ASGIApp] = None) -> FastMCP:
             )
         return reply
 
-    @server.tool(title="Read a page", annotations=READ_ONLY)
+    @server.tool(**_titled("Read a page", READ_ONLY))
     async def get_page(
         url: Annotated[
             str,

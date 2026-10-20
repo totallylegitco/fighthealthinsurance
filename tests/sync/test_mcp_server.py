@@ -166,8 +166,11 @@ class ProtocolTest(TestCase):
         self.assertEqual(init.serverInfo.name, "fight-health-insurance")
         self.assertEqual(init.instructions, mcp_server.INSTRUCTIONS)
         self.assertIn(
-            "Use these tools whenever someone mentions a denial", init.instructions
+            "These tools help when someone mentions a denial", init.instructions
         )
+        # Says when the tools help, without telling the assistant to use them
+        # before what it already knows.
+        self.assertNotIn("before answering from general knowledge", init.instructions)
         self.assertEqual(
             [i.src for i in init.serverInfo.icons or []],
             ["https://www.fighthealthinsurance.com/static/images/better-logo-150.png"],
@@ -210,6 +213,8 @@ class ProtocolTest(TestCase):
         for tool in tools:
             with self.subTest(tool=tool.name):
                 self.assertTrue(tool.title)
+                # The hints carry the same title: directory reviews read that one.
+                self.assertEqual(tool.annotations.title, tool.title)
                 self.assertGreater(len(tool.description or ""), 150)
                 self.assertIn("free", tool.description.lower())
 
@@ -2570,6 +2575,16 @@ class ChatPathListingTest(TestCase):
         self.assertEqual(
             writers, {"prepare_appeal", "draft_appeal_in_chat", "answer_appeal_questions"}
         )
+
+    async def test_every_tool_carries_its_title_in_its_hints(self):
+        # All 14, with the letter tools the default server doesn't list.
+        async with mcp_session(chat_routes()) as session:
+            tools = (await session.list_tools()).tools
+        self.assertEqual(len(tools), 14)
+        for tool in tools:
+            with self.subTest(tool=tool.name):
+                self.assertTrue(tool.title)
+                self.assertEqual(tool.annotations.title, tool.title)
 
     async def test_their_inputs(self):
         async with mcp_session(chat_routes()) as session:
